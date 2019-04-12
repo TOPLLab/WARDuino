@@ -23,11 +23,29 @@ Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 und
 # ToolChain Installation and Hello World
 
 - Download [Arduino](https://www.arduino.cc/)
+
 - Clone the repository under `$(HOME)/Arduino/libraries`
-- Go to Tools->Boards->Boards Manager
-  - Search for esp8266 and install it (version 2.5.0) 
-  - Restart Arduino 
-  
+
+- Add the `esp8266` driver
+
+  - Add the repository
+
+    - File > Preferences > Settings > Additional board manager URLS:
+
+      ```
+      http://arduino.esp8266.com/stable/package_esp8266com_index.json
+      ```
+
+      
+
+    - Or follow the steps at https://github.com/esp8266/Arduino#installing-with-boards-manager
+
+  - Go to Tools->Boards->Boards Manager
+
+    - Search for `esp8266` and install it (version 2.5.0) 
+
+- Restart Arduino 
+
 - Plug in the board and configure the board settings in the boards menu as follows 
 
 ![Board configuration options](images/board_config.png)  
