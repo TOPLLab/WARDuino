@@ -76,3 +76,11 @@ void loop() {
 ```
 
 - Compile and upload the sketch
+  - set 115200 boud
+
+
+
+## Run WARDuino on host machine
+
+- Install [`binarien`](https://github.com/WebAssembly/binaryen)
+- 
