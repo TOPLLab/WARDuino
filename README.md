@@ -27,6 +27,10 @@ Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 und
 - Go to Tools->Boards->Boards Manager
   - Search for esp8266 and install it (version 2.5.0) 
   - Restart Arduino 
+  
+- Plug in the board and configure the board settings in the boards menu as follows 
+
+![Board configuration options](images/board_config.png)  
 
 - Make a new sketch with the following code:
 
@@ -53,6 +57,4 @@ void loop() {
 }
 ```
 
-- Plug in the board and configure the board settings in the boards menu as follows 
-
-![Board configuration options](images/board_config.png)
+- Compile and upload the sketch
