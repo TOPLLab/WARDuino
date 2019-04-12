@@ -4,7 +4,7 @@ Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 und
 
 # Overview of the project 
 
-``
+```
 ├── README.md
 ├── WARDuino.cpp
 ├── WARDuino.h
@@ -17,7 +17,7 @@ Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 und
 ├── mem.h
 ├── util.c
 └── util.h
-``
+```
 
 
 # ToolChain Installation and Hello World
@@ -30,7 +30,7 @@ Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 und
 
 - Make a new sketch with the following code:
 
-```
+```C
 #include <WARDuino.h>
 
 
