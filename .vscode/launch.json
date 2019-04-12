@@ -5,16 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "clang++-4.0 build and debug active file",
+            "name": "Debug WARDuino",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}/warduino",
+            "program": "${workspaceFolder}/local/warduino",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "lldb",
+            "preLaunchTask": "run-make"
         }
     ]
 }

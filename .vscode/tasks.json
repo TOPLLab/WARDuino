@@ -1,19 +1,23 @@
 {
   "tasks": [
     {
+      "label": "run-make",
       "type": "shell",
-      "label": "clang++-4.0 build active file",
-      "command": "/usr/local/bin/clang++-4.0",
-      "args": [
-        "-g",
-        "${file}",
-        "-o",
-        "${fileDirname}/${fileBasenameNoExtension}"
-      ],
+      "command": "make",
       "options": {
-        "cwd": "/usr/local/bin"
-      }
-    }
+          "cwd": "local"
+      },
+      "group": {
+          "kind": "build",
+          "isDefault": true
+      },
+      "presentation": {
+          "reveal": "always",
+          "panel": "dedicated"
+      },
+      "problemMatcher":"$gcc"
+  }
   ],
+  
   "version": "2.0.0"
 }
