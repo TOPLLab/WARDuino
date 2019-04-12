@@ -55,4 +55,4 @@ void loop() {
 
 - Plug in the board and configure the board settings in the boards menu as follows 
 
-
+![Board configuration options](images/board_configuration.png)
