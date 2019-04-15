@@ -1,0 +1,64 @@
+MAGIC NUMBER: 	00 61 73 6d
+VERSION:			01 00 00 00 
+
+;-----------------------------------------------------
+TYPE SECTION 	: 	01  	== Section 1 
+CONTENT SIZE 	: 	0a  	== 10 bytes 
+
+VECTOR SIZE	:  	02  	== Size of the vector is 2
+
+	START FUNTYPE	: 	60 
+	VECTOR SIZE  	:  	02  	== Two arguments
+		VALTYPE      	:  	7f  	== I32
+		VALTYPE     	: 	7f 		== I32 
+	VECTOR SIZE  	: 	01   	== One return type
+		VALTYPE		: 	7f 		== I32
+
+	START FUNTYPE	:	60 
+	VECTOR SIZE  	: 	00 		== No argument types
+	VECTOR SIZE 	: 	00 		== No return type
+
+;-----------------------------------------------------
+IMPORT SECTION 	:	02 		== Section 2 
+CONTENT SIZE	 	:	11 		== 17 bytes
+
+VECTOR SIZE 		: 01 
+	VECTOR SIZE	: 07       	== Module name 
+	[65,73,70,38,32,36,36]  	== “esp8266”
+  	VECTOR SIZE  : 05       	== Import name
+	[62,6c,69,6e,6b]				== "blink” 
+	FUN x 			: 00 
+	TYPE IDX     	: 01 
+;-----------------------------------------------------
+FUNCTION SECTION	: 	03 
+CONTENT SIZE 		:	02 			== 2 bytes
+VECTOR  SIZE		:	01 
+TYPE INDEX 		:  	00 
+
+
+
+;-----------------------------------------------------
+MEMORY SECTION	:	05 
+CONTENT SIZE		:	06  == 6 bytes
+VECTOR LENGTH 	: 	01 
+LIMIT 				:	01 
+MIN					:	80	02  == ??? should be 256
+MAX					:  	80 	02  == ??? should be 256
+
+;-----------------------------------------------------
+EXPORT SECTION 	:	07  
+CONTENT SIZE 		:	07  == 7 bytes
+VECTOR LENGTH		:	01 
+NAME				:	03 
+						[61, 64, 64]	== “add”
+FUNCTION			:	00 
+FUN 	INDEX		:	01   
+
+
+;-----------------------------------------------------
+CODE SECTION 		:	0a  
+CONTENT SIZE 		:	09
+VEC					:	01 
+SIZE 				:	07     (size code)  
+VEC_LOCAL       	:  	00     (no locals) 
+20 00 20 01 6a 0b 
