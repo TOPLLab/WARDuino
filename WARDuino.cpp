@@ -13,10 +13,15 @@ extern "C" {
 
 //UTIL 
 bool resolvesym(char *filename, char *symbol, void **val, char **err) {
-        *err = "resolvesym with filename unimplemented";
-        return false;
+        if (!strcmp(filename,"esp8266")) {
+            return true;
+        } else {
+            *err = "Imports are only supported from the module WARDuino";
+            return false;
+        }
 }
 
+// Little endian base 
 uint64_t read_LEB_(uint8_t *bytes, uint32_t *pos, uint32_t maxbits, bool sign) {
     uint64_t result = 0;
     uint32_t shift = 0;
@@ -139,14 +144,6 @@ void call_import(Module* m, int fidx) {
 }
 
 
-unsigned char hello_world_wasm[] = {
-  0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60,
-  0x02, 0x7f, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x05, 0x06, 0x01,
-  0x01, 0x80, 0x02, 0x80, 0x02, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
-  0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a,
-  0x0b
-};
-
 
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
@@ -156,7 +153,9 @@ uint32_t LOAD_SIZE[] = {
 
 
 // global exception message
-char  exception[4096];
+//char  exception[4096];
+char  exception[512];
+
 
 // Static definition of block_types
 uint32_t block_type_results[4][1] = {{I32}, {I64}, {F32}, {F64}};
@@ -1452,7 +1451,7 @@ Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options) {
             for (uint32_t gidx=0; gidx<import_count; gidx++) {
                 uint32_t module_len, field_len;
                 char *import_module = read_string(bytes, &pos, &module_len);
-                char *import_field = read_string(bytes, &pos, &field_len);
+                char *import_field  = read_string(bytes, &pos, &field_len);
 
                 uint32_t external_kind = bytes[pos++];
 
@@ -1862,11 +1861,11 @@ bool invoke(Module *m, uint32_t fidx) {
     return result;
 }
 
-int WARDuino::run_module()
+int WARDuino::run_module(uint8_t *bytes, int size)
 {
     Options opts;
     initTypes();
-    Module *m = load_module(hello_world_wasm, 49, opts);
+    Module *m = load_module(bytes, 49, opts);
     m->sp = -1;
     m->fp = -1;
     m->csp = -1;
