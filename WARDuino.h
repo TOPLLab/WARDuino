@@ -152,7 +152,7 @@ typedef struct Module {
 class WARDuino
 {
 	public: 
-          int run_module();
+         int run_module(uint8_t *bytes, int size);
 };
 
 #endif
