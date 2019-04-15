@@ -6,17 +6,20 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "primitives.h";
+
 extern "C" {
     #include "util.h"
     #include "mem.h"
+
 }
 
 //UTIL 
-bool resolvesym(char *filename, char *symbol, void **val, char **err) {
-        if (!strcmp(filename,"esp8266")) {
-            return true;
+bool resolvesym(char *filename, char *symbol, Primitive *val, char **err) {
+        if (NULL != filename && !strcmp(filename,"esp8266")) {
+            return resolvePrim(symbol,val);
         } else {
-            *err = "Imports are only supported from the module WARDuino";
+            *err = "Imports are only supported from the module esp8266";
             return false;
         }
 }
@@ -653,6 +656,7 @@ bool interpret(Module *m) {
 
             if (fidx < m->import_count) {
                //THUNK thunk_out(m, fidx);   // import/thunk call
+               ((Primitive)  m->functions[fidx].func_ptr)(m);
             } else {
                 if (m->csp >= CALLSTACK_SIZE) {
                     sprintf(exception, "call stack exhausted");
@@ -1479,9 +1483,10 @@ Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options) {
                 void *val;
                 char *err, *sym = (char *)malloc(module_len + field_len + 5);
 
+                // TODO add special case form primitives with resolvePrim
                 do {
                     // Try using module as handle filename
-                    if (resolvesym(import_module, import_field, &val, &err)) { break; }
+                    if (resolvesym(import_module, import_field, (Primitive*) &val, &err)) { break; }
 
                     // Try concatenating module and field using underscores
                     // Also, replace '-' with '_'
@@ -1490,7 +1495,7 @@ Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options) {
                     while (sym[++sidx]) {
                         if (sym[sidx] == '-') { sym[sidx] = '_'; }
                     }
-                    if (resolvesym(NULL, sym, &val, &err)) { break; }
+                    if (resolvesym(NULL, sym, (Primitive*) &val, &err)) { break; }
 
                     // If enabled, try without the leading underscore (added
                     // by emscripten for external symbols)
@@ -1498,12 +1503,12 @@ Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options) {
                         (strncmp("env", import_module, 4) == 0) &&
                         (strncmp("_", import_field, 1) == 0)) {
                         sprintf(sym, "%s", import_field+1);
-                        if (resolvesym(NULL, sym, &val, &err)) { break; }
+                        if (resolvesym(NULL, sym, (Primitive*) &val, &err)) { break; }
                     }
 
                     // Try the plain symbol by itself with module name/handle
                     sprintf(sym, "%s", import_field);
-                    if (resolvesym(NULL, sym, &val, &err)) { break; }
+                    if (resolvesym(NULL, sym, (Primitive*) &val, &err)) { break; }
 
                     FATAL("Error: %s\n", err);
                 } while(false);
@@ -1865,24 +1870,24 @@ int WARDuino::run_module(uint8_t *bytes, int size)
 {
     Options opts;
     initTypes();
-    Module *m = load_module(bytes, 49, opts);
+    Module *m = load_module(bytes, size, opts);
     m->sp = -1;
     m->fp = -1;
     m->csp = -1;
     m->sp++;
     //Set the arguments
     StackValue* sv = &m->stack[m->sp];
-    sv->value.uint32 = 32;
-    sv->value_type = m->functions[0].type->params[0];
+    sv->value.uint32 = 0x20; // 32
+    sv->value_type = m->functions[1].type->params[0];
     printf("top of stack :: %s \n",value_repr(&m->stack[m->sp]));
 
     m->sp++;
     sv = &m->stack[m->sp];
-    sv->value.uint32 = 10;
-    sv->value_type = m->functions[0].type->params[1];
+    sv->value.uint32 = 0x0a; // 10
+    sv->value_type = m->functions[1].type->params[1];
     printf("top of stack :: %s \n",value_repr(&m->stack[m->sp]));
 
-    invoke(m, 0);
+    invoke(m, 1);
     printf("RESULT :: %s \n",value_repr(&m->stack[m->sp]));
     return m->function_count;
 }

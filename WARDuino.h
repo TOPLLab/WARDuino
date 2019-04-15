@@ -155,4 +155,11 @@ class WARDuino
          int run_module(uint8_t *bytes, int size);
 };
 
+typedef void (*Primitive)(Module*);
+typedef struct primitive_entry
+{
+    const char* name;
+    Primitive f;
+} primitive_entry;
+
 #endif
