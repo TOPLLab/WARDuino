@@ -21,12 +21,15 @@ all: warduino
 ../%.o : ../%.c
 	$(CC) $(CFLAGS) -c $<   -o $@
 
-warduino: $(COBJECTS)  $(CXXSOURCES) ../wa_sources/*.c
+../wa_sources/%.c: ../wa_sources/%.wast
 	$(MAKE) -C ../wa_sources
+
+warduino: $(COBJECTS)  $(CXXSOURCES) ../wa_sources/*.c
 	$(MKDIR)
 	$(CXX) $(CXXFLAGS) $(COBJECTS) $(CXXSOURCES) -o $(OUTPUTDIR)$(TARGET)
 
 .PHONY: clean
 clean:
+	$(MAKE) -C ../wa_sources clean
 	$(RM) -rf $(OUTPUTDIR)
 	$(RM) $(COBJECTS)
