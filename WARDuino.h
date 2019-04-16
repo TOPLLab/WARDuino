@@ -159,10 +159,11 @@ class WARDuino
 };
 
 typedef void (*Primitive)(Module*);
-typedef struct primitive_entry
+typedef struct PrimitiveEntry
 {
     const char* name;
     Primitive f;
-} primitive_entry;
+    Type t;
+} PrimitiveEntry;
 
 #endif
