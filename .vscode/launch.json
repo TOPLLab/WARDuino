@@ -8,7 +8,7 @@
             "name": "Debug WARDuino",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/local/warduino",
+            "program": "${workspaceFolder}/local/bin/warduino",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
