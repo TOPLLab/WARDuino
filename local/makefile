@@ -1,27 +1,28 @@
 CXX       = g++
-CC        = gcc 
+CC        = gcc
 CFLAGS    = -Wall -c
-CXXFLAGS  = -v -std=c++11 -std=c++11 -stdlib=libc++ -Weverything
+CXXFLAGS  = -v -std=c++11  -Wall
 
 OUTPUTDIR = ./bin/
 MKDIR     = mkdir -p $(OUTPUTDIR)
 TARGET    = warduino
 
 COBJECTS= \
-     ../mem.o\
-     ../util.o 
+	../mem.o\
+	../util.o
 
 CXXSOURCES = \
     	../WARDuino.cpp \
 	../primitives.cpp \
-    	main.cpp 
+    	main.cpp
 
-all: warduino 
+all: warduino
 
 ../%.o : ../%.c
 	$(CC) $(CFLAGS) -c $<   -o $@
 
-warduino: $(COBJECTS)  $(CXXSOURCES) 
+warduino: $(COBJECTS)  $(CXXSOURCES) ../wa_sources/*.c
+	$(MAKE) -C ../wa_sources
 	$(MKDIR)
 	$(CXX) $(CXXFLAGS) $(COBJECTS) $(CXXSOURCES) -o $(OUTPUTDIR)$(TARGET)
 
