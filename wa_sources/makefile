@@ -12,3 +12,6 @@ all: hello_world.c
 	cat $<.dbg >> $@
 	echo "*/" >> $@
 	cat $@
+
+clean:
+	rm *.o *.c *.dbg *.wasm || true
