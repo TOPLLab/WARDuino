@@ -1,7 +1,7 @@
 CXX       = g++
 CC        = gcc
 CFLAGS    = -Wall -c
-CXXFLAGS  = -v -std=c++11  -Wall
+CXXFLAGS  = -g -v -std=c++11  -Wall
 
 OUTPUTDIR = ./bin/
 MKDIR     = mkdir -p $(OUTPUTDIR)
