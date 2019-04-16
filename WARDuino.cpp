@@ -5,8 +5,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <math.h>
-
-#include "primitives.h";
+#include "primitives.h"
 
 extern "C" {
     #include "util.h"
@@ -1358,7 +1357,7 @@ void run_init_expr(Module *m, uint8_t type, uint32_t *pc) {
 //
 // Public API
 //
-uint32_t get_export_fidx(Module *m, char *name) {
+uint32_t WARDuino::get_export_fidx(Module *m, char *name) {
     // Find name function index
     for (uint32_t f=0; f < m->function_count; f++) {
         char *fname = m->functions[f].export_name;
@@ -1370,7 +1369,7 @@ uint32_t get_export_fidx(Module *m, char *name) {
     return -1;
 }
 
-Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options) {
+Module* WARDuino::load_module(uint8_t *bytes, uint32_t byte_count, Options options) {
     debug("Loading module of size %d \n", byte_count);
     uint8_t   vt;
     uint32_t  pos = 0, word;
@@ -1857,7 +1856,7 @@ Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options) {
 
 // if entry == NULL,  attempt to invoke 'main' or '_main'
 // Return value of false means exception occured
-bool invoke(Module *m, uint32_t fidx) {
+bool WARDuino::invoke(Module *m, uint32_t fidx) {
     bool result;
     if (TRACE && DEBUG) { dump_stacks(m); }
     setup_call(m, fidx);
@@ -1887,7 +1886,7 @@ int WARDuino::run_module(uint8_t *bytes, int size)
     sv->value_type = m->functions[1].type->params[1];
     printf("top of stack :: %s \n",value_repr(&m->stack[m->sp]));
 
-    invoke(m, 1);
+    this->invoke(m, 1);
     printf("RESULT :: %s \n",value_repr(&m->stack[m->sp]));
     return m->function_count;
 }

@@ -29,5 +29,4 @@ warduino: $(COBJECTS)  $(CXXSOURCES) ../wa_sources/*.c
 .PHONY: clean
 clean:
 	$(RM) -rf $(OUTPUTDIR)
-	$(RM) ./*.gc??
-	$(RM) ./*.o
+	$(RM) $(COBJECTS)
