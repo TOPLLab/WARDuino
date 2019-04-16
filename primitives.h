@@ -3,6 +3,8 @@
 
 #include "WARDuino.h"
 
-bool resolvePrim(char *symbol, Primitive *val);
+
+bool resolve_primitive(char *symbol, Primitive *val);
+void install_primitives();
 
 #endif

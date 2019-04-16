@@ -16,7 +16,7 @@ extern "C" {
 //UTIL 
 bool resolvesym(char *filename, char *symbol, Primitive *val, char **err) {
         if (NULL != filename && !strcmp(filename,"esp8266")) {
-            return resolvePrim(symbol,val);
+            return resolve_primitive(symbol,val);
         } else {
             *err = "Imports are only supported from the module esp8266";
             return false;
@@ -1869,6 +1869,7 @@ int WARDuino::run_module(uint8_t *bytes, int size)
 {
     Options opts;
     initTypes();
+    install_primitives();
     Module *m = load_module(bytes, size, opts);
     m->sp = -1;
     m->fp = -1;
