@@ -1,6 +1,32 @@
-all:
-	$(MAKE) -C ../wa_sources
-	g++ -g -x c ../mem.c ../util.c  -x c++ ../WARDuino.cpp ../primitives.cpp main.cpp -o warduino
+CXX       = g++
+CC        = gcc 
+CFLAGS    = -Wall -c
+CXXFLAGS  = -v -std=c++11 -std=c++11 -stdlib=libc++ -Weverything
 
+OUTPUTDIR = ./bin/
+MKDIR     = mkdir -p $(OUTPUTDIR)
+TARGET    = warduino
+
+COBJECTS= \
+     ../mem.o\
+     ../util.o 
+
+CXXSOURCES = \
+    	../WARDuino.cpp \
+	../primitives.cpp \
+    	main.cpp 
+
+all: warduino 
+
+../%.o : ../%.c
+	$(CC) $(CFLAGS) -c $<   -o $@
+
+warduino: $(COBJECTS)  $(CXXSOURCES) 
+	$(MKDIR)
+	$(CXX) $(CXXFLAGS) $(COBJECTS) $(CXXSOURCES) -o $(OUTPUTDIR)$(TARGET)
+
+.PHONY: clean
 clean:
-	rm warduino
+	$(RM) -rf $(OUTPUTDIR)
+	$(RM) ./*.gc??
+	$(RM) ./*.o
