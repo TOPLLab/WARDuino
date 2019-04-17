@@ -34,6 +34,10 @@ extern "C" {
 
 #ifdef ARDUINO
 #include "Arduino.h"
+
+#else
+#include <chrono>
+#include <thread>
 #endif
 
 #include <stdio.h>
@@ -44,7 +48,7 @@ extern "C" {
 #ifdef ARDUINO
   #define NUM_PRIMITIVES_ARDUINO 4
 #else
-  #define NUM_PRIMITIVES_ARDUINO 0
+  #define NUM_PRIMITIVES_ARDUINO 3
 #endif 
 
 #define ALL_PRIMITIVES  NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO
@@ -120,23 +124,15 @@ def_prim(flash, nullType)
 //------------------------------------------------------
 
 #ifdef ARDUINO
-
 def_prim(chip_pin_mode,nullType) {   
   printf("chip_pin_mode \n");
-
-  printf("agr0 %u arg1 %u \n",arg0.uint32,arg1.uint32);
 
   uint8_t pin  = arg1.uint32;
   uint8_t mode = arg0.uint32;
 
-  printf("agr0 %u arg1 %u \n",pin,mode);
-
-
   pinMode(pin, mode);
-  printf("DONE pinMode\n");
 
   pop_args(2);
-    printf("DONE chip_pin_mode\n");
 
 }
 
@@ -160,7 +156,26 @@ def_prim(chip_digital_read, nullType) {
   //pushInt32(digitalRead(pin));
 }
 
+#else
 
+def_prim(chip_pin_mode,nullType) {   
+  printf("EMU: chip_pin_mode(%u,%u) \n",arg1.uint32,arg0.uint32);
+  pop_args(2);
+}
+
+def_prim(chip_digital_write, nullType) {
+  printf("EMU: chip_digital_write(%u,%u) \n",arg1.uint32,arg0.uint32);
+  pop_args(2);
+}
+
+def_prim(chip_delay, nullType){ 
+  using namespace std::this_thread; // sleep_for, sleep_until
+  using namespace std::chrono; // nanoseconds, system_clock, seconds
+  printf("EMU: chip_delay(%u) \n",arg0.uint32);
+  sleep_for(milliseconds(arg0.uint32));
+  printf("EMU: .. done\n",arg0.uint32);
+  pop_args(1);
+}
 
 #endif
 
@@ -181,13 +196,13 @@ void install_primitives(void)
   printf("INSTALLING PRIMITIVES\n");
   install_primitive(blink);
   install_primitive(flash);
+  install_primitive(chip_pin_mode);
+  install_primitive(chip_digital_write);
+  install_primitive(chip_delay);
 
   #ifdef ARDUINO
       printf("INSTALLING ARDUINO\n");
-      install_primitive(chip_pin_mode);
-      install_primitive(chip_digital_write);
       install_primitive(chip_digital_read);
-      install_primitive(chip_delay);
   #endif 
 }
 
