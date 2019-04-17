@@ -5,7 +5,7 @@
  \        /  / __ \|  | \/ /_/ |  |  /  |   |  (  <_> )
   \__/\  /  (____  /__|  \____ |____/|__|___|  /\____/ 
        \/        \/           \/             \/        
-       
+
 WARDuino (c) by Christophe Scholliers & Robbert Gurdeep Singh 
 
 WARDuino is licensed under a
@@ -151,7 +151,7 @@ def_prim(chip_digital_write, nullType) {
 def_prim(chip_delay, nullType){ 
   printf("chip_delay \n");
   delay(arg0.uint32);
-  pop_args(0);
+  pop_args(1);
 }
 
 def_prim(chip_digital_read, nullType) {
