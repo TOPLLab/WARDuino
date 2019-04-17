@@ -13,7 +13,7 @@ void *acalloc(size_t nmemb, size_t size, char *name)
     }
     else
     {
-        debug("IN Acalloc  count: %d, size: %d for %s \n", nmemb, size, name);
+        debug("IN Acalloc  count: %u, size: %u for %s \n", nmemb, size, name);
         void *res = calloc(nmemb, size);
         debug("Done ... Acalloc\n");
         if (res == NULL)
