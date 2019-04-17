@@ -36,8 +36,6 @@ Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 und
       http://arduino.esp8266.com/stable/package_esp8266com_index.json
       ```
 
-      
-
     - Or follow the steps at https://github.com/esp8266/Arduino#installing-with-boards-manager
 
   - Go to Tools->Boards->Boards Manager
@@ -96,3 +94,14 @@ void loop() {
 - Gemakelijk fies overschrijven en toevoegen
 - plus typesysteem dat de basis typeoperaties safe maakt
 - Updates getypeert houden, int->int blijft int->int, anders gaat het niet (bonus: wel als nergens gebruikt)
+
+
+# LICENCE 
+
+WARDuino (c) by Christophe Scholliers & Robbert Gurdeep Singh 
+
+WARDuino is licensed under a
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+
+You should have received a copy of the license along with this
+work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
