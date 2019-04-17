@@ -481,11 +481,38 @@ void setup_call(Module *m, uint32_t fidx) {
 */
 
 /*
-
-
-
+    Control Instructions := 
+        | nop
+        | unreachable 
+        | block resulttype instr* end
+        | loop resulttype instr* end
+        | if resulttype instr* else instr* end
+        | br labelidx
+        | br_if labelidx
+        | br_table vec(labelidx) labelidx
+        | return
+        | call funcidx
+        | call_indirect typeidx
 */
-inline static void callInstr(Module *m)
+
+
+/*
+    Instruction: call funcidx
+
+    Webassembly Description:
+
+    1. Let 𝐹 be the current frame.
+    2. Assert: due to validation, 𝐹.module.funcaddrs[𝑥] exists.
+    3. Let 𝑎 be the function address 𝐹.module.funcaddrs[𝑥].
+    4. Invoke the function instance at address 𝑎.
+
+    Formal specification: 
+
+         𝐹.module.funcaddrs[𝑥] = 𝑎
+    -----------------------------------
+        𝐹; (call 𝑥) -> 𝐹; (invoke 𝑎) 
+*/
+inline static bool i_call(Module *m)
 {
     int fidx = read_LEB(m->bytes, &m->pc, 32);
     if (fidx < m->import_count)
@@ -496,8 +523,8 @@ inline static void callInstr(Module *m)
     {
         if (m->csp >= CALLSTACK_SIZE)
         {
-            FATAL("call stack exhausted \n");
-            //return false;
+            sprintf(exception, "call stack exhausted");
+            return false;
         }
         setup_call(m, fidx); // regular function call
         if (TRACE)
@@ -506,6 +533,9 @@ inline static void callInstr(Module *m)
         }
     }
 }
+
+
+// End Control Instructions
 
 bool interpret(Module *m) {
     uint8_t     *bytes = m->bytes;
@@ -682,7 +712,7 @@ bool interpret(Module *m) {
         // Call operators
         //
         case 0x10:  // call
-            callInstr(m);
+            i_call(m);
             /*fidx = read_LEB(bytes, &m->pc, 32);
             if (fidx < m->import_count) {
                //THUNK thunk_out(m, fidx);   // import/thunk call
