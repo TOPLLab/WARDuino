@@ -33,7 +33,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 
  (; Define one function ;)
  (export "blink_arduino" (func $blink_arduino))
-
+ (start $blink_arduino)
  (; The blink function ;)
  (func $blink_arduino (type $4) 
    (;  LED    ;)
