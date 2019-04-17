@@ -476,6 +476,37 @@ void setup_call(Module *m, uint32_t fidx) {
     return;
 }
 
+/* 
+    WebAssembly Instructions
+*/
+
+/*
+
+
+
+*/
+inline static void callInstr(Module *m)
+{
+    int fidx = read_LEB(m->bytes, &m->pc, 32);
+    if (fidx < m->import_count)
+    {
+        ((Primitive)m->functions[fidx].func_ptr)(m);
+    }
+    else
+    {
+        if (m->csp >= CALLSTACK_SIZE)
+        {
+            FATAL("call stack exhausted \n");
+            //return false;
+        }
+        setup_call(m, fidx); // regular function call
+        if (TRACE)
+        {
+            debug("      - calling function fidx: %d at: 0x%x\n", fidx, m->pc);
+        }
+    }
+}
+
 bool interpret(Module *m) {
     uint8_t     *bytes = m->bytes;
     StackValue  *stack = m->stack;
@@ -651,8 +682,8 @@ bool interpret(Module *m) {
         // Call operators
         //
         case 0x10:  // call
-            fidx = read_LEB(bytes, &m->pc, 32);
-
+            callInstr(m);
+            /*fidx = read_LEB(bytes, &m->pc, 32);
             if (fidx < m->import_count) {
                //THUNK thunk_out(m, fidx);   // import/thunk call
                ((Primitive)  m->functions[fidx].func_ptr)(m);
@@ -665,8 +696,9 @@ bool interpret(Module *m) {
                 if (TRACE) {
                     debug("      - calling function fidx: %d at: 0x%x\n", fidx, m->pc);
                 }
-            }
+            }*/
             continue;
+
         case 0x11:  // call_indirect
             tidx = read_LEB(bytes, &m->pc, 32); // TODO: use tidx?
             (void)tidx;
