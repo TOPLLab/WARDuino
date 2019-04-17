@@ -1934,23 +1934,5 @@ int WARDuino::run_module(uint8_t *bytes, int size)
     install_primitives();
 
     Module *m = load_module(bytes, size, opts);
-    m->sp = -1;
-    m->fp = -1;
-    m->csp = -1;
-    m->sp++;
-    //Set the arguments
-    /*StackValue* sv = &m->stack[m->sp];
-    sv->value.uint32 = 0x20; // 32
-    sv->value_type = m->functions[1].type->params[0];
-    printf("top of stack :: %s \n",value_repr(&m->stack[m->sp]));
-
-    m->sp++;
-    sv = &m->stack[m->sp];
-    sv->value.uint32 = 0x0a; // 10
-    sv->value_type = m->functions[1].type->params[1];
-    printf("top of stack :: %s \n",value_repr(&m->stack[m->sp]));*/
-
-    this->invoke(m, m->import_count);
-    printf("RESULT :: %s \n",value_repr(&m->stack[m->sp]));
     return m->function_count;
 }
