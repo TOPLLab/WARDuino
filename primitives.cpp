@@ -1,3 +1,20 @@
+/* 
+ __      __                  .___    .__               
+/  \    /  \_____ _______  __| _/_ __|__| ____   ____  
+\   \/\/   /\__  \\_  __ \/ __ |  |  \  |/    \ /  _ \ 
+ \        /  / __ \|  | \/ /_/ |  |  /  |   |  (  <_> )
+  \__/\  /  (____  /__|  \____ |____/|__|___|  /\____/ 
+       \/        \/           \/             \/        
+       
+WARDuino (c) by Christophe Scholliers & Robbert Gurdeep Singh 
+
+WARDuino is licensed under a
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+
+You should have received a copy of the license along with this
+work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
+*/
+
 /**
  * This file lists the primitives of the language and stores them in the
  * primitives
@@ -14,8 +31,6 @@
 extern "C" {
   #include "util.h"
 }
-
-//#define ARDUINO
 
 #ifdef ARDUINO
 #include "Arduino.h"
@@ -36,9 +51,6 @@ extern "C" {
 
 // Global index for installing primitives
 int prim_index = 0;
-
-
-
 
 /*
     Private macros to install a primitive
@@ -178,7 +190,6 @@ void install_primitives(void)
       install_primitive(chip_delay);
   #endif 
 }
-
 
 //------------------------------------------------------
 // resolving the primitives
