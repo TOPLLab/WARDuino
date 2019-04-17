@@ -80,7 +80,7 @@ void loop() {
 
 ## Run WARDuino on host machine
 
-- Install [`binarien`](https://github.com/WebAssembly/binaryen)
+- Install wat2wasm from the [`wabt`](https://github.com/WebAssembly/wabt) package
 
 
 
