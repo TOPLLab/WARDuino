@@ -15,7 +15,10 @@
           "reveal": "always",
           "panel": "dedicated"
       },
-      "problemMatcher":"$gcc"
+      "problemMatcher":{
+        "base": "$gcc",
+        "fileLocation": [ "relative", "${workspaceFolder}/local" ],
+      },
   }
   ],
   

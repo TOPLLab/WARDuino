@@ -14,7 +14,6 @@
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
-            "MIMode": "lldb",
             "preLaunchTask": "run-make"
         }
     ]
