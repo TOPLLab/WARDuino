@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "primitives.h"
+#include <inttypes.h>
 
 extern "C" {
     #include "util.h"
@@ -18,20 +19,10 @@ bool resolvesym(char *filename, char *symbol, Primitive *val, char **err) {
         if (NULL != filename && !strcmp(filename,"esp8266")) {
             return resolve_primitive(symbol,val);
         } else {
-            *err = "Imports are only supported from the module esp8266";
+            *err = (char*)"Imports are only supported from the module esp8266";
             return false;
         }
 }
-
-/*
-    Primitives
-*/
-void call_import(Module* m, int fidx) {
-    Block b = m->functions[fidx];
-    b.type;
-}
-
-
 
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
@@ -99,8 +90,8 @@ char _value_str[256];
 
 char *value_repr(StackValue *v) {
     switch (v->value_type) {
-    case I32: snprintf(_value_str, 255, "0x%x:i32",  v->value.uint32); break;
-    case I64: snprintf(_value_str, 255, "0x%llx:i64", v->value.uint64); break;
+    case I32: snprintf(_value_str, 255, "0x%" PRIx32 ":i32", v->value.uint32); break;
+    case I64: snprintf(_value_str, 255, "0x%" PRIx64 ":i64", v->value.uint64); break;
     case F32: snprintf(_value_str, 255, "%.7g:f32",  v->value.f32);    break;
     case F64: snprintf(_value_str, 255, "%.7g:f64",  v->value.f64);    break;
     }
@@ -400,7 +391,7 @@ void setup_call(Module *m, uint32_t fidx) {
 */
 inline static bool i_call(Module *m)
 {
-    int fidx = read_LEB(m->bytes, &m->pc, 32);
+    uint32_t fidx = read_LEB(m->bytes, &m->pc, 32);
     if (fidx < m->import_count)
     {
         ((Primitive)m->functions[fidx].func_ptr)(m);
@@ -418,6 +409,7 @@ inline static bool i_call(Module *m)
             debug("      - calling function fidx: %d at: 0x%x\n", fidx, m->pc);
         }
     }
+    return true;
 }
 
 
@@ -540,7 +532,7 @@ bool interpret(Module *m) {
             m->csp -= depth;
             // set to end for pop_block
             m->pc = m->callstack[m->csp].block->br_addr;
-            if (TRACE) { debug("      - to: 0x%x\n", &m->pc); }
+            if (TRACE) { debug("      - to: 0x%p\n", &m->pc); }
             continue;
         case 0x0d:  // br_if
             depth = read_LEB(bytes, &m->pc, 32);
@@ -597,24 +589,11 @@ bool interpret(Module *m) {
         //
         // Call operators
         //
-        case 0x10:  // call
-            i_call(m);
-            /*fidx = read_LEB(bytes, &m->pc, 32);
-            if (fidx < m->import_count) {
-               //THUNK thunk_out(m, fidx);   // import/thunk call
-               ((Primitive)  m->functions[fidx].func_ptr)(m);
-            } else {
-                if (m->csp >= CALLSTACK_SIZE) {
-                    sprintf(exception, "call stack exhausted");
-                    return false;
-                }
-                setup_call(m, fidx);  // regular function call
-                if (TRACE) {
-                    debug("      - calling function fidx: %d at: 0x%x\n", fidx, m->pc);
-                }
-            }*/
+        case 0x10: { // call 
+            bool succes = i_call(m);
+            if(!succes){return false;}
             continue;
-
+        }
         case 0x11:  // call_indirect
             tidx = read_LEB(bytes, &m->pc, 32); // TODO: use tidx?
             (void)tidx;
@@ -660,7 +639,7 @@ bool interpret(Module *m) {
                 setup_call(m, fidx);   // regular function call
 
                 // Validate signatures match
-                if (ftype->param_count + func->local_count != m->sp - m->fp + 1) {
+                if ((int)(ftype->param_count + func->local_count) != m->sp - m->fp + 1) {
                     sprintf(exception, "indirect call type mismatch (param counts differ)");
                     return false;
                 }
@@ -1055,13 +1034,13 @@ bool interpret(Module *m) {
             case 0x6a: c = a + b; break;  // i32.add
             case 0x6b: c = a - b; break;  // i32.sub
             case 0x6c: c = a * b; break;  // i32.mul
-            case 0x6d: if (a == 0x80000000 && b == -1) {
+            case 0x6d: if (a == 0x80000000 && b == (uint32_t)-1) {
                            sprintf(exception, "integer overflow");
                            return false;
                        }
                        c = (int32_t)a / (int32_t)b; break;  // i32.div_s
             case 0x6e: c = a / b; break;  // i32.div_u
-            case 0x6f: if (a == 0x80000000 && b == -1) {
+            case 0x6f: if (a == 0x80000000 && b == (uint32_t)-1) {
                            c = 0;
                        } else {
                            c = (int32_t)a % (int32_t)b;
@@ -1096,13 +1075,13 @@ bool interpret(Module *m) {
             case 0x7c: f = d + e; break;  // i64.add
             case 0x7d: f = d - e; break;  // i64.sub
             case 0x7e: f = d * e; break;  // i64.mul
-            case 0x7f: if (d == 0x8000000000000000 && e == -1) {
+            case 0x7f: if (d == 0x8000000000000000 && e == (uint32_t)-1) {
                            sprintf(exception, "integer overflow");
                            return false;
                        }
                        f = (int64_t)d / (int64_t)e; break;  // i64.div_s
             case 0x80: f = d / e; break;  // i64.div_u
-            case 0x81: if (d == 0x8000000000000000 && e == -1) {
+            case 0x81: if (d == 0x8000000000000000 && e == (uint32_t)-1) {
                            f = 0;
                        } else {
                            f = (int64_t)d % (int64_t)e;
@@ -1705,7 +1684,7 @@ Module* WARDuino::load_module(uint8_t *bytes, uint32_t byte_count, Options optio
                         "memory overflow %d+%d > %d\n", offset, size,
                         (uint32_t)(m->memory.pages*PAGE_SIZE));
                 }
-                info("  setting 0x%x bytes of memory at 0x%x + offset 0x%x\n",
+                info("  setting 0x%x bytes of memory at 0x%p + offset 0x%x\n",
                      size, m->memory.bytes, offset);
                 memcpy(m->memory.bytes+offset, bytes+pos, size);
                 pos += size;
@@ -1773,7 +1752,7 @@ Module* WARDuino::load_module(uint8_t *bytes, uint32_t byte_count, Options optio
 
     find_blocks(m);
 
-    if (m->start_function != -1) {
+    if (m->start_function != (uint32_t)-1) {
         uint32_t fidx = m->start_function;
         bool     result;
         warn("Running start function 0x%x ('%s')\n",

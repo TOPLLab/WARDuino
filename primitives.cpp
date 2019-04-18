@@ -99,7 +99,7 @@ def_prim(blink, nullType)
   size_t cnt = arg0.uint32;
   for (size_t i = 1; i < cnt; i++)
   {
-    printf("BLINK %u/%u!\n", i, cnt);
+    printf("BLINK %lu/%lu!\n", i, cnt);
   }
   pop_args(1);
 }
@@ -113,7 +113,7 @@ def_prim(flash, nullType)
   size_t cnt = arg0.uint32;
   for (size_t i = cnt; i > 0; i--)
   {
-    printf("FLASH %u/%u!\n", i, cnt);
+    printf("FLASH %lu/%lu!\n", i, cnt);
   }
   pop_args(1);
 }
@@ -173,7 +173,7 @@ def_prim(chip_delay, nullType){
   using namespace std::chrono; // nanoseconds, system_clock, seconds
   printf("EMU: chip_delay(%u) \n",arg0.uint32);
   sleep_for(milliseconds(arg0.uint32));
-  printf("EMU: .. done\n",arg0.uint32);
+  printf("EMU: .. done\n");
   pop_args(1);
 }
 
