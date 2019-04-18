@@ -5,7 +5,7 @@
 #include <string.h>
 
 // Assert calloc
-void *acalloc(size_t nmemb, size_t size, char *name)
+void *acalloc(size_t nmemb, size_t size, const char *name)
 {
     if ((int)(nmemb * size) == 0)
     {
@@ -13,7 +13,7 @@ void *acalloc(size_t nmemb, size_t size, char *name)
     }
     else
     {
-        debug("IN Acalloc  count: %u, size: %u for %s \n", nmemb, size, name);
+        debug("IN Acalloc  count: %lu, size: %lu for %s \n", nmemb, size, name);
         void *res = calloc(nmemb, size);
         debug("Done ... Acalloc\n");
         if (res == NULL)
@@ -25,7 +25,7 @@ void *acalloc(size_t nmemb, size_t size, char *name)
 }
 
 // Assert realloc/calloc
-void *arecalloc(void *ptr, size_t old_nmemb, size_t nmemb, size_t size, char *name)
+void *arecalloc(void *ptr, size_t old_nmemb, size_t nmemb, size_t size, const char *name)
 {
     size_t *res = (size_t *)calloc(nmemb, size);
     if (res == NULL)
