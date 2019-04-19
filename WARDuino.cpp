@@ -103,6 +103,8 @@ char *value_repr(StackValue *v) {
         case F64:
             snprintf(_value_str, 255, "%.7g:f64", v->value.f64);
             break;
+        default:
+            snprintf(_value_str, 255, "0x%" PRIx64 ":%02x", v->value.uint64,-v->value_type);
     }
     return _value_str;
 }
@@ -975,25 +977,25 @@ bool i_instr_mem_store(Module *m, uint32_t *cur_pc, uint8_t opcode) {
  * 0x41...0x44 const
  */
 bool i_instr_const(Module *m, uint32_t *cur_pc, uint8_t opcode) {
-    StackValue target = m->stack[++m->sp];
+    StackValue* target = &m->stack[++m->sp];
 
     switch (opcode) {
         case 0x41:  // i32.const
-            target.value_type = I32;
-            target.value.uint32 = read_LEB_signed(m->bytes, &m->pc, 32);
+            target->value_type = I32;
+            target->value.uint32 = read_LEB_signed(m->bytes, &m->pc, 32);
             break;
         case 0x42:  // i64.const
-            target.value_type = I64;
-            target.value.int64 = read_LEB_signed(m->bytes, &m->pc, 64);
+            target->value_type = I64;
+            target->value.int64 = read_LEB_signed(m->bytes, &m->pc, 64);
             break;
         case 0x43:  // f32.const
-            target.value_type = F32;
-            memcpy(&target.value.uint32, m->bytes + m->pc, 4);
+            target->value_type = F32;
+            memcpy(&target->value.uint32, m->bytes + m->pc, 4);
             m->pc += 4;
             break;
         case 0x44:  // f64.const
-            target.value_type = F64;
-            memcpy(&target.value.uint64, m->bytes + m->pc, 8);
+            target->value_type = F64;
+            memcpy(&target->value.uint64, m->bytes + m->pc, 8);
             m->pc += 8;
             break;
     }
