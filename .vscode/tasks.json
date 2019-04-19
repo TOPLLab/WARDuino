@@ -3,7 +3,7 @@
     {
       "label": "run-make",
       "type": "shell",
-      "command": "make",
+      "command": "make clean all",
       "options": {
           "cwd": "local"
       },

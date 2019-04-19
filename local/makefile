@@ -4,9 +4,10 @@
 # \        /  / __ \|  | \/ /_/ |  |  /  |   |  (  <_> )
 #  \__/\  /  (____  /__|  \____ |____/|__|___|  /\____/ 
 #       \/        \/           \/             \/        
+DEBUGFLAGS = -DDEBUG=1 -DTRACE=1 -DINFO=1 -DWARN=1
 CXX       = g++
 CC        = gcc
-CFLAGS    = -Wall -c
+CFLAGS    = -g -Wall -c
 CXXFLAGS  = -g -v -std=c++11  -Wall
 
 OUTPUTDIR = ./bin/
@@ -15,24 +16,26 @@ TARGET    = warduino
 
 COBJECTS= \
 	../mem.o\
-	../util.o
+	../util.o \
+	../debug.o 
 
 CXXSOURCES = \
-    	../WARDuino.cpp \
+	../WARDuino.cpp \
 	../primitives.cpp \
-    	main.cpp
+	../instructions.cpp \
+	main.cpp
 
 all: warduino
 
 ../%.o : ../%.c
-	$(CC) $(CFLAGS) -c $<   -o $@
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) -c $<   -o $@
 
 ../wa_sources/%.c: ../wa_sources/%.wast
 	$(MAKE) -C ../wa_sources
 
 warduino: $(COBJECTS)  $(CXXSOURCES) ../wa_sources/*.c
 	$(MKDIR)
-	$(CXX) $(CXXFLAGS) $(COBJECTS) $(CXXSOURCES) -o $(OUTPUTDIR)$(TARGET)
+	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) $(COBJECTS) $(CXXSOURCES) -o $(OUTPUTDIR)$(TARGET)
 
 .PHONY: clean
 clean:
