@@ -1,5 +1,6 @@
 #include "mem.h"
 #include "util.h"
+#include "debug.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

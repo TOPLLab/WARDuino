@@ -1,10 +1,7 @@
 #include "util.h"
+#include "debug.h"
 #include <math.h>
-
-void end() {
-  while (1) {
-  };
-}
+#include <string.h>
 
 // Little endian base
 uint64_t read_LEB_(uint8_t *bytes, uint32_t *pos, uint32_t maxbits, bool sign) {

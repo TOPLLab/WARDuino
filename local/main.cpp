@@ -1,4 +1,4 @@
-#include "../WARDuino.h"
+#include "../WARDuino.cpp.h"
 #include <iostream>
 
 #include "../wa_sources/hello_world.c"

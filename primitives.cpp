@@ -29,7 +29,9 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #include "primitives.h"
 
 extern "C" {
+  #include "debug.h"
   #include "util.h"
+  #include "debug.h"
 }
 
 #ifdef ARDUINO
@@ -61,7 +63,7 @@ int prim_index = 0;
 */
 #define install_primitive(prim_name)        \
   {    \
-    printf("installing primitive number: %d  of %d with name: %s\n",prim_index,ALL_PRIMITIVES,#prim_name);\
+    dbg_info("installing primitive number: %d  of %d with name: %s\n",prim_index,ALL_PRIMITIVES,#prim_name);\
     if( prim_index < ALL_PRIMITIVES ) {                                      \
       PrimitiveEntry* p = &primitives[prim_index++]; \
       p->name = #prim_name;             \
@@ -77,6 +79,7 @@ int prim_index = 0;
   void function_name(Module* m)   
 
 
+// TODO: use fp
 #define pop_args(n) m->sp -= n
 #define get_arg(m,arg) m->stack[m->sp-arg].value
 #define arg0 get_arg(m,0)
@@ -159,21 +162,21 @@ def_prim(chip_digital_read, nullType) {
 #else
 
 def_prim(chip_pin_mode,nullType) {   
-  printf("EMU: chip_pin_mode(%u,%u) \n",arg1.uint32,arg0.uint32);
+  dbg_trace("EMU: chip_pin_mode(%u,%u) \n",arg1.uint32,arg0.uint32);
   pop_args(2);
 }
 
 def_prim(chip_digital_write, nullType) {
-  printf("EMU: chip_digital_write(%u,%u) \n",arg1.uint32,arg0.uint32);
+  dbg_trace("EMU: chip_digital_write(%u,%u) \n",arg1.uint32,arg0.uint32);
   pop_args(2);
 }
 
 def_prim(chip_delay, nullType){ 
   using namespace std::this_thread; // sleep_for, sleep_until
   using namespace std::chrono; // nanoseconds, system_clock, seconds
-  printf("EMU: chip_delay(%u) \n",arg0.uint32);
+  dbg_trace("EMU: chip_delay(%u) \n",arg0.uint32);
   sleep_for(milliseconds(arg0.uint32));
-  printf("EMU: .. done\n");
+  dbg_trace("EMU: .. done\n");
   pop_args(1);
 }
 
@@ -193,7 +196,7 @@ void analogWriteRange(uint32_t range)
 //------------------------------------------------------
 void install_primitives(void)
 {
-  printf("INSTALLING PRIMITIVES\n");
+  dbg_info("INSTALLING PRIMITIVES\n");
   install_primitive(blink);
   install_primitive(flash);
   install_primitive(chip_pin_mode);
@@ -201,7 +204,7 @@ void install_primitives(void)
   install_primitive(chip_delay);
 
   #ifdef ARDUINO
-      printf("INSTALLING ARDUINO\n");
+      dbg_info("INSTALLING ARDUINO\n");
       install_primitive(chip_digital_read);
   #endif 
 }

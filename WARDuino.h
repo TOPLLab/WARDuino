@@ -1,6 +1,7 @@
 #ifndef WAC_H
 #define WAC_H
 #include <stdint.h>
+#include <stdbool.h>
 #include <limits.h>
 //Constants
 #define WA_MAGIC   0x6d736100
@@ -25,11 +26,7 @@
 #define KIND_MEMORY   2
 #define KIND_GLOBAL   3
 
-#define DEBUG 1
-#define INFO 0
-#define WARN 0
-#define TRACE 1
-
+extern char exception[512];
 
 //Structures 
 typedef struct Type {
@@ -148,15 +145,6 @@ typedef struct Module {
     Frame       callstack[CALLSTACK_SIZE]; // callstack
     uint32_t    br_table[BR_TABLE_SIZE]; // br_table branch indexes
 } Module;
-
-class WARDuino
-{
-	public: 
-         int run_module(uint8_t *bytes, int size);
-         Module* load_module(uint8_t *bytes, uint32_t byte_count, Options options);
-         bool invoke(Module *m, uint32_t fidx);
-         uint32_t get_export_fidx(Module *m, char *name);
-};
 
 typedef void (*Primitive)(Module*);
 typedef struct PrimitiveEntry
