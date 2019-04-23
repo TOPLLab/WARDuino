@@ -6,6 +6,26 @@ Block *pop_block(Module *m) ;
 
 void setup_call(Module *m, uint32_t fidx);
 
+/*
+ * WebAssembly Instructions
+ *
+ * i_instr_**** functions
+ * 
+ * Functions here are called from a dispatching loop
+ * in WARDuino.cpp. 
+ * 
+ * The given module `m` is the currently executing module
+ * 
+ * Returning false breaks this loop and marks the 
+ * execution as crashed. The exception varaible can
+ * be filled with an explaination.
+ * 
+ * Returning true continues the loop with the
+ * notable exception of end wich can terminate
+ * the progran successfully by setting program_done
+ * 
+ */
+
 bool i_instr_block(Module *m, uint32_t *cur_pc);
 bool i_instr_loop(Module *m, uint32_t *cur_pc);
 bool i_instr_if(Module *m, uint32_t *cur_pc);
