@@ -75,6 +75,7 @@ void end();
 #define _INCLUDE_REPR_CODE 1
 char *value_repr(StackValue *v);
 char *block_repr(Block *b);
+const char* opcode_repr(uint8_t opcode);
 #endif
 
 #if DEBUG && TRACE
