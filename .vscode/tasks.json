@@ -5,22 +5,44 @@
       "type": "shell",
       "command": "make clean all",
       "options": {
-          "cwd": "local"
+        "cwd": "local"
       },
       "group": {
-          "kind": "build",
-          "isDefault": true
+        "kind": "build",
+        "isDefault": true
       },
       "presentation": {
-          "reveal": "always",
-          "panel": "dedicated"
+        "reveal": "always",
+        "panel": "dedicated"
       },
-      "problemMatcher":{
+      "problemMatcher": {
         "base": "$gcc",
-        "fileLocation": [ "relative", "${workspaceFolder}/local" ],
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}/local"
+        ],
       },
-  }
+    },
+    {
+      "label": "run-make benchmarks",
+      "type": "shell",
+      "command": "make clean all",
+      "options": {
+        "cwd": "benchmarks"
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": {
+        "base": "$gcc",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}/benchmarks"
+        ],
+      },
+    }
   ],
-  
   "version": "2.0.0"
 }

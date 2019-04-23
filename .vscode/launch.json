@@ -15,6 +15,18 @@
             "environment": [],
             "externalConsole": false,
             "preLaunchTask": "run-make"
+        },
+        {
+            "name": "Debug WARDuino Benchmarks",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/benchmarks/bin/warduino_benchmark",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/benchmarks",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "run-make benchmarks"
         }
     ]
 }
