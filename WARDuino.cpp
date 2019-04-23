@@ -453,7 +453,7 @@ void run_init_expr(Module *m, uint8_t type, uint32_t *pc) {
 //
 // Public API
 //
-uint32_t WARDuino::get_export_fidx(Module *m, char *name) {
+uint32_t WARDuino::get_export_fidx(Module *m, const char *name) {
     // Find name function index
     for (uint32_t f = 0; f < m->function_count; f++) {
         char *fname = m->functions[f].export_name;
@@ -665,7 +665,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                             ASSERT(m->table.initial <= tval->maximum,
                                    "Imported table is not large enough\n");
                             dbg_warn("  setting table.entries to: %p\n",
-                                 *(uint32_t **)val);
+                                     *(uint32_t **)val);
                             m->table.entries = *(uint32_t **)val;
                             m->table.size = tval->size;
                             m->table.maximum = tval->maximum;
@@ -854,7 +854,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
 
                     uint32_t num_elem = read_LEB(bytes, &pos, 32);
                     dbg_warn("  table.entries: %p, offset: 0x%x\n",
-                         m->table.entries, offset);
+                             m->table.entries, offset);
                     if (!m->options.disable_memory_bounds) {
                         ASSERT(offset + num_elem <= m->table.size,
                                "table overflow %d+%d > %d\n", offset, num_elem,
@@ -963,7 +963,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
         uint32_t fidx = m->start_function;
         bool result;
         dbg_warn("Running start function 0x%x ('%s')\n", fidx,
-             m->functions[fidx].export_name);
+                 m->functions[fidx].export_name);
 
         dbg_dump_stack(m);
 
@@ -995,6 +995,7 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
     dbg_dump_stack(m);
     setup_call(m, fidx);
     result = interpret(m);
+    dbg_trace("Interpretation ended");
     dbg_dump_stack(m);
     return result;
 }
