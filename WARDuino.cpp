@@ -238,15 +238,15 @@ bool interpret(Module *m) {
     uint32_t cur_pc;
     uint8_t opcode;
     bool success = true;
+    bool program_done = false;
 
-    while (success && (m->pc < m->byte_count)) {
+    while (!program_done && success && (m->pc < m->byte_count)) {
         opcode = bytes[m->pc];
         cur_pc = m->pc;
         m->pc += 1;
 
         dbg_dump_stack(m);
         dbg_trace(" PC:  0x%x OPCODE: <0x%x>\n", cur_pc, opcode);
-
 
         switch (opcode) {
             //
@@ -270,7 +270,7 @@ bool interpret(Module *m) {
                 success &= i_instr_else(m, &cur_pc);
                 continue;
             case 0x0b:  // end
-                success &= i_instr_end(m, &cur_pc);
+                success &= i_instr_end(m, &cur_pc, &program_done);
                 continue;
             case 0x0c:  // br
                 success &= i_instr_br(m, &cur_pc);
@@ -422,8 +422,13 @@ bool interpret(Module *m) {
                 return false;
         }
     }
-    ASSERT(!success, "While loop broken unexpectedly!");
-    return false;  // We shouldn't reach here
+
+    dbg_trace(
+        "Interpretation ended %s with status %s\n", 
+        program_done ? "expectedly" : "unexpectedly", 
+        success ? "ok" : "error");
+    ASSERT(program_done && success, "While loop broken unexpectedly!");
+    return success;
 }
 
 void run_init_expr(Module *m, uint8_t type, uint32_t *pc) {

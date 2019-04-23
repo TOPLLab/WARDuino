@@ -10,7 +10,7 @@ bool i_instr_block(Module *m, uint32_t *cur_pc);
 bool i_instr_loop(Module *m, uint32_t *cur_pc);
 bool i_instr_if(Module *m, uint32_t *cur_pc);
 bool i_instr_else(Module *m, uint32_t *cur_pc);
-bool i_instr_end(Module *m, uint32_t *cur_pc);
+bool i_instr_end(Module *m, uint32_t *cur_pc, bool* prog_done);
 bool i_instr_br(Module *m, uint32_t *cur_pc);
 bool i_instr_br_if(Module *m, uint32_t *cur_pc);
 bool i_instr_br_table(Module *m, uint32_t *cur_pc);
