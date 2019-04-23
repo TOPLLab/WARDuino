@@ -4,7 +4,14 @@
 # \        /  / __ \|  | \/ /_/ |  |  /  |   |  (  <_> )
 #  \__/\  /  (____  /__|  \____ |____/|__|___|  /\____/ 
 #       \/        \/           \/             \/        
-DEBUGFLAGS = -DDEBUG=0 -DTRACE=1 -DINFO=1 -DWARN=1
+DEBUG=0
+TRACE=0
+INFO=0
+WARN=0
+
+DEBUGFLAGS = -DDEBUG=$(DEBUG) -DTRACE=$(TRACE) -DINFO=$(INFO) -DWARN=$(WARN)
+
+
 CXX       = g++
 CC        = gcc
 CFLAGS    = -g -Wall -c
@@ -42,7 +49,7 @@ warduino: $(COBJECTS)  $(CXXSOURCES) ../wa_sources/*.c
 
 
 run: 
-	./bin/$(TARGET)
+	$(OUTPUTDIR)$(TARGET)
 
 .PHONY: clean
 clean:
