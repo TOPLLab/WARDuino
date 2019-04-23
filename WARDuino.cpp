@@ -237,7 +237,11 @@ bool interpret(Module *m) {
 
     uint32_t cur_pc;
     uint8_t opcode;
+
+    // keep track of occuring errors
     bool success = true;
+
+    // set to true when finished
     bool program_done = false;
 
     while (!program_done && success && (m->pc < m->byte_count)) {
