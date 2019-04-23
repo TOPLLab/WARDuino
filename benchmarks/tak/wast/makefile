@@ -1,0 +1,3 @@
+all:
+	emcc tak.c -s ONLY_MY_CODE=1 --ignore-dynamic-linking -s WASM=1 -O3 -s NO_FILESYSTEM=1  -o tak.html -s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']"	
+	wasm2wat tak.wasm > tak.wast
