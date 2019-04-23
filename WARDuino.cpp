@@ -250,7 +250,7 @@ bool interpret(Module *m) {
         m->pc += 1;
 
         dbg_dump_stack(m);
-        dbg_trace(" PC:  0x%x OPCODE: <0x%x>\n", cur_pc, opcode);
+        dbg_trace(" PC:  0x%x OPCODE: <%s>\n", cur_pc, opcode_repr(opcode));
 
         switch (opcode) {
             //
