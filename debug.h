@@ -26,6 +26,7 @@ void end();
         if (!(exp)) {                                              \
             printf("Assert Failed (%s:%d): ", __FILE__, __LINE__); \
             printf(__VA_ARGS__);                                   \
+            printf("\n\n\nlooping...\n");                          \
             end();                                                 \
         }                                                          \
     }\
