@@ -207,7 +207,7 @@ bool i_instr_else(Module *m, uint32_t *cur_pc) {
 /**
  * 0x0b end
  */
-bool i_instr_end(Module *m, uint32_t *cur_pc) {
+bool i_instr_end(Module *m, uint32_t *cur_pc, bool* prog_done) {
     Block *block = pop_block(m);
     if (block == NULL) {
         return false;  // an exception (set by pop_block)
@@ -224,16 +224,18 @@ bool i_instr_end(Module *m, uint32_t *cur_pc) {
         }
         if (m->csp == -1) {
             // Return to top-level
-            return true;
+            *prog_done = true;
+            return true;  // continue execution but brake dispatch loop
         } else {
             // Keep going at return address
         }
     } else if (block->block_type == 0x01) {  // init_expr
-        return true;
+        *prog_done = true;
+        return true;  // continue execution but brake dispatch loop
     } else {  // Block
               // End of block/loop/if, keep going
     }
-    return true;
+    return true; // continue execution
 }
 
 /**
