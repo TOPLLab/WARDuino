@@ -989,6 +989,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
         }
     }
 
+    this->modules.push_back(m);
+
     return m;
 }
 
