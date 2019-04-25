@@ -629,6 +629,16 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 break;
             }
             case 8:
+                /**
+                 * If the module has a start node defined, the function it
+                 * refers should be called by the loader after the instance is
+                 * initialized, including its Memory and Table though Data and
+                 * Element sections, and before the exported functions are
+                 * callable. The start function must not take any arguments or
+                 * return anything The function is identified by function index,
+                 * can be an import, and can also be exported There can only be
+                 * at most one start node per module
+                 */
                 dbg_warn("Parsing Start(8) section (length: 0x%x)\n", slen);
                 m->start_function = read_LEB(bytes, &pos, 32);
                 break;
