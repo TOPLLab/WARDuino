@@ -97,7 +97,37 @@ PrimitiveEntry primitives[ALL_PRIMITIVES];
 //------------------------------------------------------
 Type nullType;
 
-def_prim(blink, nullType) 
+// 
+uint32_t param_arr_len0[0] = {};
+uint32_t param_I32_arr_len1[1] = {I32};
+uint32_t param_I32_arr_len2[2] = {I32,I32};
+
+Type oneToNoneU32 = {
+  form: FUNC
+  , param_count: 1
+  , params: param_I32_arr_len1
+  , result_count: 0
+  , results: {}
+  , mask: 0x8001 /* 0x800 = no return ; 1 = I32*/
+};
+Type twoToNoneU32 = {
+  form: FUNC
+  , param_count: 2
+  , params: param_I32_arr_len2
+  , result_count: 0
+  , results: {}
+  , mask: 0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
+};
+Type oneToOneU32 = {
+  form: FUNC
+  , param_count: 1
+  , params: param_I32_arr_len1
+  , result_count: 1
+  , results: param_I32_arr_len1
+  , mask: 0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+};
+
+def_prim(blink, oneToNoneU32) 
 {
   size_t cnt = arg0.uint32;
   for (size_t i = 1; i < cnt; i++)
@@ -111,7 +141,7 @@ def_prim(blink, nullType)
 // Primitive Flash
 //------------------------------------------------------
 
-def_prim(flash, nullType)
+def_prim(flash, oneToNoneU32)
 {
   size_t cnt = arg0.uint32;
   for (size_t i = cnt; i > 0; i--)
@@ -125,9 +155,8 @@ def_prim(flash, nullType)
 //------------------------------------------------------
 // Arduino Specific Functions
 //------------------------------------------------------
-
 #ifdef ARDUINO
-def_prim(chip_pin_mode,nullType) {   
+def_prim(chip_pin_mode,twoToNoneU32) {   
   printf("chip_pin_mode \n");
 
   uint8_t pin  = arg1.uint32;
@@ -139,7 +168,7 @@ def_prim(chip_pin_mode,nullType) {
 
 }
 
-def_prim(chip_digital_write, nullType) {
+def_prim(chip_digital_write, twoToNoneU32) {
   printf("chip_digital_write \n");
   uint8_t pin = arg1.uint32;
   uint8_t val = arg0.uint32;
@@ -147,13 +176,13 @@ def_prim(chip_digital_write, nullType) {
   pop_args(2);
 }
 
-def_prim(chip_delay, nullType){ 
+def_prim(chip_delay, oneToNoneU32){ 
   printf("chip_delay \n");
   delay(arg0.uint32);
   pop_args(1);
 }
 
-def_prim(chip_digital_read, nullType) {
+def_prim(chip_digital_read, oneToOneU32) {
   uint8_t pin = arg0.uint32;
   pop_args(1);
   //pushInt32(digitalRead(pin));
@@ -161,17 +190,17 @@ def_prim(chip_digital_read, nullType) {
 
 #else
 
-def_prim(chip_pin_mode,nullType) {   
+def_prim(chip_pin_mode,twoToNoneU32) {   
   dbg_trace("EMU: chip_pin_mode(%u,%u) \n",arg1.uint32,arg0.uint32);
   pop_args(2);
 }
 
-def_prim(chip_digital_write, nullType) {
+def_prim(chip_digital_write, twoToNoneU32) {
   dbg_trace("EMU: chip_digital_write(%u,%u) \n",arg1.uint32,arg0.uint32);
   pop_args(2);
 }
 
-def_prim(chip_delay, nullType){ 
+def_prim(chip_delay, oneToNoneU32){ 
   using namespace std::this_thread; // sleep_for, sleep_until
   using namespace std::chrono; // nanoseconds, system_clock, seconds
   dbg_trace("EMU: chip_delay(%u) \n",arg0.uint32);
