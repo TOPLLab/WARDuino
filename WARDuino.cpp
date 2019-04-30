@@ -830,3 +830,8 @@ int WARDuino::run_module(uint8_t *bytes, int size) {
     Module *m = load_module(bytes, size, opts);
     return m->function_count;
 }
+
+// XXX: WORK INPROGRESS
+void WARDuino::replace_function(Module *old, uint32_t fidx, Block* newFunctionBlock) {
+    memcpy(old->functions+fidx, newFunctionBlock, 1 * sizeof(Block));
+}
