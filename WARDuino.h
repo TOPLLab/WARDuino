@@ -12,4 +12,5 @@ class WARDuino
          Module* load_module(uint8_t *bytes, uint32_t byte_count, Options options);
          bool invoke(Module *m, uint32_t fidx);
          uint32_t get_export_fidx(Module *m, const char *name);
+         void replace_function(Module *old, uint32_t fidx, Block* newFunctionBlock);
 };
