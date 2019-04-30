@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "WARDuino.cpp.h"
+#include "WARDuino.h"
 #include "instructions.h"
 #include "primitives.h"
 
@@ -820,6 +820,7 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
     dbg_dump_stack(m);
     return result;
 }
+
 
 int WARDuino::run_module(uint8_t *bytes, int size) {
     Options opts;
