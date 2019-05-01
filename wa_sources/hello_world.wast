@@ -32,8 +32,13 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
  (type $5 (func (param i32)             (result)))
 
  (; Define one function ;)
- (export "blink_arduino" (func $blink_arduino))
- (start $blink_arduino)
+ (export "main" (func $blink_arduino))
+ (; The wait function ;)
+ (func $wait (type $4)
+    (;  Delay time   ;)
+    (i32.const 1000) 
+    (call $delay)
+ )
  (; The blink function ;)
  (func $blink_arduino (type $4) 
    (;  LED    ;)
@@ -50,9 +55,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
     (i32.const 0)
     (call $digital_write)
 
-    (;  Delay time   ;)
-    (i32.const 100) 
-    (call $delay)
+    (call $wait)
 
     (;  LED    ;)
     (i32.const 16)
