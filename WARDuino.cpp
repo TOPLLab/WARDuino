@@ -1,3 +1,4 @@
+#include "WARDuino.h"
 #include <inttypes.h>
 #include <limits.h>
 #include <math.h>
@@ -5,7 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "WARDuino.h"
 #include "instructions.h"
 #include "primitives.h"
 
@@ -14,6 +14,9 @@ extern "C" {
 #include "mem.h"
 #include "util.h"
 }
+
+
+#define UNDEF (uint32_t)(-1)
 
 char exception[512];
 
@@ -232,7 +235,6 @@ void find_blocks(Module *m) {
 }
 // End Control Instructions
 
-
 void run_init_expr(Module *m, uint8_t type, uint32_t *pc) {
     // Run the init_expr
     Block block;
@@ -287,7 +289,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     m->byte_count = byte_count;
     m->block_lookup = (Block **)acalloc(m->byte_count, sizeof(Block *),
                                         "function->block_lookup");
-    m->start_function = -1;
+    m->start_function = UNDEF;
 
     // Check the module
     pos = 0;
@@ -330,7 +332,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 for (uint32_t c = 0; c < m->type_count; c++) {
                     Type *type = &m->types[c];
                     type->form = read_LEB(bytes, &pos, 7);
-                    ASSERT(type->form == FUNC, "%u-th type def was not a function type", c);
+                    ASSERT(type->form == FUNC,
+                           "%u-th type def was not a function type", c);
 
                     // read vector params
                     type->param_count = read_LEB(bytes, &pos, 32);
@@ -776,7 +779,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
 
     find_blocks(m);
 
-    if (m->start_function != (uint32_t)-1) {
+    if (m->start_function != UNDEF) {
         uint32_t fidx = m->start_function;
         bool result;
         dbg_warn("Running start function 0x%x ('%s')\n", fidx,
@@ -821,17 +824,25 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
     return result;
 }
 
-
 int WARDuino::run_module(uint8_t *bytes, int size) {
     Options opts;
     initTypes();
     install_primitives();
 
     Module *m = load_module(bytes, size, opts);
+
+    uint32_t fidx = this->get_export_fidx(m, "main");
+    if(fidx == UNDEF) fidx = this->get_export_fidx(m, "Main");
+    if(fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
+    if(fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
+    ASSERT(fidx != UNDEF, "Main not found");
+    this->invoke(m, fidx);
+
     return m->function_count;
 }
 
 // XXX: WORK INPROGRESS
-void WARDuino::replace_function(Module *old, uint32_t fidx, Block* newFunctionBlock) {
-    memcpy(old->functions+fidx, newFunctionBlock, 1 * sizeof(Block));
+void WARDuino::replace_function(Module *old, uint32_t fidx,
+                                Block *newFunctionBlock) {
+    memcpy(old->functions + fidx, newFunctionBlock, 1 * sizeof(Block));
 }
