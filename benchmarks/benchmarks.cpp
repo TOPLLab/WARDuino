@@ -17,7 +17,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 
 #include <string.h>
 #include <iostream>
-#include "../WARDuino.cpp.h"
+#include "../WARDuino.h"
 
 #define MAIN "_main"
 #define MAX_PATH 100
