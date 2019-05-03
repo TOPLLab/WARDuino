@@ -71,12 +71,14 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
         Options opt;
         Module *m = w->load_module(bytes, bytes_length, opt);
         int fidx = w->get_export_fidx(m, MAIN);
+        float startTime = (float)clock()/CLOCKS_PER_SEC;	
         bool succeed = w->invoke(m, fidx);
+	float endTime   = endTime = (float)clock()/CLOCKS_PER_SEC;
         if(!succeed){
             printf("test %s could not be interpreted\n", path);
             exit(1);
         } else {
-          printf("      ok test %s \n", path);
+		printf("Benchmark\t[%s]\tTime\t%f\n",path,endTime-startTime);
         }
     }
 }
