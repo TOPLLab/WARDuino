@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "WARDuino.cpp.h"
+#include "WARDuino.h"
 #include "instructions.h"
 #include "primitives.h"
 
@@ -330,12 +330,17 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 for (uint32_t c = 0; c < m->type_count; c++) {
                     Type *type = &m->types[c];
                     type->form = read_LEB(bytes, &pos, 7);
+                    ASSERT(type->form == FUNC, "%u-th type def was not a function type", c);
+
+                    // read vector params
                     type->param_count = read_LEB(bytes, &pos, 32);
                     type->params = (uint32_t *)acalloc(
                         type->param_count, sizeof(uint32_t), "type->params");
                     for (uint32_t p = 0; p < type->param_count; p++) {
                         type->params[p] = read_LEB(bytes, &pos, 32);
                     }
+
+                    // read vector results
                     type->result_count = read_LEB(bytes, &pos, 32);
                     type->results = (uint32_t *)acalloc(
                         type->result_count, sizeof(uint32_t), "type->results");
@@ -624,6 +629,16 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 break;
             }
             case 8:
+                /**
+                 * If the module has a start node defined, the function it
+                 * refers should be called by the loader after the instance is
+                 * initialized, including its Memory and Table though Data and
+                 * Element sections, and before the exported functions are
+                 * callable. The start function must not take any arguments or
+                 * return anything The function is identified by function index,
+                 * can be an import, and can also be exported There can only be
+                 * at most one start node per module
+                 */
                 dbg_warn("Parsing Start(8) section (length: 0x%x)\n", slen);
                 m->start_function = read_LEB(bytes, &pos, 32);
                 break;
@@ -768,6 +783,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                  m->functions[fidx].export_name);
 
         dbg_dump_stack(m);
+        ASSERT(m->functions[fidx].type->result_count == 0,
+               "start function 0x%x must not have arguments!", fidx);
 
         if (fidx < m->import_count) {
             // THUNK thunk_out(m, fidx);     // import/thunk call
@@ -803,6 +820,7 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
     dbg_dump_stack(m);
     return result;
 }
+
 
 int WARDuino::run_module(uint8_t *bytes, int size) {
     Options opts;
