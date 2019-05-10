@@ -195,7 +195,7 @@ void find_blocks(Module *m) {
                     block->type = get_block_type(*(pos + 1));
                     block->start_ptr = pos;
                     blockstack[++top] = block;
-                    m->block_lookup[pos - m->bytes] = block;
+                    m->block_lookup[pos] = block;
                     break;
                 case 0x05:  // else
                     ASSERT(blockstack[top]->block_type == 0x04,
@@ -285,8 +285,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
 
     m->bytes = bytes;
     m->byte_count = byte_count;
-    m->block_lookup = (Block **)acalloc(m->byte_count, sizeof(Block *),
-                                        "function->block_lookup");
+    // run constructor with already allocated memory
+    new (&m->block_lookup) std::map<uint8_t *, Block *>;
     m->start_function = UNDEF;
 
     // Check the module

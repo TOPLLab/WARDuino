@@ -158,7 +158,9 @@ bool i_instr_block(Module *m, uint8_t *block_ptr) {
         sprintf(exception, "call stack exhausted");
         return false;
     }
-    push_block(m, m->block_lookup[block_ptr - m->bytes], m->sp);
+    auto block_itr = m->block_lookup.find(block_ptr);
+    ASSERT(block_itr != m->block_lookup.end(), "could not find block");
+    push_block(m, block_itr->second, m->sp);
     return true;
 }
 
@@ -171,7 +173,7 @@ bool i_instr_loop(Module *m, uint8_t *block_ptr) {
         sprintf(exception, "call stack exhausted");
         return false;
     }
-    push_block(m, m->block_lookup[block_ptr - m->bytes], m->sp);
+    push_block(m, m->block_lookup[block_ptr], m->sp);
     return true;
 }
 
@@ -180,7 +182,7 @@ bool i_instr_loop(Module *m, uint8_t *block_ptr) {
  */
 bool i_instr_if(Module *m, uint8_t *block_ptr) {
     read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore block type
-    Block *block = m->block_lookup[block_ptr - m->bytes];
+    Block *block = m->block_lookup[block_ptr];
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
         return false;

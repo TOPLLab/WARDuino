@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <map>
 #include <vector>
 // Constants
 #define WA_MAGIC 0x6d736100
@@ -132,7 +133,8 @@ typedef struct Module {
     uint32_t import_count;    // number of leading imports in functions
     uint32_t function_count;  // number of function (including imports)
     Block *functions;         // imported and locally defined functions
-    Block **block_lookup;     // map of module byte position to Blocks
+    std::map<uint8_t *, Block *>
+        block_lookup;         // map of module byte position to Blocks
                               // same length as byte_count
     uint32_t start_function;  // function to run on module load
     Table table;
