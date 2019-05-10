@@ -88,7 +88,7 @@ uint64_t get_type_mask(Type *type) {
     return mask;
 }
 
-void parse_table_type(Module *m, uint32_t *pos) {
+void parse_table_type(Module *m, uint8_t* *pos) {
     m->table.elem_type = read_LEB(m->bytes, pos, 7);
     ASSERT(m->table.elem_type == ANYFUNC, "Table elem_type 0x%x unsupported",
            m->table.elem_type);
@@ -107,7 +107,7 @@ void parse_table_type(Module *m, uint32_t *pos) {
     debug("  table size: %d\n", tsize);
 }
 
-void parse_memory_type(Module *m, uint32_t *pos) {
+void parse_memory_type(Module *m, uint8_t* *pos) {
     uint32_t flags = read_LEB(m->bytes, pos, 32);
     uint32_t pages = read_LEB(m->bytes, pos, 32);  // Initial size
     m->memory.initial = pages;
@@ -121,8 +121,8 @@ void parse_memory_type(Module *m, uint32_t *pos) {
     }
 }
 
-void skip_immediates(uint8_t *bytes, uint32_t *pos) {
-    uint32_t count, opcode = bytes[*pos];
+void skip_immediates(uint8_t *bytes, uint8_t* *pos) {
+    uint32_t count, opcode = **pos;
     *pos = *pos + 1;
     switch (opcode) {
         // varuint1
@@ -184,46 +184,46 @@ void find_blocks(Module *m) {
     dbg_info("  find_blocks: function_count: %d\n", m->function_count);
     for (uint32_t f = m->import_count; f < m->function_count; f++) {
         function = &m->functions[f];
-        debug("    fidx: 0x%x, start: 0x%x, end: 0x%x\n", f,
-              function->start_addr, function->end_addr);
-        uint32_t pos = function->start_addr;
-        while (pos <= function->end_addr) {
-            opcode = m->bytes[pos];
+        debug("    fidx: 0x%x, start: 0x%p, end: 0x%p\n", f,
+              function->start_ptr, function->end_ptr);
+        uint8_t *pos = function->start_ptr;
+        while (pos <= function->end_ptr) {
+            opcode = *pos;
             switch (opcode) {
                 case 0x02:  // block
                 case 0x03:  // loop
                 case 0x04:  // if
                     block = (Block *)acalloc(1, sizeof(Block), "Block");
                     block->block_type = opcode;
-                    block->type = get_block_type(m->bytes[pos + 1]);
-                    block->start_addr = pos;
+                    block->type = get_block_type(*(pos + 1));
+                    block->start_ptr = pos;
                     blockstack[++top] = block;
-                    m->block_lookup[pos] = block;
+                    m->block_lookup[pos - m->bytes] = block;
                     break;
                 case 0x05:  // else
                     ASSERT(blockstack[top]->block_type == 0x04,
                            "else not matched with if")
-                    blockstack[top]->else_addr = pos + 1;
+                    blockstack[top]->else_ptr = pos + 1;
                     break;
                 case 0x0b:  // end
-                    if (pos == function->end_addr) {
+                    if (pos == function->end_ptr) {
                         break;
                     }
                     ASSERT(top >= 0, "blockstack underflow");
                     block = blockstack[top--];
-                    block->end_addr = pos;
+                    block->end_ptr = pos;
                     if (block->block_type == 0x03) {
                         // loop: label after start
-                        block->br_addr = block->start_addr + 2;
+                        block->br_ptr = block->start_ptr + 2;
                     } else {
                         // block, if: label at end
-                        block->br_addr = pos;
+                        block->br_ptr = pos;
                     }
                     debug(
-                        "      block start: 0x%x, end: 0x%x,"
-                        " br_addr: 0x%x, else_addr: 0x%x\n",
-                        block->start_addr, block->end_addr, block->br_addr,
-                        block->else_addr);
+                        "      block start: 0x%p, end: 0x%p,"
+                        " br_addr: 0x%p, else_addr: 0x%p\n",
+                        block->start_ptr, block->end_ptr, block->br_ptr,
+                        block->else_ptr);
                     break;
             }
             skip_immediates(m->bytes, &pos);
@@ -235,19 +235,19 @@ void find_blocks(Module *m) {
 }
 // End Control Instructions
 
-void run_init_expr(Module *m, uint8_t type, uint32_t *pc) {
+void run_init_expr(Module *m, uint8_t type, uint8_t* *pc) {
     // Run the init_expr
     Block block;
     block.block_type = 0x01;
     block.type = get_block_type(type);
-    block.start_addr = *pc;
+    block.start_ptr = *pc;
 
-    m->pc = *pc;
+    m->pc_ptr = *pc;
     push_block(m, &block, m->sp);
     // WARNING: running code here to get initial value!
-    dbg_info("  running init_expr at 0x%x: %s\n", m->pc, block_repr(&block));
+    dbg_info("  running init_expr at 0x%p: %s\n", m->pc_ptr, block_repr(&block));
     interpret(m);
-    *pc = m->pc;
+    *pc = m->pc_ptr;
 
     ASSERT(m->stack[m->sp].value_type == type,
            "init_expr type mismatch 0x%x != 0x%x", m->stack[m->sp].value_type,
@@ -275,7 +275,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                               Options options) {
     debug("Loading module of size %d \n", byte_count);
     uint8_t vt;
-    uint32_t pos = 0, word;
+    uint32_t word;
     Module *m;
     // Allocate the module
     m = (Module *)acalloc(1, sizeof(Module), "Module");
@@ -292,22 +292,23 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     m->start_function = UNDEF;
 
     // Check the module
-    pos = 0;
+    uint8_t* pos = bytes;
     word = read_uint32(bytes, &pos);
     debug("Magic number is 0x%x\n", word);
     ASSERT(word == WA_MAGIC, "Wrong module magic 0x%x\n", word);
     word = read_uint32(bytes, &pos);
     ASSERT(word == WA_VERSION, "Wrong module version 0x%x\n", word);
     // Read the sections
-    while (pos < byte_count) {
+    uint8_t* bytes_end = bytes + byte_count;
+    while (pos < bytes_end) {
         uint32_t id = read_LEB(bytes, &pos, 7);
         uint32_t slen = read_LEB(bytes, &pos, 32);
-        int start_pos = pos;
-        debug("Reading section %d at 0x%x, length %d\n", id, pos, slen);
+        uint8_t* start_pos = pos;
+        debug("Reading section %d at 0x%p, length %d\n", id, pos, slen);
         switch (id) {
             case 0: {
                 dbg_warn("Parsing Custom(0) section (length: 0x%x)\n", slen);
-                uint32_t end_pos = pos + slen;
+                uint8_t* end_pos = pos + slen;
                 char *name = read_string(bytes, &pos, NULL);
                 dbg_warn("  Section name '%s'\n", name);
                 if (strncmp(name, "dylink", 7) == 0) {
@@ -364,7 +365,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     char *import_module = read_string(bytes, &pos, &module_len);
                     char *import_field = read_string(bytes, &pos, &field_len);
 
-                    uint32_t external_kind = bytes[pos++];
+                    uint8_t external_kind = *(pos++); // read byte and move
 
                     debug("  import: %d/%d, external_kind: %d, %s.%s\n", gidx,
                           import_count, external_kind, import_module,
@@ -617,7 +618,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 for (uint32_t e = 0; e < export_count; e++) {
                     char *name = read_string(bytes, &pos, NULL);
 
-                    uint32_t kind = bytes[pos++];
+                    uint32_t kind = *(pos++); // read and move pos
                     uint32_t index = read_LEB(bytes, &pos, 32);
                     if (kind != 0x00) {
                         dbg_warn(
@@ -717,7 +718,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                         "  setting 0x%x bytes of memory at 0x%p + offset "
                         "0x%x\n",
                         size, m->memory.bytes, offset);
-                    memcpy(m->memory.bytes + offset, bytes + pos, size);
+                    memcpy(m->memory.bytes + offset, pos, size);
                     pos += size;
                 }
 
@@ -729,9 +730,10 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 for (uint32_t b = 0; b < body_count; b++) {
                     Block *function = &m->functions[m->import_count + b];
                     uint32_t body_size = read_LEB(bytes, &pos, 32);
-                    uint32_t payload_start = pos;
+                    uint8_t* payload_start = pos;
+                    uint8_t* save_pos;
                     uint32_t local_count = read_LEB(bytes, &pos, 32);
-                    uint32_t save_pos, tidx, lidx, lecount;
+                    uint32_t tidx, lidx, lecount;
 
                     // Local variable handling
 
@@ -762,12 +764,12 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                         }
                     }
 
-                    function->start_addr = pos;
-                    function->end_addr = payload_start + body_size - 1;
-                    function->br_addr = function->end_addr;
-                    ASSERT(bytes[function->end_addr] == 0x0b,
+                    function->start_ptr = pos;
+                    function->end_ptr = payload_start + body_size - 1;
+                    function->br_ptr = function->end_ptr;
+                    ASSERT(*(function->end_ptr) == 0x0b,
                            "Code section did not end with 0x0b\n");
-                    pos = function->end_addr + 1;
+                    pos = function->end_ptr + 1;
                 }
                 break;
             }
