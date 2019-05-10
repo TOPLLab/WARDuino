@@ -28,11 +28,10 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
  */
 #include "primitives.h"
 
-extern "C" {
-  #include "debug.h"
-  #include "util.h"
-  #include "debug.h"
-}
+#include "debug.h"
+#include "util.h"
+#include "debug.h"
+
 
 #ifdef ARDUINO
 #include "Arduino.h"

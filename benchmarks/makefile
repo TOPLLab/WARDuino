@@ -23,12 +23,10 @@ OUTPUTDIR = ./bin/
 MKDIR     = mkdir -p $(OUTPUTDIR)
 TARGET    = warduino_benchmark
 
-COBJECTS= \
-	../mem.o\
-	../util.o \
-	../debug.o 
-
 CXXSOURCES = \
+	../mem.cpp \
+	../util.cpp \
+	../debug.cpp \
 	../WARDuino.cpp \
 	../primitives.cpp \
 	../instructions.cpp \

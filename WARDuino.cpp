@@ -9,11 +9,10 @@
 #include "instructions.h"
 #include "primitives.h"
 
-extern "C" {
 #include "debug.h"
 #include "mem.h"
 #include "util.h"
-}
+
 
 
 #define UNDEF (uint32_t)(-1)
