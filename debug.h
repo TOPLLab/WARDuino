@@ -1,6 +1,6 @@
 
 #pragma once
-#include "WARDuinoDefs.h"
+#include "WARDuino.h"
 #include <stdio.h>
 #ifndef DEBUG
 #define DEBUG 0

@@ -4,11 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern "C" {
 #include "debug.h"
 #include "mem.h"
 #include "util.h"
-}
 
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
