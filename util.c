@@ -4,15 +4,15 @@
 #include <string.h>
 
 // Little endian base
-uint64_t read_LEB_(uint8_t *bytes, uint32_t *pos, uint32_t maxbits, bool sign) {
+uint64_t read_LEB_(uint8_t* *pos, uint32_t maxbits, bool sign) {
   uint64_t result = 0;
   uint32_t shift = 0;
   uint32_t bcnt = 0;
-  uint32_t startpos = *pos;
+  uint8_t* startpos = *pos;
   uint64_t byte;
 
   while (true) {
-    byte = bytes[*pos];
+    byte = (uint64_t) **pos;
     *pos += 1;
     result |= ((byte & 0x7f) << shift);
     shift += 7;
@@ -21,7 +21,7 @@ uint64_t read_LEB_(uint8_t *bytes, uint32_t *pos, uint32_t maxbits, bool sign) {
     }
     bcnt += 1;
     if (bcnt > (maxbits + 7 - 1) / 7) {
-      FATAL("Unsigned LEB at byte %d overflow", startpos);
+      FATAL("Unsigned LEB at byte %p overflow", startpos);
     }
   }
   if (sign && (shift < maxbits) && (byte & 0x40)) {
@@ -31,25 +31,25 @@ uint64_t read_LEB_(uint8_t *bytes, uint32_t *pos, uint32_t maxbits, bool sign) {
   return result;
 }
 
-uint64_t read_LEB(uint8_t *bytes, uint32_t *pos, uint32_t maxbits) {
-  return read_LEB_(bytes, pos, maxbits, false);
+uint64_t read_LEB(uint8_t *bytes, uint8_t **pos, uint32_t maxbits) {
+  return read_LEB_(pos, maxbits, false);
 }
 
-uint64_t read_LEB_signed(uint8_t *bytes, uint32_t *pos, uint32_t maxbits) {
-  return read_LEB_(bytes, pos, maxbits, true);
+uint64_t read_LEB_signed(uint8_t *bytes, uint8_t **pos, uint32_t maxbits) {
+  return read_LEB_(pos, maxbits, true);
 }
 
-uint32_t read_uint32(uint8_t *bytes, uint32_t *pos) {
+uint32_t read_uint32(uint8_t *bytes, uint8_t **pos) {
   *pos += 4;
-  return ((uint32_t *)(bytes + *pos - 4))[0];
+  return ((uint32_t *)(*pos - 4))[0];
 }
 
 // Reads a string from the bytes array at pos that starts with a LEB length
 // if result_len is not NULL, then it will be set to the string length
-char *read_string(uint8_t *bytes, uint32_t *pos, uint32_t *result_len) {
+char *read_string(uint8_t *bytes, uint8_t* *pos, uint32_t *result_len) {
   uint32_t str_len = read_LEB(bytes, pos, 32);
   char *str = (char *)malloc(str_len + 1);
-  memcpy(str, bytes + *pos, str_len);
+  memcpy(str, *pos, str_len);
   str[str_len] = '\0';
   *pos += str_len;
   if (result_len) {

@@ -56,10 +56,10 @@ typedef struct Block {
     Type      *type;          // params/results type
     uint32_t   local_count;   // function only
     uint32_t  *locals;        // function only
-    uint32_t   start_addr;
-    uint32_t   end_addr;
-    uint32_t   else_addr;     // if block only
-    uint32_t   br_addr;       // blocks only
+    uint8_t   *start_ptr;
+    uint8_t   *end_ptr;
+    uint8_t   *else_ptr;     // if block only
+    uint8_t   *br_ptr;       // blocks only
     char      *export_name;   // function only (exported)
     char      *import_module; // function only (imported)
     char      *import_field;  // function only (imported)
@@ -84,7 +84,7 @@ typedef struct Frame {
     // Saved state
     int         sp;
     int         fp;
-    uint32_t    ra;
+    uint8_t    *ra_ptr;
 } Frame;
 
 ///
@@ -137,7 +137,7 @@ typedef struct Module {
     uint32_t    global_count;   // number of globals
     StackValue *globals;        // globals
     // Runtime state
-    uint32_t    pc;                // program counter
+    uint8_t    *pc_ptr;            // program counter
     int         sp;                // operand stack pointer
     int         fp;                // current frame pointer into stack
     StackValue  stack[STACK_SIZE]; // main operand stack
