@@ -13,8 +13,6 @@
 #include "mem.h"
 #include "util.h"
 
-
-
 #define UNDEF (uint32_t)(-1)
 
 char exception[512];
@@ -87,7 +85,7 @@ uint64_t get_type_mask(Type *type) {
     return mask;
 }
 
-void parse_table_type(Module *m, uint8_t* *pos) {
+void parse_table_type(Module *m, uint8_t **pos) {
     m->table.elem_type = read_LEB(m->bytes, pos, 7);
     ASSERT(m->table.elem_type == ANYFUNC, "Table elem_type 0x%x unsupported",
            m->table.elem_type);
@@ -106,7 +104,7 @@ void parse_table_type(Module *m, uint8_t* *pos) {
     debug("  table size: %d\n", tsize);
 }
 
-void parse_memory_type(Module *m, uint8_t* *pos) {
+void parse_memory_type(Module *m, uint8_t **pos) {
     uint32_t flags = read_LEB(m->bytes, pos, 32);
     uint32_t pages = read_LEB(m->bytes, pos, 32);  // Initial size
     m->memory.initial = pages;
@@ -120,7 +118,7 @@ void parse_memory_type(Module *m, uint8_t* *pos) {
     }
 }
 
-void skip_immediates(uint8_t *bytes, uint8_t* *pos) {
+void skip_immediates(uint8_t *bytes, uint8_t **pos) {
     uint32_t count, opcode = **pos;
     *pos = *pos + 1;
     switch (opcode) {
@@ -234,7 +232,7 @@ void find_blocks(Module *m) {
 }
 // End Control Instructions
 
-void run_init_expr(Module *m, uint8_t type, uint8_t* *pc) {
+void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     // Run the init_expr
     Block block;
     block.block_type = 0x01;
@@ -244,7 +242,8 @@ void run_init_expr(Module *m, uint8_t type, uint8_t* *pc) {
     m->pc_ptr = *pc;
     push_block(m, &block, m->sp);
     // WARNING: running code here to get initial value!
-    dbg_info("  running init_expr at 0x%p: %s\n", m->pc_ptr, block_repr(&block));
+    dbg_info("  running init_expr at 0x%p: %s\n", m->pc_ptr,
+             block_repr(&block));
     interpret(m);
     *pc = m->pc_ptr;
 
@@ -291,23 +290,23 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     m->start_function = UNDEF;
 
     // Check the module
-    uint8_t* pos = bytes;
+    uint8_t *pos = bytes;
     word = read_uint32(bytes, &pos);
     debug("Magic number is 0x%x\n", word);
     ASSERT(word == WA_MAGIC, "Wrong module magic 0x%x\n", word);
     word = read_uint32(bytes, &pos);
     ASSERT(word == WA_VERSION, "Wrong module version 0x%x\n", word);
     // Read the sections
-    uint8_t* bytes_end = bytes + byte_count;
+    uint8_t *bytes_end = bytes + byte_count;
     while (pos < bytes_end) {
         uint32_t id = read_LEB(bytes, &pos, 7);
         uint32_t slen = read_LEB(bytes, &pos, 32);
-        uint8_t* start_pos = pos;
+        uint8_t *start_pos = pos;
         debug("Reading section %d at 0x%p, length %d\n", id, pos, slen);
         switch (id) {
             case 0: {
                 dbg_warn("Parsing Custom(0) section (length: 0x%x)\n", slen);
-                uint8_t* end_pos = pos + slen;
+                uint8_t *end_pos = pos + slen;
                 char *name = read_string(bytes, &pos, NULL);
                 dbg_warn("  Section name '%s'\n", name);
                 if (strncmp(name, "dylink", 7) == 0) {
@@ -364,7 +363,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     char *import_module = read_string(bytes, &pos, &module_len);
                     char *import_field = read_string(bytes, &pos, &field_len);
 
-                    uint8_t external_kind = *(pos++); // read byte and move
+                    uint8_t external_kind = *(pos++);  // read byte and move
 
                     debug("  import: %d/%d, external_kind: %d, %s.%s\n", gidx,
                           import_count, external_kind, import_module,
@@ -617,7 +616,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 for (uint32_t e = 0; e < export_count; e++) {
                     char *name = read_string(bytes, &pos, NULL);
 
-                    uint32_t kind = *(pos++); // read and move pos
+                    uint32_t kind = *(pos++);  // read and move pos
                     uint32_t index = read_LEB(bytes, &pos, 32);
                     if (kind != 0x00) {
                         dbg_warn(
@@ -729,8 +728,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 for (uint32_t b = 0; b < body_count; b++) {
                     Block *function = &m->functions[m->import_count + b];
                     uint32_t body_size = read_LEB(bytes, &pos, 32);
-                    uint8_t* payload_start = pos;
-                    uint8_t* save_pos;
+                    uint8_t *payload_start = pos;
+                    uint8_t *save_pos;
                     uint32_t local_count = read_LEB(bytes, &pos, 32);
                     uint32_t tidx, lidx, lecount;
 
@@ -833,9 +832,9 @@ int WARDuino::run_module(uint8_t *bytes, int size) {
     Module *m = load_module(bytes, size, opts);
 
     uint32_t fidx = this->get_export_fidx(m, "main");
-    if(fidx == UNDEF) fidx = this->get_export_fidx(m, "Main");
-    if(fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
-    if(fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "Main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
     ASSERT(fidx != UNDEF, "Main not found");
     this->invoke(m, fidx);
 

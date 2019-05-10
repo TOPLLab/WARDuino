@@ -152,7 +152,7 @@ Formal specification:
 /**
  * 0x02
  */
-bool i_instr_block(Module *m , uint8_t* block_ptr ) {
+bool i_instr_block(Module *m, uint8_t *block_ptr) {
     read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore block type
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
@@ -165,7 +165,7 @@ bool i_instr_block(Module *m , uint8_t* block_ptr ) {
 /**
  * 0x03
  */
-bool i_instr_loop(Module *m , uint8_t* block_ptr ) {
+bool i_instr_loop(Module *m, uint8_t *block_ptr) {
     read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore block type
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
@@ -178,7 +178,7 @@ bool i_instr_loop(Module *m , uint8_t* block_ptr ) {
 /**
  * 0x04 if
  */
-bool i_instr_if(Module *m  , uint8_t* block_ptr ) {
+bool i_instr_if(Module *m, uint8_t *block_ptr) {
     read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore block type
     Block *block = m->block_lookup[block_ptr - m->bytes];
     if (m->csp >= CALLSTACK_SIZE) {
@@ -200,8 +200,8 @@ bool i_instr_if(Module *m  , uint8_t* block_ptr ) {
     }
     // if true, keep going
     if (TRACE) {
-        debug("      - cond: 0x%x jump to 0x%x, block: %s\n", cond, (uint32_t)(m->pc_ptr - m->bytes),
-              block_repr(block));
+        debug("      - cond: 0x%x jump to 0x%x, block: %s\n", cond,
+              (uint32_t)(m->pc_ptr - m->bytes), block_repr(block));
     }
     return true;
 }
@@ -209,7 +209,7 @@ bool i_instr_if(Module *m  , uint8_t* block_ptr ) {
 /**
  * 0x05 else
  */
-bool i_instr_else(Module *m  ) {
+bool i_instr_else(Module *m) {
     Block *block = m->callstack[m->csp].block;
     m->pc_ptr = block->br_ptr;
     if (TRACE) {
@@ -221,7 +221,7 @@ bool i_instr_else(Module *m  ) {
 /**
  * 0x0b end
  */
-bool i_instr_end(Module *m  , bool *prog_done) {
+bool i_instr_end(Module *m, bool *prog_done) {
     Block *block = pop_block(m);
     if (block == NULL) {
         return false;  // an exception (set by pop_block)
@@ -256,7 +256,7 @@ bool i_instr_end(Module *m  , bool *prog_done) {
 /**
  * 0x0c br
  */
-bool i_instr_br(Module *m  ) {
+bool i_instr_br(Module *m) {
     uint32_t depth = read_LEB(m->bytes, &m->pc_ptr, 32);
     m->csp -= depth;
     // set to end for pop_block
@@ -270,7 +270,7 @@ bool i_instr_br(Module *m  ) {
 /**
  * 0x0d br_if
  */
-bool i_instr_br_if(Module *m  ) {
+bool i_instr_br_if(Module *m) {
     uint32_t depth = read_LEB(m->bytes, &m->pc_ptr, 32);
 
     uint32_t cond = m->stack[m->sp--].value.uint32;
@@ -290,7 +290,7 @@ bool i_instr_br_if(Module *m  ) {
 /**
  * 0x0e br_table
  */
-bool i_instr_br_table(Module *m  ) {
+bool i_instr_br_table(Module *m) {
     uint32_t count = read_LEB(m->bytes, &m->pc_ptr, 32);
     if (count > BR_TABLE_SIZE) {
         // TODO: check this prior to runtime
@@ -312,7 +312,8 @@ bool i_instr_br_table(Module *m  ) {
     // set to end for pop_block
     m->pc_ptr = m->callstack[m->csp].block->br_ptr;
     if (TRACE) {
-        debug("      - count: %d, didx: %d, to: 0x%p\n", count, didx, m->pc_ptr);
+        debug("      - count: %d, didx: %d, to: 0x%p\n", count, didx,
+              m->pc_ptr);
     }
     return true;
 }
@@ -320,7 +321,7 @@ bool i_instr_br_table(Module *m  ) {
 /**
  * 0x0f return
  */
-bool i_instr_return(Module *m  ) {
+bool i_instr_return(Module *m) {
     while (m->csp >= 0 && m->callstack[m->csp].block->block_type != 0x00) {
         m->csp--;
     }
@@ -336,7 +337,7 @@ bool i_instr_return(Module *m  ) {
 /**
  * 0x10 call
  */
-bool i_instr_call(Module *m  ) {
+bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB(m->bytes, &m->pc_ptr, 32);
     if (fidx < m->import_count) {
         ((Primitive)m->functions[fidx].func_ptr)(m);
@@ -347,7 +348,8 @@ bool i_instr_call(Module *m  ) {
         }
         setup_call(m, fidx);  // regular function call
         if (TRACE) {
-            debug("      - calling function fidx: %d at: 0x%p\n", fidx, m->pc_ptr);
+            debug("      - calling function fidx: %d at: 0x%p\n", fidx,
+                  m->pc_ptr);
         }
     }
     return true;
@@ -356,7 +358,7 @@ bool i_instr_call(Module *m  ) {
 /**
  * 0x11 call_indirect
  */
-bool i_instr_call_indirect(Module *m  ) {
+bool i_instr_call_indirect(Module *m) {
     uint32_t tidx = read_LEB(m->bytes, &m->pc_ptr, 32);  // TODO: use tidx?
     (void)tidx;
     read_LEB(m->bytes, &m->pc_ptr, 1);  // reserved immediate
@@ -432,7 +434,7 @@ bool i_instr_call_indirect(Module *m  ) {
  * 0x1a drop
  * remvove a value from the stack
  */
-bool i_instr_drop(Module *m  ) {
+bool i_instr_drop(Module *m) {
     m->sp--;
     return true;
 }
@@ -446,7 +448,7 @@ bool i_instr_drop(Module *m  ) {
  * if c : push val_1 to the stack
  * else : push val_2 to the stack
  */
-bool i_instr_select(Module *m  ) {
+bool i_instr_select(Module *m) {
     uint32_t cond = m->stack[m->sp--].value.uint32;
     m->sp--;
     if (!cond) {  // use a instead of b
@@ -459,7 +461,7 @@ bool i_instr_select(Module *m  ) {
  * 0x20 get_local
  * move the i-th local to the top of the stack
  */
-bool i_instr_get_local(Module *m  ) {
+bool i_instr_get_local(Module *m) {
     int32_t arg = read_LEB(m->bytes, &m->pc_ptr, 32);
     if (TRACE) {
         debug("      - arg: 0x%x, got %s\n", arg,
@@ -472,7 +474,7 @@ bool i_instr_get_local(Module *m  ) {
 /**
  * 0x21 set_local
  */
-bool i_instr_set_local(Module *m  ) {
+bool i_instr_set_local(Module *m) {
     int32_t arg = read_LEB(m->bytes, &m->pc_ptr, 32);
     m->stack[m->fp + arg] = m->stack[m->sp--];
     if (TRACE) {
@@ -484,7 +486,7 @@ bool i_instr_set_local(Module *m  ) {
 /**
  * 0x0d tee_local
  */
-bool i_instr_tee_local(Module *m  ) {
+bool i_instr_tee_local(Module *m) {
     int32_t arg = read_LEB(m->bytes, &m->pc_ptr, 32);
     m->stack[m->fp + arg] = m->stack[m->sp];
     if (TRACE) {
@@ -496,7 +498,7 @@ bool i_instr_tee_local(Module *m  ) {
 /**
  * 0x24 set_global
  */
-bool i_instr_set_global(Module *m  ) {
+bool i_instr_set_global(Module *m) {
     uint32_t arg = read_LEB(m->bytes, &m->pc_ptr, 32);
     if (TRACE) {
         debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
@@ -508,7 +510,7 @@ bool i_instr_set_global(Module *m  ) {
 /**
  * 0x3f current_memory
  */
-bool i_instr_current_memory(Module *m  ) {
+bool i_instr_current_memory(Module *m) {
     read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore reserved
     m->stack[++m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = m->memory.pages;
@@ -518,7 +520,7 @@ bool i_instr_current_memory(Module *m  ) {
 /**
  * 0x40 grow_memory
  */
-bool i_instr_grow_memory(Module *m  ) {
+bool i_instr_grow_memory(Module *m) {
     read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore reserved
     uint32_t prev_pages = m->memory.pages;
     uint32_t delta = m->stack[m->sp].value.uint32;
@@ -539,7 +541,7 @@ bool i_instr_grow_memory(Module *m  ) {
 /**
  * 0x0d XXX
  */
-bool i_instr_mem_load(Module *m  , uint8_t opcode) {
+bool i_instr_mem_load(Module *m, uint8_t opcode) {
     bool overflow = false;
     uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB(m->bytes, &m->pc_ptr, 32);
@@ -639,7 +641,7 @@ bool i_instr_mem_load(Module *m  , uint8_t opcode) {
     return true;
 }
 
-bool i_instr_mem_store(Module *m  , uint8_t opcode) {
+bool i_instr_mem_store(Module *m, uint8_t opcode) {
     uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB(m->bytes, &m->pc_ptr, 32);
     uint32_t offset = read_LEB(m->bytes, &m->pc_ptr, 32);
@@ -711,7 +713,7 @@ bool i_instr_mem_store(Module *m  , uint8_t opcode) {
 /**
  * 0x41...0x44 const
  */
-bool i_instr_const(Module *m  , uint8_t opcode) {
+bool i_instr_const(Module *m, uint8_t opcode) {
     StackValue *target = &m->stack[++m->sp];
 
     switch (opcode) {
@@ -740,7 +742,7 @@ bool i_instr_const(Module *m  , uint8_t opcode) {
 /**
  * 0x45 eqz
  */
-bool i_instr_unairy_u32(Module *m  , uint8_t opcode) {
+bool i_instr_unairy_u32(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x45:  // i32.eqz
             m->stack[m->sp].value.uint32 = m->stack[m->sp].value.uint32 == 0;
@@ -756,7 +758,7 @@ bool i_instr_unairy_u32(Module *m  , uint8_t opcode) {
 /**
  * 0x0d binop32
  */
-bool i_instr_math_u32(Module *m  , uint8_t opcode) {
+bool i_instr_math_u32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
     uint32_t c;
@@ -801,7 +803,7 @@ bool i_instr_math_u32(Module *m  , uint8_t opcode) {
 /**
  * 0x0d binop64
  */
-bool i_instr_math_u64(Module *m  , uint8_t opcode) {
+bool i_instr_math_u64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp - 1].value.uint64;
     uint64_t e = m->stack[m->sp].value.uint64;
     uint32_t c;
@@ -846,7 +848,7 @@ bool i_instr_math_u64(Module *m  , uint8_t opcode) {
 /**
  * 0x0d binop64
  */
-bool i_instr_math_f32(Module *m  , uint8_t opcode) {
+bool i_instr_math_f32(Module *m, uint8_t opcode) {
     float g = m->stack[m->sp - 1].value.f32;
     float h = m->stack[m->sp].value.f32;
     uint32_t c;
@@ -879,7 +881,7 @@ bool i_instr_math_f32(Module *m  , uint8_t opcode) {
 /**
  * 0x0d binopf64
  */
-bool i_instr_math_f64(Module *m  , uint8_t opcode) {
+bool i_instr_math_f64(Module *m, uint8_t opcode) {
     double j = m->stack[m->sp - 1].value.f64;
     double k = m->stack[m->sp].value.f64;
 
@@ -910,7 +912,7 @@ bool i_instr_math_f64(Module *m  , uint8_t opcode) {
     return true;
 }
 
-bool i_instr_unairy_i32(Module *m  , uint8_t opcode) {
+bool i_instr_unairy_i32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp].value.uint32;
     uint32_t c;
     switch (opcode) {
@@ -928,7 +930,7 @@ bool i_instr_unairy_i32(Module *m  , uint8_t opcode) {
     return true;
 }
 
-bool i_instr_unairy_i64(Module *m  , uint8_t opcode) {
+bool i_instr_unairy_i64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp].value.uint64;
     uint64_t f;
     switch (opcode) {
@@ -949,7 +951,7 @@ bool i_instr_unairy_i64(Module *m  , uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_unairy_floating(Module *m  , uint8_t opcode) {
+bool i_instr_unairy_floating(Module *m, uint8_t opcode) {
     switch (opcode) {
             // unary f32
         case 0x8b:
@@ -1003,7 +1005,7 @@ bool i_instr_unairy_floating(Module *m  , uint8_t opcode) {
 /**
  * 0x0d binary_i32
  */
-bool i_instr_binary_i32(Module *m  , uint8_t opcode) {
+bool i_instr_binary_i32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
     uint32_t c;
@@ -1081,7 +1083,7 @@ bool i_instr_binary_i32(Module *m  , uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_binary_i64(Module *m  , uint8_t opcode) {
+bool i_instr_binary_i64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp - 1].value.uint64;
     uint64_t e = m->stack[m->sp].value.uint64;
     uint64_t f;
@@ -1153,7 +1155,7 @@ bool i_instr_binary_i64(Module *m  , uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_binary_f32(Module *m  , uint8_t opcode) {
+bool i_instr_binary_f32(Module *m, uint8_t opcode) {
     float g = m->stack[m->sp - 1].value.f32;
     float h = m->stack[m->sp].value.f32;
     float i;
@@ -1188,7 +1190,7 @@ bool i_instr_binary_f32(Module *m  , uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_binary_f64(Module *m  , uint8_t opcode) {
+bool i_instr_binary_f64(Module *m, uint8_t opcode) {
     double j = m->stack[m->sp - 1].value.f64;
     double k = m->stack[m->sp].value.f64;
     double l;
@@ -1224,7 +1226,7 @@ bool i_instr_binary_f64(Module *m  , uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_conversion(Module *m  , uint8_t opcode) {
+bool i_instr_conversion(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0xa7:
             m->stack[m->sp].value.uint64 &= 0x00000000ffffffff;
@@ -1424,96 +1426,96 @@ bool interpret(Module *m) {
             case 0x01:  // nop
                 continue;
             case 0x02:  // block
-                success &= i_instr_block(m, block_ptr );
+                success &= i_instr_block(m, block_ptr);
                 continue;
             case 0x03:  // loop
-                success &= i_instr_loop(m , block_ptr);
+                success &= i_instr_loop(m, block_ptr);
                 continue;
             case 0x04:  // if
-                success &= i_instr_if(m , block_ptr );
+                success &= i_instr_if(m, block_ptr);
                 continue;
             case 0x05:  // else
                 success &= i_instr_else(m);
                 continue;
             case 0x0b:  // end
-                success &= i_instr_end(m , &program_done);
+                success &= i_instr_end(m, &program_done);
                 continue;
             case 0x0c:  // br
-                success &= i_instr_br(m );
+                success &= i_instr_br(m);
                 continue;
             case 0x0d:  // br_if
-                success &= i_instr_br_if(m );
+                success &= i_instr_br_if(m);
                 continue;
             case 0x0e:  // br_table
-                success &= i_instr_br_table(m );
+                success &= i_instr_br_table(m);
                 continue;
             case 0x0f:  // return
-                success &= i_instr_return(m );
+                success &= i_instr_return(m);
                 continue;
 
                 //
                 // Call operators
                 //
             case 0x10: {  // call
-                success &= i_instr_call(m );
+                success &= i_instr_call(m);
                 continue;
             }
             case 0x11:  // call_indirect
-                success &= i_instr_call_indirect(m );
+                success &= i_instr_call_indirect(m);
                 continue;
 
                 //
                 // Parametric operators
                 //
             case 0x1a:  // drop
-                success &= i_instr_drop(m );
+                success &= i_instr_drop(m);
                 continue;
             case 0x1b:  // select
-                success &= i_instr_select(m );
+                success &= i_instr_select(m);
                 continue;
 
                 //
                 // Variable access
                 //
             case 0x20:  // get_local
-                success &= i_instr_get_local(m );
+                success &= i_instr_get_local(m);
                 continue;
             case 0x21:  // set_local
-                success &= i_instr_set_local(m );
+                success &= i_instr_set_local(m);
                 continue;
             case 0x22:  // tee_local
-                success &= i_instr_tee_local(m );
+                success &= i_instr_tee_local(m);
                 continue;
             case 0x23:  // get_global
-                success &= i_instr_tee_local(m );
+                success &= i_instr_tee_local(m);
                 continue;
             case 0x24:  // set_global
-                success &= i_instr_set_global(m );
+                success &= i_instr_set_global(m);
                 continue;
 
                 //
                 // Memory-related operators
                 //
             case 0x3f:  // current_memory
-                success &= i_instr_current_memory(m );
+                success &= i_instr_current_memory(m);
                 continue;
             case 0x40:  // grow_memory
-                success &= i_instr_grow_memory(m );
+                success &= i_instr_grow_memory(m);
                 continue;
                 // Memory load operators
             case 0x28 ... 0x35:
-                success &= i_instr_mem_load(m , opcode);
+                success &= i_instr_mem_load(m, opcode);
                 continue;
                 // Memory store operators
             case 0x36 ... 0x3e:
-                success &= i_instr_mem_store(m , opcode);
+                success &= i_instr_mem_store(m, opcode);
                 continue;
 
                 //
                 // Constants
                 //
             case 0x41 ... 0x44:  // i32.const
-                success &= i_instr_const(m , opcode);
+                success &= i_instr_const(m, opcode);
                 continue;
 
                 //
@@ -1523,21 +1525,21 @@ bool interpret(Module *m) {
                 // unary
             case 0x45:  // i32.eqz
             case 0x50:  // i64.eqz
-                success &= i_instr_unairy_u32(m , opcode);
+                success &= i_instr_unairy_u32(m, opcode);
                 continue;
 
                 // i32 binary
             case 0x46 ... 0x4f:
-                success &= i_instr_math_u32(m , opcode);
+                success &= i_instr_math_u32(m, opcode);
                 continue;
             case 0x51 ... 0x5a:
-                success &= i_instr_math_u64(m , opcode);
+                success &= i_instr_math_u64(m, opcode);
                 continue;
             case 0x5b ... 0x60:
-                success &= i_instr_math_f32(m , opcode);
+                success &= i_instr_math_f32(m, opcode);
                 continue;
             case 0x61 ... 0x66:
-                success &= i_instr_math_f64(m , opcode);
+                success &= i_instr_math_f64(m, opcode);
                 continue;
 
                 //
@@ -1546,42 +1548,42 @@ bool interpret(Module *m) {
 
                 // unary i32
             case 0x67 ... 0x69:
-                success &= i_instr_unairy_i32(m , opcode);
+                success &= i_instr_unairy_i32(m, opcode);
                 continue;
 
                 // unary i64
             case 0x79 ... 0x7b:
-                success &= i_instr_unairy_i64(m , opcode);
+                success &= i_instr_unairy_i64(m, opcode);
                 continue;
 
             case 0x8b ... 0x91:  // unary f32
             case 0x99 ... 0x9f:  // unary f64
-                success &= i_instr_unairy_floating(m , opcode);
+                success &= i_instr_unairy_floating(m, opcode);
                 continue;
 
                 // i32 binary
             case 0x6a ... 0x78:
-                success &= i_instr_binary_i32(m , opcode);
+                success &= i_instr_binary_i32(m, opcode);
                 continue;
 
                 // i64 binary
             case 0x7c ... 0x8a:
-                success &= i_instr_binary_i64(m , opcode);
+                success &= i_instr_binary_i64(m, opcode);
                 continue;
 
                 // f32 binary
             case 0x92 ... 0x98:
-                success &= i_instr_binary_f32(m , opcode);
+                success &= i_instr_binary_f32(m, opcode);
                 continue;
 
                 // f64 binary
             case 0xa0 ... 0xa6:
-                success &= i_instr_binary_f64(m , opcode);
+                success &= i_instr_binary_f64(m, opcode);
                 continue;
 
                 // conversion operations
             case 0xa7 ... 0xbb:
-                success &= i_instr_conversion(m , opcode);
+                success &= i_instr_conversion(m, opcode);
                 continue;
             default:
                 sprintf(exception, "unrecognized opcode 0x%x", opcode);
@@ -1595,5 +1597,3 @@ bool interpret(Module *m) {
     ASSERT(program_done && success, "While loop broken unexpectedly!");
     return success;
 }
-
-
