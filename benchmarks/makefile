@@ -23,12 +23,10 @@ OUTPUTDIR = ./bin/
 MKDIR     = mkdir -p $(OUTPUTDIR)
 TARGET    = warduino_benchmark
 
-COBJECTS= \
-	../mem.o\
-	../util.o \
-	../debug.o 
-
 CXXSOURCES = \
+	../mem.cpp \
+	../util.cpp \
+	../debug.cpp \
 	../WARDuino.cpp \
 	../primitives.cpp \
 	../instructions.cpp \
@@ -36,23 +34,22 @@ CXXSOURCES = \
 
 all: warduino
 
+./tak/wast/tak.wasm: ./tak/wast/tak.c
+	$(MAKE) -C tak/wast all
+
 ../%.o : ../%.c
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) -c $<   -o $@
 
-../wa_sources/%.c: ../wa_sources/%.wast
-	$(MAKE) -C ../wa_sources
 
-warduino: $(COBJECTS)  $(CXXSOURCES) ../wa_sources/*.c
+warduino: $(COBJECTS)  $(CXXSOURCES) ./tak/wast/tak.wasm
 	$(MKDIR)
-
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) $(COBJECTS) $(CXXSOURCES) -o $(OUTPUTDIR)$(TARGET)
-
 
 run: 
 	$(OUTPUTDIR)$(TARGET)
 
 .PHONY: clean
 clean:
-	$(MAKE) -C ../wa_sources clean
+	$(MAKE) -C tak/wast clean
 	$(RM) -rf $(OUTPUTDIR)
 	$(RM) $(COBJECTS)
