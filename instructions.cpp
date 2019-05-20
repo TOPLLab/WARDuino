@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <queue>
 
 extern "C" {
 // TODO: Stat files, alternative needed for arduino
@@ -14,14 +15,11 @@ extern "C" {
 #include "mem.h"
 #include "util.h"
 
-void readChange(Module *m, struct stat *filestat) {
-    // todo free
-    uint8_t *bytes = (uint8_t *)malloc(filestat->st_size * sizeof(uint8_t));
-    FILE *fp = fopen("/tmp/change", "rb");
-    fread(bytes, filestat->st_size, 1, fp);
-    fclose(fp);
+bool readChange(Module *m, uint8_t *bytes) {
+    if (*bytes != 0x10) return false;
 
-    uint8_t *pos = bytes;
+    // SKIP the first byte (0x10), type of change 
+    uint8_t *pos = bytes + 1;
 
     uint32_t b = read_LEB(bytes, &pos, 32);  // read id
 
@@ -65,6 +63,7 @@ void readChange(Module *m, struct stat *filestat) {
     function->br_ptr = function->end_ptr;
     ASSERT(*function->end_ptr == 0x0b, "Code section did not end with 0x0b\n");
     pos = function->end_ptr + 1;
+    return true;
 }
 
 // Size of memory load.
@@ -1467,31 +1466,66 @@ bool interpret(Module *m) {
 
     // set to true when finished
     bool program_done = false;
+    RunningState program_state = run;
     struct stat statbuff;
-    bool change = false;
+    std::queue<uint8_t *> q;
 
     uint8_t *module_end = m->bytes + m->byte_count;
     while (!program_done && success) {
+        if (program_state == step) {
+            program_state = pause;
+        }
+        if (stat("/tmp/change", &statbuff) == 0 && statbuff.st_size > 0) {
+            printf("CHANGE REQUESTED!");
+            uint8_t *data =
+                (uint8_t *)malloc(statbuff.st_size * sizeof(uint8_t));
+            FILE *fp = fopen("/tmp/change", "rb");
+            fread(data, statbuff.st_size, 1, fp);
+            fclose(fp);
+            int ret = remove("/tmp/change");
+            ASSERT(ret == 0, "remove failed");
+
+            switch (*data) {
+                case 0x01:
+                    printf("GO!\n");
+                    program_state = run;
+                    free(data);
+                    break;
+                case 0x02:
+                    printf("STOP!\n");
+                    free(data);
+                    exit(0);
+                    break;
+                case 0x03:
+                    printf("PAUSE!\n");
+                    program_state = pause;
+                    free(data);
+                    break;
+                case 0x04:
+                    printf("STEP!\n");
+                    program_state = step;
+                    free(data);
+                    break;
+                default:
+                    // handle later
+                    q.push(data);
+                    break;
+            }
+        }
+
+        if (program_state == pause) {
+            continue;
+        }
+
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
         m->pc_ptr += 1;
 
-
         dbg_dump_stack(m);
-        dbg_trace(" PC: %p OPCODE: <%s> in %s\n", 
-            block_ptr, 
-            opcode_repr(opcode),
-            m->pc_ptr > m->bytes  && m->pc_ptr < module_end 
-                ? "module"
-                : "patch"
-            );
-
-        if (!change) {
-            if (stat("/tmp/change", &statbuff) == 0) {
-                printf("CHANGE REQUESTED!");
-                change = true;
-            }
-        }
+        dbg_trace(" PC: %p OPCODE: <%s> in %s\n", block_ptr,
+                  opcode_repr(opcode),
+                  m->pc_ptr > m->bytes && m->pc_ptr < module_end ? "module"
+                                                                 : "patch");
 
         switch (opcode) {
                 //
@@ -1534,12 +1568,10 @@ bool interpret(Module *m) {
                 // Call operators
                 //
             case 0x10: {  // call
-                if (change) {
-                    printf("WARNING, call while change\n");
-                    readChange(m, &statbuff);
-                    int ret = remove("/tmp/change");
-                    ASSERT(ret == 0, "remove failed");
-                    change = false;
+                while (!q.empty()) {
+                    if (readChange(m, q.front())) {
+                        q.pop();
+                    }
                 }
                 success &= i_instr_call(m);
                 continue;
