@@ -80,8 +80,8 @@ void dbg_dump_stack(Module *m) {
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
         (void)f;
-        printf("%s(sp:%d/fp:%d/ra:0x%x)", block_repr(f->block), f->sp, f->fp,
-               f->ra);
+         printf("%s(sp:%d/fp:%d/ra:0x%p)", block_repr(f->block), f->sp, f->fp,
+               f->ra_ptr);
         if (i != m->csp) {
             printf(" ");
         }

@@ -14,21 +14,16 @@ OUTPUTDIR = ./bin/
 MKDIR     = mkdir -p $(OUTPUTDIR)
 TARGET    = warduino
 
-COBJECTS= \
-	../mem.o\
-	../util.o \
-	../debug.o 
-
 CXXSOURCES = \
+	../mem.cpp \
+	../util.cpp \
+	../debug.cpp \
 	../WARDuino.cpp \
 	../primitives.cpp \
 	../instructions.cpp \
 	main.cpp
 
 all: warduino
-
-../%.o : ../%.c
-	$(CC) $(CFLAGS) $(DEBUGFLAGS) -c $<   -o $@
 
 ../wa_sources/%.c: ../wa_sources/%.wast
 	$(MAKE) -C ../wa_sources

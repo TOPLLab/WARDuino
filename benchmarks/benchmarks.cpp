@@ -18,6 +18,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #include <string.h>
 #include <iostream>
 #include "../WARDuino.h"
+#include "timer.h"
 
 #define MAIN "_main"
 #define MAX_PATH 100
@@ -66,19 +67,22 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
     for (size_t i = 0; i < num_benchmarks; i++) {
         string name = benchmarks[i];
         set_path(path, name);
-        printf("[%lu/%lu]Starting test %s \n", i, num_benchmarks,path);
+        printf("[%lu/%lu: GO ] %s \n", i, num_benchmarks,path);
         bytes_length = read_file_to_buf(bytes, path);
         Options opt;
+        Timer tmr;
+        tmr.reset();
         Module *m = w->load_module(bytes, bytes_length, opt);
+        double load = tmr.elapsed();
         int fidx = w->get_export_fidx(m, MAIN);
         float startTime = (float)clock()/CLOCKS_PER_SEC;	
         bool succeed = w->invoke(m, fidx);
-	float endTime   = endTime = (float)clock()/CLOCKS_PER_SEC;
+        double total = tmr.elapsed();
         if(!succeed){
-            printf("test %s could not be interpreted\n", path);
+            printf("[%lu/%lu:FAIL] %s could not be interpreted\n", path);
             exit(1);
         } else {
-		printf("Benchmark\t[%s]\tTime\t%f\n",path,endTime-startTime);
+          printf("[%lu/%lu: OK ] %s (output: %x, load module: %fs, total: %fs)\n", i+1, num_benchmarks, path, m->stack->value.uint32, load, total);
         }
     }
 }

@@ -17,7 +17,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #ifndef WARDUINO_PRIM_H
 #define WARDUINO_PRIM_H
 
-#include "WARDuinoDefs.h"
+#include "WARDuino.h"
 
 bool resolve_primitive(char *symbol, Primitive *val);
 void install_primitives();

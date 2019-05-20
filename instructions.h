@@ -1,4 +1,4 @@
-#include "WARDuinoDefs.h"
+#include "WARDuino.h"
 #include <stdbool.h>
 
 void push_block(Module *m, Block *block, int sp);
