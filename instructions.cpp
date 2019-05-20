@@ -4,9 +4,68 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern "C" {
+// TODO: Stat files, alternative needed for arduino
+#include <sys/stat.h>
+// END
+}
+
 #include "debug.h"
 #include "mem.h"
 #include "util.h"
+
+void readChange(Module *m, struct stat *filestat) {
+    // todo free
+    uint8_t *bytes = (uint8_t *)malloc(filestat->st_size * sizeof(uint8_t));
+    FILE *fp = fopen("/tmp/change", "rb");
+    fread(bytes, filestat->st_size, 1, fp);
+    fclose(fp);
+
+    uint8_t *pos = bytes;
+
+    uint32_t b = read_LEB(bytes, &pos, 32);  // read id
+
+    Block *function = &m->functions[m->import_count + b];
+    uint32_t body_size = read_LEB(bytes, &pos, 32);
+    uint8_t *payload_start = pos;
+    uint32_t local_count = read_LEB(bytes, &pos, 32);
+    uint8_t *save_pos;
+    uint32_t tidx, lidx, lecount;
+
+    // Local variable handling
+
+    // Get number of locals for alloc
+    save_pos = pos;
+    function->local_count = 0;
+    for (uint32_t l = 0; l < local_count; l++) {
+        lecount = read_LEB(bytes, &pos, 32);
+        function->local_count += lecount;
+        tidx = read_LEB(bytes, &pos, 7);
+        (void)tidx;  // TODO: use tidx?
+    }
+
+    if (function->local_count > 0) {
+        function->locals = (uint32_t *)acalloc(
+            function->local_count, sizeof(uint32_t), "function->locals");
+    }
+
+    // Restore position and read the locals
+    pos = save_pos;
+    lidx = 0;
+    for (uint32_t l = 0; l < local_count; l++) {
+        lecount = read_LEB(bytes, &pos, 32);
+        uint8_t vt = read_LEB(bytes, &pos, 7);
+        for (uint32_t l = 0; l < lecount; l++) {
+            function->locals[lidx++] = vt;
+        }
+    }
+
+    function->start_ptr = pos;
+    function->end_ptr = payload_start + body_size - 1;
+    function->br_ptr = function->end_ptr;
+    ASSERT(*function->end_ptr == 0x0b, "Code section did not end with 0x0b\n");
+    pos = function->end_ptr + 1;
+}
 
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
@@ -1408,15 +1467,31 @@ bool interpret(Module *m) {
 
     // set to true when finished
     bool program_done = false;
+    struct stat statbuff;
+    bool change = false;
 
     uint8_t *module_end = m->bytes + m->byte_count;
-    while (!program_done && success && (m->pc_ptr < module_end)) {
+    while (!program_done && success) {
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
         m->pc_ptr += 1;
 
+
         dbg_dump_stack(m);
-        dbg_trace(" PC: %p OPCODE: <%s>\n", block_ptr, opcode_repr(opcode));
+        dbg_trace(" PC: %p OPCODE: <%s> in %s\n", 
+            block_ptr, 
+            opcode_repr(opcode),
+            m->pc_ptr > m->bytes  && m->pc_ptr < module_end 
+                ? "module"
+                : "patch"
+            );
+
+        if (!change) {
+            if (stat("/tmp/change", &statbuff) == 0) {
+                printf("CHANGE REQUESTED!");
+                change = true;
+            }
+        }
 
         switch (opcode) {
                 //
@@ -1459,6 +1534,13 @@ bool interpret(Module *m) {
                 // Call operators
                 //
             case 0x10: {  // call
+                if (change) {
+                    printf("WARNING, call while change\n");
+                    readChange(m, &statbuff);
+                    int ret = remove("/tmp/change");
+                    ASSERT(ret == 0, "remove failed");
+                    change = false;
+                }
                 success &= i_instr_call(m);
                 continue;
             }
