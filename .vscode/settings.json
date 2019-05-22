@@ -49,6 +49,15 @@
         "tuple": "cpp",
         "typeinfo": "cpp",
         "utility": "cpp",
-        "algorithm": "cpp"
-    }
+        "algorithm": "cpp",
+        "iostream": "cpp",
+    },
+    "arduino.enableUSBDetection": true,
+    "arduino.disableTestingOpen": false,
+    "arduino.skipHeaderProvider": false,
+    "arduino.additionalUrls": [
+        "http://arduino.esp8266.com/stable/package_esp8266com_index.json"
+    ],
+    "arduino.defaultBaudRate": 115200,
+    "C_Cpp.clang_format_style": "{ BasedOnStyle: Google, IndentWidth: 4}",
 }

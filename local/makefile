@@ -17,6 +17,7 @@ TARGET    = warduino
 CXXSOURCES = \
 	../mem.cpp \
 	../util.cpp \
+	../util_arduino.cpp \
 	../debug.cpp \
 	../WARDuino.cpp \
 	../primitives.cpp \
