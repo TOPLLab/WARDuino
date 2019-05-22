@@ -63,6 +63,9 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
     (i32.const 1)
     (call $digital_write)
 
+
+    (call $wait)
+
     (br 0))
 
   (call $blink_a (i32.const 5)))

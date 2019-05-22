@@ -102,7 +102,7 @@ Type oneToNoneU32 = {
     param_count : 1,
     params : param_I32_arr_len1,
     result_count : 0,
-    results : {},
+    results : NULL,
     mask : 0x8001 /* 0x800 = no return ; 1 = I32*/
 };
 Type twoToNoneU32 = {
@@ -110,7 +110,7 @@ Type twoToNoneU32 = {
     param_count : 2,
     params : param_I32_arr_len2,
     result_count : 0,
-    results : {},
+    results : NULL,
     mask : 0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
 };
 Type oneToOneU32 = {
@@ -147,7 +147,7 @@ def_prim(flash, oneToNoneU32) {
 //------------------------------------------------------
 #ifdef ARDUINO
 def_prim(chip_pin_mode, twoToNoneU32) {
-    printf("chip_pin_mode \n");
+    printf("chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
 
     uint8_t pin = arg1.uint32;
     uint8_t mode = arg0.uint32;
@@ -158,7 +158,7 @@ def_prim(chip_pin_mode, twoToNoneU32) {
 }
 
 def_prim(chip_digital_write, twoToNoneU32) {
-    printf("chip_digital_write \n");
+    printf("chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
     uint8_t pin = arg1.uint32;
     uint8_t val = arg0.uint32;
     digitalWrite(pin, val);
@@ -166,7 +166,7 @@ def_prim(chip_digital_write, twoToNoneU32) {
 }
 
 def_prim(chip_delay, oneToNoneU32) {
-    printf("chip_delay \n");
+    printf("chip_delay(%u) \n",arg0.uint32);
     delay(arg0.uint32);
     pop_args(1);
 }

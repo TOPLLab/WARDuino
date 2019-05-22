@@ -5,20 +5,15 @@
 #include <string.h>
 #include <queue>
 
-extern "C" {
-// TODO: Stat files, alternative needed for arduino
-#include <sys/stat.h>
-// END
-}
-
 #include "debug.h"
 #include "mem.h"
 #include "util.h"
+#include "util_arduino.h"
 
 bool readChange(Module *m, uint8_t *bytes) {
     if (*bytes != 0x10) return false;
 
-    // SKIP the first byte (0x10), type of change 
+    // SKIP the first byte (0x10), type of change
     uint8_t *pos = bytes + 1;
 
     uint32_t b = read_LEB(bytes, &pos, 32);  // read id
@@ -1466,53 +1461,56 @@ bool interpret(Module *m) {
 
     // set to true when finished
     bool program_done = false;
+    uint8_t *interuptData = NULL;
+
     RunningState program_state = run;
-    struct stat statbuff;
     std::queue<uint8_t *> q;
 
-    uint8_t *module_end = m->bytes + m->byte_count;
     while (!program_done && success) {
         if (program_state == step) {
             program_state = pause;
         }
-        if (stat("/tmp/change", &statbuff) == 0 && statbuff.st_size > 0) {
+        interuptData = m->warduino->getInterupt();
+        if (NULL != interuptData) {
             printf("CHANGE REQUESTED!");
-            uint8_t *data =
-                (uint8_t *)malloc(statbuff.st_size * sizeof(uint8_t));
-            FILE *fp = fopen("/tmp/change", "rb");
-            fread(data, statbuff.st_size, 1, fp);
-            fclose(fp);
-            int ret = remove("/tmp/change");
-            ASSERT(ret == 0, "remove failed");
 
-            switch (*data) {
+            switch (*interuptData) {
                 case 0x01:
                     printf("GO!\n");
                     program_state = run;
-                    free(data);
+                    free(interuptData);
                     break;
                 case 0x02:
                     printf("STOP!\n");
-                    free(data);
+                    free(interuptData);
                     exit(0);
                     break;
                 case 0x03:
-                    printf("PAUSE!\n");
                     program_state = pause;
-                    free(data);
+                    printf("PAUSE!\n");
+                    free(interuptData);
                     break;
                 case 0x04:
                     printf("STEP!\n");
                     program_state = step;
-                    free(data);
+                    free(interuptData);
+                    break;
+                case 0x10:
+                    printf("CHANGE!\n");
+                    readChange(m, interuptData);
+                    //  do not free(interuptData);
+                    // we need it to run that code
+                    // TODO: free double replacements
                     break;
                 default:
                     // handle later
-                    q.push(data);
+                    q.push(interuptData);
                     break;
             }
+            interuptData = NULL;
         }
 
+        wdt_reset();
         if (program_state == pause) {
             continue;
         }
@@ -1524,8 +1522,9 @@ bool interpret(Module *m) {
         dbg_dump_stack(m);
         dbg_trace(" PC: %p OPCODE: <%s> in %s\n", block_ptr,
                   opcode_repr(opcode),
-                  m->pc_ptr > m->bytes && m->pc_ptr < module_end ? "module"
-                                                                 : "patch");
+                  m->pc_ptr > m->bytes && m->pc_ptr < m->bytes + m->byte_count
+                      ? "module"
+                      : "patch");
 
         switch (opcode) {
                 //
@@ -1568,11 +1567,6 @@ bool interpret(Module *m) {
                 // Call operators
                 //
             case 0x10: {  // call
-                while (!q.empty()) {
-                    if (readChange(m, q.front())) {
-                        q.pop();
-                    }
-                }
                 success &= i_instr_call(m);
                 continue;
             }

@@ -6,7 +6,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <map>
+#include <queue>  // std::queue
+#include <array>
 #include <vector>
+
 // Constants
 #define WA_MAGIC 0x6d736100
 #define WA_VERSION 0x01
@@ -120,7 +123,10 @@ typedef struct Options {
     bool dlsym_trim_underscore;
 } Options;
 
+class WARDuino; // predeclare for it work in the module decl
+
 typedef struct Module {
+    WARDuino* warduino;
     char *path;       // file path of the wasm module
     Options options;  // Config options
 
@@ -161,11 +167,27 @@ typedef struct PrimitiveEntry {
 class WARDuino {
    private:
     std::vector<Module *> modules = {};
+    std::deque<uint8_t *> parsedInterups = {};
+
+    // factualy volatile
+
+    volatile bool interuptWrite;
+    volatile bool interuptRead;
+    bool interuptEven = true;
+    uint8_t interuptLastChar;
+    std::vector<uint8_t> interuptBuffer;
+    long interuptSize;
 
    public:
+    WARDuino();
     int run_module(uint8_t *bytes, int size);
     Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options);
     bool invoke(Module *m, uint32_t fidx);
     uint32_t get_export_fidx(Module *m, const char *name);
+    void handleInterupt(size_t len, uint8_t *buff);
+    
+    // Get interupt or NULL if none
+    uint8_t* getInterupt();
+
 };
 #endif

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include "instructions.h"
 #include "primitives.h"
 
@@ -277,6 +278,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     Module *m;
     // Allocate the module
     m = (Module *)acalloc(1, sizeof(Module), "Module");
+    m->warduino = this;
     m->options = options;
     // Empty stacks
     m->sp = -1;
@@ -812,6 +814,11 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     return m;
 }
 
+WARDuino::WARDuino() {
+    install_primitives();
+    initTypes();
+}
+
 // if entry == NULL,  attempt to invoke 'main' or '_main'
 // Return value of false means exception occured
 bool WARDuino::invoke(Module *m, uint32_t fidx) {
@@ -826,9 +833,6 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
 
 int WARDuino::run_module(uint8_t *bytes, int size) {
     Options opts;
-    initTypes();
-    install_primitives();
-
     Module *m = load_module(bytes, size, opts);
 
     uint32_t fidx = this->get_export_fidx(m, "main");
@@ -839,4 +843,66 @@ int WARDuino::run_module(uint8_t *bytes, int size) {
     this->invoke(m, fidx);
 
     return m->function_count;
+}
+
+// Called when an interupt comes in (not concurently the same function)
+void WARDuino::handleInterupt(size_t len, uint8_t *buff) {
+    printf("\ninterupt: %s\n", buff);
+    // parse numer per 2 chars (HEX) (skip if space or newline or null)
+    for (size_t i = 0; i < len; i++) {
+        size_t l = 1;
+        uint8_t r = -1;
+        // TODO move to util
+        switch (buff[i]) {
+            case '0' ... '9':
+                r = buff[i] - '0';
+                break;
+            case 'A' ... 'F':
+                r = buff[i] - 'A' + 10;
+                break;
+            default:
+                l = 0;
+                break;
+        }
+        if (l == 0) {  // unsuccesfull parse (maybe end?)
+            if (this->interuptEven) {
+                if (!this->interuptBuffer.empty()) {
+                    // done, send to process
+                    uint8_t *data = (uint8_t *)acalloc(
+                        sizeof(uint8_t), this->interuptBuffer.size(),
+                        "interupt buffer");
+                    memcpy(data, this->interuptBuffer.data(),
+                           this->interuptBuffer.size() * sizeof(uint8_t));
+                    this->parsedInterups.push_back(data);
+                    this->interuptBuffer.clear();
+                }
+            } else {
+                // TODO: fix
+                printf("\nINTERUPTBUFFER CLEARED (%lu)!!!!!!!!!!!!!!!v\n",
+                       this->interuptBuffer.size());
+                this->interuptBuffer.clear();
+                this->interuptEven = true;
+                printf(
+                    "\nINTERUPTBUFFER CLEARED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!^\n");
+            }
+        } else {  // good parse
+            if (!this->interuptEven) {
+                this->interuptLastChar = (this->interuptLastChar << 4) + r;
+                this->interuptBuffer.push_back(this->interuptLastChar);
+            } else {
+                this->interuptLastChar = (uint8_t)r;
+            }
+            this->interuptEven = !this->interuptEven;
+        }
+    }
+}
+
+uint8_t *WARDuino::getInterupt() {
+    if (!this->parsedInterups.empty()) {
+        uint8_t *ret = this->parsedInterups.front();
+        this->parsedInterups.pop_front();
+        return ret;
+    } else {
+        return NULL;
+    }
 }

@@ -1,8 +1,24 @@
 #!/bin/sh
+
+
+if test -n "$2"
+then
+    target="$2"
+    write () {
+        (tr -d '\n\t ' ; echo"") | tr '[:lower:]' '[:upper:]' > $target
+    }
+else
+    write () {
+        # xxd -r -p > /tmp/change
+        (tr -d '\n\t ' ; echo"") | tr '[:lower:]' '[:upper:]' > /tmp/change
+        kill -USR1 $(pgrep warduino)
+    }
+fi
+
 #echo "AAcAQeQAEAIL" | base64 -d > /tmp/change
 case "$1" in
 "REPLACE")
-cat <<HERE | sed 's/#.*//'| xxd -r -p > /tmp/change
+cat <<HERE | sed 's/#.*//'| write
 10                # Replace function (hard)
 00                # Function id (excluding imported functions)
 070041e40010020b  # New body
@@ -10,20 +26,30 @@ HERE
 ;;
 
 "RUN") # continue execution
-echo "01" | xxd -r -p > /tmp/change
+echo "01" | write
 ;;
 "STOP") # stop execution
-echo "02" | xxd -r -p > /tmp/change
+echo "02" | write
 ;;
 "PAUSE") # pause execution
-echo "03" | xxd -r -p > /tmp/change
+echo "03" | write
 ;;
 "STEP") # execute one step
-echo "04" | xxd -r -p > /tmp/change
+echo "04" | write
 ;;
 
 *)
-echo "give an action:"
-cat "$0" | grep '^".*")'
+cat <<HELP
+Usage: $0 TASK [DEVICE]
+
+TASK:
+$(cat "$0" | grep '^".*")' | sed 's/^/  /')
+
+DEVICE:
+$(find /dev/serial \( -type l -o -type c \) -exec realpath '{}' \; | sort | uniq | sed 's/^/  /')
+
+
+HELP
+
 ;;
 esac
