@@ -846,13 +846,14 @@ int WARDuino::run_module(uint8_t *bytes, int size) {
 }
 
 // Called when an interupt comes in (not concurently the same function)
+// parse numer per 2 chars (HEX) (stop if non-hex)
 void WARDuino::handleInterupt(size_t len, uint8_t *buff) {
     printf("\ninterupt: %s\n", buff);
-    // parse numer per 2 chars (HEX) (skip if space or newline or null)
     for (size_t i = 0; i < len; i++) {
-        size_t l = 1;
-        uint8_t r = -1;
-        // TODO move to util
+        bool succes = true;
+        uint8_t r = -1 /*undef*/;
+
+        // TODO replace by real binary
         switch (buff[i]) {
             case '0' ... '9':
                 r = buff[i] - '0';
@@ -861,10 +862,10 @@ void WARDuino::handleInterupt(size_t len, uint8_t *buff) {
                 r = buff[i] - 'A' + 10;
                 break;
             default:
-                l = 0;
-                break;
+                succes = false;
         }
-        if (l == 0) {  // unsuccesfull parse (maybe end?)
+
+        if (!succes) {
             if (this->interuptEven) {
                 if (!this->interuptBuffer.empty()) {
                     // done, send to process
@@ -877,13 +878,9 @@ void WARDuino::handleInterupt(size_t len, uint8_t *buff) {
                     this->interuptBuffer.clear();
                 }
             } else {
-                // TODO: fix
-                printf("\nINTERUPTBUFFER CLEARED (%lu)!!!!!!!!!!!!!!!v\n",
-                       this->interuptBuffer.size());
                 this->interuptBuffer.clear();
                 this->interuptEven = true;
-                printf(
-                    "\nINTERUPTBUFFER CLEARED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!^\n");
+                dbg_warn("Dropped interupt: could not process");
             }
         } else {  // good parse
             if (!this->interuptEven) {

@@ -6,6 +6,6 @@ void wdt_reset() { wdt_reset(); }
 
 #else
 
-#define wdt_reset(...) ;
+void wdt_reset() { }
 
 #endif
