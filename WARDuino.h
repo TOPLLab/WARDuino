@@ -165,6 +165,9 @@ typedef struct PrimitiveEntry {
     Type t;
 } PrimitiveEntry;
 
+
+enum RunningState { run, pause, step };
+
 class WARDuino {
    private:
     std::vector<Module *> modules = {};
@@ -175,12 +178,12 @@ class WARDuino {
 
     // factualy volatile
 
-    volatile bool interuptWrite;
-    volatile bool interuptRead;
-    bool interuptEven = true;
-    uint8_t interuptLastChar;
-    std::vector<uint8_t> interuptBuffer;
-    long interuptSize;
+    volatile bool interruptWrite;
+    volatile bool interruptRead;
+    bool interruptEven = true;
+    uint8_t interruptLastChar;
+    std::vector<uint8_t> interruptBuffer;
+    long interruptSize;
 
    public:
     WARDuino();
@@ -188,15 +191,15 @@ class WARDuino {
     Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options);
     bool invoke(Module *m, uint32_t fidx);
     uint32_t get_export_fidx(Module *m, const char *name);
-    void handleInterupt(size_t len, uint8_t *buff);
+    void handleInterrupt(size_t len, uint8_t *buff);
 
     // breakpoints
     void addBreakpoint(uint8_t* loc);
     void delBreakpoint(uint8_t* loc);
     bool isBreakpoint(uint8_t* loc);
     
-    // Get interupt or NULL if none
-    uint8_t* getInterupt();
+    // Get interrupt or NULL if none
+    uint8_t* getInterrupt();
 
 };
 #endif

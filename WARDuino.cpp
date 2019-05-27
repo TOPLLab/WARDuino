@@ -845,10 +845,10 @@ int WARDuino::run_module(uint8_t *bytes, int size) {
     return m->function_count;
 }
 
-// Called when an interupt comes in (not concurently the same function)
+// Called when an interrupt comes in (not concurently the same function)
 // parse numer per 2 chars (HEX) (stop if non-hex)
-void WARDuino::handleInterupt(size_t len, uint8_t *buff) {
-    printf("\ninterupt: %s\n", buff);
+void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
+    printf("\ninterrupt: %s\n", buff);
     for (size_t i = 0; i < len; i++) {
         bool succes = true;
         uint8_t r = -1 /*undef*/;
@@ -866,35 +866,35 @@ void WARDuino::handleInterupt(size_t len, uint8_t *buff) {
         }
 
         if (!succes) {
-            if (this->interuptEven) {
-                if (!this->interuptBuffer.empty()) {
+            if (this->interruptEven) {
+                if (!this->interruptBuffer.empty()) {
                     // done, send to process
                     uint8_t *data = (uint8_t *)acalloc(
-                        sizeof(uint8_t), this->interuptBuffer.size(),
-                        "interupt buffer");
-                    memcpy(data, this->interuptBuffer.data(),
-                           this->interuptBuffer.size() * sizeof(uint8_t));
+                        sizeof(uint8_t), this->interruptBuffer.size(),
+                        "interrupt buffer");
+                    memcpy(data, this->interruptBuffer.data(),
+                           this->interruptBuffer.size() * sizeof(uint8_t));
                     this->parsedInterups.push_back(data);
-                    this->interuptBuffer.clear();
+                    this->interruptBuffer.clear();
                 }
             } else {
-                this->interuptBuffer.clear();
-                this->interuptEven = true;
-                dbg_warn("Dropped interupt: could not process");
+                this->interruptBuffer.clear();
+                this->interruptEven = true;
+                dbg_warn("Dropped interrupt: could not process");
             }
         } else {  // good parse
-            if (!this->interuptEven) {
-                this->interuptLastChar = (this->interuptLastChar << 4) + r;
-                this->interuptBuffer.push_back(this->interuptLastChar);
+            if (!this->interruptEven) {
+                this->interruptLastChar = (this->interruptLastChar << 4) + r;
+                this->interruptBuffer.push_back(this->interruptLastChar);
             } else {
-                this->interuptLastChar = (uint8_t)r;
+                this->interruptLastChar = (uint8_t)r;
             }
-            this->interuptEven = !this->interuptEven;
+            this->interruptEven = !this->interruptEven;
         }
     }
 }
 
-uint8_t *WARDuino::getInterupt() {
+uint8_t *WARDuino::getInterrupt() {
     if (!this->parsedInterups.empty()) {
         uint8_t *ret = this->parsedInterups.front();
         this->parsedInterups.pop_front();

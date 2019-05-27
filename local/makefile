@@ -18,6 +18,7 @@ CXXSOURCES = \
 	../mem.cpp \
 	../util.cpp \
 	../util_arduino.cpp \
+	../interrupt_operations.cpp \
 	../debug.cpp \
 	../WARDuino.cpp \
 	../primitives.cpp \
