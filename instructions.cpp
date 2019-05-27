@@ -5,6 +5,9 @@
 #include <string.h>
 #include <queue>
 
+#include <iomanip>
+#include <sstream>
+
 #include "debug.h"
 #include "mem.h"
 #include "util.h"
@@ -1495,6 +1498,47 @@ bool interpret(Module *m) {
                     program_state = step;
                     free(interuptData);
                     break;
+                case 0x05: {
+                    printf("DUMP!\n");
+                    std::stringstream dump("");
+                    dump.setf(std::ios_base::showbase);
+
+                    dump << "{";
+                    // current PC
+                    dump << "\"pc\":\"" << (void *)m->pc_ptr << "\",";
+
+                    // Callstack
+                    dump << "\"callstack\":[";
+                    for (int i = 0; i <= m->csp; i++) {
+                        Frame *f = &m->callstack[i];
+                        dump << "{\"type\":" << std::dec
+                             << (unsigned int)f->block->block_type << ',';
+
+                        if (f->block->block_type == 0) {
+                            dump << "\"fidx\":" << '"' << std::hex
+                                 << (unsigned int)f->block->fidx << '"' << ',';
+                        }
+
+                        dump << "\"sp\":" << '"' << (void *)f->sp << "\","
+                             << "\"fp\":" << '"' << (void *)f->fp << "\","
+                             << "\"ra\":";
+                        if (f->ra_ptr == NULL) {
+                            dump << "null";
+                        } else {
+                            dump << '"' << (void *)f->ra_ptr << '"';
+                        }
+                        dump << "}";
+                        if (i < m->csp) dump << ",";
+                        // printf(dump.str().c_str());
+                    }
+                    dump << "]";
+
+                    dump << "}\n";
+                    printf(dump.str().c_str());
+                    program_state = program_state;
+                    free(interuptData);
+                    break;
+                }
                 case 0x10:
                     printf("CHANGE!\n");
                     readChange(m, interuptData);

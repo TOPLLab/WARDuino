@@ -38,6 +38,10 @@ echo "03" | write
 echo "04" | write
 ;;
 
+"DUMP") # execute one step
+echo "05" | write
+;;
+
 *)
 cat <<HELP
 Usage: $0 TASK [DEVICE]
