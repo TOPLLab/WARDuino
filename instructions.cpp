@@ -13,7 +13,16 @@
 #include "util.h"
 #include "util_arduino.h"
 
+
+/**
+ * Read the change in bytes array. 
+ * 
+ * The array should be of the form 
+ * [0x10, index, ... new function body 0x0b]
+ * Where index is the index without imports
+ */
 bool readChange(Module *m, uint8_t *bytes) {
+    // Check if this was a change request
     if (*bytes != 0x10) return false;
 
     // SKIP the first byte (0x10), type of change
@@ -1455,6 +1464,129 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
     return true;
 }
 
+/**
+ * Validate if there are interupts and execute them
+ * 
+ * The various kinds of interups are preceded by an identifier:
+ * 
+ * - `0x01` : Continue running 
+ * - `0x02` : Halt the execution 
+ * - `0x03` : Pause execution
+ * - `0x04` : Execute one operaion and then pause
+ * - `0x05` : Dump information about the program
+ * - `0x06` : Add a breakpoint, the adress is specified as a pointer.
+ *            The pointer should be specified as: 06[length][pointer]
+ *            eg: 06 06 55a5994fa3d6 
+ * - `0x07` : Remove the breakpoint at the adress specified as a pointer if it
+ *            exists (see `0x06`)
+ * - `0x10` : Replace the content body of a function by a new function given
+ *            as payload (immediately following `0x10`), see #readChange
+ */
+void check_interupts(Module *m, RunningState *program_state) {
+    uint8_t *interuptData = NULL;
+    interuptData = m->warduino->getInterupt();
+    if (interuptData) {
+        switch (*interuptData) {
+            case 0x01:
+                printf("GO!\n");
+                *program_state = run;
+                free(interuptData);
+                break;
+            case 0x02:
+                printf("STOP!\n");
+                free(interuptData);
+                exit(0);
+                break;
+            case 0x03:
+                *program_state = pause;
+                printf("PAUSE!\n");
+                free(interuptData);
+                break;
+            case 0x04:
+                printf("STEP!\n");
+                *program_state = step;
+                free(interuptData);
+                break;
+            case 0x05: {
+                free(interuptData);
+                printf("DUMP!\n");
+                std::stringstream dump("");
+                dump.setf(std::ios_base::showbase);
+
+                dump << "{";
+                // current PC
+                dump << "\"pc\":\"" << (void *)m->pc_ptr << "\",";
+
+                // Callstack
+                dump << "\"callstack\":[";
+                for (int i = 0; i <= m->csp; i++) {
+                    Frame *f = &m->callstack[i];
+                    dump << "{\"type\":" << std::dec
+                         << (unsigned int)f->block->block_type << ',';
+
+                    if (f->block->block_type == 0) {
+                        dump << "\"fidx\":" << '"' << std::hex
+                             << (unsigned int)f->block->fidx << '"' << ',';
+                    }
+
+                    dump << "\"sp\":" << '"' << (void *)f->sp << "\","
+                         << "\"fp\":" << '"' << (void *)f->fp << "\","
+                         << "\"ra\":";
+                    if (f->ra_ptr == NULL) {
+                        dump << "null";
+                    } else {
+                        dump << '"' << (void *)f->ra_ptr << '"';
+                    }
+                    dump << "}";
+                    if (i < m->csp) dump << ",";
+                    // printf(dump.str().c_str());
+                }
+                dump << "]";
+
+                dump << "}\n";
+                printf(dump.str().c_str());
+                break;
+            }
+            case 0x06:  // Breakpoint
+            case 0x07:  // Breakpoint remove
+            {
+                // TODO: segfault may happen here!
+                uint8_t len = interuptData[1];
+                uintptr_t bp = 0x0;
+                for (size_t i = 0; i < len; i++) {
+                    bp <<= sizeof(uint8_t) * 8;
+                    bp |= interuptData[i + 2];
+                }
+                uint8_t *bpt = (uint8_t *)bp;
+                printf("BP %p!\n", bpt);
+
+                if (*interuptData == 0x06) {
+                    m->warduino->addBreakpoint(bpt);
+                } else {
+                    m->warduino->delBreakpoint(bpt);
+                }
+
+                free(interuptData);
+
+                break;
+            }
+            case 0x10:
+                printf("CHANGE!\n");
+                readChange(m, interuptData);
+                //  do not free(interuptData);
+                // we need it to run that code
+                // TODO: free double replacements
+                break;
+            default:
+                // handle later
+                printf("COULD not parse interupt data!\n");
+                free(interuptData);
+                break;
+        }
+        interuptData = NULL;
+    }
+}
+
 bool interpret(Module *m) {
     uint8_t *block_ptr;
     uint8_t opcode;
@@ -1462,130 +1594,30 @@ bool interpret(Module *m) {
     // keep track of occuring errors
     bool success = true;
 
-    // set to true when finished
+    // set to true when finishes sucessfully
     bool program_done = false;
-    uint8_t *interuptData = NULL;
 
     RunningState program_state = run;
-    std::queue<uint8_t *> q;
 
     while (!program_done && success) {
         if (program_state == step) {
             program_state = pause;
         }
-        interuptData = m->warduino->getInterupt();
-        if (NULL != interuptData) {
-            printf("CHANGE REQUESTED!");
 
-            switch (*interuptData) {
-                case 0x01:
-                    printf("GO!\n");
-                    program_state = run;
-                    free(interuptData);
-                    break;
-                case 0x02:
-                    printf("STOP!\n");
-                    free(interuptData);
-                    exit(0);
-                    break;
-                case 0x03:
-                    program_state = pause;
-                    printf("PAUSE!\n");
-                    free(interuptData);
-                    break;
-                case 0x04:
-                    printf("STEP!\n");
-                    program_state = step;
-                    free(interuptData);
-                    break;
-                case 0x05: {
-                    printf("DUMP!\n");
-                    std::stringstream dump("");
-                    dump.setf(std::ios_base::showbase);
-
-                    dump << "{";
-                    // current PC
-                    dump << "\"pc\":\"" << (void *)m->pc_ptr << "\",";
-
-                    // Callstack
-                    dump << "\"callstack\":[";
-                    for (int i = 0; i <= m->csp; i++) {
-                        Frame *f = &m->callstack[i];
-                        dump << "{\"type\":" << std::dec
-                             << (unsigned int)f->block->block_type << ',';
-
-                        if (f->block->block_type == 0) {
-                            dump << "\"fidx\":" << '"' << std::hex
-                                 << (unsigned int)f->block->fidx << '"' << ',';
-                        }
-
-                        dump << "\"sp\":" << '"' << (void *)f->sp << "\","
-                             << "\"fp\":" << '"' << (void *)f->fp << "\","
-                             << "\"ra\":";
-                        if (f->ra_ptr == NULL) {
-                            dump << "null";
-                        } else {
-                            dump << '"' << (void *)f->ra_ptr << '"';
-                        }
-                        dump << "}";
-                        if (i < m->csp) dump << ",";
-                        // printf(dump.str().c_str());
-                    }
-                    dump << "]";
-
-                    dump << "}\n";
-                    printf(dump.str().c_str());
-                    program_state = program_state;
-                    free(interuptData);
-                    break;
-                }
-                case 0x06:  // Breakpoint
-                case 0x07:  // Breakpoint remove
-                {
-                    // TODO: segfault may happen here!
-                    uint8_t len = interuptData[1];
-                    uintptr_t bp = 0x0;
-                    for (size_t i = 0; i < len; i++) {
-                        bp <<= sizeof(uint8_t) * 8;
-                        bp |= interuptData[i + 2];
-                    }
-                    uint8_t *bpt = (uint8_t *)bp;
-                    printf("BP %p!\n", bpt);
-
-                    if (*interuptData == 0x06) {
-                        m->warduino->addBreakpoint(bpt);
-                    } else {
-                        m->warduino->delBreakpoint(bpt);
-                    }
-
-                    free(interuptData);
-
-                    break;
-                }
-                case 0x10:
-                    printf("CHANGE!\n");
-                    readChange(m, interuptData);
-                    //  do not free(interuptData);
-                    // we need it to run that code
-                    // TODO: free double replacements
-                    break;
-                default:
-                    // handle later
-                    q.push(interuptData);
-                    break;
-            }
-            interuptData = NULL;
-        }
-
+        check_interupts(m, &program_state);
         wdt_reset();
+
         if (program_state == pause) {
             continue;
-        } else {
-            if (m->warduino->isBreakpoint(m->pc_ptr)) {
-                program_state = pause;
-                printf("AT %p!\n", m->pc_ptr);
-                continue;
-            }
+        }
+
+        // Progam state is not paused
+
+        // Don't check for breakpoints while paused
+        if (m->warduino->isBreakpoint(m->pc_ptr)) {
+            program_state = pause;
+            printf("AT %p!\n", m->pc_ptr);
+            continue;
         }
 
         opcode = *m->pc_ptr;
