@@ -9,6 +9,7 @@
 #include <queue>  // std::queue
 #include <array>
 #include <vector>
+#include <set>
 
 // Constants
 #define WA_MAGIC 0x6d736100
@@ -169,6 +170,9 @@ class WARDuino {
     std::vector<Module *> modules = {};
     std::deque<uint8_t *> parsedInterups = {};
 
+    // vector, we expect few breakpoints
+    std::set<uint8_t *> breakpoints = {};
+
     // factualy volatile
 
     volatile bool interuptWrite;
@@ -185,6 +189,11 @@ class WARDuino {
     bool invoke(Module *m, uint32_t fidx);
     uint32_t get_export_fidx(Module *m, const char *name);
     void handleInterupt(size_t len, uint8_t *buff);
+
+    // breakpoints
+    void addBreakpoint(uint8_t* loc);
+    void delBreakpoint(uint8_t* loc);
+    bool isBreakpoint(uint8_t* loc);
     
     // Get interupt or NULL if none
     uint8_t* getInterupt();
