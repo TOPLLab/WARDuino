@@ -18,7 +18,7 @@ void ICACHE_RAM_ATTR handleInput() {
     while (Serial.available()) {
         size_t buff_len = Serial.readBytes(buff, 100);
         if (buff_len) {
-            wac.handleInterupt(buff_len, buff);
+            wac.handleInterrupt(buff_len, buff);
         }
     }
     handelingInterput = false;
