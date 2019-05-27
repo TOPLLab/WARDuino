@@ -1539,6 +1539,29 @@ bool interpret(Module *m) {
                     free(interuptData);
                     break;
                 }
+                case 0x06:  // Breakpoint
+                case 0x07:  // Breakpoint remove
+                {
+                    // TODO: segfault may happen here!
+                    uint8_t len = interuptData[1];
+                    uintptr_t bp = 0x0;
+                    for (size_t i = 0; i < len; i++) {
+                        bp <<= sizeof(uint8_t) * 8;
+                        bp |= interuptData[i + 2];
+                    }
+                    uint8_t *bpt = (uint8_t *)bp;
+                    printf("BP %p!\n", bpt);
+
+                    if (*interuptData == 0x06) {
+                        m->warduino->addBreakpoint(bpt);
+                    } else {
+                        m->warduino->delBreakpoint(bpt);
+                    }
+
+                    free(interuptData);
+
+                    break;
+                }
                 case 0x10:
                     printf("CHANGE!\n");
                     readChange(m, interuptData);
@@ -1557,6 +1580,12 @@ bool interpret(Module *m) {
         wdt_reset();
         if (program_state == pause) {
             continue;
+        } else {
+            if (m->warduino->isBreakpoint(m->pc_ptr)) {
+                program_state = pause;
+                printf("AT %p!\n", m->pc_ptr);
+                continue;
+            }
         }
 
         opcode = *m->pc_ptr;

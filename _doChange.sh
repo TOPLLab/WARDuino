@@ -42,6 +42,23 @@ echo "04" | write
 echo "05" | write
 ;;
 
+"BP") # Add a breapoint
+cat <<HERE | sed 's/#.*//' | write
+06 # BP 
+06 # LEN ptr
+55a5994fa3d6 # ptr
+HERE
+;;
+
+
+"BPR") # Remove a breapoint
+cat <<HERE | sed 's/#.*//' | write
+07 # BP remove
+06 # LEN ptr
+55a5994fa3d6 # ptr
+HERE
+;;
+
 *)
 cat <<HELP
 Usage: $0 TASK [DEVICE]

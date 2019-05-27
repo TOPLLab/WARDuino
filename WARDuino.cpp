@@ -903,3 +903,11 @@ uint8_t *WARDuino::getInterupt() {
         return NULL;
     }
 }
+
+void WARDuino::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
+
+void WARDuino::delBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
+
+bool WARDuino::isBreakpoint(uint8_t *loc) {
+    return this->breakpoints.find(loc) != this->breakpoints.end();
+}
