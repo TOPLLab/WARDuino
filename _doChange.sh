@@ -76,7 +76,7 @@ $(cat "$0" | grep '^".*")' | column -t -s')' | sed 's/^/  /')
 
 DEVICE:
   The location of the serial device on the system
-$(find /dev/serial \( -type l -o -type c \) -exec realpath '{}' \; 2> /dev/null | sort | uniq | sed 's/^/  /')
+$(find /dev/serial \( -type l -o -type c \) -exec realpath '{}' \; 2> /dev/null | sort | uniq | sed 's/^/  export WARDUINO_DEV=/')
 
 
 HELP
