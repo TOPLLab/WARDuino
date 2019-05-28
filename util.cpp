@@ -39,14 +39,14 @@ uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits) {
   return read_LEB_(pos, maxbits, true);
 }
 
-uint32_t read_uint32(uint8_t *bytes, uint8_t **pos) {
+uint32_t read_uint32(uint8_t **pos) {
   *pos += 4;
   return ((uint32_t *)(*pos - 4))[0];
 }
 
 // Reads a string from the bytes array at pos that starts with a LEB length
 // if result_len is not NULL, then it will be set to the string length
-char *read_string(uint8_t *bytes, uint8_t* *pos, uint32_t *result_len) {
+char *read_string(uint8_t **pos, uint32_t *result_len) {
   uint32_t str_len = read_LEB(pos, 32);
   char *str = (char *)malloc(str_len + 1);
   memcpy(str, *pos, str_len);

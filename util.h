@@ -26,8 +26,8 @@ uint64_t read_LEB(uint8_t **pos, uint32_t maxbits);
 uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits);
 
 
-uint32_t read_uint32(uint8_t *bytes, uint8_t* *pos);
-char *read_string(uint8_t *bytes, uint8_t* *pos, uint32_t *result_len);
+uint32_t read_uint32(uint8_t **pos);
+char *read_string(uint8_t **pos, uint32_t *result_len);
 void sext_8_32(uint32_t *val);
 void sext_16_32(uint32_t *val);
 void sext_8_64(uint64_t *val);
