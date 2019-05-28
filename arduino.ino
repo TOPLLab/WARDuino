@@ -6,13 +6,13 @@
 #include "wa_sources/hello_world.c"
 WARDuino wac;
 
-volatile boolean handelingInterput = false;
+volatile bool handelingInterrupt = false;
 uint8_t buff[100] = {0};
 uint8_t buff_len = 0;
 
 void ICACHE_RAM_ATTR handleInput() {
-    if (handelingInterput) return;
-    handelingInterput = true;
+    if (handelingInterrupt) return;
+    handelingInterrupt = true;
     interrupts();
 
     while (Serial.available()) {
@@ -21,7 +21,7 @@ void ICACHE_RAM_ATTR handleInput() {
             wac.handleInterrupt(buff_len, buff);
         }
     }
-    handelingInterput = false;
+    handelingInterrupt = false;
 }
 
 void setup() {

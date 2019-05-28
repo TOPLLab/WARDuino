@@ -68,7 +68,7 @@ bool readChange(Module *m, uint8_t *bytes) {
 /**
  * Validate if there are interrupts and execute them
  *
- * The various kinds of interups are preceded by an identifier:
+ * The various kinds of interrups are preceded by an identifier:
  *
  * - `0x01` : Continue running
  * - `0x02` : Halt the execution
