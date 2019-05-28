@@ -1,6 +1,6 @@
 #include <iostream>
 #include "../WARDuino.h"
-#include "signal.h"
+#include <csignal>
 
 extern "C" {
 // TODO: Stat files, alternative needed for arduino

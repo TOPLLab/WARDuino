@@ -1,10 +1,10 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include <stdbool.h>
-#include <limits.h>
-#include <stdint.h>
-#include <stdlib.h>
+
+#include <climits>
+#include <cstdint>
+#include <cstdlib>
 
 /**
  * Read a Little endian base value
@@ -14,7 +14,7 @@
  * @param pos      The index in the bytes array to start reading from
  * @param maxbits  The maximal numer of bits to read
  */
-uint64_t read_LEB(uint8_t *bytes, uint8_t* *pos, uint32_t maxbits);
+uint64_t read_LEB(uint8_t **pos, uint32_t maxbits);
 
 /**
  * Read a Little endian base value as signed
@@ -23,7 +23,7 @@ uint64_t read_LEB(uint8_t *bytes, uint8_t* *pos, uint32_t maxbits);
  * @param pos      The index in the bytes array to start reading from
  * @param maxbits  The maximal numer of bits to read
  */
-uint64_t read_LEB_signed(uint8_t *bytes, uint8_t* *pos, uint32_t maxbits);
+uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits);
 
 
 uint32_t read_uint32(uint8_t *bytes, uint8_t* *pos);

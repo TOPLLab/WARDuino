@@ -1,9 +1,7 @@
 #include "mem.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 #include "debug.h"
-#include "util.h"
 
 // Assert calloc
 void *acalloc(size_t nmemb, size_t size, const char *name) {

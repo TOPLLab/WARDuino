@@ -1,11 +1,9 @@
 
 #include "debug.h"
 #include <inttypes.h>
-#include <limits.h>
-#include <stdio.h>
 
 void end() {
-    while (1) {
+    while (true) {
     };
 }
 
