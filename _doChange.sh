@@ -63,6 +63,10 @@ $bp # ptr
 HERE
 ;;
 
+"PICO") # start picocom -b 115200 /dev/ttyUSB0 --imap lfcrlf
+picocom -b 115200 /dev/ttyUSB0 --imap lfcrlf
+;;
+
 *)
 cat <<HELP
 Usage: $0 TASK [DEVICE]
