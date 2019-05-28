@@ -71,7 +71,7 @@ typedef struct Block {
     char *export_name;    // function only (exported)
     char *import_module;  // function only (imported)
     char *import_field;   // function only (imported)
-    void *(*func_ptr)();  // function only (imported)
+    void (*func_ptr)();  // function only (imported)
 } Block;
 
 ///
