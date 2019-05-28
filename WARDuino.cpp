@@ -874,7 +874,7 @@ void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
                         "interrupt buffer");
                     memcpy(data, this->interruptBuffer.data(),
                            this->interruptBuffer.size() * sizeof(uint8_t));
-                    this->parsedInterups.push_back(data);
+                    this->parsedInterrups.push_back(data);
                     this->interruptBuffer.clear();
                 }
             } else {
@@ -895,9 +895,9 @@ void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
 }
 
 uint8_t *WARDuino::getInterrupt() {
-    if (!this->parsedInterups.empty()) {
-        uint8_t *ret = this->parsedInterups.front();
-        this->parsedInterups.pop_front();
+    if (!this->parsedInterrups.empty()) {
+        uint8_t *ret = this->parsedInterrups.front();
+        this->parsedInterrups.pop_front();
         return ret;
     } else {
         return NULL;

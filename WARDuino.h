@@ -171,7 +171,7 @@ enum RunningState { run, pause, step };
 class WARDuino {
    private:
     std::vector<Module *> modules = {};
-    std::deque<uint8_t *> parsedInterups = {};
+    std::deque<uint8_t *> parsedInterrups = {};
 
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};
