@@ -130,8 +130,8 @@ void check_interrupts(Module *m, RunningState *program_state) {
                              << '"' << ',';
                     }
 
-                    dump << "\"sp\":" << '"' << (void *)f->sp << "\","
-                         << "\"fp\":" << '"' << (void *)f->fp << "\","
+                    dump << "\"sp\":" << '"' << (unsigned int)f->sp << "\","
+                         << "\"fp\":" << '"' << (unsigned int)f->fp << "\","
                          << "\"ra\":";
                     if (f->ra_ptr == NULL) {
                         dump << "null";
