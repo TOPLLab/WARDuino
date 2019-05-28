@@ -3,8 +3,45 @@
 #include "mem.h"
 #include "util.h"
 
-#include <iomanip>
-#include <sstream>
+
+void doDump(Module *m) {
+    printf("DUMP!\n");
+    printf("{");
+
+    // current PC
+    printf(R"("pc":"%p",)", (void *) m->pc_ptr);
+
+
+    // Functions
+
+    printf("\"fucntions\":[");
+
+    for (size_t i = m->import_count; i < m->function_count; i++) {
+        printf(R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
+               m->functions[i].fidx,
+               static_cast<void *>(m->functions[i].start_ptr),
+               static_cast<void *>(m->functions[i].end_ptr), (i < m->function_count - 1) ? "," : "],");
+    }
+
+    // Callstack
+
+    printf("\"callstack\":[");
+    for (int i = 0; i <= m->csp; i++) {
+        /*
+         * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
+         * */
+        Frame *f = &m->callstack[i];
+        printf(R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s)",
+               f->block->block_type,
+               f->block->fidx,
+               f->sp,
+               f->fp,
+               static_cast<void *>(f->ra_ptr),
+               (i < m->csp) ? "," : "]}"
+        );
+    }
+
+}
 
 /**
  * Read the change in bytes array.
@@ -38,12 +75,12 @@ bool readChange(Module *m, uint8_t *bytes) {
         lecount = read_LEB(&pos, 32);
         function->local_count += lecount;
         tidx = read_LEB(&pos, 7);
-        (void)tidx;  // TODO: use tidx?
+        (void) tidx;  // TODO: use tidx?
     }
 
     if (function->local_count > 0) {
-        function->locals = (uint32_t *)acalloc(
-            function->local_count, sizeof(uint32_t), "function->locals");
+        function->locals = (uint32_t *) acalloc(
+                function->local_count, sizeof(uint32_t), "function->locals");
     }
 
     // Restore position and read the locals
@@ -108,64 +145,11 @@ void check_interrupts(Module *m, RunningState *program_state) {
                 *program_state = step;
                 free(interruptData);
                 break;
-            case 0x05: {
+            case 0x05:
+                *program_state = pause;
                 free(interruptData);
-                printf("DUMP!\n");
-                std::stringstream dump;
-                dump.setf(std::ios_base::showbase);
-
-                dump << "{";
-                // current PC
-                dump << R"("pc":")" << (void *)m->pc_ptr << "\",";
-
-                // Functions
-
-                dump << "\"functions\":[";
-
-                for (size_t i = m->import_count; i < m->function_count; i++) {
-                    dump << "{"
-                         << "\"fidx\":" << '"' << std::hex
-                         << (unsigned int)m->functions[i].fidx
-                         << R"(","from":)" << '"' << std::hex
-                         << (void *)m->functions[i].start_ptr
-                         << R"(","to":)" << '"' << std::hex
-                         << (void *)m->functions[i].end_ptr << "\"}";
-
-                    if (i < m->function_count - 1) dump << ",";
-                }
-
-                dump << "],";
-
-                // Callstack
-                dump << "\"callstack\":[";
-                for (int i = 0; i <= m->csp; i++) {
-                    Frame *f = &m->callstack[i];
-                    dump << "{\"type\":" << std::dec
-                         << (unsigned int)f->block->block_type << ',';
-
-                    if (f->block->block_type == 0) {
-                        dump << "\"fidx\":" << '"' << std::hex << f->block->fidx
-                             << '"' << ',';
-                    }
-
-                    dump << "\"sp\":" << '"' << (unsigned int)f->sp << "\","
-                         << "\"fp\":" << '"' << (unsigned int)f->fp << "\","
-                         << "\"ra\":";
-                    if (f->ra_ptr == NULL) {
-                        dump << "null";
-                    } else {
-                        dump << '"' << (void *)f->ra_ptr << '"';
-                    }
-                    dump << "}";
-                    if (i < m->csp) dump << ",";
-                    // printf(dump.str().c_str());
-                }
-                dump << "]";
-
-                dump << "}\n";
-                printf(dump.str().c_str());
+                doDump(m);
                 break;
-            }
             case 0x06:  // Breakpoint
             case 0x07:  // Breakpoint remove
             {
@@ -176,7 +160,7 @@ void check_interrupts(Module *m, RunningState *program_state) {
                     bp <<= sizeof(uint8_t) * 8;
                     bp |= interruptData[i + 2];
                 }
-                uint8_t *bpt = (uint8_t *)bp;
+                uint8_t *bpt = (uint8_t *) bp;
                 printf("BP %p!\n", static_cast<void *>(bpt));
 
                 if (*interruptData == 0x06) {
@@ -202,6 +186,5 @@ void check_interrupts(Module *m, RunningState *program_state) {
                 free(interruptData);
                 break;
         }
-        interruptData = NULL;
     }
 }
