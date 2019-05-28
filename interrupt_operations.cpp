@@ -118,6 +118,24 @@ void check_interrupts(Module *m, RunningState *program_state) {
                 // current PC
                 dump << "\"pc\":\"" << (void *)m->pc_ptr << "\",";
 
+                // Functions
+
+                dump << "\"functions\":[";
+
+                for (size_t i = m->import_count; i < m->function_count; i++) {
+                    dump << "{"
+                         << "\"fidx\":" << '"' << std::hex
+                         << (unsigned int)m->functions[i].fidx
+                         << "\",\"from\":" << '"' << std::hex
+                         << (void *)m->functions[i].start_ptr
+                         << "\",\"to\":" << '"' << std::hex
+                         << (void *)m->functions[i].end_ptr << "\"}";
+
+                    if (i < m->function_count - 1) dump << ",";
+                }
+
+                dump << "],";
+
                 // Callstack
                 dump << "\"callstack\":[";
                 for (int i = 0; i <= m->csp; i++) {
