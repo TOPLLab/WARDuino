@@ -113,7 +113,7 @@ void parse_memory_type(Module *m, uint8_t **pos) {
     }
 }
 
-void skip_immediates(uint8_t *bytes, uint8_t **pos) {
+void skip_immediates(uint8_t **pos) {
     uint32_t count, opcode = **pos;
     *pos = *pos + 1;
     switch (opcode) {
@@ -218,7 +218,7 @@ void find_blocks(Module *m) {
                         block->else_ptr);
                     break;
             }
-            skip_immediates(m->bytes, &pos);
+            skip_immediates(&pos);
         }
 
         ASSERT(top == -1, "Function ended in middle of block\n")
@@ -287,10 +287,10 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
 
     // Check the module
     uint8_t *pos = bytes;
-    word = read_uint32(bytes, &pos);
+    word = read_uint32(&pos);
     debug("Magic number is 0x%x\n", word);
     ASSERT(word == WA_MAGIC, "Wrong module magic 0x%x\n", word);
-    word = read_uint32(bytes, &pos);
+    word = read_uint32(&pos);
     ASSERT(word == WA_VERSION, "Wrong module version 0x%x\n", word);
     // Read the sections
     uint8_t *bytes_end = bytes + byte_count;
@@ -303,7 +303,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
             case 0: {
                 dbg_warn("Parsing Custom(0) section (length: 0x%x)\n", slen);
                 uint8_t *end_pos = pos + slen;
-                char *name = read_string(bytes, &pos, NULL);
+                char *name = read_string(&pos, NULL);
                 dbg_warn("  Section name '%s'\n", name);
                 if (strncmp(name, "dylink", 7) == 0) {
                     // https://github.com/WebAssembly/tool-conventions/blob/master/DynamicLinking.md
@@ -356,8 +356,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 uint32_t import_count = read_LEB(&pos, 32);
                 for (uint32_t gidx = 0; gidx < import_count; gidx++) {
                     uint32_t module_len, field_len;
-                    char *import_module = read_string(bytes, &pos, &module_len);
-                    char *import_field = read_string(bytes, &pos, &field_len);
+                    char *import_module = read_string(&pos, &module_len);
+                    char *import_field = read_string(&pos, &field_len);
 
                     uint8_t external_kind = *(pos++);  // read byte and move
 
@@ -610,7 +610,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 dbg_warn("Parsing Export(7) section (length: 0x%x)\n", slen);
                 uint32_t export_count = read_LEB(&pos, 32);
                 for (uint32_t e = 0; e < export_count; e++) {
-                    char *name = read_string(bytes, &pos, NULL);
+                    char *name = read_string(&pos, NULL);
 
                     uint32_t kind = *(pos++);  // read and move pos
                     uint32_t index = read_LEB(&pos, 32);
