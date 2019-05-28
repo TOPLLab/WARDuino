@@ -12,7 +12,7 @@ WARDuino wac;
 
 volatile bool handelingInterput = false;
 
-void signalHandler(int signum) {
+void signalHandler(int /* signum */) {
     if (handelingInterput) return;
 
     printf("CHANGE REQUESTED!");
@@ -33,7 +33,7 @@ void signalHandler(int signum) {
 /**
  * Run code, ececute interups in /tmp/change if a USR1 signal comes
 */
-int main(int argc, const char *argv[]) {
+int main(int /*argc*/, const char **/*argv*/) {
     signal(SIGUSR1, signalHandler);
     wac.run_module(hello_world_wasm, hello_world_wasm_len);
     return 0;
