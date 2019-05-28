@@ -20,12 +20,12 @@ bool readChange(Module *m, uint8_t *bytes) {
     // SKIP the first byte (0x10), type of change
     uint8_t *pos = bytes + 1;
 
-    uint32_t b = read_LEB(bytes, &pos, 32);  // read id
+    uint32_t b = read_LEB(&pos, 32);  // read id
 
     Block *function = &m->functions[m->import_count + b];
-    uint32_t body_size = read_LEB(bytes, &pos, 32);
+    uint32_t body_size = read_LEB(&pos, 32);
     uint8_t *payload_start = pos;
-    uint32_t local_count = read_LEB(bytes, &pos, 32);
+    uint32_t local_count = read_LEB(&pos, 32);
     uint8_t *save_pos;
     uint32_t tidx, lidx, lecount;
 
@@ -35,9 +35,9 @@ bool readChange(Module *m, uint8_t *bytes) {
     save_pos = pos;
     function->local_count = 0;
     for (uint32_t l = 0; l < local_count; l++) {
-        lecount = read_LEB(bytes, &pos, 32);
+        lecount = read_LEB(&pos, 32);
         function->local_count += lecount;
-        tidx = read_LEB(bytes, &pos, 7);
+        tidx = read_LEB(&pos, 7);
         (void)tidx;  // TODO: use tidx?
     }
 
@@ -50,8 +50,8 @@ bool readChange(Module *m, uint8_t *bytes) {
     pos = save_pos;
     lidx = 0;
     for (uint32_t l = 0; l < local_count; l++) {
-        lecount = read_LEB(bytes, &pos, 32);
-        uint8_t vt = read_LEB(bytes, &pos, 7);
+        lecount = read_LEB(&pos, 32);
+        uint8_t vt = read_LEB(&pos, 7);
         for (uint32_t l = 0; l < lecount; l++) {
             function->locals[lidx++] = vt;
         }
@@ -111,12 +111,12 @@ void check_interrupts(Module *m, RunningState *program_state) {
             case 0x05: {
                 free(interruptData);
                 printf("DUMP!\n");
-                std::stringstream dump("");
+                std::stringstream dump;
                 dump.setf(std::ios_base::showbase);
 
                 dump << "{";
                 // current PC
-                dump << "\"pc\":\"" << (void *)m->pc_ptr << "\",";
+                dump << R"("pc":")" << (void *)m->pc_ptr << "\",";
 
                 // Functions
 
@@ -126,9 +126,9 @@ void check_interrupts(Module *m, RunningState *program_state) {
                     dump << "{"
                          << "\"fidx\":" << '"' << std::hex
                          << (unsigned int)m->functions[i].fidx
-                         << "\",\"from\":" << '"' << std::hex
+                         << R"(","from":)" << '"' << std::hex
                          << (void *)m->functions[i].start_ptr
-                         << "\",\"to\":" << '"' << std::hex
+                         << R"(","to":)" << '"' << std::hex
                          << (void *)m->functions[i].end_ptr << "\"}";
 
                     if (i < m->function_count - 1) dump << ",";
@@ -177,7 +177,7 @@ void check_interrupts(Module *m, RunningState *program_state) {
                     bp |= interruptData[i + 2];
                 }
                 uint8_t *bpt = (uint8_t *)bp;
-                printf("BP %p!\n", bpt);
+                printf("BP %p!\n", static_cast<void *>(bpt));
 
                 if (*interruptData == 0x06) {
                     m->warduino->addBreakpoint(bpt);

@@ -21,7 +21,7 @@ uint64_t read_LEB_(uint8_t* *pos, uint32_t maxbits, bool sign) {
     }
     bcnt += 1;
     if (bcnt > (maxbits + 7 - 1) / 7) {
-      FATAL("Unsigned LEB at byte %p overflow", startpos);
+      FATAL("Unsigned LEB at byte %p overflow", (void*) startpos);
     }
   }
   if (sign && (shift < maxbits) && (byte & 0x40)) {
@@ -31,11 +31,11 @@ uint64_t read_LEB_(uint8_t* *pos, uint32_t maxbits, bool sign) {
   return result;
 }
 
-uint64_t read_LEB(uint8_t *bytes, uint8_t **pos, uint32_t maxbits) {
+uint64_t read_LEB(uint8_t **pos, uint32_t maxbits) {
   return read_LEB_(pos, maxbits, false);
 }
 
-uint64_t read_LEB_signed(uint8_t *bytes, uint8_t **pos, uint32_t maxbits) {
+uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits) {
   return read_LEB_(pos, maxbits, true);
 }
 
@@ -47,7 +47,7 @@ uint32_t read_uint32(uint8_t *bytes, uint8_t **pos) {
 // Reads a string from the bytes array at pos that starts with a LEB length
 // if result_len is not NULL, then it will be set to the string length
 char *read_string(uint8_t *bytes, uint8_t* *pos, uint32_t *result_len) {
-  uint32_t str_len = read_LEB(bytes, pos, 32);
+  uint32_t str_len = read_LEB(pos, 32);
   char *str = (char *)malloc(str_len + 1);
   memcpy(str, *pos, str_len);
   str[str_len] = '\0';

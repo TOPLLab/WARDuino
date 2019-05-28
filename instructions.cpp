@@ -2,9 +2,7 @@
 #include "interrupt_operations.h"
 
 #include <math.h>
-#include <stdlib.h>
 #include <string.h>
-#include <queue>
 
 #include "debug.h"
 #include "mem.h"
@@ -97,7 +95,6 @@ void setup_call(Module *m, uint32_t fidx) {
 
     // Set program counter to start of function
     m->pc_ptr = func->start_ptr;
-    return;
 }
 
 /*
@@ -156,7 +153,7 @@ Formal specification:
  * 0x02
  */
 bool i_instr_block(Module *m, uint8_t *block_ptr) {
-    read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore block type
+    read_LEB(&m->pc_ptr, 32);  // ignore block type
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
         return false;
@@ -171,7 +168,7 @@ bool i_instr_block(Module *m, uint8_t *block_ptr) {
  * 0x03
  */
 bool i_instr_loop(Module *m, uint8_t *block_ptr) {
-    read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore block type
+    read_LEB(&m->pc_ptr, 32);  // ignore block type
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
         return false;
@@ -184,7 +181,7 @@ bool i_instr_loop(Module *m, uint8_t *block_ptr) {
  * 0x04 if
  */
 bool i_instr_if(Module *m, uint8_t *block_ptr) {
-    read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore block type
+    read_LEB(&m->pc_ptr, 32);  // ignore block type
     Block *block = m->block_lookup[block_ptr];
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
@@ -262,7 +259,7 @@ bool i_instr_end(Module *m, bool *prog_done) {
  * 0x0c br
  */
 bool i_instr_br(Module *m) {
-    uint32_t depth = read_LEB(m->bytes, &m->pc_ptr, 32);
+    uint32_t depth = read_LEB(&m->pc_ptr, 32);
     m->csp -= depth;
     // set to end for pop_block
     m->pc_ptr = m->callstack[m->csp].block->br_ptr;
@@ -276,7 +273,7 @@ bool i_instr_br(Module *m) {
  * 0x0d br_if
  */
 bool i_instr_br_if(Module *m) {
-    uint32_t depth = read_LEB(m->bytes, &m->pc_ptr, 32);
+    uint32_t depth = read_LEB(&m->pc_ptr, 32);
 
     uint32_t cond = m->stack[m->sp--].value.uint32;
     if (cond) {  // if true
@@ -296,7 +293,7 @@ bool i_instr_br_if(Module *m) {
  * 0x0e br_table
  */
 bool i_instr_br_table(Module *m) {
-    uint32_t count = read_LEB(m->bytes, &m->pc_ptr, 32);
+    uint32_t count = read_LEB(&m->pc_ptr, 32);
     if (count > BR_TABLE_SIZE) {
         // TODO: check this prior to runtime
         sprintf(exception, "br_table size %d exceeds max %d\n", count,
@@ -304,9 +301,9 @@ bool i_instr_br_table(Module *m) {
         return false;
     }
     for (uint32_t i = 0; i < count; i++) {
-        m->br_table[i] = read_LEB(m->bytes, &m->pc_ptr, 32);
+        m->br_table[i] = read_LEB(&m->pc_ptr, 32);
     }
-    uint32_t depth = read_LEB(m->bytes, &m->pc_ptr, 32);
+    uint32_t depth = read_LEB(&m->pc_ptr, 32);
 
     int32_t didx = m->stack[m->sp--].value.int32;
     if (didx >= 0 && didx < (int32_t)count) {
@@ -343,7 +340,7 @@ bool i_instr_return(Module *m) {
  * 0x10 call
  */
 bool i_instr_call(Module *m) {
-    uint32_t fidx = read_LEB(m->bytes, &m->pc_ptr, 32);
+    uint32_t fidx = read_LEB(&m->pc_ptr, 32);
     if (fidx < m->import_count) {
         ((Primitive)m->functions[fidx].func_ptr)(m);
     } else {
@@ -364,9 +361,9 @@ bool i_instr_call(Module *m) {
  * 0x11 call_indirect
  */
 bool i_instr_call_indirect(Module *m) {
-    uint32_t tidx = read_LEB(m->bytes, &m->pc_ptr, 32);  // TODO: use tidx?
+    uint32_t tidx = read_LEB(&m->pc_ptr, 32);  // TODO: use tidx?
     (void)tidx;
-    read_LEB(m->bytes, &m->pc_ptr, 1);  // reserved immediate
+    read_LEB(&m->pc_ptr, 1);  // reserved immediate
     uint32_t val = m->stack[m->sp--].value.uint32;
     if (m->options.mangle_table_index) {
         // val is the table address + the index (not sized for the
@@ -467,7 +464,7 @@ bool i_instr_select(Module *m) {
  * move the i-th local to the top of the stack
  */
 bool i_instr_get_local(Module *m) {
-    int32_t arg = read_LEB(m->bytes, &m->pc_ptr, 32);
+    int32_t arg = read_LEB(&m->pc_ptr, 32);
     if (TRACE) {
         debug("      - arg: 0x%x, got %s\n", arg,
               value_repr(&m->stack[m->fp + arg]));
@@ -480,7 +477,7 @@ bool i_instr_get_local(Module *m) {
  * 0x21 set_local
  */
 bool i_instr_set_local(Module *m) {
-    int32_t arg = read_LEB(m->bytes, &m->pc_ptr, 32);
+    int32_t arg = read_LEB(&m->pc_ptr, 32);
     m->stack[m->fp + arg] = m->stack[m->sp--];
     if (TRACE) {
         debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
@@ -492,7 +489,7 @@ bool i_instr_set_local(Module *m) {
  * 0x0d tee_local
  */
 bool i_instr_tee_local(Module *m) {
-    int32_t arg = read_LEB(m->bytes, &m->pc_ptr, 32);
+    int32_t arg = read_LEB(&m->pc_ptr, 32);
     m->stack[m->fp + arg] = m->stack[m->sp];
     if (TRACE) {
         debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
@@ -504,7 +501,7 @@ bool i_instr_tee_local(Module *m) {
  * 0x24 set_global
  */
 bool i_instr_set_global(Module *m) {
-    uint32_t arg = read_LEB(m->bytes, &m->pc_ptr, 32);
+    uint32_t arg = read_LEB(&m->pc_ptr, 32);
     if (TRACE) {
         debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
     }
@@ -516,7 +513,7 @@ bool i_instr_set_global(Module *m) {
  * 0x3f current_memory
  */
 bool i_instr_current_memory(Module *m) {
-    read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore reserved
+    read_LEB(&m->pc_ptr, 32);  // ignore reserved
     m->stack[++m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = m->memory.pages;
     return true;
@@ -526,7 +523,7 @@ bool i_instr_current_memory(Module *m) {
  * 0x40 grow_memory
  */
 bool i_instr_grow_memory(Module *m) {
-    read_LEB(m->bytes, &m->pc_ptr, 32);  // ignore reserved
+    read_LEB(&m->pc_ptr, 32);  // ignore reserved
     uint32_t prev_pages = m->memory.pages;
     uint32_t delta = m->stack[m->sp].value.uint32;
     m->stack[m->sp].value.uint32 = prev_pages;
@@ -549,8 +546,8 @@ bool i_instr_grow_memory(Module *m) {
 bool i_instr_mem_load(Module *m, uint8_t opcode) {
     bool overflow = false;
     uint8_t *maddr, *mem_end;
-    uint32_t flags = read_LEB(m->bytes, &m->pc_ptr, 32);
-    uint32_t offset = read_LEB(m->bytes, &m->pc_ptr, 32);
+    uint32_t flags = read_LEB(&m->pc_ptr, 32);
+    uint32_t offset = read_LEB(&m->pc_ptr, 32);
     uint32_t addr = m->stack[m->sp--].value.uint32;
     if (flags != 2 && TRACE) {
         dbg_info(
@@ -648,8 +645,8 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
 
 bool i_instr_mem_store(Module *m, uint8_t opcode) {
     uint8_t *maddr, *mem_end;
-    uint32_t flags = read_LEB(m->bytes, &m->pc_ptr, 32);
-    uint32_t offset = read_LEB(m->bytes, &m->pc_ptr, 32);
+    uint32_t flags = read_LEB(&m->pc_ptr, 32);
+    uint32_t offset = read_LEB(&m->pc_ptr, 32);
     StackValue *sval = &m->stack[m->sp--];
     uint32_t addr = m->stack[m->sp--].value.uint32;
     bool overflow = false;
@@ -724,11 +721,11 @@ bool i_instr_const(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x41:  // i32.const
             target->value_type = I32;
-            target->value.uint32 = read_LEB_signed(m->bytes, &m->pc_ptr, 32);
+            target->value.uint32 = read_LEB_signed(&m->pc_ptr, 32);
             break;
         case 0x42:  // i64.const
             target->value_type = I64;
-            target->value.int64 = read_LEB_signed(m->bytes, &m->pc_ptr, 64);
+            target->value.int64 = read_LEB_signed(&m->pc_ptr, 64);
             break;
         case 0x43:  // f32.const
             target->value_type = F32;
@@ -1432,7 +1429,7 @@ bool interpret(Module *m) {
         // Don't check for breakpoints while paused
         if (m->warduino->isBreakpoint(m->pc_ptr)) {
             program_state = pause;
-            printf("AT %p!\n", m->pc_ptr);
+            printf("AT %p!\n", (void*) m->pc_ptr);
             continue;
         }
 

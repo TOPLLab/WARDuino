@@ -1,7 +1,7 @@
 
 #pragma once
 #include "WARDuino.h"
-#include <stdio.h>
+#include <cstdio>
 #ifndef DEBUG
 #define DEBUG 0
 #endif

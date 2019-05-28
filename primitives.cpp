@@ -29,7 +29,6 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #include "primitives.h"
 
 #include "debug.h"
-#include "util.h"
 
 #ifdef ARDUINO
 #include "Arduino.h"
@@ -39,9 +38,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #include <thread>
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstring>
 
 #define NUM_PRIMITIVES 2
 #ifdef ARDUINO
@@ -50,7 +47,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #define NUM_PRIMITIVES_ARDUINO 3
 #endif
 
-#define ALL_PRIMITIVES NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO
+#define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -211,7 +208,7 @@ void analogWriteRange(uint32_t range)
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
-void install_primitives(void) {
+void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
     install_primitive(blink);
     install_primitive(flash);
@@ -229,9 +226,9 @@ void install_primitives(void) {
 // resolving the primitives
 //------------------------------------------------------
 bool resolve_primitive(char* symbol, Primitive* val) {
-    for (size_t i = 0; i < ALL_PRIMITIVES; i++) {
-        if (!strcmp(symbol, primitives[i].name)) {
-            *val = primitives[i].f;
+    for (auto & primitive : primitives) {
+        if (!strcmp(symbol, primitive.name)) {
+            *val = primitive.f;
             return true;
         }
     }
