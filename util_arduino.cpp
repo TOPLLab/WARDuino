@@ -2,10 +2,10 @@
 
 #ifdef ARDUINO
 #include "Arduino.h"
-void wdt_reset() { wdt_reset(); }
+void reset_wdt() { wdt_reset(); }
 
 #else
 
-void wdt_reset() { }
+void reset_wdt() { }
 
 #endif

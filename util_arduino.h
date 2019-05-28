@@ -6,6 +6,6 @@
  * 
  * Should be called once every 6 seconds at least
  */
-void wdt_reset();
+void reset_wdt();
 
 #endif

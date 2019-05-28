@@ -1421,7 +1421,7 @@ bool interpret(Module *m) {
         }
 
         check_interrupts(m, &program_state);
-        wdt_reset();
+        reset_wdt();
 
         if (program_state == pause) {
             continue;
