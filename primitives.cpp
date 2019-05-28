@@ -125,7 +125,7 @@ Type oneToOneU32 = {
 def_prim(blink, oneToNoneU32) {
     size_t cnt = arg0.uint32;
     for (size_t i = 1; i < cnt; i++) {
-        printf("BLINK %lu/%lu!\n", i, cnt);
+        printf("BLINK %zu/%zu!\n", i, cnt);
     }
     pop_args(1);
 }
@@ -137,7 +137,7 @@ def_prim(blink, oneToNoneU32) {
 def_prim(flash, oneToNoneU32) {
     size_t cnt = arg0.uint32;
     for (size_t i = cnt; i > 0; i--) {
-        printf("FLASH %lu/%lu!\n", i, cnt);
+        printf("FLASH %zu/%zu!\n", i, cnt);
     }
     pop_args(1);
 }
