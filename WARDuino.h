@@ -63,7 +63,7 @@ typedef struct Block {
     uint32_t fidx;         // function only (index)
     Type *type;            // params/results type
     uint32_t local_count;  // function only
-    uint32_t *locals;      // function only
+    uint32_t *local_value_type;      // types of locals (function only)
     uint8_t *start_ptr;
     uint8_t *end_ptr;
     uint8_t *else_ptr;    // if block only
