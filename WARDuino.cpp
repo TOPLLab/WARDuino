@@ -267,7 +267,7 @@ uint32_t WARDuino::get_export_fidx(Module *m, const char *name) {
 Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                               Options options) {
     debug("Loading module of size %d \n", byte_count);
-    uint8_t vt;
+    uint8_t valueType;
     uint32_t word;
     Module *m;
     // Allocate the module
@@ -742,9 +742,9 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     }
 
                     if (function->local_count > 0) {
-                        function->locals = (uint32_t *)acalloc(
+                        function->local_value_type = (uint32_t *)acalloc(
                             function->local_count, sizeof(uint32_t),
-                            "function->locals");
+                            "function->local_value_type");
                     }
 
                     // Restore position and read the locals
@@ -752,9 +752,9 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     lidx = 0;
                     for (uint32_t l = 0; l < local_count; l++) {
                         lecount = read_LEB(&pos, 32);
-                        vt = read_LEB(&pos, 7);
+                        valueType = read_LEB(&pos, 7);
                         for (uint32_t l = 0; l < lecount; l++) {
-                            function->locals[lidx++] = vt;
+                            function->local_value_type[lidx++] = valueType;
                         }
                     }
 

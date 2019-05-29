@@ -79,8 +79,8 @@ bool readChange(Module *m, uint8_t *bytes) {
     }
 
     if (function->local_count > 0) {
-        function->locals = (uint32_t *) acalloc(
-                function->local_count, sizeof(uint32_t), "function->locals");
+        function->local_value_type = (uint32_t *) acalloc(
+                function->local_count, sizeof(uint32_t), "function->local_value_type");
     }
 
     // Restore position and read the locals
@@ -90,7 +90,7 @@ bool readChange(Module *m, uint8_t *bytes) {
         lecount = read_LEB(&pos, 32);
         uint8_t vt = read_LEB(&pos, 7);
         for (uint32_t l = 0; l < lecount; l++) {
-            function->locals[lidx++] = vt;
+            function->local_value_type[lidx++] = vt;
         }
     }
 

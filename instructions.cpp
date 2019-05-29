@@ -89,7 +89,7 @@ void setup_call(Module *m, uint32_t fidx) {
     // Push function locals
     for (uint32_t lidx = 0; lidx < func->local_count; lidx++) {
         m->sp += 1;
-        m->stack[m->sp].value_type = func->locals[lidx];
+        m->stack[m->sp].value_type = func->local_value_type[lidx];
         m->stack[m->sp].value.uint64 = 0;  // Initialize whole union to 0
     }
 
