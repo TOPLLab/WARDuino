@@ -16,7 +16,7 @@ void signalHandler(int /* signum */) {
     if (handelingInterrupt) return;
 
     printf("CHANGE REQUESTED!");
-    struct stat statbuff;
+    struct stat statbuff{};
     if (stat("/tmp/change", &statbuff) == 0 && statbuff.st_size > 0) {
         uint8_t *data = (uint8_t *)malloc(statbuff.st_size * sizeof(uint8_t));
         FILE *fp = fopen("/tmp/change", "rb");
