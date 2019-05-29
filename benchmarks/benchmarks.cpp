@@ -28,11 +28,11 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 typedef const char *string;
 
 void set_path(char *path, string name) {
-    strncpy(path, BENCHMARK_PATH, strlen(BENCHMARK_PATH)+1);
-    strncat(path, name, strlen(name)+1);
-    strncat(path, "/wast/", 7+1);
-    strncat(path, name, strlen(name)+1);
-    strncat(path, ".wasm", 5+1);
+    strncpy(path, BENCHMARK_PATH, strlen(BENCHMARK_PATH) + 1);
+    strncat(path, name, strlen(name) + 1);
+    strncat(path, "/wast/", 7 + 1);
+    strncat(path, name, strlen(name) + 1);
+    strncat(path, ".wasm", 5 + 1);
 }
 
 unsigned int read_file_to_buf(unsigned char *bytes, string path) {
@@ -67,22 +67,35 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
     for (size_t i = 0; i < num_benchmarks; i++) {
         string name = benchmarks[i];
         set_path(path, name);
-        printf("[%lu/%lu: GO ] %s \n", i, num_benchmarks,path);
+        printf("[%lu/%lu: GO ] %s \n", i, num_benchmarks, path);
         bytes_length = read_file_to_buf(bytes, path);
         Options opt;
         Timer tmr;
         tmr.reset();
         Module *m = w->load_module(bytes, bytes_length, opt);
-        double load = tmr.elapsed();
-        int fidx = w->get_export_fidx(m, MAIN);
-        float startTime = (float)clock()/CLOCKS_PER_SEC;	
-        bool succeed = w->invoke(m, fidx);
-        double total = tmr.elapsed();
-        if(!succeed){
-            printf("[%lu/%lu:FAIL] %s could not be interpreted\n", path);
-            exit(1);
+        uint32_t fidx = w->get_export_fidx(m, MAIN);
+        if (fidx != static_cast<uint32_t>(-1)) {
+            printf("[%lu/%lu:LOAD] %s , fidx=%u\n", i, num_benchmarks, path,
+                   fidx);
+
+            double load = tmr.elapsed();
+            bool succeed = w->invoke(m, fidx);
+            double total = tmr.elapsed();
+            if (!succeed) {
+                printf("[%lu/%lu:FAIL] %s could not be interpreted\n", i,
+                       num_benchmarks, path);
+                exit(1);
+            } else {
+                printf(
+                    "[%lu/%lu: OK ] %s (output: %x, load module: %fs, total: "
+                    "%fs)\n",
+                    i + 1, num_benchmarks, path, m->stack->value.uint32, load,
+                    total);
+            }
         } else {
-          printf("[%lu/%lu: OK ] %s (output: %x, load module: %fs, total: %fs)\n", i+1, num_benchmarks, path, m->stack->value.uint32, load, total);
+            printf("[%lu/%lu:FAIL] %s did not have an exported function " MAIN
+                   "\n",
+                   i, num_benchmarks, path);
         }
     }
 }
