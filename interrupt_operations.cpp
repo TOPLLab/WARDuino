@@ -1,16 +1,49 @@
 #include "interrupt_operations.h"
+#include <inttypes.h>
 #include "debug.h"
 #include "mem.h"
 #include "util.h"
 
+/**
+ * Validate if there are interrupts and execute them
+ *
+ * The various kinds of interrups are preceded by an identifier:
+ *
+ * - `0x01` : Continue running
+ * - `0x02` : Halt the execution
+ * - `0x03` : Pause execution
+ * - `0x04` : Execute one operaion and then pause
+ * - `0x06` : Add a breakpoint, the adress is specified as a pointer.
+ *            The pointer should be specified as: 06[length][pointer]
+ *            eg: 06 06 55a5994fa3d6
+ * - `0x07` : Remove the breakpoint at the adress specified as a pointer if it
+ *            exists (see `0x06`)
+ * - `0x10` : Dump information about the program
+ * - `0x11` :                  show locals
+ * - `0x20` : Replace the content body of a function by a new function given
+ *            as payload (immediately following `0x10`), see #readChange
+ */
+
+enum InteruptTypes {
+    interruptRUN = 0x01,
+    interruptHALT = 0x02,
+    interruptPAUSE = 0x03,
+    interruptSTEP = 0x04,
+    interruptBPAdd = 0x06,
+    interruptBPRem = 0x07,
+    interruptDUMP = 0x10,
+    interruptDUMPLocals = 0x11,
+    interruptUPDATEFun = 0x20
+};
+
+void doDumpLocals(Module *pModule);
 
 void doDump(Module *m) {
     printf("DUMP!\n");
     printf("{");
 
     // current PC
-    printf(R"("pc":"%p",)", (void *) m->pc_ptr);
-
+    printf(R"("pc":"%p",)", (void *)m->pc_ptr);
 
     // Functions
 
@@ -20,7 +53,8 @@ void doDump(Module *m) {
         printf(R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
                m->functions[i].fidx,
                static_cast<void *>(m->functions[i].start_ptr),
-               static_cast<void *>(m->functions[i].end_ptr), (i < m->function_count - 1) ? "," : "],");
+               static_cast<void *>(m->functions[i].end_ptr),
+               (i < m->function_count - 1) ? "," : "],");
     }
 
     // Callstack
@@ -32,15 +66,55 @@ void doDump(Module *m) {
          * */
         Frame *f = &m->callstack[i];
         printf(R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s)",
-               f->block->block_type,
-               f->block->fidx,
-               f->sp,
-               f->fp,
-               static_cast<void *>(f->ra_ptr),
-               (i < m->csp) ? "," : "]}"
-        );
+               f->block->block_type, f->block->fidx, f->sp, f->fp,
+               static_cast<void *>(f->ra_ptr), (i < m->csp) ? "," : "]}\n");
     }
+}
 
+void doDumpLocals(Module *m) {
+    fflush(stdout);
+    printf("DUMP LOCALS!\n\n");
+    fflush(stdout);
+    int firstFunFramePtr = m->csp;
+    while (m->callstack[firstFunFramePtr].block->block_type != 0) {
+        firstFunFramePtr--;
+        if (firstFunFramePtr < 0) {
+            FATAL("Not in a function!");
+        }
+    }
+    Frame *f = &m->callstack[firstFunFramePtr];
+    printf(R"({"count":%u,"locals":[)", 0);
+    fflush(stdout);  // FIXME: this is needed for ESP to propery print
+    char _value_str[256];
+    for (size_t i = 0; i < f->block->local_count; i++) {
+        auto v = &m->stack[m->fp + i];
+        switch (v->value_type) {
+            case I32:
+                snprintf(_value_str, 255, R"("type":"i32","value":%)" PRIi32,
+                         v->value.uint32);
+                break;
+            case I64:
+                snprintf(_value_str, 255, R"("type":"i64","value":%)" PRIi64,
+                         v->value.uint64);
+                break;
+            case F32:
+                snprintf(_value_str, 255, R"("type":"i64","value":%.7f)",
+                         v->value.f32);
+                break;
+            case F64:
+                snprintf(_value_str, 255, R"("type":"i64","value":%.7f)",
+                         v->value.f64);
+                break;
+            default:
+                snprintf(_value_str, 255,
+                         R"("type":"%02x","value":"%)" PRIx64 "\"",
+                         v->value_type, v->value.uint64);
+        }
+
+        printf("{%s}%s", _value_str, (i+1 < f->block->local_count) ? "," : "");
+    }
+    printf("]}\n\n");
+    fflush(stdout);
 }
 
 /**
@@ -52,7 +126,7 @@ void doDump(Module *m) {
  */
 bool readChange(Module *m, uint8_t *bytes) {
     // Check if this was a change request
-    if (*bytes != 0x10) return false;
+    if (*bytes != interruptUPDATEFun) return false;
 
     // SKIP the first byte (0x10), type of change
     uint8_t *pos = bytes + 1;
@@ -75,12 +149,13 @@ bool readChange(Module *m, uint8_t *bytes) {
         lecount = read_LEB(&pos, 32);
         function->local_count += lecount;
         tidx = read_LEB(&pos, 7);
-        (void) tidx;  // TODO: use tidx?
+        (void)tidx;  // TODO: use tidx?
     }
 
     if (function->local_count > 0) {
-        function->local_value_type = (uint32_t *) acalloc(
-                function->local_count, sizeof(uint32_t), "function->local_value_type");
+        function->local_value_type =
+            (uint32_t *)acalloc(function->local_count, sizeof(uint32_t),
+                                "function->local_value_type");
     }
 
     // Restore position and read the locals
@@ -111,13 +186,14 @@ bool readChange(Module *m, uint8_t *bytes) {
  * - `0x02` : Halt the execution
  * - `0x03` : Pause execution
  * - `0x04` : Execute one operaion and then pause
- * - `0x05` : Dump information about the program
  * - `0x06` : Add a breakpoint, the adress is specified as a pointer.
  *            The pointer should be specified as: 06[length][pointer]
  *            eg: 06 06 55a5994fa3d6
  * - `0x07` : Remove the breakpoint at the adress specified as a pointer if it
  *            exists (see `0x06`)
- * - `0x10` : Replace the content body of a function by a new function given
+ * - `0x10` : Dump information about the program
+ * - `0x11` :                  show locals
+ * - `0x20` : Replace the content body of a function by a new function given
  *            as payload (immediately following `0x10`), see #readChange
  */
 void check_interrupts(Module *m, RunningState *program_state) {
@@ -125,33 +201,28 @@ void check_interrupts(Module *m, RunningState *program_state) {
     interruptData = m->warduino->getInterrupt();
     if (interruptData) {
         switch (*interruptData) {
-            case 0x01:
+            case interruptRUN:
                 printf("GO!\n");
                 *program_state = run;
                 free(interruptData);
                 break;
-            case 0x02:
+            case interruptHALT:
                 printf("STOP!\n");
                 free(interruptData);
                 exit(0);
                 break;
-            case 0x03:
+            case interruptPAUSE:
                 *program_state = pause;
                 printf("PAUSE!\n");
                 free(interruptData);
                 break;
-            case 0x04:
+            case interruptSTEP:
                 printf("STEP!\n");
                 *program_state = step;
                 free(interruptData);
                 break;
-            case 0x05:
-                *program_state = pause;
-                free(interruptData);
-                doDump(m);
-                break;
-            case 0x06:  // Breakpoint
-            case 0x07:  // Breakpoint remove
+            case interruptBPAdd:  // Breakpoint
+            case interruptBPRem:  // Breakpoint remove
             {
                 // TODO: segfault may happen here!
                 uint8_t len = interruptData[1];
@@ -160,7 +231,7 @@ void check_interrupts(Module *m, RunningState *program_state) {
                     bp <<= sizeof(uint8_t) * 8;
                     bp |= interruptData[i + 2];
                 }
-                uint8_t *bpt = (uint8_t *) bp;
+                uint8_t *bpt = (uint8_t *)bp;
                 printf("BP %p!\n", static_cast<void *>(bpt));
 
                 if (*interruptData == 0x06) {
@@ -173,7 +244,18 @@ void check_interrupts(Module *m, RunningState *program_state) {
 
                 break;
             }
-            case 0x10:
+
+            case interruptDUMP:
+                *program_state = pause;
+                free(interruptData);
+                doDump(m);
+                break;
+            case interruptDUMPLocals:
+                *program_state = pause;
+                free(interruptData);
+                doDumpLocals(m);
+                break;
+            case interruptUPDATEFun:
                 printf("CHANGE!\n");
                 readChange(m, interruptData);
                 //  do not free(interruptData);

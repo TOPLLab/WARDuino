@@ -11,7 +11,7 @@ else
     write () {
         # xxd -r -p > /tmp/change
         (tr -d '\n\t ' ; echo"") | tr '[:lower:]' '[:upper:]' | tee /tmp/change
-        kill -USR1 $(pgrep warduino)
+        kill -USR1 $(pgrep -i warduino)
     }
 fi
 
@@ -19,7 +19,7 @@ fi
 case "$1" in
 "REPLACE")
 cat <<HERE | sed 's/#.*//'| write
-10                # Replace function (hard)
+20                # Replace function (hard)
 ${2:-00}                # Function id (excluding imported functions)
 ${3:-070041e40010020b}  # New body
 HERE
@@ -39,14 +39,14 @@ echo "04" | write
 ;;
 
 "DUMP") # execute one step
-echo "05" | write
+echo "1${2:-0}" | write
 ;;
 
 "BP") # Add a breapoint
 bp=${2:-55a5994fa3d6}
 bpl=$(printf "%02x" $(expr ${#bp} / 2 ))
 cat <<HERE | sed 's/#.*//' | write
-06 # BP 
+06 # BP
 $bpl # LEN ptr
 $bp # ptr
 HERE
@@ -64,7 +64,7 @@ HERE
 ;;
 
 "PICO") # start picocom -b 115200 /dev/ttyUSB0 --imap lfcrlf
-picocom -b 115200 /dev/ttyUSB0 --imap lfcrlf
+picocom -b 115200 ${WARDUINO_DEV:-/dev/ttyUSB0} --imap lfcrlf
 ;;
 
 *)
