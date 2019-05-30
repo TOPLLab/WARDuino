@@ -166,7 +166,7 @@ typedef struct PrimitiveEntry {
 } PrimitiveEntry;
 
 
-enum RunningState { run, pause, step };
+enum RunningState { WARDUINOrun, WARDUINOpause, WARDUINOstep };
 
 class WARDuino {
    private:

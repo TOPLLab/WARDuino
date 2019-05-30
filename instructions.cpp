@@ -1410,17 +1410,17 @@ bool interpret(Module *m) {
     bool program_done = false;
 
     //TODO: this is actually a property of warduino
-    RunningState program_state = run;
+    RunningState program_state = WARDUINOrun;
 
     while (!program_done && success) {
-        if (program_state == step) {
-            program_state = pause;
+        if (program_state == WARDUINOstep) {
+            program_state = WARDUINOpause;
         }
 
         check_interrupts(m, &program_state);
         reset_wdt();
 
-        if (program_state == pause) {
+        if (program_state == WARDUINOpause) {
             continue;
         }
 
@@ -1428,7 +1428,7 @@ bool interpret(Module *m) {
 
         // Don't check for breakpoints while paused
         if (m->warduino->isBreakpoint(m->pc_ptr)) {
-            program_state = pause;
+            program_state = WARDUINOpause;
             printf("AT %p!\n", (void*) m->pc_ptr);
             continue;
         }
