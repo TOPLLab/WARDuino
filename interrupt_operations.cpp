@@ -203,7 +203,7 @@ void check_interrupts(Module *m, RunningState *program_state) {
         switch (*interruptData) {
             case interruptRUN:
                 printf("GO!\n");
-                *program_state = run;
+                *program_state = WARDUINOrun;
                 free(interruptData);
                 break;
             case interruptHALT:
@@ -212,13 +212,13 @@ void check_interrupts(Module *m, RunningState *program_state) {
                 exit(0);
                 break;
             case interruptPAUSE:
-                *program_state = pause;
+                *program_state = WARDUINOpause;
                 printf("PAUSE!\n");
                 free(interruptData);
                 break;
             case interruptSTEP:
                 printf("STEP!\n");
-                *program_state = step;
+                *program_state = WARDUINOstep;
                 free(interruptData);
                 break;
             case interruptBPAdd:  // Breakpoint
@@ -246,12 +246,12 @@ void check_interrupts(Module *m, RunningState *program_state) {
             }
 
             case interruptDUMP:
-                *program_state = pause;
+                *program_state = WARDUINOpause;
                 free(interruptData);
                 doDump(m);
                 break;
             case interruptDUMPLocals:
-                *program_state = pause;
+                *program_state = WARDUINOpause;
                 free(interruptData);
                 doDumpLocals(m);
                 break;
