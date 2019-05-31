@@ -836,13 +836,13 @@ int WARDuino::run_module(uint8_t *bytes, size_t size) {
     ASSERT(fidx != UNDEF, "Main not found");
     this->invoke(m, fidx);
 
-    return m->function_count;
+    return m->stack->value.uint32;
 }
 
 // Called when an interrupt comes in (not concurently the same function)
 // parse numer per 2 chars (HEX) (stop if non-hex)
+// Don't use print in interup handlers
 void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
-    printf("\ninterrupt: %s\n", buff);
     for (size_t i = 0; i < len; i++) {
         bool succes = true;
         uint8_t r = -1 /*undef*/;

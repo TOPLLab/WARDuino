@@ -2,7 +2,7 @@
 
 #ifdef ARDUINO
 #include "Arduino.h"
-void reset_wdt() { wdt_reset(); }
+void reset_wdt() { yield(); }
 
 #else
 
