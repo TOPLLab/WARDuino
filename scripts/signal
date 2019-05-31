@@ -3,6 +3,7 @@
 
 if test -n "$WARDUINO_DEV"
 then
+    echo "USING: $WARDUINO_DEV"
     target="$WARDUINO_DEV"
     write () {
         (tr -d '\n\t ' ; echo"") | tr '[:lower:]' '[:upper:]' | tee $WARDUINO_DEV
