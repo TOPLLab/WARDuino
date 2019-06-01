@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <cstdio>
 #include <map>
 #include <queue>  // std::queue
 #include <array>
@@ -187,8 +188,9 @@ class WARDuino {
 
    public:
     WARDuino();
-    int run_module(uint8_t *bytes, size_t size);
+    int run_module(Module* m);
     Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options);
+    void unload_module(Module* m);
     bool invoke(Module *m, uint32_t fidx);
     uint32_t get_export_fidx(Module *m, const char *name);
     void handleInterrupt(size_t len, uint8_t *buff);

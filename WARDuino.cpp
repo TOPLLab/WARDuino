@@ -3,7 +3,7 @@
 #include <string.h>
 #include "instructions.h"
 #include "primitives.h"
-
+#include <algorithm>    // std::find
 #include "debug.h"
 #include "mem.h"
 #include "util.h"
@@ -808,6 +808,13 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     return m;
 }
 
+void WARDuino::unload_module(Module *m) {
+    auto it = std::find(this->modules.begin(), this->modules.end(), m);
+    if(it != this->modules.end())
+        this->modules.erase(it);
+    free(m);
+}
+
 WARDuino::WARDuino() {
     install_primitives();
     initTypes();
@@ -825,10 +832,7 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
     return result;
 }
 
-int WARDuino::run_module(uint8_t *bytes, size_t size) {
-    Options opts;
-    Module *m = load_module(bytes, size, opts);
-
+int WARDuino::run_module(Module* m) {
     uint32_t fidx = this->get_export_fidx(m, "main");
     if (fidx == UNDEF) fidx = this->get_export_fidx(m, "Main");
     if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
