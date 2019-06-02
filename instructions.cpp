@@ -480,7 +480,7 @@ bool i_instr_set_local(Module *m) {
     int32_t arg = read_LEB(&m->pc_ptr, 32);
     m->stack[m->fp + arg] = m->stack[m->sp--];
     if (TRACE) {
-        debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
+        debug("      - arg: 0x%x, to %s (stack loc: %d)\n", arg, value_repr(&m->stack[m->sp+1]), m->fp + arg);
     }
     return true;
 }
