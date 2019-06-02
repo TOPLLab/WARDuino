@@ -1,0 +1,7 @@
+*/wast/arduino/
+*/wast/*.wasm
+*/wast/*.wast
+*/wast/*.html
+*/wast/*.js
+
+
