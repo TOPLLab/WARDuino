@@ -23,6 +23,8 @@ OUTPUTDIR = ./bin/
 MKDIR     = mkdir -p $(OUTPUTDIR)
 TARGET    = warduino_benchmark
 
+TASKS = fib tak
+
 CXXSOURCES = \
 	../mem.cpp \
 	../util.cpp \
@@ -34,24 +36,21 @@ CXXSOURCES = \
 	../instructions.cpp \
 	benchmarks.cpp
 
-all: warduino
+all: $(OUTPUTDIR)$(TARGET) $(addprefix tasks/,$(addsuffix /wast/impl.wasm, $(TASKS)))
 
-./tak/wast/tak.wasm: ./tak/wast/tak.c
-	$(MAKE) -C tak/wast all
-
-../%.o : ../%.c
-	$(CC) $(CFLAGS) $(DEBUGFLAGS) -c $<   -o $@
+tasks/%/wast/impl.wasm:
+	make -C tasks $(@:tasks/%=%)
 
 
-warduino: $(COBJECTS)  $(CXXSOURCES) ./tak/wast/tak.wasm
+$(OUTPUTDIR)$(TARGET): $(CXXSOURCES)
 	$(MKDIR)
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) $(COBJECTS) $(CXXSOURCES) -o $(OUTPUTDIR)$(TARGET)
 
-run: 
+run: $(OUTPUTDIR)$(TARGET)
 	$(OUTPUTDIR)$(TARGET)
 
 .PHONY: clean
 clean:
-	$(MAKE) -C tak/wast clean
+	$(MAKE) -C tasks clean
 	$(RM) -rf $(OUTPUTDIR)
 	$(RM) $(COBJECTS)
