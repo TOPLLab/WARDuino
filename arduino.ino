@@ -18,7 +18,7 @@ void ICACHE_RAM_ATTR handleInput() {
     while (Serial.available()) {
         size_t buff_len = 0;
         while (Serial.available()) {
-            buff[buff_len++]=(int8_t)Serial.read();
+            buff[buff_len++] = (int8_t)Serial.read();
         }
         if (buff_len) {
             wac.handleInterrupt(buff_len, buff);
@@ -29,17 +29,15 @@ void ICACHE_RAM_ATTR handleInput() {
 
 void setup() {
     Serial.begin(115200);
-    wdt_reset();
     attachInterrupt(D1, handleInput, CHANGE);
 }
 
 void loop() {
-    Serial.println(ESP.getFreeHeap());
-    int i = wac.run_module(hello_world_wasm, hello_world_wasm_len);
-    Serial.println(i, HEX);
-    Serial.println("DONE");
-
-    while (true) {
-        delay(5000);
+    Module* m = wac.load_module(hello_world_wasm, hello_world_wasm_len, {});
+    printf("START\n\n");
+    for (size_t i = 0; i < 10; i++) {
+        wac.run_module(m);
+        printf("%z\n", i);
     }
+    printf("DONE\n\n");
 }
