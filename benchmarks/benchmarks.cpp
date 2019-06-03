@@ -99,7 +99,7 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
 }
 
 int main(int argc, const char *argv[]) {
-    string benchmarks[] = {"tak", "fib", "fac", "gcd", "catalan"};
+    string benchmarks[] = {"tak", "fib", "fac", "gcd", "catalan", "primes"};
     run_benchmarks((size_t)(sizeof(benchmarks) / sizeof(string *)), benchmarks);
     return 0;
 }
