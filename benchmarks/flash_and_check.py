@@ -48,6 +48,7 @@ if __name__ == "__main__":
                 serial.write(inputText.read(-1))
                 serial.write(b'\n\n')
             print("Bytes sent", file=sys.stderr)
+        print("Await start", file=sys.stderr)
         await_output(serial, "START\n")
         startTime = time.monotonic()
         print("START found, waiting for DONE", file=sys.stderr)
