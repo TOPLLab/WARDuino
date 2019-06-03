@@ -2,6 +2,7 @@
 # Name: Upload all programs in bench.list to arduino and time
 # By Robbert Gurdeep Singh
 ################################################################################
+set -e
 
 file=${1:-/tmp/res}
 cd "$(dirname "$0")"
