@@ -1,4 +1,7 @@
-all: $(addsuffix /wast/arduino/arduino.ino,tak fib)
+TASKS=$(patsubst %/.,%,$(wildcard */.))
+
+all: $(addsuffix /wast/arduino/arduino.ino,$(TASKS)) $(addsuffix /wast/impl.wast,$(TASKS)) $(addsuffix /wast/impl.wasm,$(TASKS))
+	echo $(TASKS)
 
 
 %/wast/arduino/arduino.ino: %/wast/impl.wasm
@@ -12,4 +15,8 @@ all: $(addsuffix /wast/arduino/arduino.ino,tak fib)
 	wasm2wat -f $< > $@
 
 clean:
-	find -iname "impl.wast" -o -iname "impl.wasm" -o -iname "arduino.ino" -delete
+	-find -iname "impl.wast" -o -iname "impl.wasm" -o -iname "arduino.ino" | xargs rm
+
+
+lolz:
+	echo $(patsubst %/.,%,$(wildcard */.))
