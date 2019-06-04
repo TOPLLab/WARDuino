@@ -1426,7 +1426,7 @@ bool interpret(Module *m) {
             program_state = WARDUINOpause;
         }
 
-        check_interrupts(m, &program_state);
+        while(check_interrupts(m, &program_state)){};
         reset_wdt();
 
         if (program_state == WARDUINOpause) {

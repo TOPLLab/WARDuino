@@ -228,7 +228,7 @@ bool readChangeLocal(Module *m, uint8_t *bytes) {
  * - `0x20` : Replace the content body of a function by a new function given
  *            as payload (immediately following `0x10`), see #readChange
  */
-void check_interrupts(Module *m, RunningState *program_state) {
+bool check_interrupts(Module *m, RunningState *program_state) {
     uint8_t *interruptData = NULL;
     interruptData = m->warduino->getInterrupt();
     if (interruptData) {
@@ -305,5 +305,7 @@ void check_interrupts(Module *m, RunningState *program_state) {
                 free(interruptData);
                 break;
         }
+        return true;
     }
+    return false;
 }
