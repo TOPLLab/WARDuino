@@ -1,6 +1,6 @@
 #include <emscripten/emscripten.h>
 
-long EMSCRIPTEN_KEEPALIVE fib(int n) {
+long __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE fib(int n) {
     unsigned long first = 0, second = 1, next = 0;
     for (unsigned c = 0; c < n; c++) {
         if (c <= 1) {

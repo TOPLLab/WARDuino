@@ -15,7 +15,7 @@ ull binomial(ull m, ull n)
     return r;
 }
 
-ull EMSCRIPTEN_KEEPALIVE catalan(int n) {
+ull EMSCRIPTEN_KEEPALIVE __attribute__((noinline)) catalan(int n) {
     return binomial(2 * n, n) / (1 + n);
 }
 
