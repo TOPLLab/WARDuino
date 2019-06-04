@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/usr/bin/bash
 # Name: Test both
 # By Robbert Gurdeep Singh
 ################################################################################
@@ -20,9 +20,19 @@ sleep 5
 ./warduino_bench.sh $tmpfile_w
 to_csv $tmpfile_w
 
+echo "e"
+cat $tmpfile_e
+echo "w"
+cat $tmpfile_w
 
-echo "name,espruino,warduino" > $file.csv
-join -j 1 -t',' $tmpfile_e $tmpfile_w >> $file.csv
+sizes () {
+  find tasks -iname "*.$1" -exec du -b '{}' \+ | sed 's:\s*tasks/:,:;s:/.*::;s:\(.*\),\(.*\):\2,\1:' | sort
+}
+
+echo "name,espruino,warduino,espruinoSize,warduinoSize" > $file.csv
+join -j 1 -t',' <(sort $tmpfile_e) <(sort $tmpfile_w) |\
+join -j 1 -t',' - <(sizes js) |\
+join -j 1 -t',' - <(sizes wasm) >> $file.csv
 sed 's/,/ /g' $file.csv >  $file
 
 cat $file.csv | \
