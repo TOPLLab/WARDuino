@@ -37,7 +37,6 @@ void loop() {
     printf("START\n\n");
     for (size_t i = 0; i < 10; i++) {
         wac.run_module(m);
-        printf("%z\n", i);
     }
     printf("DONE\n\n");
 }
