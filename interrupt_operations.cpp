@@ -190,7 +190,7 @@ bool readChangeLocal(Module *m, uint8_t *bytes) {
 
     if (*bytes != interruptUPDATEFun) return false;
     uint8_t *pos = bytes + 1;
-    int32_t localId = (int32_t)read_LEB(&pos, 32);
+    uint32_t localId = read_LEB(&pos, 32);
 
     auto v = &m->stack[m->fp + localId];
     switch (v->value_type) {
@@ -207,6 +207,8 @@ bool readChangeLocal(Module *m, uint8_t *bytes) {
             memcpy(&v->value.uint64, pos, 8);
             break;
     }
+    printf("Local %u changed", localId);
+    return true;
 }
 
 /**
