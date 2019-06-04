@@ -1,5 +1,6 @@
 #include "interrupt_operations.h"
 #include <inttypes.h>
+#include "string.h"
 #include "debug.h"
 #include "mem.h"
 #include "util.h"
@@ -33,10 +34,11 @@ enum InteruptTypes {
     interruptBPRem = 0x07,
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
-    interruptUPDATEFun = 0x20
+    interruptUPDATEFun = 0x20,
+    interruptUPDATELocal = 0x21
 };
 
-void doDumpLocals(Module *pModule);
+void doDumpLocals(Module *m);
 
 void doDump(Module *m) {
     printf("DUMP!\n");
@@ -177,6 +179,36 @@ bool readChange(Module *m, uint8_t *bytes) {
     return true;
 }
 
+
+/**
+ * Read change to local
+ * @param m
+ * @param bytes
+ * @return
+ */
+bool readChangeLocal(Module *m, uint8_t *bytes) {
+
+    if (*bytes != interruptUPDATEFun) return false;
+    uint8_t *pos = bytes + 1;
+    int32_t localId = (int32_t)read_LEB(&pos, 32);
+
+    auto v = &m->stack[m->fp + localId];
+    switch (v->value_type) {
+        case I32:
+            v->value.uint32 = read_LEB_signed(&m->pc_ptr, 32);
+            break;
+        case I64:
+            v->value.int64 = read_LEB_signed(&m->pc_ptr, 64);
+            break;
+        case F32:
+            memcpy(&v->value.uint32, pos, 4);
+            break;
+        case F64:
+            memcpy(&v->value.uint64, pos, 8);
+            break;
+    }
+}
+
 /**
  * Validate if there are interrupts and execute them
  *
@@ -261,6 +293,11 @@ void check_interrupts(Module *m, RunningState *program_state) {
                 //  do not free(interruptData);
                 // we need it to run that code
                 // TODO: free double replacements
+                break;
+            case interruptUPDATELocal:
+                printf("CHANGE!\n");
+                readChangeLocal(m, interruptData);
+                free(interruptData);
                 break;
             default:
                 // handle later
