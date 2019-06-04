@@ -21,5 +21,10 @@ sleep 5
 to_csv $tmpfile_w
 
 
-echo "name,espruino,warduino" > $file
-join -j 1 -t',' $tmpfile_e $tmpfile_w >> $file
+echo "name,espruino,warduino" > $file.csv
+join -j 1 -t',' $tmpfile_e $tmpfile_w >> $file.csv
+sed 's/,/ /g' $file.csv >  $file
+
+cat $file.csv | \
+  sed 's/[0-9]\+\./     &/g;s/ *\([0-9 ]\{3\}\.\)/\1/g;s/\.\([0-9]\{4\}\)[0-9]*/.\1/g' |\
+  column -t -s','
