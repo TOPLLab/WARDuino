@@ -174,8 +174,6 @@ class WARDuino {
     std::vector<Module *> modules = {};
     std::deque<uint8_t *> parsedInterrups = {};
 
-    // vector, we expect few breakpoints
-    std::set<uint8_t *> breakpoints = {};
 
     // factualy volatile
 
@@ -187,6 +185,10 @@ class WARDuino {
     long interruptSize;
 
    public:
+
+    // vector, we expect few breakpoints
+    std::set<uint8_t *> breakpoints = {};
+
     WARDuino();
     int run_module(Module* m);
     Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options);
