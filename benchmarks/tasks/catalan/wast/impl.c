@@ -22,7 +22,9 @@ ull EMSCRIPTEN_KEEPALIVE __attribute__((noinline)) catalan(int n) {
 int main() {
     //printf("%lu!!",catalan(17) );
     int sum = 0;
-    for (int i = 0; i < 100; ++i) {
+
+    #pragma nounroll
+    for (int i = 0; i < 1000; ++i) {
         sum += catalan((i + sum) % 18) % 100;
     }
 	return sum % 256; // 113

@@ -16,6 +16,12 @@ long __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE fib(int n) {
 
 int main()
 {
-    return fib(1501) % 100000000;
+    int sum = 0;
+    #pragma nounroll
+    for(int i = 1000; i < 1050; i++){
+        sum += fib(i);
+        sum %= 97;
+    }
+    return sum;
     // .       ..122583354898000
 }

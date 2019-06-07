@@ -8,9 +8,13 @@ unsigned long __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE fac(int x)
         return  (x * fac(x-1));
     }
 }
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
+
 int main() {
-	return fac(12) % 251; // 228
+    int sum = 0;
+    #pragma nounroll
+    for(int i = 0; i < 1000; i++){
+        sum += fac(i % 12);
+        sum %= 97;
+    }
+    return sum;
 }
-#pragma GCC pop_options
