@@ -9,10 +9,20 @@ function fac(x) {
 }
 
 
+function main() {
+    let sum = 0;
+    for(let i = 0; i < 1000; i++){
+        sum += fac(i % 12);
+        sum %= 97;
+    }
+    return sum;
+}
+
+
 
 console.log("START")
 for (let index = 0; index < 10; index++) {
 
-    console.log(fac(12) % 251); // 228
+    console.log(main()); // 228
 }
 console.log("DONE")

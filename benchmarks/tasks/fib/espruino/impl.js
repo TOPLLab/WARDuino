@@ -13,7 +13,12 @@ function fib(n) {
 }
 
 function main(){
-    return fib(1501) % 100000000;
+    let sum = 0;
+    for(let i = 1000; i < 1050; i++){
+        sum += fib(i);
+        sum %= 97;
+    }
+    return sum;
 }
 
 console.log("START")

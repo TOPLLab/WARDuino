@@ -6,5 +6,9 @@ int __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE gcd(int u, int v) {
 }
 
 int main() {
-	return gcd(44486,12454);
+  int sum = 0;
+  for(int i = 40000; i < 50000 ; i++){
+    sum += gcd(i,12345);
+  }
+	return sum;
 }
