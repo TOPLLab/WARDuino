@@ -47,9 +47,18 @@ void doDump(Module *m) {
     // current PC
     printf(R"("pc":"%p",)", (void *)m->pc_ptr);
 
+    printf("\"breakpoints\":[");
+
+    size_t i = 0;
+    for(auto bp : m->warduino->breakpoints){
+        printf(R"("%p"%s)",
+               bp,
+               (++i < m->warduino->breakpoints.size()) ? "," : "");
+    }
+    printf("],");
     // Functions
 
-    printf("\"fucntions\":[");
+    printf("\"functions\":[");
 
     for (size_t i = m->import_count; i < m->function_count; i++) {
         printf(R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
