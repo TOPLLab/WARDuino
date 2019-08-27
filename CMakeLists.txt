@@ -15,3 +15,4 @@ add_custom_command (
         POST_BUILD
         COMMAND make -C  ../benchmarks/tak/wast
 )
+
