@@ -33,6 +33,8 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 
  (; Define one function ;)
  (export "main" (func $blink_arduino))
+
+ (memory $tada (data "\80\01"))
  (; The wait function ;)
  (func $wait (type $4)
     (;  Delay time   ;)
@@ -52,7 +54,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
     (;  LED    ;)
     (i32.const 16)
     (; HIGH INVERTED ;)
-    (i32.const 0)
+    (i32.load (i32.const 0))
     (call $digital_write)
 
     (call $wait)
@@ -60,7 +62,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
     (;  LED    ;)
     (i32.const 16)
     (; LOW INVERTED ;)
-    (i32.const 1)
+    (i32.load (i32.const 1))
     (call $digital_write)
 
 
