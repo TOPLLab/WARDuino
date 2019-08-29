@@ -11,7 +11,7 @@ make -C tasks all
 cat bench.list | while read l;
 do
 echo $l | tee -a $1
-../scripts/upload ESP32 ./tasks/$l/wast/arduino/arduino.ino 2>&1 >"$tmpfile"
+../scripts/upload ${BOARD:-ESP32} ./tasks/$l/wast/arduino/arduino.ino 2>&1 >"$tmpfile"
 if test "$?" == 0
 then
     echo "flashed"
