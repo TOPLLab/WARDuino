@@ -24,7 +24,7 @@ Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 und
 
 - Download [Arduino](https://www.arduino.cc/)
 
-- Clone the repository under `$(HOME)/Arduino/libraries`
+- Clone this repository under `$(HOME)/Arduino/libraries`
 
 - Add the `esp8266` driver
 
@@ -90,7 +90,7 @@ void loop() {
 
 - IO is moelijk en lastig want je moet dat uit elkaar halen
 - De VM laat toe eenvoudig te debuggen en veranderen
-- Het gebeuren van de VM is belangrijk, dan kunnen we elke taal daar naar compileren, de bedoeling is om ook die talen makelijk te debuggen
+- Het gebruiken van de VM is belangrijk, dan kunnen we elke taal daar naar compileren, de bedoeling is om ook die talen makelijk te debuggen
 - Gemakelijk fies overschrijven en toevoegen
 - plus typesysteem dat de basis typeoperaties safe maakt
 - Updates getypeert houden, int->int blijft int->int, anders gaat het niet (bonus: wel als nergens gebruikt)

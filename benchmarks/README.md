@@ -36,7 +36,12 @@ The `clean` can be removed if the debugginf flags are not changed
 
 ## Runnig on a board
 
-Place a list of benchmarks you wich to execute in `bench.list` then run `make all` followd by:
+Currently, the ESPruinio tests only work for the `esp32`.
+
+Place a list of benchmarks you wich to execute in `bench.list` then run:
 
 - For WARDuino: `./warduino_bench.sh {OUTPUFILE}` (this will flash an ino file on the board that runs the webassembly bytecode generated from the `C` implementaion with `emcc`)
+   - Add the env variable `BOARD=ESP8266` for that board
 - For Espruino: `./espruino_bench.sh {OUTPUFILE}` (this will flash the board with Espruino and execute all the tasks)
+- Or `./both_bench.sh {out_csv_file}` to do both
+
