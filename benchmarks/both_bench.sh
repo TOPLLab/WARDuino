@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 # Name: Test both
 # By Robbert Gurdeep Singh
 ################################################################################
