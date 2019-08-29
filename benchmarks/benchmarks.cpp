@@ -20,7 +20,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #include "../WARDuino.h"
 #include "timer.h"
 
-#define MAIN "_main"
+#define MAIN "main"
 #define MAX_PATH 100
 #define MAX_BYTE_CODE_SIZE 10000
 #define BENCHMARK_PATH "./tasks/"
