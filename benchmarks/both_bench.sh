@@ -20,9 +20,9 @@ sleep 5
 ./warduino_bench.sh $tmpfile_w
 to_csv $tmpfile_w
 
-echo "e"
+echo "# Espruino"
 cat $tmpfile_e
-echo "w"
+echo "# Warduino"
 cat $tmpfile_w
 
 sizes () {
