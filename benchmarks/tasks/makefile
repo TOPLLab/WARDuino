@@ -17,6 +17,3 @@ all: $(addsuffix /wast/arduino/arduino.ino,$(TASKS)) $(addsuffix /wast/impl.wast
 clean:
 	-find -iname "impl.wast" -o -iname "impl.wasm" -o -iname "arduino.ino" | xargs rm
 
-
-lolz:
-	echo $(patsubst %/.,%,$(wildcard */.))
