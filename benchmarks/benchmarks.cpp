@@ -19,6 +19,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #include <iostream>
 #include "../WARDuino.h"
 #include "timer.h"
+#include "../debug.h"
 
 #define MAIN "main"
 #define MAX_PATH 100
@@ -41,15 +42,16 @@ unsigned int read_file_to_buf(unsigned char *bytes, string path) {
     }
     fseek(file, 0L, SEEK_END);
     long num_bytes = ftell(file);
+    ASSERT(num_bytes > 0, "Could not Ftell");
     if (num_bytes < MAX_BYTE_CODE_SIZE) {
         fseek(file, 0L, SEEK_SET);
-        long result = fread(bytes, sizeof(char), num_bytes, file);
-        if (result != num_bytes) {
+        size_t result = fread(bytes, sizeof(char), num_bytes, file);
+        if (result != (size_t) num_bytes) {
             fprintf(stderr, "reading error while loading file %s", path);
             exit(1);
         }
         fclose(file);
-        return (unsigned int)num_bytes;
+        return (unsigned int) num_bytes;
     } else {
         fprintf(stderr, "File  < %s  > is too big for buffer", path);
         exit(1);
@@ -85,10 +87,10 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
                 exit(1);
             } else {
                 printf(
-                    "[%lu/%lu: OK ] %s (output: 0x%x = %u, load module: %fs, total: "
-                    "%fs)\n",
-                    i + 1, num_benchmarks, path, m->stack->value.uint32, m->stack->value.uint32, load,
-                    total);
+                        "[%lu/%lu: OK ] %s (output: 0x%x = %u, load module: %fs, total: "
+                        "%fs)\n",
+                        i + 1, num_benchmarks, path, m->stack->value.uint32, m->stack->value.uint32, load,
+                        total);
             }
         } else {
             printf("[%lu/%lu:FAIL] %s did not have an exported function " MAIN
