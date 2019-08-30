@@ -8,7 +8,7 @@ void *acalloc(size_t nmemb, size_t size, const char *name) {
     if ((int)(nmemb * size) == 0) {
         return NULL;
     } else {
-        debug("IN Acalloc  count: %lu, size: %lu for %s \n", nmemb, size, name);
+        debug("IN Acalloc  count: %zu, size: %zu for %s \n", nmemb, size, name);
         void *res = calloc(nmemb, size);
         debug("Done ... Acalloc\n");
         if (res == NULL) {
