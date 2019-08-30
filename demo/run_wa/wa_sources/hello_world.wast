@@ -19,17 +19,17 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 (module 
  (; Arduino imports ;)
 
- (import "esp8266" "chip_pin_mode"      (func $pin_mode      (type $1))) 
- (import "esp8266" "chip_digital_write" (func $digital_write (type $2))) 
- (import "esp8266" "chip_delay"         (func $delay         (type $3))) 
- (import "esp8266" "blink"              (func $blink_a       (type $5))) 
+ (import "esp8266" "chip_pin_mode"      (func $pin_mode         (type $1)))
+ (import "esp8266" "chip_digital_write" (func $digital_write    (type $2)))
+ (import "esp8266" "chip_delay"         (func $delay            (type $3)))
+ (import "esp8266" "write_spi_byte"     (func $write_spi_byte   (type $3)))
+
 
  (; Type declarations ;)
  (type $1 (func (param i32) (param i32) (result)))
  (type $2 (func (param i32) (param i32) (result)))
  (type $3 (func (param i32)             (result)))
  (type $4 (func (param)                 (result)))
- (type $5 (func (param i32)             (result)))
 
  (; Define one function ;)
  (export "main" (func $blink_arduino))
@@ -52,10 +52,9 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 
   (loop
     (;  LED    ;)
-    (i32.const 16)
     (; HIGH INVERTED ;)
     (i32.load (i32.const 0))
-    (call $digital_write)
+    (call $write_spi_byte)
 
     (call $wait)
 
@@ -70,6 +69,6 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 
     (br 0))
 
-  (call $blink_a (i32.const 5)))
+  )
  
 )

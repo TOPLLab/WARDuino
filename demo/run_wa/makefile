@@ -15,27 +15,31 @@ MKDIR     = mkdir -p $(OUTPUTDIR)
 TARGET    = warduino
 
 CXXSOURCES = \
-	../mem.cpp \
-	../util.cpp \
-	../util_arduino.cpp \
-	../interrupt_operations.cpp \
-	../debug.cpp \
-	../WARDuino.cpp \
-	../primitives.cpp \
-	../instructions.cpp \
+	../../mem.cpp \
+	../../util.cpp \
+	../../util_arduino.cpp \
+	../../interrupt_operations.cpp \
+	../../debug.cpp \
+	../../WARDuino.cpp \
+	../../primitives.cpp \
+	../../instructions.cpp \
 	main.cpp
 
 all: warduino
 
-../wa_sources/%.c: ../wa_sources/%.wast
-	$(MAKE) -C ../wa_sources
+run: all
+	./$(OUTPUTDIR)warduino
 
-warduino: $(COBJECTS)  $(CXXSOURCES) ../wa_sources/*.c
+
+wa_sources/%.c: wa_sources/%.wast
+	$(MAKE) -C wa_sources
+
+warduino: $(COBJECTS)  $(CXXSOURCES) wa_sources/*.c
 	$(MKDIR)
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) $(COBJECTS) $(CXXSOURCES) -o $(OUTPUTDIR)$(TARGET)
 
 .PHONY: clean
 clean:
-	$(MAKE) -C ../wa_sources clean
+	$(MAKE) -C wa_sources clean
 	$(RM) -rf $(OUTPUTDIR)
 	$(RM) $(COBJECTS)
