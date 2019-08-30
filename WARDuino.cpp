@@ -14,7 +14,7 @@ char exception[512];
 
 // UTIL
 bool resolvesym(char *filename, char *symbol, Primitive *val, char **err) {
-    if (NULL != filename && !strcmp(filename, "esp8266")) {
+    if (NULL != filename && !strcmp(filename, "env")) {
         return resolve_primitive(symbol, val);
     } else {
         *err = (char *)"Imports are only supported from the module esp8266";
