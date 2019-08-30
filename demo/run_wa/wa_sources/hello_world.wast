@@ -19,10 +19,10 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 (module 
  (; Arduino imports ;)
 
- (import "esp8266" "chip_pin_mode"      (func $pin_mode         (type $1)))
- (import "esp8266" "chip_digital_write" (func $digital_write    (type $2)))
- (import "esp8266" "chip_delay"         (func $delay            (type $3)))
- (import "esp8266" "write_spi_byte"     (func $write_spi_byte   (type $3)))
+ (import "env" "chip_pin_mode"      (func $pin_mode         (type $1)))
+ (import "env" "chip_digital_write" (func $digital_write    (type $2)))
+ (import "env" "chip_delay"         (func $delay            (type $3)))
+ (import "env" "write_spi_byte"     (func $write_spi_byte   (type $3)))
 
 
  (; Type declarations ;)
