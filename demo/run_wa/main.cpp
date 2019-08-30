@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../WARDuino.h"
+#include "../../WARDuino.h"
 #include <csignal>
 
 extern "C" {
@@ -28,7 +28,7 @@ void signalHandler(int /* signum */) {
     handelingInterrupt = false;
 }
 
-#include "../wa_sources/hello_world.c"
+#include "wa_sources/hello_world.c"
 
 /**
  * Run code, ececute interrups in /tmp/change if a USR1 signal comes
