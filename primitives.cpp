@@ -29,22 +29,46 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #include "primitives.h"
 
 #include "debug.h"
+#include "util.h"
 
 #ifdef ARDUINO
 #include "Arduino.h"
+
+#define delay_us(ms) delayMicroseconds(ms)
+#include <SPI.h>
+SPIClass *spi = new SPIClass();
+
+//Hardeware SPI
+void write_spi_byte(unsigned char c){
+  spi->beginTransaction(SPISettings(20000000, MSBFIRST, SPI_MODE0));
+  spi->transfer(c);
+  spi->endTransaction();
+}
+
+void write_spi_bytes_16_prim(int times, unsigned int color) {
+    unsigned char colorB = color >> 8;
+    spi->beginTransaction(SPISettings(200000000, MSBFIRST, SPI_MODE0));
+    for (int x=0; x < times; x++) {
+        spi->transfer(colorB);
+          spi->transfer(color);
+    }
+      spi->endTransaction();
+}
 
 #else
 #include <chrono>
 #include <thread>
 #endif
 
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define NUM_PRIMITIVES 2
+#define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 4
+#define NUM_PRIMITIVES_ARDUINO 8
 #else
-#define NUM_PRIMITIVES_ARDUINO 3
+#define NUM_PRIMITIVES_ARDUINO 7
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -75,6 +99,7 @@ int prim_index = 0;
 // TODO: use fp
 #define pop_args(n) m->sp -= n
 #define get_arg(m, arg) m->stack[m->sp - arg].value
+#define pushInt32(arg) m->stack[m->sp].value.uint32 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
@@ -95,67 +120,61 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 
 Type oneToNoneU32 = {
-    form : FUNC,
-    param_count : 1,
-    params : param_I32_arr_len1,
-    result_count : 0,
-    results : NULL,
-    mask : 0x8001 /* 0x800 = no return ; 1 = I32*/
+        .form =  FUNC,
+        .param_count =  1,
+        .params =  param_I32_arr_len1,
+        .result_count =  0,
+        .results =  0,
+        .mask =  0x8001 /* 0x800 = no return ; 1 = I32*/
 };
+
 Type twoToNoneU32 = {
-    form : FUNC,
-    param_count : 2,
-    params : param_I32_arr_len2,
-    result_count : 0,
-    results : NULL,
-    mask : 0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
+        .form =  FUNC,
+        .param_count =  2,
+        .params =  param_I32_arr_len2,
+        .result_count =  0,
+        .results =  0,
+        .mask =  0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
 };
+
+
 Type oneToOneU32 = {
-    form : FUNC,
-    param_count : 1,
-    params : param_I32_arr_len1,
-    result_count : 1,
-    results : param_I32_arr_len1,
-    mask : 0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+        .form =  FUNC,
+        .param_count =  1,
+        .params =  param_I32_arr_len1,
+        .result_count =  1,
+        .results =  param_I32_arr_len1,
+        .mask =  0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
 };
 
-def_prim(blink, oneToNoneU32) {
-    size_t cnt = arg0.uint32;
-    for (size_t i = 1; i < cnt; i++) {
-        printf("BLINK %zu/%zu!\n", i, cnt);
-    }
-    pop_args(1);
-}
+Type NoneToNoneU32 = {
+        .form =  FUNC,
+        .param_count =  0,
+        .params =  0,
+        .result_count =  0,
+        .results =  0,
+        .mask =  0x80000
+};
 
-//------------------------------------------------------
-// Primitive Flash
-//------------------------------------------------------
-
-def_prim(flash, oneToNoneU32) {
-    size_t cnt = arg0.uint32;
-    for (size_t i = cnt; i > 0; i--) {
-        printf("FLASH %zu/%zu!\n", i, cnt);
-    }
-    pop_args(1);
-}
 
 //------------------------------------------------------
 // Arduino Specific Functions
 //------------------------------------------------------
 #ifdef ARDUINO
-def_prim(chip_pin_mode, twoToNoneU32) {
-    printf("chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
 
+
+//warning: undefined symbol: chip_pin_mode
+def_prim(chip_pin_mode, twoToNoneU32) {
+    printf("chip_pin_mode \n");
     uint8_t pin = arg1.uint32;
     uint8_t mode = arg0.uint32;
-
     pinMode(pin, mode);
-
     pop_args(2);
 }
 
+// warning: undefined symbol: chip_digital_write
 def_prim(chip_digital_write, twoToNoneU32) {
-    printf("chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
+    yield();
     uint8_t pin = arg1.uint32;
     uint8_t val = arg0.uint32;
     digitalWrite(pin, val);
@@ -163,15 +182,40 @@ def_prim(chip_digital_write, twoToNoneU32) {
 }
 
 def_prim(chip_delay, oneToNoneU32) {
-    printf("chip_delay(%u) \n",arg0.uint32);
+    printf("chip_delay \n");
     delay(arg0.uint32);
+    pop_args(1);
+}
+
+//warning: undefined symbol: chip_delay_us
+def_prim (chip_delay_us, oneToNoneU32) {
+    yield();
+    delay_us(arg0.uint32);
     pop_args(1);
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
+    uint8_t res = digitalRead(pin);
+    pushInt32(res);
+}
+
+//warning: undefined symbol: write_spi_byte
+def_prim (write_spi_byte, oneToNoneU32) { 
+    write_spi_byte(arg0.uint32);
     pop_args(1);
-    // pushInt32(digitalRead(pin));
+}
+
+//warning: undefined symbol: spi_begin
+def_prim (spi_begin, NoneToNoneU32) { 
+    yield();
+    printf("spi_begin \n");
+    spi->begin();
+}
+
+def_prim(write_spi_bytes_16,oneToNoneU32) {
+        write_spi_bytes_16_prim(arg1.uint32,arg0.uint32);
+    pop_args(2);
 }
 
 #else
@@ -195,6 +239,32 @@ def_prim(chip_delay, oneToNoneU32) {
     pop_args(1);
 }
 
+def_prim(chip_delay_us, oneToNoneU32) {
+    using namespace std::this_thread;  // sleep_for, sleep_until
+    using namespace std::chrono;       // nanoseconds, system_clock, seconds
+    dbg_trace("EMU: chip_delay(%u ms) \n", arg0.uint32);
+    sleep_for(microseconds(arg0.uint32));
+    dbg_trace("EMU: .. done\n");
+    pop_args(1);
+}
+
+//warning: undefined symbol: write_spi_byte
+def_prim (write_spi_byte, oneToNoneU32) {
+    dbg_trace("EMU: write_spi_byte(%u) \n", arg0.uint32);
+    pop_args(1);
+}
+
+//warning: undefined symbol: spi_begin
+def_prim (spi_begin, NoneToNoneU32) {
+    dbg_trace("EMU: spi_begin \n");
+}
+
+def_prim(write_spi_bytes_16, oneToNoneU32) {
+    dbg_trace("EMU: write_spi_byte_16(%u, %u) \n", arg1.uint32, arg0.uint32);
+    pop_args(2);
+}
+
+
 #endif
 
 /*
@@ -210,28 +280,45 @@ void analogWriteRange(uint32_t range)
 //------------------------------------------------------
 void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
-    install_primitive(blink);
-    install_primitive(flash);
+    //install_primitive(rand);
+#ifdef ARDUINO
+    dbg_info("INSTALLING ARDUINO\n");
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
-
-#ifdef ARDUINO
-    dbg_info("INSTALLING ARDUINO\n");
     install_primitive(chip_digital_read);
+    install_primitive(chip_delay_us);
+    install_primitive(spi_begin);
+    install_primitive(write_spi_byte);
+    install_primitive(write_spi_bytes_16);
+#else
+    dbg_info("INSTALLING FAKE ARDUINO\n");
+    install_primitive(chip_pin_mode);
+    install_primitive(chip_digital_write);
+    install_primitive(chip_delay);
+    install_primitive(chip_delay_us);
+    install_primitive(spi_begin);
+    install_primitive(write_spi_byte);
+    install_primitive(write_spi_bytes_16);
 #endif
 }
 
 //------------------------------------------------------
 // resolving the primitives
 //------------------------------------------------------
-bool resolve_primitive(char* symbol, Primitive* val) {
-    for (auto & primitive : primitives) {
-        if (!strcmp(symbol, primitive.name)) {
-            *val = primitive.f;
+bool resolve_primitive(char *symbol, Primitive *val) {
+    printf("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
+    for (size_t i = 0; i < ALL_PRIMITIVES; i++) {
+        printf("LOOP %zu\n", i);
+        printf("Checking %s = %s  \n", symbol, primitives[i].name);
+        if (!strcmp(symbol, primitives[i].name)) {
+            printf("FOUND PRIMITIVE\n");
+            *val = primitives[i].f;
             return true;
         }
     }
+
+    printf("Could not find PRIMITIVE\n");
     FATAL("Could not find primitive %s \n", symbol);
     return false;
 }
