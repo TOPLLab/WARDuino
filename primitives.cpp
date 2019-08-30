@@ -58,7 +58,7 @@ int prim_index = 0;
 #define install_primitive(prim_name)                                       \
     {                                                                      \
         dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-                 prim_index, ALL_PRIMITIVES, #prim_name);                  \
+                 prim_index+1, ALL_PRIMITIVES, #prim_name);                  \
         if (prim_index < ALL_PRIMITIVES) {                                 \
             PrimitiveEntry* p = &primitives[prim_index++];                 \
             p->name = #prim_name;                                          \
