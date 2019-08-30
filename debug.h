@@ -12,7 +12,7 @@
 #define WARN 0
 #endif
 #ifndef TRACE
-#define TRACE 1
+#define TRACE 0
 #endif
 
 /**
