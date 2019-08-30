@@ -40,7 +40,7 @@ all: display.ino
 	wasm2wat -f $< > $@
 
 up:	display.ino
-	../../scripts/upload ESP32 $<
+	USE_TMPDIR=1  ../../scripts/upload ESP8266 $<
 
 clean:
 	rm *.html *.js *.wasm *.wast *.wasm.c *.ino *.local.cpp *.run || true

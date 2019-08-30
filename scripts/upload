@@ -4,7 +4,7 @@
 # --pref build.path=/tmp/build
 # The above extra arguments allows specifying a build loc
 ################################################################################
-set -x
+set -x -e
 BASEPATH="$( cd "$(dirname "$0")" ; cd .. ; pwd -L )"
 
 
@@ -12,6 +12,14 @@ BASEPATH="$( cd "$(dirname "$0")" ; cd .. ; pwd -L )"
 device=$1
 file=$2
 shift 2
+
+if [ -n "$USE_TMPDIR" ]; then
+tmpfile="$(mktemp -d --tmpdir)"
+trap "rm -rf '$tmpfile'" EXIT
+cp $file "$tmpfile/prog.c"
+cd  "$tmpfile"
+file="prog.c"
+fi
 
 case "$device" in
 "ESP32")
