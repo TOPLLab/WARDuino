@@ -307,18 +307,15 @@ void install_primitives() {
 // resolving the primitives
 //------------------------------------------------------
 bool resolve_primitive(char *symbol, Primitive *val) {
-    printf("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
+    debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
     for (size_t i = 0; i < ALL_PRIMITIVES; i++) {
-        printf("LOOP %zu\n", i);
-        printf("Checking %s = %s  \n", symbol, primitives[i].name);
+        //printf("Checking %s = %s  \n", symbol, primitives[i].name);
         if (!strcmp(symbol, primitives[i].name)) {
-            printf("FOUND PRIMITIVE\n");
+            debug("FOUND PRIMITIVE\n");
             *val = primitives[i].f;
             return true;
         }
     }
-
-    printf("Could not find PRIMITIVE\n");
     FATAL("Could not find primitive %s \n", symbol);
     return false;
 }
