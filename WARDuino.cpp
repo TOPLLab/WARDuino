@@ -824,6 +824,9 @@ WARDuino::WARDuino() {
 // Return value of false means exception occured
 bool WARDuino::invoke(Module *m, uint32_t fidx) {
     bool result;
+    m->sp = -1;
+    m->fp = -1;
+    m->csp = -1;
 
     dbg_trace("Interpretation starts\n");
     dbg_dump_stack(m);
