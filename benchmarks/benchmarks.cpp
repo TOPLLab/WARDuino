@@ -79,7 +79,10 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
                    fidx);
 
             double load = tmr.elapsed();
-            bool succeed = w->invoke(m, fidx);
+            bool succeed = true;
+            for (int j = 0; j < 10 && succeed; ++j) {
+                succeed = succeed && w->invoke(m, fidx);
+            }
             double total = tmr.elapsed();
             if (!succeed) {
                 printf("[%lu/%lu:FAIL] %s could not be interpreted\n", i,
