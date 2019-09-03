@@ -3,7 +3,7 @@
 #include "WARDuino.h"
 #include <cstdio>
 #ifndef DEBUG
-#define DEBUG 1
+#define DEBUG 0
 #endif
 #ifndef INFO
 #define INFO 0
