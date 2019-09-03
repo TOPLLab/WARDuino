@@ -39,7 +39,7 @@ CXXSOURCES = \
 all: $(OUTPUTDIR)$(TARGET) $(addprefix tasks/,$(addsuffix /wast/impl.wasm, $(TASKS)))
     echo "made tasks: $(TASKS)"
 
-tasks/%/wast/impl.wasm: .FORCE
+tasks/%/wast/impl.wasm: tasks/%/wast/impl.c tasks/makefile
 	make -C tasks $(@:tasks/%=%)
 
 $(OUTPUTDIR)$(TARGET): $(CXXSOURCES)
@@ -55,6 +55,3 @@ clean: mostlyclean
 mostlyclean:
 	$(RM) -rf $(OUTPUTDIR)
 	$(RM) $(COBJECTS)
-
-
-.FORCE:
