@@ -6,6 +6,9 @@ add_executable(WARDuino demo/run_wa/main.cpp ${SOURCE_FILES})
 
 
 #add_definitions(-DARDUINO)
+add_definitions(-DDEBUG=1)
+add_definitions(-DTRACE=1)
+add_definitions(-DWARN=1)
 
 add_executable(WARDuinoBench benchmarks/benchmarks.cpp ${SOURCE_FILES})
 install (TARGETS WARDuino DESTINATION demo/run_wa/bin)
@@ -13,6 +16,6 @@ install (TARGETS WARDuino DESTINATION demo/run_wa/bin)
 add_custom_command (
         TARGET WARDuinoBench
         POST_BUILD
-        COMMAND make -C  ../benchmarks/tak/wast
+        COMMAND make -C  ../benchmarks/tasks all
 )
 
