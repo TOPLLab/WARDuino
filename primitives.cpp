@@ -29,7 +29,7 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
 #include "primitives.h"
 
 #include "debug.h"
-#include "util.h"
+#include "mem.h"
 
 #ifdef ARDUINO
 #include "Arduino.h"
@@ -308,6 +308,7 @@ void install_primitives() {
 //------------------------------------------------------
 bool resolve_primitive(char *symbol, Primitive *val) {
     debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
+
     for (size_t i = 0; i < ALL_PRIMITIVES; i++) {
         //printf("Checking %s = %s  \n", symbol, primitives[i].name);
         if (!strcmp(symbol, primitives[i].name)) {
@@ -317,5 +318,24 @@ bool resolve_primitive(char *symbol, Primitive *val) {
         }
     }
     FATAL("Could not find primitive %s \n", symbol);
+    return false;
+}
+
+Memory external_mem = {0,0,0,NULL};
+bool resolve_external_memory(char *symbol, Memory** val) {
+    if(!strcmp(symbol,"memory")){
+        if(external_mem.bytes == NULL){
+            external_mem.initial = 256;
+            external_mem.maximum = 256;
+            external_mem.pages = 256;
+            external_mem.bytes = (uint8_t *) acalloc(
+                    external_mem.pages * PAGE_SIZE, sizeof(uint32_t),
+                    "Module->memory.bytes primitive");
+        }
+        *val = &external_mem;
+        return true;
+    }
+
+    FATAL("Could not find memory %s \n", symbol);
     return false;
 }
