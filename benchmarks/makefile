@@ -49,9 +49,10 @@ $(OUTPUTDIR)$(TARGET): $(CXXSOURCES)
 run: all
 	$(OUTPUTDIR)$(TARGET)
 
-.PHONY: clean
-clean:
+clean: mostlyclean
 	$(MAKE) -C tasks clean
+
+mostlyclean:
 	$(RM) -rf $(OUTPUTDIR)
 	$(RM) $(COBJECTS)
 
