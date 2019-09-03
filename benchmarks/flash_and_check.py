@@ -14,7 +14,7 @@ def await_output(s: serial.Serial, target: str):
     curpos: int = 0
     while True:
         x = s.read()
-        print(x.decode('utf-8'), end="", file=sys.stderr)
+        print(x.decode('utf-8','replace'), end="", file=sys.stderr)
         x = x[0]
         if x == b'\r'[0]:
             continue
