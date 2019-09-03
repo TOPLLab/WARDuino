@@ -6,6 +6,7 @@ set -e
 file=${1?Give an output file as argument}
 tmpfile_w="$(mktemp --tmpdir)"
 tmpfile_e="$(mktemp --tmpdir)"
+tmpfile_n="$(mktemp --tmpdir)"
 trap "rm '$tmpfile_w' '$tmpfile_e'" EXIT
 
 to_csv () {
@@ -20,17 +21,24 @@ sleep 5
 ./warduino_bench.sh $tmpfile_w
 to_csv $tmpfile_w
 
+sleep 5
+./native_bench.sh $tmpfile_n
+to_csv $tmpfile_n
+
 echo "# Espruino"
 cat $tmpfile_e
 echo "# Warduino"
 cat $tmpfile_w
+echo "# Native"
+cat $tmpfile_n
 
 sizes () {
   find tasks -iname "*.$1" -exec du -b '{}' \+ | sed 's:\s*tasks/:,:;s:/.*::;s:\(.*\),\(.*\):\2,\1:' | sort
 }
 
-echo "name,espruino,warduino,espruinoSize,warduinoSize" > $file.csv
+echo "name,espruino,warduino,native,espruinoSize,warduinoSize" > $file.csv
 join -j 1 -t',' <(sort $tmpfile_e) <(sort $tmpfile_w) |\
+join -j 1 -t',' - <(sort $tmpfile_n) |\
 join -j 1 -t',' - <(sizes js) |\
 join -j 1 -t',' - <(sizes wasm) >> $file.csv
 sed 's/,/ /g' $file.csv >  $file
