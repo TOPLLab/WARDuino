@@ -12,7 +12,7 @@ unsigned long __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE fac(int x)
 int main() {
     int sum = 0;
     #pragma nounroll
-    for(int i = 0; i < 1000; i++){
+    for(int i = 0; i < 10000; i++){
         sum += fac(i % 12);
         sum %= 97;
     }
