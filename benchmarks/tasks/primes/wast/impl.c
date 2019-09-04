@@ -38,7 +38,7 @@ int __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE is_prime(unsigned n) {
 int main() {
     unsigned sum = 0;
     int count = 0;
-    for (unsigned i = 1; sum < 133742; i++) {
+    for (unsigned i = 1; sum < 13374242; i++) {
         if (is_prime(i)){
             sum += i;
             count++;

@@ -16,7 +16,7 @@ function catalan(n) {
 
 function main(){
     var sum = 0;
-    for (let i = 0; i < 1000; ++i) {
+    for (let i = 0; i < 10000; ++i) {
         sum += catalan((i + sum) % 18) % 100;
     }
 	return sum % 256

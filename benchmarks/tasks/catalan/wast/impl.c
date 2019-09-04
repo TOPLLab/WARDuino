@@ -24,7 +24,7 @@ int main() {
     int sum = 0;
 
     #pragma nounroll
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 10000; ++i) {
         sum += catalan((i + sum) % 18) % 100;
     }
 	return sum % 256; // 113

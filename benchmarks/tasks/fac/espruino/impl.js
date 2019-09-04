@@ -11,7 +11,7 @@ function fac(x) {
 
 function main() {
     let sum = 0;
-    for(let i = 0; i < 1000; i++){
+    for(let i = 0; i < 10000; i++){
         sum += fac(i % 12);
         sum %= 97;
     }

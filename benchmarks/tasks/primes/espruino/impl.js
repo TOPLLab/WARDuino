@@ -22,7 +22,7 @@ function is_prime(n) {
 function main() {
     let sum = 0;
     let count = 0;
-    for (let i = 1; sum < 133742; i++) {
+    for (let i = 1; sum < 13374242; i++) {
         if (is_prime(i)){
             sum += i;
             count++;
