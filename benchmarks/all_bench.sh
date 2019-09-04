@@ -1,44 +1,49 @@
 #!/bin/bash
-# Name: Test both
+# Name: Test WARDuino, Espruino and native code
 # By Robbert Gurdeep Singh
 ################################################################################
 set -e
 file=${1?Give an output file as argument}
-tmpfile_w="$(mktemp --tmpdir)"
-tmpfile_e="$(mktemp --tmpdir)"
-tmpfile_n="$(mktemp --tmpdir)"
-trap "rm '$tmpfile_w' '$tmpfile_e'" EXIT
+tmpdir="$(mktemp --tmpdir -d)"
+trap "rm -rf '$tmpdir'" EXIT
+
+echo -e "tip:\ntail -f $tmpdir/*"
+
+echo "Not started yet" >  $tmpdir/espruino
+echo "Not started yet" >  $tmpdir/warduino
+echo "Not started yet" >  $tmpdir/native
 
 to_csv () {
   sed -i -n '0~2{N;s/\n/,/p}' $1
 }
 
 sleep 5
-./espruino_bench.sh $tmpfile_e
-to_csv  $tmpfile_e
+./espruino_bench.sh $tmpdir/espruino
+to_csv  $tmpdir/espruino
 
 sleep 5
-./warduino_bench.sh $tmpfile_w
-to_csv $tmpfile_w
+./warduino_bench.sh $tmpdir/warduino
+to_csv $tmpdir/warduino
 
 sleep 5
-./native_bench.sh $tmpfile_n
-to_csv $tmpfile_n
+./native_bench.sh $tmpdir/native
+to_csv $tmpdir/native
 
 echo "# Espruino"
-cat $tmpfile_e
+cat $tmpdir/espruino
 echo "# Warduino"
-cat $tmpfile_w
+cat $tmpdir/warduino
 echo "# Native"
-cat $tmpfile_n
+cat $tmpdir/native
 
 sizes () {
   find tasks -iname "*.$1" -exec du -b '{}' \+ | sed 's:\s*tasks/:,:;s:/.*::;s:\(.*\),\(.*\):\2,\1:' | sort
 }
 
 echo "name,espruino,warduino,native,espruinoSize,warduinoSize" > $file.csv
-join -j 1 -t',' <(sort $tmpfile_e) <(sort $tmpfile_w) |\
-join -j 1 -t',' - <(sort $tmpfile_n) |\
+sort $tmpdir/espruino
+join -j 1 -t',' - <(sort $tmpdir/warduino) |\
+join -j 1 -t',' - <(sort $tmpdir/native) |\
 join -j 1 -t',' - <(sizes js) |\
 join -j 1 -t',' - <(sizes wasm) >> $file.csv
 sed 's/,/ /g' $file.csv >  $file

@@ -2,10 +2,11 @@
 
 This folder includes benchmaks of WARDuino.
 
-The various benchmark tests are listed in the [tasks](tasks) folder. In there, each task has a folder and two subfolders: 
+The various benchmark tests are listed in the [tasks](tasks) folder. In there, each task has a folder and three subfolders:
 
 - `espruino` containing a `impl.js` that can be sent over to Espruino
-- `wast` containing a `impl.c` implementation of the task that will be compuiled to web assembly by the makefile
+- `wast` containing a `impl.c` implementation of the task that will be compiled to web assembly by the makefile
+- `c` containing a `arduino.ino` implementation of the task **generated automaticly** from the `wast` dirctory
 
 ## Local run
 
@@ -43,5 +44,6 @@ Place a list of benchmarks you wich to execute in `bench.list` then run:
 - For WARDuino: `./warduino_bench.sh {OUTPUFILE}` (this will flash an ino file on the board that runs the webassembly bytecode generated from the `C` implementaion with `emcc`)
    - Add the env variable `BOARD=ESP8266` for that board
 - For Espruino: `./espruino_bench.sh {OUTPUFILE}` (this will flash the board with Espruino and execute all the tasks)
-- Or `./both_bench.sh {out_csv_file}` to do both
+- For Espruino: `./native_bench.sh {OUTPUFILE}` (this will flash the board with each of the C files and time execution)
+- Or `./all_bench.sh {out_file}` to do then all
 
