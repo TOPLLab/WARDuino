@@ -6,6 +6,6 @@ void reset_wdt() { yield(); }
 
 #else
 
-void reset_wdt() { }
+void reset_wdt() {}
 
 #endif

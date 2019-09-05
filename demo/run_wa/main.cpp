@@ -10,22 +10,22 @@ extern "C" {
 
 WARDuino wac;
 
-volatile bool handelingInterrupt = false;
+volatile bool handlingInterrupt = false;
 
 void signalHandler(int /* signum */) {
-    if (handelingInterrupt) return;
+    if (handlingInterrupt) return;
 
     printf("CHANGE REQUESTED!");
     struct stat statbuff{};
     if (stat("/tmp/change", &statbuff) == 0 && statbuff.st_size > 0) {
-        uint8_t *data = (uint8_t *)malloc(statbuff.st_size * sizeof(uint8_t));
+        auto *data = (uint8_t *) malloc(statbuff.st_size * sizeof(uint8_t));
         FILE *fp = fopen("/tmp/change", "rb");
         fread(data, statbuff.st_size, 1, fp);
         fclose(fp);
         wac.handleInterrupt(statbuff.st_size, data);
     }
 
-    handelingInterrupt = false;
+    handlingInterrupt = false;
 }
 
 #include "wa_sources/hello_world.c"
@@ -35,6 +35,6 @@ void signalHandler(int /* signum */) {
 */
 int main(int /*argc*/, const char **/*argv*/) {
     signal(SIGUSR1, signalHandler);
-    wac.run_module(wac.load_module(hello_world_wasm, hello_world_wasm_len,{}));
+    wac.run_module(wac.load_module(hello_world_wasm, hello_world_wasm_len, {}));
     return 0;
 }

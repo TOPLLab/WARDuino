@@ -2,7 +2,7 @@ void setup() {
     Serial.begin(115200);
 }
 
-void  __attribute__((optimize("no-unroll-loops"))) loop() {
+void __attribute__((optimize("no-unroll-loops"))) loop() {
     delay(1000);
     printf("START\n\n");
     for (int i = 0; i < 10; i++) {

@@ -38,7 +38,7 @@ bool resolve_primitive(char *symbol, Primitive *val);
  * @param val    location to store memory to
  * @return true if memory is found and assigned to val
  */
-bool resolve_external_memory(char *symbol, Memory** val);
+bool resolve_external_memory(char *symbol, Memory **val);
 
 void install_primitives();
 

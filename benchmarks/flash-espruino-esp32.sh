@@ -1,24 +1,22 @@
 #!/bin/bash
-TMPDIR=`mktemp -d /tmp/buildfolder.XXXXXXXXXX`
+TMPDIR=$(mktemp -d /tmp/buildfolder.XXXXXXXXXX)
 trap "rm -rf $dir" EXIT
-
 
 sed -n '/ex''it 0/,${/^ex''it /!p}' "$0" | base64 -d | tar -xzf- -C $TMPDIR
 
 cd $TMPDIR
-~/.arduino15/packages/esp32/tools/esptool_py/2.6.1/esptool.py   \
-        --chip esp32                                \
-        --port /dev/ttyUSB0                         \
-        --baud 921600                               \
-        --after hard_reset write_flash              \
-        -z                                          \
-        --flash_mode dio                            \
-        --flash_freq 40m                            \
-        --flash_size detect                         \
-        0x1000  bootloader.bin                      \
-        0x8000  partitions_espruino.bin             \
-        0x10000 espruino_esp32.bin
-
+~/.arduino15/packages/esp32/tools/esptool_py/2.6.1/esptool.py \
+  --chip esp32 \
+  --port /dev/ttyUSB0 \
+  --baud 921600 \
+  --after hard_reset write_flash \
+  -z \
+  --flash_mode dio \
+  --flash_freq 40m \
+  --flash_size detect \
+  0x1000 bootloader.bin \
+  0x8000 partitions_espruino.bin \
+  0x10000 espruino_esp32.bin
 
 exit 0
 H4sIAAAAAAAAA+z9CVxU5/U4jD8zbMMwwrCK+wUZNlmGARQR5A4wwMg2MsPiksDADDARmHFmUDQm

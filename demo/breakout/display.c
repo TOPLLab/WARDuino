@@ -61,12 +61,18 @@
 #define HIGH 1
 // Type declarations
 typedef int bool;
+
 // Imports from WARDuino
 extern void write_spi_byte(int c);
+
 extern void spi_begin();
+
 extern void chip_digital_write(int a, int b);
+
 extern int chip_digital_read(int a);
+
 extern void chip_pin_mode(int a, int b);
+
 extern void chip_delay_us(int x);
 
 // Writing LCD pins
@@ -278,7 +284,8 @@ struct Coord {
 int max(int a, int b) { return a > b ? a : b; }
 
 int min(int a, int b) { return a < b ? a : b; }
-int diff(int a, int b) { return a < b ? b-a : a-b; }
+
+int diff(int a, int b) { return a < b ? b - a : a - b; }
 
 #define DARK 0X3DF7
 #define RED 0x7C00
@@ -335,35 +342,35 @@ int main() {
     while (1) {
         // update ball
         int nextX = ball.pos.x + ball.speed.x;
-        if(ball.speed.x > 0){
+        if (ball.speed.x > 0) {
             chip_fill_rect(
-               ball.pos.x/ 100, ball.pos.y / 100,
-                diff(ball.pos.x/100,nextX/100), BSIZE,
-                BGCOL);
+                    ball.pos.x / 100, ball.pos.y / 100,
+                    diff(ball.pos.x / 100, nextX / 100), BSIZE,
+                    BGCOL);
         } else {
             chip_fill_rect(
-                nextX/100 + BSIZE, ball.pos.y / 100,
-                diff(ball.pos.x/100,nextX/100), BSIZE,
-                BGCOL);
+                    nextX / 100 + BSIZE, ball.pos.y / 100,
+                    diff(ball.pos.x / 100, nextX / 100), BSIZE,
+                    BGCOL);
         }
         int nextY = ball.pos.y + ball.speed.y;
-        if(ball.speed.y > 0){
+        if (ball.speed.y > 0) {
             chip_fill_rect(
-                ball.pos.x/ 100, ball.pos.y / 100,
-                BSIZE,diff(ball.pos.y/100,nextY/100),
-                BGCOL);
+                    ball.pos.x / 100, ball.pos.y / 100,
+                    BSIZE, diff(ball.pos.y / 100, nextY / 100),
+                    BGCOL);
         } else {
             chip_fill_rect(
-                ball.pos.x / 100, nextY/100 + BSIZE, //
-                BSIZE,diff(ball.pos.y/100,nextY/100),
-                BGCOL); //
+                    ball.pos.x / 100, nextY / 100 + BSIZE, //
+                    BSIZE, diff(ball.pos.y / 100, nextY / 100),
+                    BGCOL); //
 
         }
         //chip_fill_rect(ball.pos.x / 100, ball.pos.y / 100, BSIZE, BSIZE, BGCOL);
         ball.pos.x += ball.speed.x;
         ball.pos.y += ball.speed.y;
         chip_fill_rect(ball.pos.x / 100, ball.pos.y / 100, BSIZE, BSIZE,
-                       ball.pos.y/100 + BSIZE >= PYPOS ? BCOL2 : BCOL);
+                       ball.pos.y / 100 + BSIZE >= PYPOS ? BCOL2 : BCOL);
         // bounce of the wall
         if (ball.pos.x + BSIZE * 100 > 12800) {
             ball.speed.x *= -1;
@@ -380,8 +387,8 @@ int main() {
         // end update ball
         // update paddle
 
-        if (ball.pos.y/100 + BSIZE >= PYPOS) {
-            if (ball.pos.x/100 + BSIZE > x && ball.pos.x/100 < x + PSIZE && ball.speed.y > 0) {
+        if (ball.pos.y / 100 + BSIZE >= PYPOS) {
+            if (ball.pos.x / 100 + BSIZE > x && ball.pos.x / 100 < x + PSIZE && ball.speed.y > 0) {
                 ball.speed.y *= -1;
                 ball.speed.y += ball.speed.y < 0 ? -1 : 1;
                 ball.speed.x += ball.speed.x < 0 ? -1 : 1;

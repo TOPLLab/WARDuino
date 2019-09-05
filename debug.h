@@ -1,7 +1,9 @@
 
 #pragma once
+
 #include "WARDuino.h"
 #include <cstdio>
+
 #ifndef DEBUG
 #define DEBUG 0
 #endif
@@ -39,7 +41,7 @@ void end();
         end();                                          \
     } \
 
-#if DEBUG 
+#if DEBUG
 #define debug(...)                                       \
     {                                                    \
         printf("DEBUG (%s:%d):\n ", __FILE__, __LINE__); \
@@ -49,14 +51,14 @@ void end();
 #define debug(...) ;
 #endif
 
-#if INFO 
+#if INFO
 #define dbg_info(...) \
     { printf(__VA_ARGS__); }
 #else
 #define dbg_info(...) ;
 #endif
 
-#if TRACE 
+#if TRACE
 #define dbg_trace(...) \
     { printf(__VA_ARGS__); }
 #else
@@ -64,7 +66,7 @@ void end();
 #endif
 
 
-#if WARN 
+#if WARN
 #define dbg_warn(...) \
     { printf(__VA_ARGS__); }
 #else
@@ -73,13 +75,19 @@ void end();
 
 #if DEBUG || TRACE || WARN || INFO
 #define _INCLUDE_REPR_CODE 1
+
 char *value_repr(StackValue *v);
+
 char *block_repr(Block *b);
-const char* opcode_repr(uint8_t opcode);
+
+const char *opcode_repr(uint8_t opcode);
+
 #endif
 
 #if DEBUG && TRACE
+
 void dbg_dump_stack(Module *m);
+
 #else
 #define dbg_dump_stack(...) ;
 #endif
