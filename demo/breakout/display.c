@@ -389,13 +389,13 @@ int main() {
             }
         }
 
-        if (chip_digital_read(D4)) {
-            chip_fill_rect(x, PYPOS, 1, 5, BGCOL);
+        if (chip_digital_read(D4)) {// ->
             x = min(x + 1, 128 - PSIZE);
-            chip_fill_rect(x + 39, PYPOS, 1, 5, PCOL);
-        } else {
-            chip_fill_rect(x + 39, PYPOS, 1, 5, BGCOL);
+            chip_fill_rect(x - 1, PYPOS, 1, 5, BGCOL);
+            chip_fill_rect(x - 1 + PSIZE, PYPOS, 1, 5, PCOL);
+        } else {// <-
             x = max(0, x - 1);
+            chip_fill_rect(x + PSIZE, PYPOS, 1, 5, BGCOL);
             chip_fill_rect(x, PYPOS, 1, 5, PCOL);
         }
 
