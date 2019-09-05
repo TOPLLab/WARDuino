@@ -2,6 +2,7 @@
 
 #ifndef WAC_H
 #define WAC_H
+
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -49,9 +50,13 @@ typedef struct Type {
 
 typedef union FuncPtr {
     void (*void_void)();
+
     void (*void_i32)(uint32_t);
+
     void (*void_i64)(uint64_t);
+
     void (*void_f32)(float);
+
     void (*void_f64)(double);
 
     double (*f64_f64)(double);
@@ -60,11 +65,11 @@ typedef union FuncPtr {
 // A block or function
 typedef struct Block {
     uint8_t block_type;    // 0x00: function, 0x01: init_exp
-                           // 0x02: block, 0x03: loop, 0x04: if
+    // 0x02: block, 0x03: loop, 0x04: if
     uint32_t fidx;         // function only (index)
     Type *type;            // params/results type
     uint32_t local_count;  // function only
-    uint32_t *local_value_type;      // types of locals (function only)
+    uint8_t *local_value_type;      // types of locals (function only)
     uint8_t *start_ptr;
     uint8_t *end_ptr;
     uint8_t *else_ptr;    // if block only
@@ -128,7 +133,7 @@ typedef struct Options {
 class WARDuino; // predeclare for it work in the module decl
 
 typedef struct Module {
-    WARDuino* warduino;
+    WARDuino *warduino;
     char *path;       // file path of the wasm module
     Options options;  // Config options
 
@@ -142,8 +147,8 @@ typedef struct Module {
     uint32_t function_count;  // number of function (including imports)
     Block *functions;         // imported and locally defined functions
     std::map<uint8_t *, Block *>
-        block_lookup;         // map of module byte position to Blocks
-                              // same length as byte_count
+            block_lookup;         // map of module byte position to Blocks
+    // same length as byte_count
     uint32_t start_function;  // function to run on module load
     Table table;
     Memory memory;
@@ -160,6 +165,7 @@ typedef struct Module {
 } Module;
 
 typedef void (*Primitive)(Module *);
+
 typedef struct PrimitiveEntry {
     const char *name;
     Primitive f;
@@ -167,10 +173,12 @@ typedef struct PrimitiveEntry {
 } PrimitiveEntry;
 
 
-enum RunningState { WARDUINOrun, WARDUINOpause, WARDUINOstep };
+enum RunningState {
+    WARDUINOrun, WARDUINOpause, WARDUINOstep
+};
 
 class WARDuino {
-   private:
+private:
     std::vector<Module *> modules = {};
     std::deque<uint8_t *> parsedInterrups = {};
 
@@ -184,26 +192,35 @@ class WARDuino {
     std::vector<uint8_t> interruptBuffer;
     long interruptSize;
 
-   public:
+public:
 
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};
 
     WARDuino();
-    int run_module(Module* m);
+
+    int run_module(Module *m);
+
     Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options);
-    void unload_module(Module* m);
+
+    void unload_module(Module *m);
+
     bool invoke(Module *m, uint32_t fidx);
+
     uint32_t get_export_fidx(Module *m, const char *name);
+
     void handleInterrupt(size_t len, uint8_t *buff);
 
     // breakpoints
-    void addBreakpoint(uint8_t* loc);
-    void delBreakpoint(uint8_t* loc);
-    bool isBreakpoint(uint8_t* loc);
-    
+    void addBreakpoint(uint8_t *loc);
+
+    void delBreakpoint(uint8_t *loc);
+
+    bool isBreakpoint(uint8_t *loc);
+
     // Get interrupt or NULL if none
-    uint8_t* getInterrupt();
+    uint8_t *getInterrupt();
 
 };
+
 #endif

@@ -45,7 +45,7 @@ void write_spi_byte(unsigned char c){
   spi->endTransaction();
 }
 
-void write_spi_bytes_16_prim(int times, unsigned int color) {
+void write_spi_bytes_16_prim(int times, uint32_t color) {
     unsigned char colorB = color >> 8;
     spi->beginTransaction(SPISettings(200000000, MSBFIRST, SPI_MODE0));
     for (int x=0; x < times; x++) {
@@ -56,12 +56,13 @@ void write_spi_bytes_16_prim(int times, unsigned int color) {
 }
 
 #else
+
 #include <chrono>
 #include <thread>
+
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define NUM_PRIMITIVES 0
@@ -86,7 +87,7 @@ int prim_index = 0;
         if (prim_index < ALL_PRIMITIVES) {                                 \
             PrimitiveEntry* p = &primitives[prim_index++];                 \
             p->name = #prim_name;                                          \
-            p->f = &prim_name;                                             \
+            p->f = &(prim_name);                                             \
         } else {                                                           \
             FATAL("pim_index out of bounds");                              \
         }                                                                  \
@@ -98,7 +99,7 @@ int prim_index = 0;
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
-#define get_arg(m, arg) m->stack[m->sp - arg].value
+#define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
 #define pushInt32(arg) m->stack[m->sp].value.uint32 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
@@ -124,7 +125,7 @@ Type oneToNoneU32 = {
         .param_count =  1,
         .params =  param_I32_arr_len1,
         .result_count =  0,
-        .results =  0,
+        .results =  nullptr,
         .mask =  0x8001 /* 0x800 = no return ; 1 = I32*/
 };
 
@@ -133,7 +134,7 @@ Type twoToNoneU32 = {
         .param_count =  2,
         .params =  param_I32_arr_len2,
         .result_count =  0,
-        .results =  0,
+        .results =  nullptr,
         .mask =  0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
 };
 
@@ -150,9 +151,9 @@ Type oneToOneU32 = {
 Type NoneToNoneU32 = {
         .form =  FUNC,
         .param_count =  0,
-        .params =  0,
+        .params =  nullptr,
         .result_count =  0,
-        .results =  0,
+        .results =  nullptr,
         .mask =  0x80000
 };
 
@@ -213,7 +214,7 @@ def_prim (spi_begin, NoneToNoneU32) {
     spi->begin();
 }
 
-def_prim(write_spi_bytes_16,oneToNoneU32) {
+def_prim(write_spi_bytes_16,twoToNoneU32) {
         write_spi_bytes_16_prim(arg1.uint32,arg0.uint32);
     pop_args(2);
 }
@@ -259,7 +260,7 @@ def_prim (spi_begin, NoneToNoneU32) {
     dbg_trace("EMU: spi_begin \n");
 }
 
-def_prim(write_spi_bytes_16, oneToNoneU32) {
+def_prim(write_spi_bytes_16, twoToNoneU32) {
     dbg_trace("EMU: write_spi_byte_16(%u, %u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
 }
@@ -309,11 +310,11 @@ void install_primitives() {
 bool resolve_primitive(char *symbol, Primitive *val) {
     debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
 
-    for (size_t i = 0; i < ALL_PRIMITIVES; i++) {
+    for (auto &primitive : primitives) {
         //printf("Checking %s = %s  \n", symbol, primitives[i].name);
-        if (!strcmp(symbol, primitives[i].name)) {
+        if (!strcmp(symbol, primitive.name)) {
             debug("FOUND PRIMITIVE\n");
-            *val = primitives[i].f;
+            *val = primitive.f;
             return true;
         }
     }
@@ -321,10 +322,11 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     return false;
 }
 
-Memory external_mem = {0,0,0,NULL};
-bool resolve_external_memory(char *symbol, Memory** val) {
-    if(!strcmp(symbol,"memory")){
-        if(external_mem.bytes == NULL){
+Memory external_mem = {0, 0, 0, nullptr};
+
+bool resolve_external_memory(char *symbol, Memory **val) {
+    if (!strcmp(symbol, "memory")) {
+        if (external_mem.bytes == nullptr) {
             external_mem.initial = 256;
             external_mem.maximum = 256;
             external_mem.pages = 256;

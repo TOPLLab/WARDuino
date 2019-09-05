@@ -40,20 +40,23 @@ enum InteruptTypes {
 
 void doDumpLocals(Module *m);
 
+
 void doDump(Module *m) {
     printf("DUMP!\n");
     printf("{");
 
     // current PC
-    printf(R"("pc":"%p",)", (void *)m->pc_ptr);
+    printf(R"("pc":"%p",)", (void *) m->pc_ptr);
 
     printf("\"breakpoints\":[");
 
-    size_t i = 0;
-    for(auto bp : m->warduino->breakpoints){
-        printf(R"("%p"%s)",
-               bp,
-               (++i < m->warduino->breakpoints.size()) ? "," : "");
+    {
+        size_t i = 0;
+        for (auto bp : m->warduino->breakpoints) {
+            printf(R"("%p"%s)",
+                   bp,
+                   (++i < m->warduino->breakpoints.size()) ? "," : "");
+        }
     }
     printf("],");
     // Functions
@@ -122,7 +125,7 @@ void doDumpLocals(Module *m) {
                          v->value_type, v->value.uint64);
         }
 
-        printf("{%s}%s", _value_str, (i+1 < f->block->local_count) ? "," : "");
+        printf("{%s}%s", _value_str, (i + 1 < f->block->local_count) ? "," : "");
     }
     printf("]}\n\n");
     fflush(stdout);
@@ -142,12 +145,12 @@ bool readChange(Module *m, uint8_t *bytes) {
     // SKIP the first byte (0x10), type of change
     uint8_t *pos = bytes + 1;
 
-    uint32_t b = read_LEB(&pos, 32);  // read id
+    uint32_t b = read_LEB_32(&pos);  // read id
 
     Block *function = &m->functions[m->import_count + b];
-    uint32_t body_size = read_LEB(&pos, 32);
+    uint32_t body_size = read_LEB_32(&pos);
     uint8_t *payload_start = pos;
-    uint32_t local_count = read_LEB(&pos, 32);
+    uint32_t local_count = read_LEB_32(&pos);
     uint8_t *save_pos;
     uint32_t tidx, lidx, lecount;
 
@@ -157,25 +160,25 @@ bool readChange(Module *m, uint8_t *bytes) {
     save_pos = pos;
     function->local_count = 0;
     for (uint32_t l = 0; l < local_count; l++) {
-        lecount = read_LEB(&pos, 32);
+        lecount = read_LEB_32(&pos);
         function->local_count += lecount;
         tidx = read_LEB(&pos, 7);
-        (void)tidx;  // TODO: use tidx?
+        (void) tidx;  // TODO: use tidx?
     }
 
     if (function->local_count > 0) {
         function->local_value_type =
-            (uint32_t *)acalloc(function->local_count, sizeof(uint32_t),
-                                "function->local_value_type");
+                (uint8_t *) acalloc(function->local_count, sizeof(uint8_t),
+                                    "function->local_value_type");
     }
 
     // Restore position and read the locals
     pos = save_pos;
     lidx = 0;
     for (uint32_t l = 0; l < local_count; l++) {
-        lecount = read_LEB(&pos, 32);
+        lecount = read_LEB_32(&pos);
         uint8_t vt = read_LEB(&pos, 7);
-        for (uint32_t l = 0; l < lecount; l++) {
+        for (uint32_t i = 0; i < lecount; i++) {
             function->local_value_type[lidx++] = vt;
         }
     }
@@ -199,7 +202,7 @@ bool readChangeLocal(Module *m, uint8_t *bytes) {
 
     if (*bytes != interruptUPDATEFun) return false;
     uint8_t *pos = bytes + 1;
-    uint32_t localId = read_LEB(&pos, 32);
+    uint32_t localId = read_LEB_32(&pos);
 
     auto v = &m->stack[m->fp + localId];
     switch (v->value_type) {
@@ -219,6 +222,7 @@ bool readChangeLocal(Module *m, uint8_t *bytes) {
     printf("Local %u changed", localId);
     return true;
 }
+
 
 /**
  * Validate if there are interrupts and execute them
@@ -240,7 +244,7 @@ bool readChangeLocal(Module *m, uint8_t *bytes) {
  *            as payload (immediately following `0x10`), see #readChange
  */
 bool check_interrupts(Module *m, RunningState *program_state) {
-    uint8_t *interruptData = NULL;
+    uint8_t *interruptData = nullptr;
     interruptData = m->warduino->getInterrupt();
     if (interruptData) {
         switch (*interruptData) {
@@ -274,7 +278,7 @@ bool check_interrupts(Module *m, RunningState *program_state) {
                     bp <<= sizeof(uint8_t) * 8;
                     bp |= interruptData[i + 2];
                 }
-                uint8_t *bpt = (uint8_t *)bp;
+                auto *bpt = (uint8_t *) bp;
                 printf("BP %p!\n", static_cast<void *>(bpt));
 
                 if (*interruptData == 0x06) {
@@ -320,3 +324,4 @@ bool check_interrupts(Module *m, RunningState *program_state) {
     }
     return false;
 }
+

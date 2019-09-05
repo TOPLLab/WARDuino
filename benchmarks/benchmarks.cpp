@@ -36,7 +36,7 @@ void set_path(char *path, string name) {
 
 unsigned int read_file_to_buf(unsigned char *bytes, string path) {
     FILE *file = fopen(path, "r");
-    if (file == NULL) {
+    if (file == nullptr) {
         fprintf(stderr, "Cannot open file: %s", path);
         exit(1);
     }
@@ -45,7 +45,7 @@ unsigned int read_file_to_buf(unsigned char *bytes, string path) {
     ASSERT(num_bytes > 0, "Could not Ftell");
     if (num_bytes < MAX_BYTE_CODE_SIZE) {
         fseek(file, 0L, SEEK_SET);
-        size_t result = fread(bytes, sizeof(char), num_bytes, file);
+        size_t result = fread(bytes, sizeof(char), (size_t) num_bytes, file);
         if (result != (size_t) num_bytes) {
             fprintf(stderr, "reading error while loading file %s", path);
             exit(1);
@@ -62,7 +62,7 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
     char path[MAX_PATH];
     unsigned char bytes[MAX_BYTE_CODE_SIZE];
     unsigned int bytes_length;
-    WARDuino *w = new WARDuino();
+    auto *w = new WARDuino();
 
     for (size_t i = 0; i < num_benchmarks; i++) {
         string name = benchmarks[i];
@@ -105,6 +105,6 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
 
 int main(int argc, const char *argv[]) {
     string benchmarks[] = {"tak", "fib", "fac", "gcd", "catalan", "primes"};
-    run_benchmarks((size_t)(sizeof(benchmarks) / sizeof(string *)), benchmarks);
+    run_benchmarks((size_t) (sizeof(benchmarks) / sizeof(string *)), benchmarks);
     return 0;
 }
