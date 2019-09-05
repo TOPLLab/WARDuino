@@ -1,0 +1,9 @@
+WARDuino	KEYWORD1
+load_module	KEYWORD2
+run_module	KEYWORD2
+invoke	KEYWORD2
+unload_module	KEYWORD2
+addBreakpoint	KEYWORD2
+delBreakpoint	KEYWORD2
+isBreakpoint	KEYWORD2
+handleInterrupt	KEYWORD2
