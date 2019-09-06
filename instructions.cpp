@@ -62,9 +62,7 @@ Block *pop_block(Module *m) {
     return frame->block;
 }
 
-// Setup a function
-// Push params and locals on the stack and save a call frame on the call stack
-// Sets new pc value for the start of the function
+
 void setup_call(Module *m, uint32_t fidx) {
     Block *func = &m->functions[fidx];
     Type *type = func->type;
