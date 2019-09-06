@@ -1,3 +1,5 @@
+DEVICE=esp8266
+
 DEBUGFLAGS = -DDEBUG=0 -DTRACE=1 -DINFO=1 -DWARN=1
 CXX       = g++
 CC        = gcc
@@ -20,9 +22,9 @@ all: display.ino
 %.run: %.local.cpp
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS) $(COBJECTS) $(CXXSOURCES) $< -o $@
 
-%.ino: %.wasm.c ../main.template.ino
+%.ino: %.wasm.c ../main.$(DEVICE).template.ino
 	cat $< > $@
-	sed 's/{{src}}/$(subst .,_,$(basename $<))/g' ../main.template.ino >> $@
+	sed 's/{{src}}/$(subst .,_,$(basename $<))/g' ../main.$(DEVICE).template.ino >> $@
 
 %.local.cpp:  %.wasm.c ../main.template.cpp
 	cat $< > $@
@@ -40,7 +42,7 @@ all: display.ino
 	wasm2wat -f $< > $@
 
 up:	display.ino
-	USE_TMPDIR=1  ../../scripts/upload ESP8266 $<
+	USE_TMPDIR=1  ../../scripts/upload $(DEVICE) $<
 
 clean:
 	rm *.html *.js *.wasm *.wast *.wasm.c *.ino *.local.cpp *.run || true
