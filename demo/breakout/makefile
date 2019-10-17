@@ -31,7 +31,7 @@ all: display.ino
 	sed 's/{{src}}/$(subst .,_,$(basename $<))/g' ../main.template.cpp >> $@
 
 %.wasm:  %.c
-	emcc $< -s ONLY_MY_CODE=1 --ignore-dynamic-linking -s WASM=1 -O3 -s NO_FILESYSTEM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -o $@
+	emcc $< -s SIDE_MODULE=1 -g4 --ignore-dynamic-linking -s WASM=1 -O3 -s NO_FILESYSTEM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -o $@
 
 
 %.wasm.c : %.wasm
