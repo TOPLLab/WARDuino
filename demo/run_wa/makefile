@@ -4,6 +4,8 @@
 # \        /  / __ \|  | \/ /_/ |  |  /  |   |  (  <_> )
 #  \__/\  /  (____  /__|  \____ |____/|__|___|  /\____/ 
 #       \/        \/           \/             \/        
+DEVICE=esp8266
+
 DEBUGFLAGS = -DDEBUG=1 -DTRACE=1 -DINFO=1 -DWARN=1
 CXX       = g++
 CC        = gcc
@@ -31,6 +33,13 @@ run: all
 	./$(OUTPUTDIR)warduino
 
 
+%.ino: wa_sources/%.c ../main.$(DEVICE).template.ino
+	cat $< > $@
+	sed 's/{{src}}/$(subst .,_,$(basename $(notdir $<)))_wasm/g' ../main.$(DEVICE).template.ino >> $@
+
+up:	hello_world.ino
+	USE_TMPDIR=1  ../../scripts/upload ESP8266 $<
+
 wa_sources/%.c: wa_sources/%.wast
 	$(MAKE) -C wa_sources
 
@@ -43,3 +52,4 @@ clean:
 	$(MAKE) -C wa_sources clean
 	$(RM) -rf $(OUTPUTDIR)
 	$(RM) $(COBJECTS)
+	$(RM) *.ino
