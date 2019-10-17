@@ -8,6 +8,7 @@ if test -n "$WARDUINO_DEV"; then
       tr -d '\n\t '
       echo""
     ) | tr '[:lower:]' '[:upper:]' | tee $WARDUINO_DEV
+    echo "Written to $WARDUINO_DEV"
   }
 else
   write() {
@@ -27,6 +28,14 @@ case "$1" in
 20                # Replace function (hard)
 ${2:-00}                # Function id (excluding imported functions)
 ${3:-070041e40010020b}  # New body
+HERE
+  ;;
+
+"REPLACELOC")
+  cat <<HERE | sed 's/#.*//' | write
+21                # Replace local (hard)
+${2:-00}                # local id
+${3:-00}  # New value
 HERE
   ;;
 
