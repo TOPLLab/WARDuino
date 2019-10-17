@@ -48,6 +48,9 @@ void doDump(Module *m) {
     // current PC
     printf(R"("pc":"%p",)", (void *) m->pc_ptr);
 
+    // start of bytes
+    printf(R"("start":["%p"],)", (void *) m->bytes);
+
     printf("\"breakpoints\":[");
 
     {
@@ -200,17 +203,19 @@ bool readChange(Module *m, uint8_t *bytes) {
  */
 bool readChangeLocal(Module *m, uint8_t *bytes) {
 
-    if (*bytes != interruptUPDATEFun) return false;
+    if (*bytes != interruptUPDATELocal) return false;
     uint8_t *pos = bytes + 1;
+    printf("Local updates: %x\n", *pos);
     uint32_t localId = read_LEB_32(&pos);
 
+    printf("Local %u being cahnged\n", localId);
     auto v = &m->stack[m->fp + localId];
     switch (v->value_type) {
         case I32:
-            v->value.uint32 = read_LEB_signed(&m->pc_ptr, 32);
+            v->value.uint32 = read_LEB_signed(&pos, 32);
             break;
         case I64:
-            v->value.int64 = read_LEB_signed(&m->pc_ptr, 64);
+            v->value.int64 = read_LEB_signed(&pos, 64);
             break;
         case F32:
             memcpy(&v->value.uint32, pos, 4);
@@ -219,7 +224,7 @@ bool readChangeLocal(Module *m, uint8_t *bytes) {
             memcpy(&v->value.uint64, pos, 8);
             break;
     }
-    printf("Local %u changed", localId);
+    printf("Local %u changed to %u\n", localId,v->value.uint32);
     return true;
 }
 
@@ -247,6 +252,7 @@ bool check_interrupts(Module *m, RunningState *program_state) {
     uint8_t *interruptData = nullptr;
     interruptData = m->warduino->getInterrupt();
     if (interruptData) {
+        printf("Interupt: %x\n", *interruptData);
         switch (*interruptData) {
             case interruptRUN:
                 printf("GO!\n");
@@ -303,14 +309,14 @@ bool check_interrupts(Module *m, RunningState *program_state) {
                 doDumpLocals(m);
                 break;
             case interruptUPDATEFun:
-                printf("CHANGE!\n");
+                printf("CHANGE local!\n");
                 readChange(m, interruptData);
                 //  do not free(interruptData);
                 // we need it to run that code
                 // TODO: free double replacements
                 break;
             case interruptUPDATELocal:
-                printf("CHANGE!\n");
+                printf("CHANGE local!\n");
                 readChangeLocal(m, interruptData);
                 free(interruptData);
                 break;
