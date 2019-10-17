@@ -2,27 +2,13 @@
 
 Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 under the arduino toolchain.
 
-# Overview of the project
+# ToolChain Installation
 
-```
-├── README.md
-├── WARDuino.cpp
-├── WARDuino.h
-├── library.properties
-├── local
-│   ├── main.cpp
-│   ├── makefile
-│   └── warduino
-├── mem.c
-├── mem.h
-├── util.c
-└── util.h
-```
+Follow these steps to execute the blink program on WARduino on an ESP8266.
 
+- Download [Arduino](https://www.arduino.cc/) and install it
 
-# ToolChain Installation and Hello World
-
-- Download [Arduino](https://www.arduino.cc/)
+- Setup `emcc` version v.1.38.47 or higher
 
 - Clone this repository under `$(HOME)/Arduino/libraries`
 
@@ -44,56 +30,15 @@ Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 und
 
 - Restart Arduino
 
-- Plug in the board and configure the board settings in the boards menu as follows
+- goto the `demo/run_wa` folder
 
-![Board configuration options](images/board_config.png)
-
-- Make a new sketch with the following code:
-
-```C
-#include <WARDuino.h>
-
-
-WARDuino wac;
-
-void setup() {
-  Serial.begin(115200);
-
-}
-
-void loop() {
-  Serial.println(ESP.getFreeHeap());
-  int i = wac.run_module();
-  Serial.println(i,HEX);
-  Serial.println("DONE");
-
-  while(true) {
-    delay(5000);
-  }
-}
-```
-
-- Compile and upload the sketch
-  - set 115200 boud
+- execute `make -C demo/run_wa up`
 
 
 
 ## Run WARDuino on host machine
 
 - Install wat2wasm from the [`wabt`](https://github.com/WebAssembly/wabt) package
-
-
-
-
-
-## Goals
-
-- IO is moelijk en lastig want je moet dat uit elkaar halen
-- De VM laat toe eenvoudig te debuggen en veranderen
-- Het gebruiken van de VM is belangrijk, dan kunnen we elke taal daar naar compileren, de bedoeling is om ook die talen makelijk te debuggen
-- Gemakelijk fies overschrijven en toevoegen
-- plus typesysteem dat de basis typeoperaties safe maakt
-- Updates getypeert houden, int->int blijft int->int, anders gaat het niet (bonus: wel als nergens gebruikt)
 
 
 # LICENCE
@@ -105,7 +50,7 @@ This is a derivative work of [kanaka/wac](https://github.com/kanaka/wac) by Joel
 
 If you need to cite WARDuino in your research, use:
 
-```b
+```bibtex
 @inproceedings{WARDuino2019,
  author = {Gurdeep Singh, Robbert and Scholliers, Christophe},
  title = {WARDuino: A Dynamic WebAssembly Virtual Machine for Programming Microcontrollers},
