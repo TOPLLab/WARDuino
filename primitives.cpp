@@ -1,20 +1,3 @@
-/*
- __      __                  .___    .__
-/  \    /  \_____ _______  __| _/_ __|__| ____   ____
-\   \/\/   /\__  \\_  __ \/ __ |  |  \  |/    \ /  _ \
- \        /  / __ \|  | \/ /_/ |  |  /  |   |  (  <_> )
-  \__/\  /  (____  /__|  \____ |____/|__|___|  /\____/
-       \/        \/           \/             \/
-
-WARDuino (c) by Christophe Scholliers & Robbert Gurdeep Singh
-
-WARDuino is licensed under a
-Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
-
-You should have received a copy of the license along with this
-work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
-*/
-
 /**
  * This file lists the primitives of the language and stores them in the
  * primitives
@@ -202,13 +185,13 @@ def_prim(chip_digital_read, oneToOneU32) {
 }
 
 //warning: undefined symbol: write_spi_byte
-def_prim (write_spi_byte, oneToNoneU32) { 
+def_prim (write_spi_byte, oneToNoneU32) {
     write_spi_byte(arg0.uint32);
     pop_args(1);
 }
 
 //warning: undefined symbol: spi_begin
-def_prim (spi_begin, NoneToNoneU32) { 
+def_prim (spi_begin, NoneToNoneU32) {
     yield();
     printf("spi_begin \n");
     spi->begin();
