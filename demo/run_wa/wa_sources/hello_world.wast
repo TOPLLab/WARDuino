@@ -22,7 +22,6 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
  (import "env" "chip_pin_mode"      (func $pin_mode         (type $1)))
  (import "env" "chip_digital_write" (func $digital_write    (type $2)))
  (import "env" "chip_delay"         (func $delay            (type $3)))
- (import "env" "write_spi_byte"     (func $write_spi_byte   (type $3)))
 
 
  (; Type declarations ;)
@@ -34,7 +33,6 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
  (; Define one function ;)
  (export "main" (func $blink_arduino))
 
- (memory $tada (data "\80\01"))
  (; The wait function ;)
  (func $wait (type $4)
     (;  Delay time   ;)
@@ -53,15 +51,16 @@ work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
   (loop
     (;  LED    ;)
     (; HIGH INVERTED ;)
-    (i32.load (i32.const 0))
-    (call $write_spi_byte)
+    (i32.const 16)
+    (i32.const 1)
+    (call $digital_write)
 
     (call $wait)
 
     (;  LED    ;)
     (i32.const 16)
     (; LOW INVERTED ;)
-    (i32.load (i32.const 1))
+    (i32.const 0)
     (call $digital_write)
 
 
