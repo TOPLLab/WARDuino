@@ -11,14 +11,17 @@ uint8_t buff[100] = {0};
 uint8_t buff_len = 0;
 
 void ICACHE_RAM_ATTR dbgCheck(){
-    if (handlingInterrupt) return;
+    noInterrupts();
+    bool oldHandeling = handlingInterrupt;
     handlingInterrupt = true;
     interrupts();
+    if (oldHandeling) return;
 
     while (Serial.available()) {
         size_t buff_len = 0;
         while (Serial.available()) {
             buff[buff_len++] = (int8_t) Serial.read();
+            if(buff_len >= 99) break;
         }
         if (buff_len) {
             wac.handleInterrupt(buff_len, buff);
