@@ -10,4 +10,5 @@ Required pin setup:
 | ---- | ---- | ---- | ----- | ---- | ---- | ---- | ---- |
 | Vcc  | GND  | CS   | RESET | A0   | SDA  | SCK  | LED  |
 
+D4 is the button (active low)
 
