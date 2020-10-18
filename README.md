@@ -4,37 +4,40 @@ Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 und
 
 # ToolChain Installation
 
-Follow these steps to execute the blink program on WARduino on an ESP8266.
+Follow these steps to execute the blink program on WARduino on an ESP8266 or ESP32.
 
-- Download [Arduino](https://www.arduino.cc/) and install it
+- Download [Arduino](https://www.arduino.cc/) and install it.
 
-- Setup `emcc` version v.1.38.47 or higher
+- Setup `emcc` version v.1.38.47 or higher.
 
-- Clone this repository under `$(HOME)/Arduino/libraries`
+- Clone this repository under `$(HOME)/Arduino/libraries`.
 
-- Add the `esp8266` driver
+- Add the `esp8266` or `esp32` driver depending on your board:
 
-  - Add the repository
+  - Add the repository:
 
-    - File > Preferences > Settings > Additional board manager URLS:
+    - File > Preferences > Settings > Additional board manager URLS
 
       ```
-      http://arduino.esp8266.com/stable/package_esp8266com_index.json
+      http://arduino.esp8266.com/stable/package_esp8266com_index.json,https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
       ```
 
-    - Or follow the steps at https://github.com/esp8266/Arduino#installing-with-boards-manager
+    - Or follow the steps at https://github.com/esp8266/Arduino#installing-with-boards-manager for esp8266 or https://github.com/espressif/arduino-esp32/blob/master/docs/arduino-ide/boards_manager.md for esp32
 
   - Go to Tools->Boards->Boards Manager
 
     - Search for `esp8266` and install it (version 2.5.0)
+    - Or search for `esp32` and install it (version 1.0.4)
 
-- Restart Arduino
+- Restart Arduino.
 
-- goto the `demo/run_wa` folder
+- Go to the `demo/run_wa` folder.
 
-- execute `make -C demo/run_wa up`
+- Execute `make -C wa_sources/ all`.
 
+- Execute `make up` or use the Arduino IDE to compile and upload the `.ino` file.
 
+  - Use board `DOIT ESP32 DEVKIT V1`
 
 ## Run WARDuino on host machine
 
