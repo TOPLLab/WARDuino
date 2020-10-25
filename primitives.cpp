@@ -16,6 +16,8 @@
 
 #ifdef ARDUINO
 #include "Arduino.h"
+#include <WiFi.h>
+#include <HTTPClient.h>
 
 #define delay_us(ms) delayMicroseconds(ms)
 #include <SPI.h>
@@ -50,12 +52,17 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 8
+#define NUM_PRIMITIVES_ARDUINO 10
 #else
-#define NUM_PRIMITIVES_ARDUINO 7
+#define NUM_PRIMITIVES_ARDUINO 9
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
+
+const char* ssid = "SSID";
+const char* password = "PASSWORD";
+
+const char* serverName = "http://example.com:80/";
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -146,6 +153,44 @@ Type NoneToNoneU32 = {
 //------------------------------------------------------
 #ifdef ARDUINO
 
+def_prim(connect, NoneToNoneU32) {
+    WiFi.begin(ssid, password);
+    printf("Connecting to wifi\n");
+    while(WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("");
+    Serial.print("Connected to WiFi network with IP Address: ");
+    Serial.println(WiFi.localIP());
+    pop_args(0);
+}
+
+def_prim(get, NoneToNoneU32) {
+    //Check WiFi connection status
+    if(WiFi.status()== WL_CONNECTED) {
+        HTTPClient http;
+
+        String serverPath = serverName;
+
+        // Your Domain name with URL path or IP address with path
+        http.begin(serverPath.c_str());
+
+        // Send HTTP GET request
+        int httpResponseCode = http.GET();
+
+        if (httpResponseCode>0) {
+            printf("HTTP Response code: %i", httpResponseCode);
+            String payload = http.getString();
+            Serial.println(payload);
+        } else {
+            printf("Error code: %i", httpResponseCode);
+        }
+        // Free resources
+        http.end();
+    }
+    pop_args(0);
+}
 
 //warning: undefined symbol: chip_pin_mode
 def_prim(chip_pin_mode, twoToNoneU32) {
@@ -203,6 +248,16 @@ def_prim(write_spi_bytes_16,twoToNoneU32) {
 }
 
 #else
+
+def_prim(connect, NoneToNoneU32) {
+    dbg_trace("EMU: connect to wifi\n");
+    pop_args(0);
+}
+
+def_prim(get, NoneToNoneU32) {
+    dbg_trace("EMU: http get request\n");
+    pop_args(0);
+}
 
 def_prim(chip_pin_mode, twoToNoneU32) {
     dbg_trace("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
@@ -267,6 +322,8 @@ void install_primitives() {
     //install_primitive(rand);
 #ifdef ARDUINO
     dbg_info("INSTALLING ARDUINO\n");
+    install_primitive(connect);
+    install_primitive(get);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
@@ -277,6 +334,8 @@ void install_primitives() {
     install_primitive(write_spi_bytes_16);
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
+    install_primitive(connect);
+    install_primitive(get);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
