@@ -52,17 +52,15 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 10
+#define NUM_PRIMITIVES_ARDUINO 11
 #else
-#define NUM_PRIMITIVES_ARDUINO 9
+#define NUM_PRIMITIVES_ARDUINO 10
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
 const char* ssid = "SSID";
 const char* password = "PASSWORD";
-
-const char* serverName = "http://example.com:80/";
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -163,6 +161,7 @@ def_prim(connect, NoneToNoneU32) {
     Serial.println("");
     Serial.print("Connected to WiFi network with IP Address: ");
     Serial.println(WiFi.localIP());
+    Serial.flush();
     pop_args(0);
 }
 
@@ -171,24 +170,31 @@ def_prim(get, NoneToNoneU32) {
     if(WiFi.status()== WL_CONNECTED) {
         HTTPClient http;
 
-        String serverPath = serverName;
-
+        String url = (char *) m->memory.bytes; // TODO What if string isn't null terminated?
+        Serial.print("GET ");
+        Serial.println(url);
         // Your Domain name with URL path or IP address with path
-        http.begin(serverPath.c_str());
+        http.begin(url.c_str());
 
         // Send HTTP GET request
         int httpResponseCode = http.GET();
 
         if (httpResponseCode>0) {
-            printf("HTTP Response code: %i", httpResponseCode);
+            printf("HTTP Response code: %i\n", httpResponseCode);
             String payload = http.getString();
             Serial.println(payload);
+            Serial.flush();
         } else {
             printf("Error code: %i", httpResponseCode);
         }
         // Free resources
         http.end();
     }
+    pop_args(0);
+}
+
+def_prim(post, NoneToNoneU32) {
+    // TODO
     pop_args(0);
 }
 
@@ -259,6 +265,11 @@ def_prim(get, NoneToNoneU32) {
     pop_args(0);
 }
 
+def_prim(post, NoneToNoneU32) {
+    // TODO
+    pop_args(0);
+}
+
 def_prim(chip_pin_mode, twoToNoneU32) {
     dbg_trace("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
@@ -324,6 +335,7 @@ void install_primitives() {
     dbg_info("INSTALLING ARDUINO\n");
     install_primitive(connect);
     install_primitive(get);
+    install_primitive(post);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
@@ -336,6 +348,7 @@ void install_primitives() {
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(connect);
     install_primitive(get);
+    install_primitive(post);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
