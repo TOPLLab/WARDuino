@@ -165,24 +165,32 @@ def_prim(connect, NoneToNoneU32) {
     pop_args(0);
 }
 
-def_prim(get, NoneToNoneU32) {
+def_prim(get, twoToNoneU32) {
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
         HTTPClient http;
 
-        String url = (char *) m->memory.bytes; // TODO What if string isn't null terminated?
+        // url string
+        uint8_t addr = arg1.uint32;
+        uint8_t length = arg0.uint32;
+        if (m->memory.bytes[length - 1] != 0) {
+            // URL isn't null-terminated
+            // TODO call trap
+        }
+
+        String url = (char *) m->memory.bytes;
         Serial.print("GET ");
         Serial.println(url);
-        // Your Domain name with URL path or IP address with path
-        http.begin(url.c_str());
 
         // Send HTTP GET request
+        http.begin(url.c_str());
         int httpResponseCode = http.GET();
 
-        if (httpResponseCode>0) {
-            printf("HTTP Response code: %i\n", httpResponseCode);
+        if (httpResponseCode > 0) {
+            printf("HTTP Response code: %i", httpResponseCode);
             String payload = http.getString();
-            Serial.println(payload);
+            // TODO write payload to linear memory
+            // Serial.println(payload);
             Serial.flush();
         } else {
             printf("Error code: %i", httpResponseCode);
@@ -190,7 +198,7 @@ def_prim(get, NoneToNoneU32) {
         // Free resources
         http.end();
     }
-    pop_args(0);
+    pop_args(2);
 }
 
 def_prim(post, NoneToNoneU32) {
@@ -260,9 +268,9 @@ def_prim(connect, NoneToNoneU32) {
     pop_args(0);
 }
 
-def_prim(get, NoneToNoneU32) {
+def_prim(get, twoToNoneU32) {
     dbg_trace("EMU: http get request\n");
-    pop_args(0);
+    pop_args(2);
 }
 
 def_prim(post, NoneToNoneU32) {
