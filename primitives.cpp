@@ -59,9 +59,6 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
-const char* ssid = "SSID";
-const char* password = "PASSWORD";
-
 // Global index for installing primitives
 int prim_index = 0;
 
@@ -107,6 +104,7 @@ Type nullType;
 uint32_t param_arr_len0[0] = {};
 uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
+uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
 
 Type oneToNoneU32 = {
         .form =  FUNC,
@@ -126,6 +124,14 @@ Type twoToNoneU32 = {
         .mask =  0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
 };
 
+Type fourToNoneU32 = {
+        .form =  FUNC,
+        .param_count =  4,
+        .params =  param_I32_arr_len4,
+        .result_count =  0,
+        .results =  nullptr,
+        .mask =  0x8001111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
+};
 
 Type oneToOneU32 = {
         .form =  FUNC,
@@ -151,8 +157,25 @@ Type NoneToNoneU32 = {
 //------------------------------------------------------
 #ifdef ARDUINO
 
-def_prim(connect, NoneToNoneU32) {
-    WiFi.begin(ssid, password);
+def_prim(connect, fourToNoneU32) {
+    uint8_t ssid = arg3.uint32;
+    uint8_t len0 = arg2.uint32;
+    uint8_t pass = arg1.uint32;
+    uint8_t len1 = arg0.uint32;
+
+    if (m->memory.bytes[len0 - 1] != 0 && m->memory.bytes[len1 - 1] != 0) {
+        // One of the strings isn't null-terminated
+        // TODO call trap
+    }
+
+    char *ssid_str = (char *) m->memory.bytes;
+    char *pass_str = (char *) m->memory.bytes + len0;
+    Serial.print("SSID: ");
+    Serial.println(ssid_str);
+    Serial.print("PASS: ");
+    Serial.println(pass_str);
+
+    WiFi.begin(ssid_str, pass_str);
     printf("Connecting to wifi\n");
     while(WiFi.status() != WL_CONNECTED) {
         delay(500);
@@ -263,7 +286,7 @@ def_prim(write_spi_bytes_16,twoToNoneU32) {
 
 #else
 
-def_prim(connect, NoneToNoneU32) {
+def_prim(connect, fourToNoneU32) {
     dbg_trace("EMU: connect to wifi\n");
     pop_args(0);
 }
