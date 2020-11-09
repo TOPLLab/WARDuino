@@ -92,8 +92,8 @@ int prim_index = 0;
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
-#define arg3 get_arg(m, 2)
-#define arg4 get_arg(m, 2)
+#define arg3 get_arg(m, 3)
+#define arg4 get_arg(m, 4)
 
 // The primitive table
 PrimitiveEntry primitives[ALL_PRIMITIVES];
