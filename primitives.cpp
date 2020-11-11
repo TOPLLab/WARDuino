@@ -412,6 +412,8 @@ void install_primitives() {
     //install_primitive(rand);
 #ifdef ARDUINO
     dbg_info("INSTALLING ARDUINO\n");
+    install_primitive(print_int);
+    install_primitive(print_string);
     install_primitive(connect);
     install_primitive(get);
     install_primitive(post);
@@ -425,6 +427,8 @@ void install_primitives() {
     install_primitive(write_spi_bytes_16);
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
+    install_primitive(print_int);
+    install_primitive(print_string);
     install_primitive(connect);
     install_primitive(get);
     install_primitive(post);
@@ -445,7 +449,7 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
 
     for (auto &primitive : primitives) {
-        //printf("Checking %s = %s  \n", symbol, primitives[i].name);
+//        printf("Checking %s = %s  \n", symbol, primitive.name);
         if (!strcmp(symbol, primitive.name)) {
             debug("FOUND PRIMITIVE\n");
             *val = primitive.f;
