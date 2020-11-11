@@ -52,9 +52,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 11
+#define NUM_PRIMITIVES_ARDUINO 13
 #else
-#define NUM_PRIMITIVES_ARDUINO 10
+#define NUM_PRIMITIVES_ARDUINO 11
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -142,6 +142,15 @@ Type oneToOneU32 = {
         .mask =  0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
 };
 
+Type twoToOneU32 = {
+        .form =  FUNC,
+        .param_count =  2,
+        .params =  param_I32_arr_len2,
+        .result_count =  1,
+        .results =  param_I32_arr_len1,
+        .mask =  0x81011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+};
+
 Type NoneToNoneU32 = {
         .form =  FUNC,
         .param_count =  0,
@@ -156,6 +165,30 @@ Type NoneToNoneU32 = {
 // Arduino Specific Functions
 //------------------------------------------------------
 #ifdef ARDUINO
+
+def_prim(print_int, oneToNoneU32) {
+    uint8_t integer = arg0.uint32;
+    Serial.print("Printing integer: ");
+    Serial.println(integer);
+    Serial.flush();
+    pop_args(1);
+}
+
+def_prim(print_string, oneToNoneU32) {
+    Serial.println("print_string");
+
+    uint8_t addr = arg0.uint32;
+//    if (m->memory.bytes[length - 1] != 0) {
+//        // URL isn't null-terminated
+//        // TODO call trap
+//        Serial.println("trap");
+//    }
+
+    String str = (char *) m->memory.bytes;
+    Serial.println(str);
+    Serial.flush();
+    pop_args(1);
+}
 
 def_prim(connect, fourToNoneU32) {
     uint8_t ssid = arg3.uint32;
@@ -188,7 +221,8 @@ def_prim(connect, fourToNoneU32) {
     pop_args(0);
 }
 
-def_prim(get, twoToNoneU32) {
+def_prim(get, twoToOneU32) {
+    uint32_t return_value = 0;
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
         HTTPClient http;
@@ -199,6 +233,7 @@ def_prim(get, twoToNoneU32) {
         if (m->memory.bytes[addr + length - 1] != 0) {
             // URL isn't null-terminated
             // TODO call trap
+            Serial.println("trap");
         }
 
         String url = (char *) m->memory.bytes;
@@ -210,18 +245,21 @@ def_prim(get, twoToNoneU32) {
         int httpResponseCode = http.GET();
 
         if (httpResponseCode > 0) {
-            printf("HTTP Response code: %i", httpResponseCode);
+            printf("HTTP Response code: %i\n", httpResponseCode);
             String payload = http.getString();
             // TODO write payload to linear memory
-            // Serial.println(payload);
-            Serial.flush();
+            Serial.println(payload);
+            return_value = 42;
         } else {
-            printf("Error code: %i", httpResponseCode);
+            printf("Error code: %i\n", httpResponseCode);
         }
         // Free resources
+        Serial.println("freeing resource");
         http.end();
     }
-    pop_args(2);
+    pop_args(1);
+    pushInt32(return_value);
+    Serial.flush();
 }
 
 def_prim(post, NoneToNoneU32) {
@@ -286,14 +324,24 @@ def_prim(write_spi_bytes_16,twoToNoneU32) {
 
 #else
 
+def_prim(print_int, oneToNoneU32) {
+    dbg_trace("EMU: print int\n");
+    pop_args(1);
+}
+
+def_prim(print_string, oneToNoneU32) {
+    dbg_trace("EMU: print string\n");
+    pop_args(1);
+}
+
 def_prim(connect, fourToNoneU32) {
     dbg_trace("EMU: connect to wifi\n");
     pop_args(0);
 }
 
-def_prim(get, twoToNoneU32) {
+def_prim(get, twoToOneU32) {
     dbg_trace("EMU: http get request\n");
-    pop_args(2);
+    pop_args(1);
 }
 
 def_prim(post, NoneToNoneU32) {
