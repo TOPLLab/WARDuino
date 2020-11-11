@@ -163,7 +163,7 @@ def_prim(connect, fourToNoneU32) {
     uint8_t pass = arg1.uint32;
     uint8_t len1 = arg0.uint32;
 
-    if (m->memory.bytes[len0 - 1] != 0 && m->memory.bytes[len1 - 1] != 0) {
+    if (m->memory.bytes[ssid + len0 - 1] != 0 && m->memory.bytes[pass + len1 - 1] != 0) {
         // One of the strings isn't null-terminated
         // TODO call trap
     }
@@ -193,10 +193,10 @@ def_prim(get, twoToNoneU32) {
     if(WiFi.status()== WL_CONNECTED) {
         HTTPClient http;
 
-        // url string
         uint8_t addr = arg1.uint32;
         uint8_t length = arg0.uint32;
-        if (m->memory.bytes[length - 1] != 0) {
+        // url string
+        if (m->memory.bytes[addr + length - 1] != 0) {
             // URL isn't null-terminated
             // TODO call trap
         }
