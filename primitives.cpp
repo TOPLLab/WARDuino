@@ -50,9 +50,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 8
+#define NUM_PRIMITIVES_ARDUINO 9
 #else
-#define NUM_PRIMITIVES_ARDUINO 7
+#define NUM_PRIMITIVES_ARDUINO 8
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -146,6 +146,12 @@ Type NoneToNoneU32 = {
 //------------------------------------------------------
 #ifdef ARDUINO
 
+def_prim(assert_int, oneToNoneU32) {
+    uint8_t boolean = arg0.uint32;
+    pop_args(1);
+    return (bool) boolean;
+}
+
 
 //warning: undefined symbol: chip_pin_mode
 def_prim(chip_pin_mode, twoToNoneU32) {
@@ -203,6 +209,13 @@ def_prim(write_spi_bytes_16,twoToNoneU32) {
 }
 
 #else
+
+def_prim(assert_int, oneToNoneU32) {
+    uint8_t boolean = arg0.uint32;
+    dbg_trace("EMU: assert(%u) \n", boolean);
+    pop_args(1);
+    return (bool) boolean;
+}
 
 def_prim(chip_pin_mode, twoToNoneU32) {
     dbg_trace("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
@@ -267,6 +280,7 @@ void install_primitives() {
     //install_primitive(rand);
 #ifdef ARDUINO
     dbg_info("INSTALLING ARDUINO\n");
+    install_primitive(assert_int);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
@@ -277,6 +291,7 @@ void install_primitives() {
     install_primitive(write_spi_bytes_16);
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
+    install_primitive(assert_int);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
