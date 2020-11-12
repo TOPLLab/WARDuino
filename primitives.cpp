@@ -78,7 +78,7 @@ int prim_index = 0;
 
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
-    void function_name(Module* m)
+    bool function_name(Module* m)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
