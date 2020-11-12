@@ -148,6 +148,7 @@ Type NoneToNoneU32 = {
 
 def_prim(assert_int, oneToNoneU32) {
     uint8_t boolean = arg0.uint32;
+    sprintf(exception, "Trap: assertion failed");
     pop_args(1);
     return (bool) boolean;
 }

@@ -1515,6 +1515,9 @@ bool interpret(Module *m) {
                 //
             case 0x10: {  // call
                 success &= i_instr_call(m);
+                if (!success) {
+                    FATAL("%s\n", exception);
+                }
                 continue;
             }
             case 0x11:  // call_indirect
