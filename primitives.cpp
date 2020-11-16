@@ -52,9 +52,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 13
+#define NUM_PRIMITIVES_ARDUINO 14
 #else
-#define NUM_PRIMITIVES_ARDUINO 11
+#define NUM_PRIMITIVES_ARDUINO 12
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -80,7 +80,7 @@ int prim_index = 0;
 
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
-    void function_name(Module* m)
+    bool function_name(Module* m)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
@@ -165,6 +165,13 @@ Type NoneToNoneU32 = {
 // Arduino Specific Functions
 //------------------------------------------------------
 #ifdef ARDUINO
+
+def_prim(assert_int, oneToNoneU32) {
+    uint8_t boolean = arg0.uint32;
+    sprintf(exception, "Trap: assertion failed");
+    pop_args(1);
+    return (bool) boolean;
+}
 
 def_prim(print_int, oneToNoneU32) {
     uint8_t integer = arg0.uint32;
@@ -324,6 +331,13 @@ def_prim(write_spi_bytes_16,twoToNoneU32) {
 
 #else
 
+def_prim(assert_int, oneToNoneU32) {
+    uint8_t boolean = arg0.uint32;
+    dbg_trace("EMU: assert(%u) \n", boolean);
+    pop_args(1);
+    return (bool) boolean;
+}
+
 def_prim(print_int, oneToNoneU32) {
     dbg_trace("EMU: print int\n");
     pop_args(1);
@@ -412,6 +426,7 @@ void install_primitives() {
     //install_primitive(rand);
 #ifdef ARDUINO
     dbg_info("INSTALLING ARDUINO\n");
+    install_primitive(assert_int);
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(connect);
@@ -427,6 +442,7 @@ void install_primitives() {
     install_primitive(write_spi_bytes_16);
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
+    install_primitive(assert_int);
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(connect);

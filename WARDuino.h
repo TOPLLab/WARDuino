@@ -164,7 +164,7 @@ typedef struct Module {
     uint32_t br_table[BR_TABLE_SIZE];  // br_table branch indexes
 } Module;
 
-typedef void (*Primitive)(Module *);
+typedef bool (*Primitive)(Module *);
 
 typedef struct PrimitiveEntry {
     const char *name;

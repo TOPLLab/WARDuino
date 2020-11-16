@@ -341,7 +341,7 @@ bool i_instr_return(Module *m) {
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
     if (fidx < m->import_count) {
-        ((Primitive) m->functions[fidx].func_ptr)(m);
+        return ((Primitive) m->functions[fidx].func_ptr)(m);
     } else {
         if (m->csp >= CALLSTACK_SIZE) {
             sprintf(exception, "call stack exhausted");
@@ -1515,6 +1515,9 @@ bool interpret(Module *m) {
                 //
             case 0x10: {  // call
                 success &= i_instr_call(m);
+                if (!success) {
+                    FATAL("%s\n", exception);
+                }
                 continue;
             }
             case 0x11:  // call_indirect
