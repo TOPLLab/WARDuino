@@ -1515,9 +1515,6 @@ bool interpret(Module *m) {
                 //
             case 0x10: {  // call
                 success &= i_instr_call(m);
-                if (!success) {
-                    FATAL("%s\n", exception);
-                }
                 continue;
             }
             case 0x11:  // call_indirect
@@ -1654,6 +1651,8 @@ bool interpret(Module *m) {
     dbg_trace("Interpretation ended %s with status %s\n",
               program_done ? "expectedly" : "unexpectedly",
               success ? "ok" : "error");
-    ASSERT(program_done && success, "While loop broken unexpectedly!");
+    if (!success) {
+        FATAL("%s\n", exception);
+    }
     return success;
 }
