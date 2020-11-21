@@ -166,11 +166,9 @@ Type NoneToNoneU32 = {
 //------------------------------------------------------
 #ifdef ARDUINO
 
-def_prim(assert_int, oneToNoneU32) {
-    uint8_t boolean = arg0.uint32;
-    sprintf(exception, "Trap: assertion failed");
-    pop_args(1);
-    return (bool) boolean;
+def_prim(abort, NoneToNoneU32) {
+    sprintf(exception, "Trap: assertion failed.");
+    return false;
 }
 
 def_prim(print_int, oneToNoneU32) {
@@ -187,9 +185,9 @@ def_prim(print_string, oneToNoneU32) {
 
     uint8_t addr = arg0.uint32;
 //    if (m->memory.bytes[length - 1] != 0) {
-//        // URL isn't null-terminated
-//        // TODO call trap
-//        Serial.println("trap");
+//        URL isn't null-terminated
+//        sprintf(exception, "Print-string: string isn't null-terminated.");
+//        return false;
 //    }
 
     String str = (char *) m->memory.bytes;
@@ -207,7 +205,7 @@ def_prim(connect, fourToNoneU32) {
 
     if (m->memory.bytes[ssid + len0 - 1] != 0 && m->memory.bytes[pass + len1 - 1] != 0) {
         // One of the strings isn't null-terminated
-        // TODO call trap
+        sprintf(exception, "Connect: string isn't null-terminated.");
         return false;
     }
 
@@ -243,8 +241,7 @@ def_prim(get, twoToOneU32) {
         // url string
         if (m->memory.bytes[addr + length - 1] != 0) {
             // URL isn't null-terminated
-            // TODO call trap
-            Serial.println("trap");
+            sprintf(exception, "Get: string isn't null-terminated.");
             return false;
         }
 
@@ -346,11 +343,9 @@ def_prim(write_spi_bytes_16,twoToNoneU32) {
 
 #else
 
-def_prim(assert_int, oneToNoneU32) {
-    uint8_t boolean = arg0.uint32;
-    dbg_trace("EMU: assert(%u) \n", boolean);
-    pop_args(1);
-    return (bool) boolean;
+def_prim(abort, NoneToNoneU32) {
+    dbg_trace("EMU: abort\n");
+    return false;
 }
 
 def_prim(print_int, oneToNoneU32) {
@@ -453,7 +448,7 @@ void install_primitives() {
     //install_primitive(rand);
 #ifdef ARDUINO
     dbg_info("INSTALLING ARDUINO\n");
-    install_primitive(assert_int);
+    install_primitive(abort);
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(connect);
@@ -469,7 +464,7 @@ void install_primitives() {
     install_primitive(write_spi_bytes_16);
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
-    install_primitive(assert_int);
+    install_primitive(abort);
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(connect);
