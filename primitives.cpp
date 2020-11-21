@@ -161,6 +161,7 @@ def_prim(chip_pin_mode, twoToNoneU32) {
     uint8_t mode = arg0.uint32;
     pinMode(pin, mode);
     pop_args(2);
+    return true;
 }
 
 // warning: undefined symbol: chip_digital_write
@@ -170,12 +171,14 @@ def_prim(chip_digital_write, twoToNoneU32) {
     uint8_t val = arg0.uint32;
     digitalWrite(pin, val);
     pop_args(2);
+    return true;
 }
 
 def_prim(chip_delay, oneToNoneU32) {
     printf("chip_delay \n");
     delay(arg0.uint32);
     pop_args(1);
+    return true;
 }
 
 //warning: undefined symbol: chip_delay_us
@@ -183,18 +186,21 @@ def_prim (chip_delay_us, oneToNoneU32) {
     yield();
     delay_us(arg0.uint32);
     pop_args(1);
+    return true;
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     uint8_t res = digitalRead(pin);
     pushInt32(res);
+    return true;
 }
 
 //warning: undefined symbol: write_spi_byte
 def_prim (write_spi_byte, oneToNoneU32) {
     write_spi_byte(arg0.uint32);
     pop_args(1);
+    return true;
 }
 
 //warning: undefined symbol: spi_begin
@@ -202,11 +208,13 @@ def_prim (spi_begin, NoneToNoneU32) {
     yield();
     printf("spi_begin \n");
     spi->begin();
+    return true;
 }
 
 def_prim(write_spi_bytes_16,twoToNoneU32) {
         write_spi_bytes_16_prim(arg1.uint32,arg0.uint32);
     pop_args(2);
+    return true;
 }
 
 #else
@@ -221,11 +229,13 @@ def_prim(assert_int, oneToNoneU32) {
 def_prim(chip_pin_mode, twoToNoneU32) {
     dbg_trace("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
+    return true;
 }
 
 def_prim(chip_digital_write, twoToNoneU32) {
     dbg_trace("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
+    return true;
 }
 
 def_prim(chip_delay, oneToNoneU32) {
@@ -235,6 +245,7 @@ def_prim(chip_delay, oneToNoneU32) {
     sleep_for(milliseconds(arg0.uint32));
     dbg_trace("EMU: .. done\n");
     pop_args(1);
+    return true;
 }
 
 def_prim(chip_delay_us, oneToNoneU32) {
@@ -244,22 +255,26 @@ def_prim(chip_delay_us, oneToNoneU32) {
     sleep_for(microseconds(arg0.uint32));
     dbg_trace("EMU: .. done\n");
     pop_args(1);
+    return true;
 }
 
 //warning: undefined symbol: write_spi_byte
 def_prim (write_spi_byte, oneToNoneU32) {
     dbg_trace("EMU: write_spi_byte(%u) \n", arg0.uint32);
     pop_args(1);
+    return true;
 }
 
 //warning: undefined symbol: spi_begin
 def_prim (spi_begin, NoneToNoneU32) {
     dbg_trace("EMU: spi_begin \n");
+    return true;
 }
 
 def_prim(write_spi_bytes_16, twoToNoneU32) {
     dbg_trace("EMU: write_spi_byte_16(%u, %u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
+    return true;
 }
 
 
