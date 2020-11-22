@@ -40,5 +40,6 @@ void loop() {
         wac.run_module(m);
         printf("%d: %u\n", i, m->stack->value.uint32);
     }
+    wac.unload_module(m);
     printf("DONE\n\n");
 }

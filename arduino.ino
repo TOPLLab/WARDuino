@@ -38,5 +38,6 @@ void loop() {
     for (size_t i = 0; i < 10; i++) {
         wac.run_module(m);
     }
+    wac.unload_module(m);
     printf("DONE\n\n");
 }

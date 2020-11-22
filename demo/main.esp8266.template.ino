@@ -48,4 +48,5 @@ void loop() {
             {{src}}, {{src}}_len,
             {.disable_memory_bounds = false, .mangle_table_index=false, .dlsym_trim_underscore=true});
     wac.run_module(m);
+    wac.unload_module(m);
 }
