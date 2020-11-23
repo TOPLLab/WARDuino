@@ -172,7 +172,7 @@ def_prim(abort, NoneToNoneU32) {
 }
 
 def_prim(print_int, oneToNoneU32) {
-    uint8_t integer = arg0.uint32;
+    uint32_t integer = arg0.uint32;
     Serial.print("Printing integer: ");
     Serial.println(integer);
     Serial.flush();
@@ -183,14 +183,14 @@ def_prim(print_int, oneToNoneU32) {
 def_prim(print_string, oneToNoneU32) {
     Serial.println("print_string");
 
-    uint8_t addr = arg0.uint32;
-//    if (m->memory.bytes[length - 1] != 0) {
+    uint32_t addr = arg0.uint32;
+//    if (m->memory.bytes[addr + length - 1] != 0) {
 //        URL isn't null-terminated
 //        sprintf(exception, "Print-string: string isn't null-terminated.");
 //        return false;
 //    }
 
-    String str = (char *) m->memory.bytes;
+    String str = (char *) m->memory.bytes + addr;
     Serial.println(str);
     Serial.flush();
     pop_args(1);
@@ -198,10 +198,10 @@ def_prim(print_string, oneToNoneU32) {
 }
 
 def_prim(connect, fourToNoneU32) {
-    uint8_t ssid = arg3.uint32;
-    uint8_t len0 = arg2.uint32;
-    uint8_t pass = arg1.uint32;
-    uint8_t len1 = arg0.uint32;
+    uint32_t ssid = arg3.uint32;
+    uint32_t len0 = arg2.uint32;
+    uint32_t pass = arg1.uint32;
+    uint32_t len1 = arg0.uint32;
 
     if (m->memory.bytes[ssid + len0 - 1] != 0 && m->memory.bytes[pass + len1 - 1] != 0) {
         // One of the strings isn't null-terminated
@@ -209,8 +209,8 @@ def_prim(connect, fourToNoneU32) {
         return false;
     }
 
-    char *ssid_str = (char *) m->memory.bytes;
-    char *pass_str = (char *) m->memory.bytes + len0;
+    char *ssid_str = (char *) m->memory.bytes + ssid;
+    char *pass_str = (char *) m->memory.bytes + pass;
     Serial.print("SSID: ");
     Serial.println(ssid_str);
     Serial.print("PASS: ");
@@ -245,7 +245,7 @@ def_prim(get, twoToOneU32) {
             return false;
         }
 
-        String url = (char *) m->memory.bytes;
+        String url = (char *) m->memory.bytes + addr;
         Serial.print("GET ");
         Serial.println(url);
 
@@ -349,13 +349,15 @@ def_prim(abort, NoneToNoneU32) {
 }
 
 def_prim(print_int, oneToNoneU32) {
-    dbg_trace("EMU: print int\n");
+    dbg_trace("EMU: print %i\n", arg0.uint32);
     pop_args(1);
     return true;
 }
 
 def_prim(print_string, oneToNoneU32) {
-    dbg_trace("EMU: print string\n");
+    uint32_t addr = arg0.uint32;
+    char *str = (char *) m->memory.bytes + addr;
+    dbg_trace("EMU: print string at %i: %s\n", addr, str);
     pop_args(1);
     return true;
 }
