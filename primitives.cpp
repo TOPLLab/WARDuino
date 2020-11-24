@@ -13,6 +13,7 @@
 
 #include "debug.h"
 #include "mem.h"
+#include "glue.h"
 
 #ifdef ARDUINO
 #include "Arduino.h"
@@ -181,7 +182,7 @@ def_prim(print_int, oneToNoneU32) {
 }
 
 def_prim(print_string, oneToNoneU32) {
-    Serial.println("print_string");
+    Serial.println("print_string: ");
 
     uint32_t addr = arg0.uint32;
 //    if (m->memory.bytes[addr + length - 1] != 0) {
@@ -190,7 +191,7 @@ def_prim(print_string, oneToNoneU32) {
 //        return false;
 //    }
 
-    String str = (char *) m->memory.bytes + addr;
+    String str = parse_ts_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr).c_str();
     Serial.println(str);
     Serial.flush();
     pop_args(1);
@@ -356,8 +357,8 @@ def_prim(print_int, oneToNoneU32) {
 
 def_prim(print_string, oneToNoneU32) {
     uint32_t addr = arg0.uint32;
-    char *str = (char *) m->memory.bytes + addr;
-    dbg_trace("EMU: print string at %i: %s\n", addr, str);
+    std::string text = parse_ts_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr);
+    dbg_trace("EMU: print string at %i: %s\n", addr, text.c_str());
     pop_args(1);
     return true;
 }
