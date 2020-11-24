@@ -17,7 +17,7 @@
 #define WA_MAGIC 0x6d736100
 #define WA_VERSION 0x01
 
-#define PAGE_SIZE 0x10         // 65536
+#define PAGE_SIZE 0x1000      // 65536 bytes TODO
 #define STACK_SIZE 0x100       // 65536
 #define BLOCKSTACK_SIZE 0x100  // 4096
 #define CALLSTACK_SIZE 0x100   // 4096
