@@ -1,7 +1,7 @@
 #include "util.h"
 #include "debug.h"
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstring>
 
 // Little endian base
 uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
@@ -127,7 +127,7 @@ uint64_t rotr64(uint64_t n, unsigned int c) {
 double wa_fmax(double a, double b) {
     double c = fmax(a, b);
     if (c == 0 && a == b) {
-        return signbit(a) ? b : a;
+        return std::signbit(a) ? b : a;
     }
     return c;
 }
@@ -135,7 +135,7 @@ double wa_fmax(double a, double b) {
 double wa_fmin(double a, double b) {
     double c = fmin(a, b);
     if (c == 0 && a == b) {
-        return signbit(a) ? a : b;
+        return std::signbit(a) ? a : b;
     }
     return c;
 }

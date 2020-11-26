@@ -48,8 +48,8 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #endif
 
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
@@ -91,15 +91,9 @@ int prim_index = 0;
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
 #define arg3 get_arg(m, 3)
-#define arg4 get_arg(m, 4)
 
 // The primitive table
 PrimitiveEntry primitives[ALL_PRIMITIVES];
-
-//------------------------------------------------------
-// Primitive Blink
-//------------------------------------------------------
-Type nullType;
 
 //
 uint32_t param_arr_len0[0] = {};

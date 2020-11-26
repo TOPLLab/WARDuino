@@ -3,9 +3,8 @@
 #ifndef WAC_H
 #define WAC_H
 
-#include <limits.h>
-#include <stdbool.h>
-#include <stdint.h>
+#include <climits>
+#include <cstdint>
 #include <cstdio>
 #include <map>
 #include <queue>  // std::queue

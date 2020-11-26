@@ -1,6 +1,6 @@
 
 #include "debug.h"
-#include <inttypes.h>
+#include <cinttypes>
 
 void end() {
     while (true) {

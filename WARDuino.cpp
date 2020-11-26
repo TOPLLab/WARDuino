@@ -1,6 +1,6 @@
 #include "WARDuino.h"
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstring>
 #include "instructions.h"
 #include "primitives.h"
 #include <algorithm>    // std::find

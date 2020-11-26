@@ -1,4 +1,4 @@
-#include <string.h>
+#include <cstring>
 #include <iostream>
 #include "../WARDuino.h"
 #include "timer.h"
@@ -83,6 +83,7 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
                    "\n",
                    i, num_benchmarks, path);
         }
+        w->unload_module(m);
     }
 }
 

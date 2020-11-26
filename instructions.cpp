@@ -1,8 +1,8 @@
 #include "instructions.h"
 #include "interrupt_operations.h"
 
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstring>
 
 #include "debug.h"
 #include "mem.h"
@@ -1205,7 +1205,7 @@ bool i_instr_binary_f32(Module *m, uint8_t opcode) {
             i = (float) wa_fmax(g, h);
             break;  // f32.max
         case 0x98:
-            i = signbit(h) ? -fabs(g) : fabs(g);
+            i = std::signbit(h) ? -fabs(g) : fabs(g);
             break;  // f32.copysign
         default:
             return false;
@@ -1242,7 +1242,7 @@ bool i_instr_binary_f64(Module *m, uint8_t opcode) {
             l = wa_fmax(j, k);
             break;  // f64.max
         case 0xa6:
-            l = signbit(k) ? -fabs(j) : fabs(j);
+            l = std::signbit(k) ? -fabs(j) : fabs(j);
             break;  // f64.copysign
         default:
             return false;
@@ -1262,7 +1262,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value_type = I32;
             break;  // i32.wrap/i64
         case 0xa8:
-            if (isnan(m->stack[m->sp].value.f32)) {
+            if (std::isnan(m->stack[m->sp].value.f32)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
             } else if (m->stack[m->sp].value.f32 >= INT32_MAX ||
@@ -1274,7 +1274,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value_type = I32;
             break;  // i32.trunc_s/f32
         case 0xa9:
-            if (isnan(m->stack[m->sp].value.f32)) {
+            if (std::isnan(m->stack[m->sp].value.f32)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
             } else if (m->stack[m->sp].value.f32 >= UINT32_MAX ||
@@ -1286,7 +1286,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value_type = I32;
             break;  // i32.trunc_u/f32
         case 0xaa:
-            if (isnan(m->stack[m->sp].value.f64)) {
+            if (std::isnan(m->stack[m->sp].value.f64)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
             } else if (m->stack[m->sp].value.f64 > INT32_MAX ||
@@ -1298,7 +1298,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value_type = I32;
             break;  // i32.trunc_s/f64
         case 0xab:
-            if (isnan(m->stack[m->sp].value.f64)) {
+            if (std::isnan(m->stack[m->sp].value.f64)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
             } else if (m->stack[m->sp].value.f64 > UINT32_MAX ||
@@ -1319,7 +1319,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value_type = I64;
             break;  // i64.extend_u/i32
         case 0xae:
-            if (isnan(m->stack[m->sp].value.f32)) {
+            if (std::isnan(m->stack[m->sp].value.f32)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
             } else if (m->stack[m->sp].value.f32 >= INT64_MAX ||
@@ -1331,7 +1331,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value_type = I64;
             break;  // i64.trunc_s/f32
         case 0xaf:
-            if (isnan(m->stack[m->sp].value.f32)) {
+            if (std::isnan(m->stack[m->sp].value.f32)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
             } else if (m->stack[m->sp].value.f32 >= UINT64_MAX ||
@@ -1343,7 +1343,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value_type = I64;
             break;  // i64.trunc_u/f32
         case 0xb0:
-            if (isnan(m->stack[m->sp].value.f64)) {
+            if (std::isnan(m->stack[m->sp].value.f64)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
             } else if (m->stack[m->sp].value.f64 >= INT64_MAX ||
@@ -1355,7 +1355,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value_type = I64;
             break;  // i64.trunc_s/f64
         case 0xb1:
-            if (isnan(m->stack[m->sp].value.f64)) {
+            if (std::isnan(m->stack[m->sp].value.f64)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
             } else if (m->stack[m->sp].value.f64 >= UINT64_MAX ||
