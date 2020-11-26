@@ -17,6 +17,7 @@ MKDIR     = mkdir -p $(OUTPUTDIR)
 TARGET    = warduino
 
 CXXSOURCES = \
+	../../glue.cpp \
 	../../mem.cpp \
 	../../util.cpp \
 	../../util_arduino.cpp \

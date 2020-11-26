@@ -1,19 +1,21 @@
 (module
  (; Arduino imports ;)
 
- (import "env" "chip_pin_mode"      (func $pin_mode         (type $1)))
- (import "env" "chip_digital_write" (func $digital_write    (type $2)))
- (import "env" "chip_delay"         (func $delay            (type $3)))
-
+ (import "env" "chip_delay"         (func $delay    (type $3)))
+ (import "env" "print_string"       (func $print    (type $3)))
+ (import "env" "get"                (func $get      (type $1)))
 
  (; Type declarations ;)
- (type $1 (func (param i32) (param i32) (result)))
- (type $2 (func (param i32) (param i32) (result)))
- (type $3 (func (param i32)             (result)))
- (type $4 (func (param)                 (result)))
+ (type $1 (func (param i32) (param i32) (param i32) (result i32)))
+ (type $2 (func (param i32) (param i32)             (result)))
+ (type $3 (func (param i32)                         (result)))
+ (type $4 (func (param)                             (result)))
+
+ (memory $mem 1)
+ (data (i32.const 0) "H\00e\00l\00l\00o\00 \00t\00h\00e\00r\00e\00.")
 
  (; Define one function ;)
- (export "main" (func $blink_arduino))
+ (export "main" (func $main))
 
  (; The wait function ;)
  (func $wait (type $4)
@@ -21,35 +23,13 @@
     (i32.const 1000)
     (call $delay)
  )
- (; The blink function ;)
- (func $blink_arduino (type $4)
-   (;  LED    ;)
-    (i32.const 16)
-    (; OUTPUT ;)
-    (i32.const 1)
-    (call $pin_mode)
 
-
-  (loop
-    (;  LED    ;)
-    (; HIGH INVERTED ;)
-    (i32.const 16)
-    (i32.const 1)
-    (call $digital_write)
-
-    (call $wait)
-
-    (;  LED    ;)
-    (i32.const 16)
-    (; LOW INVERTED ;)
+ (func $main (type $4)
     (i32.const 0)
-    (call $digital_write)
-
-
+    (i32.const 20)
+    (i32.const 30)
+    (call $get)
+    (call $print)
     (call $wait)
-
-    (br 0))
-
-  )
-
+ )
 )

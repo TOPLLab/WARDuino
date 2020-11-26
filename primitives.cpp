@@ -105,6 +105,7 @@ Type nullType;
 uint32_t param_arr_len0[0] = {};
 uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
+uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
 
 Type oneToNoneU32 = {
@@ -150,6 +151,15 @@ Type twoToOneU32 = {
         .result_count =  1,
         .results =  param_I32_arr_len1,
         .mask =  0x81011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+};
+
+Type threeToOneU32 = {
+        .form =  FUNC,
+        .param_count =  3,
+        .params =  param_I32_arr_len3,
+        .result_count =  1,
+        .results =  param_I32_arr_len1,
+        .mask =  0x810111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
 };
 
 Type NoneToNoneU32 = {
@@ -369,8 +379,16 @@ def_prim(connect, fourToNoneU32) {
     return true;
 }
 
-def_prim(get, twoToOneU32) {
-    dbg_trace("EMU: http get request\n");
+def_prim(get, threeToOneU32) {
+    uint32_t url = arg2.uint32;
+    uint32_t response = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    std::string text = parse_ts_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, url);
+    dbg_trace("EMU: http get request %s\n", text.c_str());
+    std::string answer = "General Kenobi.";
+    for (unsigned long i = 0; i < answer.length(); i++) {
+        m->memory.bytes[response + (i * 2)] = (uint32_t) answer[i];
+    }
     pop_args(1);
     return true;
 }

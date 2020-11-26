@@ -31,7 +31,7 @@ void signalHandler(int /* signum */) {
 #include "wa_sources/hello_world.c"
 
 /**
- * Run code, ececute interrups in /tmp/change if a USR1 signal comes
+ * Run code, execute interrupts in /tmp/change if a USR1 signal comes
 */
 int main(int /*argc*/, const char **/*argv*/) {
     signal(SIGUSR1, signalHandler);
