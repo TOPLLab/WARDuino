@@ -831,6 +831,31 @@ void WARDuino::unload_module(Module *m) {
     auto it = std::find(this->modules.begin(), this->modules.end(), m);
     if (it != this->modules.end())
         this->modules.erase(it);
+
+    if (m->types != nullptr) {
+        for (uint32_t i = 0; i < m->type_count; i++) {
+            free(m->types[i].params);
+            free(m->types[i].results);
+        }
+        free(m->types);
+    }
+
+    if (m->functions != nullptr) {
+        for (uint32_t i = 0; i < m->function_count; ++i) {
+            free(m->functions[i].export_name);
+        }
+        free(m->functions);
+    }
+
+    if (m->globals != nullptr)
+        free(m->globals);
+
+    if (m->table.entries != nullptr)
+        free(m->table.entries);
+
+    if (m->memory.bytes != nullptr)
+        free(m->memory.bytes);
+
     free(m);
 }
 
