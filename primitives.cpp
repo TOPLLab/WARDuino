@@ -223,14 +223,18 @@ def_prim(connect, fourToNoneU32) {
         return false;
     }
 
-    char *ssid_str = (char *) m->memory.bytes + ssid;
-    char *pass_str = (char *) m->memory.bytes + pass;
+    String ssid_str = parse_ts_string(m->memory.bytes, len0, ssid).c_str();
+    String pass_str = parse_ts_string(m->memory.bytes, len1, pass).c_str();
     Serial.print("SSID: ");
     Serial.println(ssid_str);
-//    Serial.print("PASS: ");
-//    Serial.println(pass_str);
+    Serial.print("PASS: ");
+    Serial.println(pass_str);
 
-    WiFi.begin(ssid_str, pass_str);
+    char *ssid_buf = (char *) acalloc(ssid_str.length(), sizeof(char), "ssid_buf");
+    ssid_str.toCharArray(ssid_buf, ssid_str.length());
+    char *pass_buf = (char *) acalloc(pass_str.length(), sizeof(char), "pass_buf");
+    pass_str.toCharArray(pass_buf, pass_str.length());
+    WiFi.begin(ssid_buf, pass_buf);
     printf("Connecting to wifi\n");
     while(WiFi.status() != WL_CONNECTED) {
         delay(500);
@@ -240,6 +244,9 @@ def_prim(connect, fourToNoneU32) {
     Serial.print("Connected to WiFi network with IP Address: ");
     Serial.println(WiFi.localIP());
     Serial.flush();
+
+    free(ssid_buf);
+    free(pass_buf);
     pop_args(4);
     return true;
 }
@@ -273,7 +280,7 @@ def_prim(get, fourToOneU32) {
             printf("HTTP Response code: %i\n", httpResponseCode);
             String payload = http.getString();
             if (payload.length() > size)    {
-                sprintf(exception, "GET: buffer size is too small for response.");
+                sprintf(exception, "GET: buffer size is too small for response of %i bytes.", payload.length());
                 return false;  // TRAP
             }
             for (unsigned long i = 0; i < payload.length(); i++) {
