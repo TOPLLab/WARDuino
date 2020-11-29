@@ -153,7 +153,16 @@ Type threeToOneU32 = {
         .params =  param_I32_arr_len3,
         .result_count =  1,
         .results =  param_I32_arr_len1,
-        .mask =  0x810111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+        .mask =  0x810111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32*/
+};
+
+Type fourToOneU32 = {
+        .form =  FUNC,
+        .param_count =  4,
+        .params =  param_I32_arr_len4,
+        .result_count =  0,
+        .results =  param_I32_arr_len1,
+        .mask =  0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
 
 Type NoneToNoneU32 = {
@@ -218,8 +227,8 @@ def_prim(connect, fourToNoneU32) {
     char *pass_str = (char *) m->memory.bytes + pass;
     Serial.print("SSID: ");
     Serial.println(ssid_str);
-    Serial.print("PASS: ");
-    Serial.println(pass_str);
+//    Serial.print("PASS: ");
+//    Serial.println(pass_str);
 
     WiFi.begin(ssid_str, pass_str);
     printf("Connecting to wifi\n");
@@ -231,18 +240,20 @@ def_prim(connect, fourToNoneU32) {
     Serial.print("Connected to WiFi network with IP Address: ");
     Serial.println(WiFi.localIP());
     Serial.flush();
-    pop_args(0);
+    pop_args(4);
     return true;
 }
 
-def_prim(get, twoToOneU32) {
+def_prim(get, fourToOneU32) {
     uint32_t return_value = 0;
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
         HTTPClient http;
 
-        uint8_t addr = arg1.uint32;
-        uint8_t length = arg0.uint32;
+        uint32_t addr = arg3.uint32;
+        uint32_t length = arg2.uint32;
+        uint32_t response = arg1.uint32;
+        uint32_t size = arg0.uint32;
         // url string
         if (m->memory.bytes[addr + length - 1] != 0) {
             // URL isn't null-terminated
@@ -250,7 +261,7 @@ def_prim(get, twoToOneU32) {
             return false;
         }
 
-        String url = (char *) m->memory.bytes + addr;
+        String url = parse_ts_string(m->memory.bytes, length, addr).c_str();
         Serial.print("GET ");
         Serial.println(url);
 
@@ -261,17 +272,21 @@ def_prim(get, twoToOneU32) {
         if (httpResponseCode > 0) {
             printf("HTTP Response code: %i\n", httpResponseCode);
             String payload = http.getString();
-            // TODO write payload to linear memory
-            Serial.println(payload);
-            return_value = 42;
+            if (payload.length() > size)    {
+                sprintf(exception, "GET: buffer size is too small for response.");
+                return false;  // TRAP
+            }
+            for (unsigned long i = 0; i < payload.length(); i++) {
+                m->memory.bytes[response + (i * 2)] = (uint32_t) payload[i];
+            }
+            return_value = response;
         } else {
             printf("Error code: %i\n", httpResponseCode);
         }
         // Free resources
-        Serial.println("freeing resource");
         http.end();
     }
-    pop_args(1);
+    pop_args(3);
     pushInt32(return_value);
     Serial.flush();
     return true;
@@ -368,22 +383,39 @@ def_prim(print_string, oneToNoneU32) {
 }
 
 def_prim(connect, fourToNoneU32) {
-    dbg_trace("EMU: connect to wifi\n");
-    pop_args(0);
+    uint32_t ssid = arg3.uint32;
+    uint32_t len0 = arg2.uint32;
+    uint32_t pass = arg1.uint32;
+    uint32_t len1 = arg0.uint32;
+
+    std::string ssid_str = parse_ts_string(m->memory.bytes, len0, ssid);
+    std::string pass_str = parse_ts_string(m->memory.bytes, len1, pass);
+    dbg_trace("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
+    pop_args(4);
     return true;
 }
 
-def_prim(get, threeToOneU32) {
-    uint32_t url = arg2.uint32;
+def_prim(get, fourToOneU32) {
+    // Get arguments
+    uint32_t url = arg3.uint32;
+    uint32_t length = arg2.uint32;
     uint32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
-    std::string text = parse_ts_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, url);
+    // Parse url
+    std::string text = parse_ts_string(m->memory.bytes, length, url);
     dbg_trace("EMU: http get request %s\n", text.c_str());
+    // Construct response
     std::string answer = "General Kenobi.";
+    if (answer.length() > size)    {
+        sprintf(exception, "GET: buffer size is too small for response.");
+        return false;  // TRAP
+    }
     for (unsigned long i = 0; i < answer.length(); i++) {
         m->memory.bytes[response + (i * 2)] = (uint32_t) answer[i];
     }
-    pop_args(1);
+    // Pop args and return response address
+    pop_args(3);
+    pushInt32(response);
     return true;
 }
 
