@@ -227,13 +227,13 @@ def_prim(connect, fourToNoneU32) {
     String pass_str = parse_ts_string(m->memory.bytes, len1, pass).c_str();
     Serial.print("SSID: ");
     Serial.println(ssid_str);
-    Serial.print("PASS: ");
-    Serial.println(pass_str);
+//    Serial.print("PASS: ");
+//    Serial.println(pass_str);
 
-    char *ssid_buf = (char *) acalloc(ssid_str.length(), sizeof(char), "ssid_buf");
-    ssid_str.toCharArray(ssid_buf, ssid_str.length());
-    char *pass_buf = (char *) acalloc(pass_str.length(), sizeof(char), "pass_buf");
-    pass_str.toCharArray(pass_buf, pass_str.length());
+    char *ssid_buf = (char *) acalloc(ssid_str.length() + 1, sizeof(char), "ssid_buf");
+    ssid_str.toCharArray(ssid_buf, ssid_str.length() + 1);
+    char *pass_buf = (char *) acalloc(pass_str.length() + 1, sizeof(char), "pass_buf");
+    pass_str.toCharArray(pass_buf, pass_str.length() + 1);
     WiFi.begin(ssid_buf, pass_buf);
     printf("Connecting to wifi\n");
     while(WiFi.status() != WL_CONNECTED) {
