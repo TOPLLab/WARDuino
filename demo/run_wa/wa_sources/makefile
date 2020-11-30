@@ -1,4 +1,4 @@
-all: hello_world.c
+all: get.c
 
 %.wasm: %.wast
 	wat2wasm -o $@ $<
