@@ -28,18 +28,14 @@ void signalHandler(int /* signum */) {
     handlingInterrupt = false;
 }
 
-#include "wa_sources/setup.c"
-#include "wa_sources/loop.c"
+#include "wa_sources/get.c"
 
 /**
  * Run code, execute interrupts in /tmp/change if a USR1 signal comes
 */
 int main(int /*argc*/, const char **/*argv*/) {
     signal(SIGUSR1, signalHandler);
-    Module *m = wac.load_module(setup_wasm, setup_wasm_len, {});
-    wac.run_module(m);
-    wac.unload_module(m);
-    m = wac.load_module(loop_wasm, loop_wasm_len, {});
+    Module *m = wac.load_module(get_wasm, get_wasm_len, {});
     wac.run_module(m);
     wac.unload_module(m);
     return 0;
