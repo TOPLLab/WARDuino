@@ -26,8 +26,8 @@ void *arecalloc(void *ptr, size_t old_nmemb, size_t nmemb, size_t size,
     if (res == nullptr) {
         FATAL("Could not allocate %d bytes for %s", (int) (nmemb * size), name);
     }
+    memset(res, 0, nmemb * size);  // initialize memory with 0
     memmove(res, ptr, old_nmemb * size);
-    // Initialize new memory
-    memset(res + old_nmemb * size, 0, (nmemb - old_nmemb) * size);
+//    memset(res + old_nmemb, 0, (nmemb - old_nmemb));
     return res;
 }
