@@ -1,4 +1,4 @@
-all: get.c
+all: hello_world.c get.c setup.c loop.c
 
 %.wasm: %.wast
 	wat2wasm -o $@ $<

@@ -7,7 +7,7 @@
  (import "env" "get"                (func $get      (type $0)))
 
  (; Memory ;)
- (memory $url 5)
+ (memory $url 1)
  (data (i32.const  0) "h\00t\00t\00p\00:\00/\00/\00w\00w\00w\00.\00a\00r\00d\00u\00i\00n\00o\00.\00c\00c\00/\00a\00s\00c\00i\00i\00l\00o\00g\00o\00.\00t\00x\00t\00")
  (data (i32.const 71) "s\00s\00i\00d\00\00p\00a\00s\00s\00w\00o\00r\00d\00\00")
 

@@ -412,7 +412,7 @@ def_prim(get, fourToOneU32) {
     std::string text = parse_ts_string(m->memory.bytes, length, url);
     dbg_trace("EMU: http get request %s\n", text.c_str());
     // Construct response
-    std::string answer = "General Kenobi.";
+    std::string answer = "Response code: 200.";
     if (answer.length() > size)    {
         sprintf(exception, "GET: buffer size is too small for response.");
         return false;  // TRAP
