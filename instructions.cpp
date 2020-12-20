@@ -498,12 +498,25 @@ bool i_instr_tee_local(Module *m) {
 }
 
 /**
+ * 0x23 get_global
+ */
+bool i_instr_get_global(Module *m) {
+    int32_t arg = read_LEB_32(&m->pc_ptr);
+    if (TRACE) {
+        debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
+    }
+    m->stack[++m->sp] = m->globals[arg];
+    return true;
+}
+
+/**
  * 0x24 set_global
  */
 bool i_instr_set_global(Module *m) {
     uint32_t arg = read_LEB_32(&m->pc_ptr);
+    m->globals[arg] = m->stack[m->sp--];
     if (TRACE) {
-        debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
+        debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->stack[m->sp + 1]));
     }
     m->stack[++m->sp] = m->globals[arg];
     return true;
@@ -1544,7 +1557,7 @@ bool interpret(Module *m) {
                 success &= i_instr_tee_local(m);
                 continue;
             case 0x23:  // get_global
-                success &= i_instr_tee_local(m);
+                success &= i_instr_get_global(m);
                 continue;
             case 0x24:  // set_global
                 success &= i_instr_set_global(m);
