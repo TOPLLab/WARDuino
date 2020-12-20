@@ -53,9 +53,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 14
+#define NUM_PRIMITIVES_ARDUINO 16
 #else
-#define NUM_PRIMITIVES_ARDUINO 13
+#define NUM_PRIMITIVES_ARDUINO 15
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -251,6 +251,41 @@ def_prim(connect, fourToNoneU32) {
     return true;
 }
 
+def_prim(_rust_connect, fourToNoneU32) {
+    uint32_t ssid = arg3.uint32;
+    uint32_t len0 = arg2.uint32;
+    uint32_t pass = arg1.uint32;
+    uint32_t len1 = arg0.uint32;
+
+    String ssid_str = parse_rust_string(m->memory.bytes, len0, ssid).c_str();
+    String pass_str = parse_rust_string(m->memory.bytes, len1, pass).c_str();
+    Serial.print("SSID: ");
+    Serial.println(ssid_str);
+    Serial.print("PASS: ");
+    Serial.println(pass_str);
+
+    char *ssid_buf = (char *) acalloc(ssid_str.length() + 1, sizeof(char), "ssid_buf");
+    ssid_str.toCharArray(ssid_buf, ssid_str.length() + 1);
+    char *pass_buf = (char *) acalloc(pass_str.length() + 1, sizeof(char), "pass_buf");
+    pass_str.toCharArray(pass_buf, pass_str.length() + 1);
+    WiFi.begin(ssid_buf, pass_buf);
+    printf("Connecting to wifi\n");
+    while(WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("");
+    Serial.print("Connected to WiFi network with IP Address: ");
+    Serial.println(WiFi.localIP());
+    Serial.flush();
+
+    free(ssid_buf);
+    free(pass_buf);
+    pop_args(4);
+    return true;
+}
+
+
 def_prim(get, fourToOneU32) {
     uint32_t return_value = 0;
     //Check WiFi connection status
@@ -269,6 +304,48 @@ def_prim(get, fourToOneU32) {
         }
 
         String url = parse_ts_string(m->memory.bytes, length, addr).c_str();
+        Serial.print("GET ");
+        Serial.println(url);
+
+        // Send HTTP GET request
+        http.begin(url.c_str());
+        int httpResponseCode = http.GET();
+
+        if (httpResponseCode > 0) {
+            printf("HTTP Response code: %i\n", httpResponseCode);
+            String payload = http.getString();
+            if (payload.length() > size)    {
+                sprintf(exception, "GET: buffer size is too small for response of %i bytes.", payload.length());
+                return false;  // TRAP
+            }
+            for (unsigned long i = 0; i < payload.length(); i++) {
+                m->memory.bytes[response + (i * 2)] = (uint32_t) payload[i];
+            }
+            return_value = response;
+        } else {
+            printf("Error code: %i\n", httpResponseCode);
+        }
+        // Free resources
+        http.end();
+    }
+    pop_args(3);
+    pushInt32(return_value);
+    Serial.flush();
+    return true;
+}
+
+def_prim(_rust_get, fourToOneU32) {
+    uint32_t return_value = 0;
+    //Check WiFi connection status
+    if(WiFi.status()== WL_CONNECTED) {
+        HTTPClient http;
+
+        uint32_t addr = arg3.uint32;
+        uint32_t length = arg2.uint32;
+        uint32_t response = arg1.uint32;
+        uint32_t size = arg0.uint32;
+
+        String url = parse_rust_string(m->memory.bytes, length, addr).c_str();
         Serial.print("GET ");
         Serial.println(url);
 
@@ -402,6 +479,19 @@ def_prim(connect, fourToNoneU32) {
     return true;
 }
 
+def_prim(_rust_connect, fourToNoneU32) {
+    uint32_t ssid = arg3.uint32;
+    uint32_t len0 = arg2.uint32;
+    uint32_t pass = arg1.uint32;
+    uint32_t len1 = arg0.uint32;
+
+    std::string ssid_str = parse_rust_string(m->memory.bytes, len0, ssid);
+    std::string pass_str = parse_rust_string(m->memory.bytes, len1, pass);
+    dbg_trace("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
+    pop_args(4);
+    return true;
+}
+
 def_prim(get, fourToOneU32) {
     // Get arguments
     uint32_t url = arg3.uint32;
@@ -410,6 +500,30 @@ def_prim(get, fourToOneU32) {
     uint32_t size = arg0.uint32;
     // Parse url
     std::string text = parse_ts_string(m->memory.bytes, length, url);
+    dbg_trace("EMU: http get request %s\n", text.c_str());
+    // Construct response
+    std::string answer = "Response code: 200.";
+    if (answer.length() > size)    {
+        sprintf(exception, "GET: buffer size is too small for response.");
+        return false;  // TRAP
+    }
+    for (unsigned long i = 0; i < answer.length(); i++) {
+        m->memory.bytes[response + (i * 2)] = (uint32_t) answer[i];
+    }
+    // Pop args and return response address
+    pop_args(3);
+    pushInt32(response);
+    return true;
+}
+
+def_prim(_rust_get, fourToOneU32) {
+    // Get arguments
+    uint32_t url = arg3.uint32;
+    uint32_t length = arg2.uint32;
+    uint32_t response = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    // Parse url
+    std::string text = parse_rust_string(m->memory.bytes, length, url);
     dbg_trace("EMU: http get request %s\n", text.c_str());
     // Construct response
     std::string answer = "Response code: 200.";
@@ -506,7 +620,9 @@ void install_primitives() {
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(connect);
+    install_primitive(_rust_connect);
     install_primitive(get);
+    install_primitive(_rust_get);
     install_primitive(post);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
@@ -522,7 +638,9 @@ void install_primitives() {
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(connect);
+    install_primitive(_rust_connect);
     install_primitive(get);
+    install_primitive(_rust_get);
     install_primitive(post);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
