@@ -598,7 +598,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 // for (uint32_t c=0; c<memory_count; c++) {
                 parse_memory_type(m, &pos);
                 m->memory.bytes = (uint8_t *) acalloc(
-                        m->memory.pages * PAGE_SIZE, sizeof(uint32_t),
+                        m->memory.pages * PAGE_SIZE, 1, //sizeof(uint32_t),
                         "Module->memory.bytes");
                 //}
                 break;
