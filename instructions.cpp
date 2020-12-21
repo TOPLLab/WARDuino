@@ -518,7 +518,6 @@ bool i_instr_set_global(Module *m) {
     if (TRACE) {
         debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->stack[m->sp + 1]));
     }
-    m->stack[++m->sp] = m->globals[arg];
     return true;
 }
 
