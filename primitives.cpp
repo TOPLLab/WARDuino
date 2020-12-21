@@ -53,9 +53,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 16
+#define NUM_PRIMITIVES_ARDUINO 17
 #else
-#define NUM_PRIMITIVES_ARDUINO 15
+#define NUM_PRIMITIVES_ARDUINO 16
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -211,6 +211,19 @@ def_prim(print_string, oneToNoneU32) {
     return true;
 }
 
+def_prim(_rust_print_string, twoToNoneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t size = arg0.uint32;
+
+    Serial.println("print_string: ");
+
+    String str = parse_rust_string(m->memory.bytes, size, addr).c_str();
+    Serial.println(str);
+    Serial.flush();
+    pop_args(2);
+    return true;
+}
+
 def_prim(connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
@@ -361,7 +374,7 @@ def_prim(_rust_get, fourToOneU32) {
                 return false;  // TRAP
             }
             for (unsigned long i = 0; i < payload.length(); i++) {
-                m->memory.bytes[response + (i * 2)] = (uint32_t) payload[i];
+                m->memory.bytes[response + i] = (uint32_t) payload[i];
             }
             return_value = response;
         } else {
@@ -466,6 +479,15 @@ def_prim(print_string, oneToNoneU32) {
     return true;
 }
 
+def_prim(_rust_print_string, twoToNoneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    std::string text = parse_rust_string(m->memory.bytes, size, addr);
+    dbg_trace("EMU: print string at %i: %s\n", addr, text.c_str());
+    pop_args(2);
+    return true;
+}
+
 def_prim(connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
@@ -532,7 +554,7 @@ def_prim(_rust_get, fourToOneU32) {
         return false;  // TRAP
     }
     for (unsigned long i = 0; i < answer.length(); i++) {
-        m->memory.bytes[response + (i * 2)] = (uint32_t) answer[i];
+        m->memory.bytes[response + i] = (uint32_t) answer[i];
     }
     // Pop args and return response address
     pop_args(3);
@@ -619,6 +641,7 @@ void install_primitives() {
     install_primitive(abort);
     install_primitive(print_int);
     install_primitive(print_string);
+    install_primitive(_rust_print_string);
     install_primitive(connect);
     install_primitive(_rust_connect);
     install_primitive(get);
@@ -637,6 +660,7 @@ void install_primitives() {
     install_primitive(abort);
     install_primitive(print_int);
     install_primitive(print_string);
+    install_primitive(_rust_print_string);
     install_primitive(connect);
     install_primitive(_rust_connect);
     install_primitive(get);
