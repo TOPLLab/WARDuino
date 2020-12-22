@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/bin/sh
 # Name:
 # By Robbert Gurdeep Singh
 # --pref build.path=/tmp/build
