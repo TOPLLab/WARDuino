@@ -174,6 +174,12 @@ Type NoneToNoneU32 = {
         .mask =  0x80000
 };
 
+// Util function declarations
+#ifdef ARDUINO
+void connect_wifi(const String ssid, const String password);
+uint32_t http_get_request(Module* m, const String url, uint32_t response, uint32_t size);
+#endif
+
 
 //------------------------------------------------------
 // Arduino Specific Functions
@@ -204,7 +210,7 @@ def_prim(print_string, oneToNoneU32) {
 //        return false;
 //    }
 
-    String str = parse_ts_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr).c_str();
+    String str = parse_utf16_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr).c_str();
     Serial.println(str);
     Serial.flush();
     pop_args(1);
@@ -217,7 +223,7 @@ def_prim(_rust_print_string, twoToNoneU32) {
 
     Serial.println("print_string: ");
 
-    String str = parse_rust_string(m->memory.bytes, size, addr).c_str();
+    String str = parse_utf8_string(m->memory.bytes, size, addr).c_str();
     Serial.println(str);
     Serial.flush();
     pop_args(2);
@@ -236,30 +242,14 @@ def_prim(connect, fourToNoneU32) {
         return false;
     }
 
-    String ssid_str = parse_ts_string(m->memory.bytes, len0, ssid).c_str();
-    String pass_str = parse_ts_string(m->memory.bytes, len1, pass).c_str();
+    String ssid_str = parse_utf16_string(m->memory.bytes, len0, ssid).c_str();
+    String pass_str = parse_utf16_string(m->memory.bytes, len1, pass).c_str();
     Serial.print("SSID: ");
     Serial.println(ssid_str);
-//    Serial.print("PASS: ");
-//    Serial.println(pass_str);
 
-    char *ssid_buf = (char *) acalloc(ssid_str.length() + 1, sizeof(char), "ssid_buf");
-    ssid_str.toCharArray(ssid_buf, ssid_str.length() + 1);
-    char *pass_buf = (char *) acalloc(pass_str.length() + 1, sizeof(char), "pass_buf");
-    pass_str.toCharArray(pass_buf, pass_str.length() + 1);
-    WiFi.begin(ssid_buf, pass_buf);
-    printf("Connecting to wifi\n");
-    while(WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("");
-    Serial.print("Connected to WiFi network with IP Address: ");
-    Serial.println(WiFi.localIP());
+    connect_wifi(ssid_str, pass_str);
+
     Serial.flush();
-
-    free(ssid_buf);
-    free(pass_buf);
     pop_args(4);
     return true;
 }
@@ -270,30 +260,14 @@ def_prim(_rust_connect, fourToNoneU32) {
     uint32_t pass = arg1.uint32;
     uint32_t len1 = arg0.uint32;
 
-    String ssid_str = parse_rust_string(m->memory.bytes, len0, ssid).c_str();
-    String pass_str = parse_rust_string(m->memory.bytes, len1, pass).c_str();
+    String ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid).c_str();
+    String pass_str = parse_utf8_string(m->memory.bytes, len1, pass).c_str();
     Serial.print("SSID: ");
     Serial.println(ssid_str);
-    Serial.print("PASS: ");
-    Serial.println(pass_str);
 
-    char *ssid_buf = (char *) acalloc(ssid_str.length() + 1, sizeof(char), "ssid_buf");
-    ssid_str.toCharArray(ssid_buf, ssid_str.length() + 1);
-    char *pass_buf = (char *) acalloc(pass_str.length() + 1, sizeof(char), "pass_buf");
-    pass_str.toCharArray(pass_buf, pass_str.length() + 1);
-    WiFi.begin(ssid_buf, pass_buf);
-    printf("Connecting to wifi\n");
-    while(WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("");
-    Serial.print("Connected to WiFi network with IP Address: ");
-    Serial.println(WiFi.localIP());
+    connect_wifi(ssid_str, pass_str);
+
     Serial.flush();
-
-    free(ssid_buf);
-    free(pass_buf);
     pop_args(4);
     return true;
 }
@@ -303,8 +277,6 @@ def_prim(get, fourToOneU32) {
     uint32_t return_value = 0;
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
-        HTTPClient http;
-
         uint32_t addr = arg3.uint32;
         uint32_t length = arg2.uint32;
         uint32_t response = arg1.uint32;
@@ -316,30 +288,12 @@ def_prim(get, fourToOneU32) {
             return false;
         }
 
-        String url = parse_ts_string(m->memory.bytes, length, addr).c_str();
+        String url = parse_utf16_string(m->memory.bytes, length, addr).c_str();
         Serial.print("GET ");
         Serial.println(url);
 
         // Send HTTP GET request
-        http.begin(url.c_str());
-        int httpResponseCode = http.GET();
-
-        if (httpResponseCode > 0) {
-            printf("HTTP Response code: %i\n", httpResponseCode);
-            String payload = http.getString();
-            if (payload.length() > size)    {
-                sprintf(exception, "GET: buffer size is too small for response of %i bytes.", payload.length());
-                return false;  // TRAP
-            }
-            for (unsigned long i = 0; i < payload.length(); i++) {
-                m->memory.bytes[response + (i * 2)] = (uint32_t) payload[i];
-            }
-            return_value = response;
-        } else {
-            printf("Error code: %i\n", httpResponseCode);
-        }
-        // Free resources
-        http.end();
+        return_value = http_get_request(m, url, response, size);
     }
     pop_args(3);
     pushInt32(return_value);
@@ -351,37 +305,17 @@ def_prim(_rust_get, fourToOneU32) {
     uint32_t return_value = 0;
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
-        HTTPClient http;
-
         uint32_t addr = arg3.uint32;
         uint32_t length = arg2.uint32;
         uint32_t response = arg1.uint32;
         uint32_t size = arg0.uint32;
 
-        String url = parse_rust_string(m->memory.bytes, length, addr).c_str();
+        String url = parse_utf8_string(m->memory.bytes, length, addr).c_str();
         Serial.print("GET ");
         Serial.println(url);
 
         // Send HTTP GET request
-        http.begin(url.c_str());
-        int httpResponseCode = http.GET();
-
-        if (httpResponseCode > 0) {
-            printf("HTTP Response code: %i\n", httpResponseCode);
-            String payload = http.getString();
-            if (payload.length() > size)    {
-                sprintf(exception, "GET: buffer size is too small for response of %i bytes.", payload.length());
-                return false;  // TRAP
-            }
-            for (unsigned long i = 0; i < payload.length(); i++) {
-                m->memory.bytes[response + i] = (uint32_t) payload[i];
-            }
-            return_value = response;
-        } else {
-            printf("Error code: %i\n", httpResponseCode);
-        }
-        // Free resources
-        http.end();
+        return_value = http_get_request(m, url, response, size);
     }
     pop_args(3);
     pushInt32(return_value);
@@ -473,7 +407,7 @@ def_prim(print_int, oneToNoneU32) {
 
 def_prim(print_string, oneToNoneU32) {
     uint32_t addr = arg0.uint32;
-    std::string text = parse_ts_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr);
+    std::string text = parse_utf16_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr);
     dbg_trace("EMU: print string at %i: %s\n", addr, text.c_str());
     pop_args(1);
     return true;
@@ -482,7 +416,7 @@ def_prim(print_string, oneToNoneU32) {
 def_prim(_rust_print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
-    std::string text = parse_rust_string(m->memory.bytes, size, addr);
+    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
     dbg_trace("EMU: print string at %i: %s\n", addr, text.c_str());
     pop_args(2);
     return true;
@@ -494,8 +428,8 @@ def_prim(connect, fourToNoneU32) {
     uint32_t pass = arg1.uint32;
     uint32_t len1 = arg0.uint32;
 
-    std::string ssid_str = parse_ts_string(m->memory.bytes, len0, ssid);
-    std::string pass_str = parse_ts_string(m->memory.bytes, len1, pass);
+    std::string ssid_str = parse_utf16_string(m->memory.bytes, len0, ssid);
+    std::string pass_str = parse_utf16_string(m->memory.bytes, len1, pass);
     dbg_trace("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
     pop_args(4);
     return true;
@@ -507,8 +441,8 @@ def_prim(_rust_connect, fourToNoneU32) {
     uint32_t pass = arg1.uint32;
     uint32_t len1 = arg0.uint32;
 
-    std::string ssid_str = parse_rust_string(m->memory.bytes, len0, ssid);
-    std::string pass_str = parse_rust_string(m->memory.bytes, len1, pass);
+    std::string ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid);
+    std::string pass_str = parse_utf8_string(m->memory.bytes, len1, pass);
     dbg_trace("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
     pop_args(4);
     return true;
@@ -521,7 +455,7 @@ def_prim(get, fourToOneU32) {
     uint32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
     // Parse url
-    std::string text = parse_ts_string(m->memory.bytes, length, url);
+    std::string text = parse_utf16_string(m->memory.bytes, length, url);
     dbg_trace("EMU: http get request %s\n", text.c_str());
     // Construct response
     std::string answer = "Response code: 200.";
@@ -545,7 +479,7 @@ def_prim(_rust_get, fourToOneU32) {
     uint32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
     // Parse url
-    std::string text = parse_rust_string(m->memory.bytes, length, url);
+    std::string text = parse_utf8_string(m->memory.bytes, length, url);
     dbg_trace("EMU: http get request %s\n", text.c_str());
     // Construct response
     std::string answer = "Response code: 200.";
@@ -617,6 +551,64 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     dbg_trace("EMU: write_spi_byte_16(%u, %u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
     return true;
+}
+
+
+#endif
+
+//------------------------------------------------------
+// Util functions
+//------------------------------------------------------
+#ifdef ARDUINO
+
+#include "Arduino.h"
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+void connect_wifi(const String ssid, const String password) {
+    char *ssid_buf = (char *) acalloc(ssid.length() + 1, sizeof(char), "ssid_buf");
+    ssid.toCharArray(ssid_buf, ssid.length() + 1);
+    char *pass_buf = (char *) acalloc(password.length() + 1, sizeof(char), "pass_buf");
+    password.toCharArray(pass_buf, password.length() + 1);
+    WiFi.begin(ssid_buf, pass_buf);
+    printf("Connecting to wifi\n");
+    while(WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("");
+    Serial.print("Connected to WiFi network with IP Address: ");
+    Serial.println(WiFi.localIP());
+
+    free(ssid_buf);
+    free(pass_buf);
+}
+
+uint32_t http_get_request(Module* m, const String url, const uint32_t response, const uint32_t size) {
+    HTTPClient http;
+    uint32_t return_value = 0;
+
+    http.begin(url.c_str());
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode > 0) {
+        printf("HTTP Response code: %i\n", httpResponseCode);
+        String payload = http.getString();
+        if (payload.length() > size)    {
+            sprintf(exception, "GET: buffer size is too small for response of %i bytes.", payload.length());
+            return false;  // TRAP
+        }
+        for (unsigned long i = 0; i < payload.length(); i++) {
+            m->memory.bytes[response + i] = (uint32_t) payload[i];
+        }
+        return_value = response;
+    } else {
+        printf("Error code: %i\n", httpResponseCode);
+    }
+    // Free resources
+    http.end();
+
+    return return_value;
 }
 
 
