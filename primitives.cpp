@@ -53,9 +53,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 17
+#define NUM_PRIMITIVES_ARDUINO 18
 #else
-#define NUM_PRIMITIVES_ARDUINO 16
+#define NUM_PRIMITIVES_ARDUINO 17
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -91,6 +91,8 @@ int prim_index = 0;
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
 #define arg3 get_arg(m, 3)
+#define arg4 get_arg(m, 4)
+#define arg5 get_arg(m, 5)
 
 // The primitive table
 PrimitiveEntry primitives[ALL_PRIMITIVES];
@@ -101,6 +103,7 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
+uint32_t param_I32_arr_len6[6] = {I32, I32, I32, I32, I32, I32};
 
 Type oneToNoneU32 = {
         .form =  FUNC,
@@ -165,6 +168,15 @@ Type fourToOneU32 = {
         .mask =  0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
 
+Type sixToOneU32 = {
+        .form =  FUNC,
+        .param_count =  6,
+        .params =  param_I32_arr_len6,
+        .result_count =  0,
+        .results =  param_I32_arr_len1,
+        .mask =  0x810111111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
+};
+
 Type NoneToNoneU32 = {
         .form =  FUNC,
         .param_count =  0,
@@ -178,6 +190,7 @@ Type NoneToNoneU32 = {
 #ifdef ARDUINO
 void connect_wifi(const String ssid, const String password);
 uint32_t http_get_request(Module* m, const String url, uint32_t response, uint32_t size);
+uint32_t http_post_request(Module* m, const String url, const String body, const String content_type, uint32_t response, uint32_t size);
 #endif
 
 
@@ -329,6 +342,40 @@ def_prim(post, NoneToNoneU32) {
     return true;
 }
 
+def_prim(_rust_post, sixToOneU32) {
+    uint32_t return_value = 0;
+
+    //Check WiFi connection status
+    if(WiFi.status()== WL_CONNECTED) {
+        uint32_t url = arg5.uint32;
+        uint32_t body = arg4.uint32;
+        uint32_t content_type = arg3.uint32;
+        uint32_t length = arg2.uint32;
+        uint32_t response = arg1.uint32;
+        uint32_t size = arg0.uint32;
+
+        String url_parsed = parse_utf8_string(m->memory.bytes, body - url, url).c_str();
+        String body_parsed = parse_utf8_string(m->memory.bytes, content_type - body, body).c_str();
+        String content_type_parsed = parse_utf8_string(m->memory.bytes,
+                                                       (length - url_parsed.length() - body_parsed.length()),
+                                                       content_type).c_str();
+        Serial.print("POST ");
+        Serial.print(url_parsed);
+        Serial.print(" ");
+        Serial.print(content_type_parsed);
+        Serial.print(": ");
+        Serial.println(body_parsed);
+
+        // Send HTTP POST request
+        return_value = http_post_request(m, url_parsed, body_parsed, content_type_parsed, response, size);
+    }
+
+    pop_args(6);
+    pushInt32(return_value);
+    Serial.flush();
+    return true;
+}
+
 //warning: undefined symbol: chip_pin_mode
 def_prim(chip_pin_mode, twoToNoneU32) {
     printf("chip_pin_mode \n");
@@ -459,7 +506,7 @@ def_prim(get, fourToOneU32) {
     dbg_trace("EMU: http get request %s\n", text.c_str());
     // Construct response
     std::string answer = "Response code: 200.";
-    if (answer.length() > size)    {
+    if (answer.length() > size) {
         sprintf(exception, "GET: buffer size is too small for response.");
         return false;  // TRAP
     }
@@ -483,7 +530,7 @@ def_prim(_rust_get, fourToOneU32) {
     dbg_trace("EMU: http get request %s\n", text.c_str());
     // Construct response
     std::string answer = "Response code: 200.";
-    if (answer.length() > size)    {
+    if (answer.length() > size) {
         sprintf(exception, "GET: buffer size is too small for response.");
         return false;  // TRAP
     }
@@ -499,6 +546,26 @@ def_prim(_rust_get, fourToOneU32) {
 def_prim(post, NoneToNoneU32) {
     // TODO
     pop_args(0);
+    return true;
+}
+
+def_prim(_rust_post, sixToOneU32) {
+    // Get arguments
+    uint32_t url = arg5.uint32;
+    uint32_t body = arg4.uint32;
+    uint32_t content_type = arg3.uint32;
+    uint32_t length = arg2.uint32;
+    uint32_t response = arg1.uint32;
+    uint32_t size = arg0.uint32;
+
+    std::string url_parsed = parse_utf8_string(m->memory.bytes, body - url, url);
+    std::string body_parsed = parse_utf8_string(m->memory.bytes, content_type - body, body);
+    std::string content_type_parsed = parse_utf8_string(m->memory.bytes,
+                                                        (length - url_parsed.length() - body_parsed.length()),
+                                                        content_type);
+    dbg_trace("EMU: POST %s %s : %s\n", url_parsed.c_str(), content_type_parsed.c_str(), body_parsed.c_str());
+
+    pop_args(6);
     return true;
 }
 
@@ -611,6 +678,38 @@ uint32_t http_get_request(Module* m, const String url, const uint32_t response, 
     return return_value;
 }
 
+uint32_t http_post_request(Module* m,
+                           const String url,
+                           const String body,
+                           const String contentType,
+                           const uint32_t response,
+                           const uint32_t size) {
+    HTTPClient http;
+    uint32_t return_value = 0;
+
+    http.begin(url.c_str());
+    int httpResponseCode = http.POST(body);
+
+    if (httpResponseCode > 0) {
+        String responseBody = http.getString();
+
+        Serial.print("Status code: ");
+        Serial.print(httpResponseCode);
+        Serial.println(" Response: ");
+        Serial.println(responseBody);
+
+        for (unsigned long i = 0; i < responseBody.length(); i++) {
+            m->memory.bytes[response + i] = (uint32_t) responseBody[i];
+        }
+    } else {
+        printf("Error code: %i\n", httpResponseCode);
+    }
+
+    // Free resources
+    http.end();
+
+    return return_value;
+}
 
 #endif
 
@@ -639,6 +738,7 @@ void install_primitives() {
     install_primitive(get);
     install_primitive(_rust_get);
     install_primitive(post);
+    install_primitive(_rust_post);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
@@ -658,6 +758,7 @@ void install_primitives() {
     install_primitive(get);
     install_primitive(_rust_get);
     install_primitive(post);
+    install_primitive(_rust_post);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
