@@ -156,8 +156,9 @@ void skip_immediates(uint8_t **pos) {
             break;
             // varuint32 + varuint1
         case 0x11:  // call_indirect
-            read_LEB(pos, 1);
-            read_LEB_32(pos);
+            // encoding: 0x11 x 0x00
+            read_LEB_32(pos);         // read x
+            read_LEB(pos, 7);  // 0x00 byte
             break;
             // varint64
         case 0x42:  // i64.const
