@@ -19,15 +19,11 @@ void *acalloc(size_t nmemb, size_t size, const char *name) {
     }
 }
 
-// Assert realloc/calloc
-void *arecalloc(void *ptr, size_t old_nmemb, size_t nmemb, size_t size,
-                const char *name) {
-    auto *res = (size_t *) calloc(nmemb, size);
+// Assert realloc
+void *arealloc(void *ptr, size_t nmemb, size_t size, const char *name) {
+    auto *res = (size_t *) realloc(ptr, nmemb * size);
     if (res == nullptr) {
         FATAL("Could not allocate %d bytes for %s", (int) (nmemb * size), name);
     }
-    memset(res, 0, nmemb * size);  // initialize memory with 0
-    memmove(res, ptr, old_nmemb * size);
-//    memset(res + old_nmemb, 0, (nmemb - old_nmemb));
     return res;
 }

@@ -467,8 +467,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                             fidx = m->function_count;
                             m->import_count += 1;
                             m->function_count += 1;
-                            m->functions = (Block *) arecalloc(
-                                    m->functions, fidx, m->import_count,
+                            m->functions = (Block *) arealloc(
+                                    m->functions, m->import_count,
                                     sizeof(Block), "Block(imports)");
 
                             Block *func = &m->functions[fidx];
@@ -519,8 +519,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                         case 0x03:  // Global
                         {
                             m->global_count += 1;
-                            m->globals = (StackValue *) arecalloc(
-                                    m->globals, m->global_count - 1,
+                            m->globals = (StackValue *) arealloc(
+                                    m->globals,
                                     m->global_count, sizeof(StackValue), "globals");
                             StackValue *glob = &m->globals[m->global_count - 1];
                             glob->value_type = content_type;
@@ -615,8 +615,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     (void) mutability;
                     uint32_t gidx = m->global_count;
                     m->global_count += 1;
-                    m->globals = (StackValue *) arecalloc(
-                            m->globals, gidx, m->global_count, sizeof(StackValue),
+                    m->globals = (StackValue *) arealloc(
+                            m->globals, m->global_count, sizeof(StackValue),
                             "globals");
                     m->globals[gidx].value_type = type;
 
@@ -894,9 +894,9 @@ int WARDuino::run_module(Module *m) {
     return m->stack->value.uint32;
 }
 
-// Called when an interrupt comes in (not concurently the same function)
-// parse numer per 2 chars (HEX) (stop if non-hex)
-// Don't use print in interup handlers
+// Called when an interrupt comes in (not concurrently the same function)
+// parse number per 2 chars (HEX) (stop if non-hex)
+// Don't use print in interrupt handlers
 void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
     for (size_t i = 0; i < len; i++) {
         bool success = true;
