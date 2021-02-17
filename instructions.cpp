@@ -546,8 +546,8 @@ bool i_instr_grow_memory(Module *m) {
         return true;
     }
     m->memory.pages += delta;
-    m->memory.bytes = (uint8_t *) arealloc(
-            m->memory.bytes, m->memory.pages * PAGE_SIZE,
+    m->memory.bytes = (uint8_t *) arecalloc(
+            m->memory.bytes, prev_pages * PAGE_SIZE, m->memory.pages * PAGE_SIZE,
             1 /*sizeof(uint32_t)*/, "Module->memory.bytes");
     return true;
 }
