@@ -55,7 +55,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 #ifdef ARDUINO
 #define NUM_PRIMITIVES_ARDUINO 18
 #else
-#define NUM_PRIMITIVES_ARDUINO 17
+#define NUM_PRIMITIVES_ARDUINO 18
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -93,6 +93,8 @@ int prim_index = 0;
 #define arg3 get_arg(m, 3)
 #define arg4 get_arg(m, 4)
 #define arg5 get_arg(m, 5)
+#define arg6 get_arg(m, 6)
+#define arg7 get_arg(m, 7)
 
 // The primitive table
 PrimitiveEntry primitives[ALL_PRIMITIVES];
@@ -103,7 +105,7 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
-uint32_t param_I32_arr_len6[6] = {I32, I32, I32, I32, I32, I32};
+uint32_t param_I32_arr_len8[8] = {I32, I32, I32, I32, I32, I32, I32, I32};
 
 Type oneToNoneU32 = {
         .form =  FUNC,
@@ -168,13 +170,13 @@ Type fourToOneU32 = {
         .mask =  0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
 
-Type sixToOneU32 = {
+Type eightToOneU32 = {
         .form =  FUNC,
-        .param_count =  6,
-        .params =  param_I32_arr_len6,
+        .param_count =  8,
+        .params =  param_I32_arr_len8,
         .result_count =  0,
         .results =  param_I32_arr_len1,
-        .mask =  0x810111111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
+        .mask =  0x81011111111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
 
 Type NoneToNoneU32 = {
@@ -214,8 +216,6 @@ def_prim(print_int, oneToNoneU32) {
 }
 
 def_prim(print_string, oneToNoneU32) {
-    Serial.println("print_string: ");
-
     uint32_t addr = arg0.uint32;
 //    if (m->memory.bytes[addr + length - 1] != 0) {
 //        URL isn't null-terminated
@@ -342,23 +342,23 @@ def_prim(post, NoneToNoneU32) {
     return true;
 }
 
-def_prim(_rust_post, sixToOneU32) {
+def_prim(_rust_post, eightToOneU32) {
     uint32_t return_value = 0;
 
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
-        uint32_t url = arg5.uint32;
-        uint32_t body = arg4.uint32;
+        uint32_t url = arg7.uint32;
+        uint32_t url_len = arg6.uint32;
+        uint32_t body = arg5.uint32;
+        uint32_t body_len = arg4.uint32;
         uint32_t content_type = arg3.uint32;
-        uint32_t length = arg2.uint32;
+        uint32_t content_type_len = arg2.uint32;
         uint32_t response = arg1.uint32;
         uint32_t size = arg0.uint32;
 
-        String url_parsed = parse_utf8_string(m->memory.bytes, body - url, url).c_str();
-        String body_parsed = parse_utf8_string(m->memory.bytes, content_type - body, body).c_str();
-        String content_type_parsed = parse_utf8_string(m->memory.bytes,
-                                                       (length - url_parsed.length() - body_parsed.length()),
-                                                       content_type).c_str();
+        String url_parsed = parse_utf8_string(m->memory.bytes, url_len, url).c_str();
+        String body_parsed = parse_utf8_string(m->memory.bytes, body_len, body).c_str();
+        String content_type_parsed = parse_utf8_string(m->memory.bytes, content_type_len, content_type).c_str();
         Serial.print("POST ");
         Serial.print(url_parsed);
         Serial.print(" ");
@@ -370,7 +370,7 @@ def_prim(_rust_post, sixToOneU32) {
         return_value = http_post_request(m, url_parsed, body_parsed, content_type_parsed, response, size);
     }
 
-    pop_args(6);
+    pop_args(7);
     pushInt32(return_value);
     Serial.flush();
     return true;
@@ -415,6 +415,9 @@ def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     uint8_t res = digitalRead(pin);
     pushInt32(res);
+    Serial.print(res);
+    Serial.print(" ");
+    Serial.flush();
     return true;
 }
 
@@ -434,7 +437,7 @@ def_prim (spi_begin, NoneToNoneU32) {
 }
 
 def_prim(write_spi_bytes_16,twoToNoneU32) {
-        write_spi_bytes_16_prim(arg1.uint32,arg0.uint32);
+    write_spi_bytes_16_prim(arg1.uint32,arg0.uint32);
     pop_args(2);
     return true;
 }
@@ -549,23 +552,24 @@ def_prim(post, NoneToNoneU32) {
     return true;
 }
 
-def_prim(_rust_post, sixToOneU32) {
+def_prim(_rust_post, eightToOneU32) {
     // Get arguments
-    uint32_t url = arg5.uint32;
-    uint32_t body = arg4.uint32;
+    uint32_t url = arg7.uint32;
+    uint32_t url_len = arg6.uint32;
+    uint32_t body = arg5.uint32;
+    uint32_t body_len = arg4.uint32;
     uint32_t content_type = arg3.uint32;
-    uint32_t length = arg2.uint32;
+    uint32_t content_type_len = arg2.uint32;
     uint32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
 
-    std::string url_parsed = parse_utf8_string(m->memory.bytes, body - url, url);
-    std::string body_parsed = parse_utf8_string(m->memory.bytes, content_type - body, body);
-    std::string content_type_parsed = parse_utf8_string(m->memory.bytes,
-                                                        (length - url_parsed.length() - body_parsed.length()),
-                                                        content_type);
-    dbg_trace("EMU: POST %s %s : %s\n", url_parsed.c_str(), content_type_parsed.c_str(), body_parsed.c_str());
+    std::string url_parsed = parse_utf8_string(m->memory.bytes, url_len, url);
+    std::string body_parsed = parse_utf8_string(m->memory.bytes, body_len, body);
+    std::string content_type_parsed = parse_utf8_string(m->memory.bytes, content_type_len, content_type);
+    printf("EMU: POST %s %s : %s\n", url_parsed.c_str(), content_type_parsed.c_str(), body_parsed.c_str());
 
-    pop_args(6);
+    pop_args(5);
+    pushInt32(response);
     return true;
 }
 
@@ -578,6 +582,12 @@ def_prim(chip_pin_mode, twoToNoneU32) {
 def_prim(chip_digital_write, twoToNoneU32) {
     dbg_trace("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
+    return true;
+}
+
+def_prim(chip_digital_read, oneToOneU32) {
+    uint8_t pin = arg0.uint32;
+    pushInt32(42);
     return true;
 }
 
@@ -762,6 +772,7 @@ void install_primitives() {
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
+    install_primitive(chip_digital_read);
     install_primitive(chip_delay_us);
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
