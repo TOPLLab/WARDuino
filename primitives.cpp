@@ -95,6 +95,8 @@ int prim_index = 0;
 #define arg5 get_arg(m, 5)
 #define arg6 get_arg(m, 6)
 #define arg7 get_arg(m, 7)
+#define arg8 get_arg(m, 8)
+#define arg9 get_arg(m, 9)
 
 // The primitive table
 PrimitiveEntry primitives[ALL_PRIMITIVES];
@@ -105,7 +107,7 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
-uint32_t param_I32_arr_len8[8] = {I32, I32, I32, I32, I32, I32, I32, I32};
+uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32, I32, I32, I32, I32, I32};
 
 Type oneToNoneU32 = {
         .form =  FUNC,
@@ -170,13 +172,13 @@ Type fourToOneU32 = {
         .mask =  0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
 
-Type eightToOneU32 = {
+Type tenToOneU32 = {
         .form =  FUNC,
-        .param_count =  8,
-        .params =  param_I32_arr_len8,
+        .param_count =  10,
+        .params =  param_I32_arr_len10,
         .result_count =  0,
         .results =  param_I32_arr_len1,
-        .mask =  0x81011111111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
+        .mask =  0x8101111111111 /* 0x8 1=I32 0=endRet ; 10 params 1=I32*/
 };
 
 Type NoneToNoneU32 = {
@@ -342,23 +344,26 @@ def_prim(post, NoneToNoneU32) {
     return true;
 }
 
-def_prim(_rust_post, eightToOneU32) {
+def_prim(_rust_post, tenToOneU32) {
     uint32_t return_value = 0;
 
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
-        uint32_t url = arg7.uint32;
-        uint32_t url_len = arg6.uint32;
-        uint32_t body = arg5.uint32;
-        uint32_t body_len = arg4.uint32;
-        uint32_t content_type = arg3.uint32;
-        uint32_t content_type_len = arg2.uint32;
+        uint32_t url = arg9.uint32;
+        uint32_t url_len = arg8.uint32;
+        uint32_t body = arg7.uint32;
+        uint32_t body_len = arg6.uint32;
+        uint32_t content_type = arg5.uint32;
+        uint32_t content_type_len = arg4.uint32;
+        uint32_t authorization = arg3.uint32;
+        uint32_t authorization_len = arg2.uint32;
         uint32_t response = arg1.uint32;
         uint32_t size = arg0.uint32;
 
         String url_parsed = parse_utf8_string(m->memory.bytes, url_len, url).c_str();
         String body_parsed = parse_utf8_string(m->memory.bytes, body_len, body).c_str();
         String content_type_parsed = parse_utf8_string(m->memory.bytes, content_type_len, content_type).c_str();
+        String authorization_parsed = parse_utf8_string(m->memory.bytes, authorization_len, authorization).c_str();
         Serial.print("POST ");
         Serial.print(url_parsed);
         Serial.print(" ");
@@ -552,21 +557,24 @@ def_prim(post, NoneToNoneU32) {
     return true;
 }
 
-def_prim(_rust_post, eightToOneU32) {
+def_prim(_rust_post, tenToOneU32) {
     // Get arguments
-    uint32_t url = arg7.uint32;
-    uint32_t url_len = arg6.uint32;
-    uint32_t body = arg5.uint32;
-    uint32_t body_len = arg4.uint32;
-    uint32_t content_type = arg3.uint32;
-    uint32_t content_type_len = arg2.uint32;
+    uint32_t url = arg9.uint32;
+    uint32_t url_len = arg8.uint32;
+    uint32_t body = arg7.uint32;
+    uint32_t body_len = arg6.uint32;
+    uint32_t content_type = arg5.uint32;
+    uint32_t content_type_len = arg4.uint32;
+    uint32_t authorization = arg3.uint32;
+    uint32_t authorization_len = arg2.uint32;
     uint32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
 
     std::string url_parsed = parse_utf8_string(m->memory.bytes, url_len, url);
     std::string body_parsed = parse_utf8_string(m->memory.bytes, body_len, body);
     std::string content_type_parsed = parse_utf8_string(m->memory.bytes, content_type_len, content_type);
-    printf("EMU: POST %s %s : %s\n", url_parsed.c_str(), content_type_parsed.c_str(), body_parsed.c_str());
+    std::string authorization_parsed = parse_utf8_string(m->memory.bytes, authorization_len, authorization);
+    printf("EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t '%s'\n", url_parsed.c_str(), content_type_parsed.c_str(), authorization_parsed.c_str(), body_parsed.c_str());
 
     pop_args(5);
     pushInt32(response);
@@ -708,7 +716,7 @@ uint32_t http_post_request(Module* m,
         Serial.println(" Response: ");
         Serial.println(responseBody);
 
-        for (unsigned long i = 0; i < responseBody.length(); i++) {
+        for (unsigned long i = 0; i < responseBody.length(); i++) {  // TODO check size
             m->memory.bytes[response + i] = (uint32_t) responseBody[i];
         }
     } else {
