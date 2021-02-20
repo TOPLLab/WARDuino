@@ -3,13 +3,26 @@
 #include <cstring>
 #include "debug.h"
 
+#ifdef ARDUINO
+    #include "Arduino.h"
+#endif
+
 // Assert calloc
-void *acalloc(size_t nmemb, size_t size, const char *name) {
+void *acalloc(size_t nmemb, size_t size, const char *name, bool psram) {
     if ((int) (nmemb * size) == 0) {
         return nullptr;
     } else {
-        debug("IN Acalloc  count: %zu, size: %zu for %s \n", nmemb, size, name);
-        void *res = calloc(nmemb, size);
+        debug("IN Acalloc count: %zu, size: %zu for %s \n", nmemb, size, name);
+        #ifdef ARDUINO
+            void *res;
+            if (psramInit() && psram) {
+                res = ps_calloc(nmemb, size);
+            } else {
+                res = calloc(nmemb, size);
+            }
+        #else
+            void *res = calloc(nmemb, size);
+        #endif
         debug("Done ... Acalloc\n");
         if (res == nullptr) {
             FATAL("Could not allocate %d bytes for %s \n", (int) (nmemb * size),
@@ -20,8 +33,17 @@ void *acalloc(size_t nmemb, size_t size, const char *name) {
 }
 
 // Assert realloc/calloc
-void *arecalloc(void *ptr, size_t old_nmemb, size_t nmemb, size_t size, const char *name) {
-    auto *res = (size_t *) calloc(nmemb, size);
+void *arecalloc(void *ptr, size_t old_nmemb, size_t nmemb, size_t size, const char *name, bool psram) {
+    #ifdef ARDUINO
+        void *res;
+        if (psramInit() && psram) {
+            res = (size_t *) ps_calloc(nmemb, size);
+        } else {
+            res = (size_t *) calloc(nmemb, size);
+        }
+    #else
+        auto *res = (size_t *) calloc(nmemb, size);
+    #endif
     if (res == nullptr) {
         FATAL("Could not allocate %d bytes for %s", (int) (nmemb * size), name);
     }
