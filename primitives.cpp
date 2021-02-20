@@ -194,7 +194,7 @@ Type NoneToNoneU32 = {
 #ifdef ARDUINO
 void connect_wifi(const String ssid, const String password);
 uint32_t http_get_request(Module* m, const String url, uint32_t response, uint32_t size);
-uint32_t http_post_request(Module* m, const String url, const String body, const String content_type, uint32_t response, uint32_t size);
+uint32_t http_post_request(Module* m, const String url, const String body, const String content_type, const String authorization_parsed, uint32_t response, uint32_t size);
 #endif
 
 
@@ -345,7 +345,7 @@ def_prim(post, NoneToNoneU32) {
 }
 
 def_prim(_rust_post, tenToOneU32) {
-    uint32_t return_value = 0;
+    uint32_t status_code = 0;
 
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
@@ -366,17 +366,20 @@ def_prim(_rust_post, tenToOneU32) {
         String authorization_parsed = parse_utf8_string(m->memory.bytes, authorization_len, authorization).c_str();
         Serial.print("POST ");
         Serial.print(url_parsed);
-        Serial.print(" ");
+        Serial.print("\n\t Content-type: '");
         Serial.print(content_type_parsed);
-        Serial.print(": ");
-        Serial.println(body_parsed);
+        Serial.print("'\n\t Authorization: '");
+        Serial.print(authorization_parsed);
+        Serial.print("'\n\t '");
+        Serial.print(body_parsed);
+        Serial.print("'\n");
 
         // Send HTTP POST request
-        return_value = http_post_request(m, url_parsed, body_parsed, content_type_parsed, response, size);
+        status_code = http_post_request(m, url_parsed, body_parsed, content_type_parsed, authorization_parsed, response, size);
     }
 
     pop_args(7);
-    pushInt32(return_value);
+    pushInt32(status_code);
     Serial.flush();
     return true;
 }
@@ -420,9 +423,6 @@ def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     uint8_t res = digitalRead(pin);
     pushInt32(res);
-    Serial.print(res);
-    Serial.print(" ");
-    Serial.flush();
     return true;
 }
 
@@ -574,7 +574,8 @@ def_prim(_rust_post, tenToOneU32) {
     std::string body_parsed = parse_utf8_string(m->memory.bytes, body_len, body);
     std::string content_type_parsed = parse_utf8_string(m->memory.bytes, content_type_len, content_type);
     std::string authorization_parsed = parse_utf8_string(m->memory.bytes, authorization_len, authorization);
-    printf("EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t '%s'\n", url_parsed.c_str(), content_type_parsed.c_str(), authorization_parsed.c_str(), body_parsed.c_str());
+    printf("EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t '%s'\n",
+           url_parsed.c_str(), content_type_parsed.c_str(), authorization_parsed.c_str(), body_parsed.c_str());
 
     pop_args(5);
     pushInt32(response);
@@ -700,13 +701,15 @@ uint32_t http_post_request(Module* m,
                            const String url,
                            const String body,
                            const String contentType,
+                           const String authorizationToken,
                            const uint32_t response,
                            const uint32_t size) {
     HTTPClient http;
-    uint32_t return_value = 0;
+    uint32_t httpResponseCode = 0;
 
     http.begin(url.c_str());
-    int httpResponseCode = http.POST(body);
+    http.setAuthorization(authorizationToken.c_str());
+    httpResponseCode = http.POST(body);
 
     if (httpResponseCode > 0) {
         String responseBody = http.getString();
@@ -726,7 +729,7 @@ uint32_t http_post_request(Module* m,
     // Free resources
     http.end();
 
-    return return_value;
+    return httpResponseCode;
 }
 
 #endif
