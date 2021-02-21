@@ -378,7 +378,7 @@ def_prim(_rust_post, tenToOneU32) {
         status_code = http_post_request(m, url_parsed, body_parsed, content_type_parsed, authorization_parsed, response, size);
     }
 
-    pop_args(7);
+    pop_args(9);
     pushInt32(status_code);
     Serial.flush();
     return true;
@@ -577,7 +577,7 @@ def_prim(_rust_post, tenToOneU32) {
     printf("EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t '%s'\n",
            url_parsed.c_str(), content_type_parsed.c_str(), authorization_parsed.c_str(), body_parsed.c_str());
 
-    pop_args(5);
+    pop_args(9);
     pushInt32(response);
     return true;
 }
@@ -708,7 +708,7 @@ uint32_t http_post_request(Module* m,
     uint32_t httpResponseCode = 0;
 
     http.begin(url.c_str());
-    http.setAuthorization(authorizationToken.c_str());
+    http.addHeader("Authorization", authorizationToken.c_str());
     httpResponseCode = http.POST(body);
 
     if (httpResponseCode > 0) {
