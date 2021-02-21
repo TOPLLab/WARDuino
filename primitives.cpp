@@ -450,12 +450,12 @@ def_prim(write_spi_bytes_16,twoToNoneU32) {
 #else
 
 def_prim(abort, NoneToNoneU32) {
-    dbg_trace("EMU: abort\n");
+    debug("EMU: abort\n");
     return false;
 }
 
 def_prim(print_int, oneToNoneU32) {
-    dbg_trace("EMU: print %i\n", arg0.uint32);
+    debug("EMU: print %i\n", arg0.uint32);
     pop_args(1);
     return true;
 }
@@ -463,7 +463,7 @@ def_prim(print_int, oneToNoneU32) {
 def_prim(print_string, oneToNoneU32) {
     uint32_t addr = arg0.uint32;
     std::string text = parse_utf16_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr);
-    dbg_trace("EMU: print string at %i: %s\n", addr, text.c_str());
+    debug("EMU: print string at %i: %s\n", addr, text.c_str());
     pop_args(1);
     return true;
 }
@@ -472,7 +472,7 @@ def_prim(_rust_print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
     std::string text = parse_utf8_string(m->memory.bytes, size, addr);
-    dbg_trace("EMU: print string at %i: %s\n", addr, text.c_str());
+    debug("EMU: print string at %i: %s\n", addr, text.c_str());
     pop_args(2);
     return true;
 }
@@ -485,7 +485,7 @@ def_prim(connect, fourToNoneU32) {
 
     std::string ssid_str = parse_utf16_string(m->memory.bytes, len0, ssid);
     std::string pass_str = parse_utf16_string(m->memory.bytes, len1, pass);
-    dbg_trace("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
+    debug("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
     pop_args(4);
     return true;
 }
@@ -498,7 +498,7 @@ def_prim(_rust_connect, fourToNoneU32) {
 
     std::string ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid);
     std::string pass_str = parse_utf8_string(m->memory.bytes, len1, pass);
-    dbg_trace("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
+    debug("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
     pop_args(4);
     return true;
 }
@@ -511,7 +511,7 @@ def_prim(get, fourToOneU32) {
     uint32_t size = arg0.uint32;
     // Parse url
     std::string text = parse_utf16_string(m->memory.bytes, length, url);
-    dbg_trace("EMU: http get request %s\n", text.c_str());
+    debug("EMU: http get request %s\n", text.c_str());
     // Construct response
     std::string answer = "Response code: 200.";
     if (answer.length() > size) {
@@ -535,7 +535,7 @@ def_prim(_rust_get, fourToOneU32) {
     uint32_t size = arg0.uint32;
     // Parse url
     std::string text = parse_utf8_string(m->memory.bytes, length, url);
-    dbg_trace("EMU: http get request %s\n", text.c_str());
+    debug("EMU: http get request %s\n", text.c_str());
     // Construct response
     std::string answer = "Response code: 200.";
     if (answer.length() > size) {
@@ -574,7 +574,7 @@ def_prim(_rust_post, tenToOneU32) {
     std::string body_parsed = parse_utf8_string(m->memory.bytes, body_len, body);
     std::string content_type_parsed = parse_utf8_string(m->memory.bytes, content_type_len, content_type);
     std::string authorization_parsed = parse_utf8_string(m->memory.bytes, authorization_len, authorization);
-    printf("EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t '%s'\n",
+    debug("EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t '%s'\n",
            url_parsed.c_str(), content_type_parsed.c_str(), authorization_parsed.c_str(), body_parsed.c_str());
 
     pop_args(9);
@@ -583,13 +583,13 @@ def_prim(_rust_post, tenToOneU32) {
 }
 
 def_prim(chip_pin_mode, twoToNoneU32) {
-    dbg_trace("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
+    debug("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
     return true;
 }
 
 def_prim(chip_digital_write, twoToNoneU32) {
-    dbg_trace("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
+    debug("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
     return true;
 }
@@ -603,9 +603,9 @@ def_prim(chip_digital_read, oneToOneU32) {
 def_prim(chip_delay, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
-    dbg_trace("EMU: chip_delay(%u) \n", arg0.uint32);
+    debug("EMU: chip_delay(%u) \n", arg0.uint32);
     sleep_for(milliseconds(arg0.uint32));
-    dbg_trace("EMU: .. done\n");
+    debug("EMU: .. done\n");
     pop_args(1);
     return true;
 }
@@ -613,28 +613,28 @@ def_prim(chip_delay, oneToNoneU32) {
 def_prim(chip_delay_us, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
-    dbg_trace("EMU: chip_delay(%u ms) \n", arg0.uint32);
+    debug("EMU: chip_delay(%u ms) \n", arg0.uint32);
     sleep_for(microseconds(arg0.uint32));
-    dbg_trace("EMU: .. done\n");
+    debug("EMU: .. done\n");
     pop_args(1);
     return true;
 }
 
 //warning: undefined symbol: write_spi_byte
 def_prim (write_spi_byte, oneToNoneU32) {
-    dbg_trace("EMU: write_spi_byte(%u) \n", arg0.uint32);
+    debug("EMU: write_spi_byte(%u) \n", arg0.uint32);
     pop_args(1);
     return true;
 }
 
 //warning: undefined symbol: spi_begin
 def_prim (spi_begin, NoneToNoneU32) {
-    dbg_trace("EMU: spi_begin \n");
+    debug("EMU: spi_begin \n");
     return true;
 }
 
 def_prim(write_spi_bytes_16, twoToNoneU32) {
-    dbg_trace("EMU: write_spi_byte_16(%u, %u) \n", arg1.uint32, arg0.uint32);
+    debug("EMU: write_spi_byte_16(%u, %u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
     return true;
 }

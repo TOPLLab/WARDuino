@@ -6,8 +6,9 @@ add_executable(WARDuino demo/run_wa/main.cpp ${SOURCE_FILES})
 
 
 #add_definitions(-DARDUINO)
+add_definitions(-DINFO=0)
 add_definitions(-DDEBUG=1)
-add_definitions(-DTRACE=1)
+add_definitions(-DTRACE=0)
 add_definitions(-DWARN=1)
 
 add_executable(WARDuinoBench benchmarks/benchmarks.cpp ${SOURCE_FILES})
