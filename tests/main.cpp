@@ -11,6 +11,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "assertion.h"
+
 extern "C" {
 // TODO: Stat files, alternative needed for arduino
 #include <sys/stat.h>
@@ -57,17 +59,15 @@ uint8_t *mmap_file(char *path, int *len) {
 }
 
 // Parse and add arguments to the stack
-void parse_args(Module *m, Type *type, int argc, char argv[][40]) {
+void parse_args(Module *m, Type *type, int argc, Value argv[]) {
     for (int i=0; i<argc; i++) {
-        for (int j=0; argv[i][j]; j++) {
-            argv[i][j] = tolower(argv[i][j]); // lowecase
-        }
         m->sp++;
         StackValue *sv = &m->stack[m->sp];
         sv->value_type = type->params[i];
         switch (type->params[i]) {
+        case I64: sv->value.uint64 = argv[i].int64; break;
+/*
         case I32: sv->value.uint32 = strtoul(argv[i], NULL, 0); break;
-        case I64: sv->value.uint64 = strtoull(argv[i], NULL, 0); break;
         case F32: if (strncmp("-nan", argv[i], 4) == 0) {
                       sv->value.f32 = -NAN;
                   } else {
@@ -77,12 +77,12 @@ void parse_args(Module *m, Type *type, int argc, char argv[][40]) {
                       sv->value.f64 = -NAN;
                   } else {
                       sv->value.f64 = atof(argv[i]);
-                  }; break;
+                  }; break;*/
         }
     }
 }
 
-void invoke(Module* m, char* call_f, char args[][40]) {
+void invoke(Module* m, char* call_f, Value values[]) {
     uint32_t fidx =  -1; 
     m->sp  = -1;
     m->fp  = -1;
@@ -101,11 +101,62 @@ void invoke(Module* m, char* call_f, char args[][40]) {
 
     Block *func = &m->functions[fidx];
     Type *type  = func->type; 
-    parse_args(m, type, type->param_count, args);
+    parse_args(m, type, type->param_count, values);
     setup_call(m, fidx);
     interpret(m);
 
     printf("result :: %llu ", m->stack->value.uint64);
+}
+
+void assertValue(Value* val,Module* m) {
+	switch (val->type) {
+		case I64V: 
+			if (val->uint64== m->stack->value.uint64) {
+				printf("OK");				
+			} 
+			else {
+				printf("FAIL");
+			}
+			break;
+		default:
+			printf("Error unsupported value");
+			exit(1);
+	}
+}
+
+void assertResult(Result* result, Module* m)
+{
+	switch (result->type) {
+		case VAL: assertValue(result->value,m);
+				break;
+		default:
+			printf("Error unsupported result");
+			exit(1);
+	}
+}
+
+void runAction(Action* action, Module* m, Result* result) {
+	switch (action->type) {
+		case INVOKE: 
+			invoke(m,action->name,action->expr);	
+			assertResult(result,m);
+			break;
+		default:
+		printf("Error unsupported action");
+		exit(1);
+	}
+	
+}
+
+void runAssertion(Assertion* assertion, Module* m){
+	switch (assertion->type)
+	{
+		case RETURN: runAction(assertion->action,m,assertion->result);
+		break;
+	        default:
+		printf("Error unsupported assertion");
+		exit(1);
+	}
 }
 
 /**
@@ -126,10 +177,20 @@ int main(int argc, char** argv) {
     }
 
     Module* m = wac.load_module(bytes, byte_count, {});
+
     //(assert_return (invoke "fac-rec" (i64.const 25)) (i64.const 7034535277573963776))
-    char args[][40]  = { "25" };
-    char fcall[]     = "fac-rec";
+    Value args[1];
+    args[0] = *makeI64(25);
+    Result* result  = makeValueResult(makeI64(7034535277573963776)); 
+    Action* action  = makeInvokeAction("fac-rec",args);
+    Assertion* assertion = makeAssertionReturn(action,result);
+    printf("made an assertion\n");
+    runAssertion(assertion, m);
+
+    //(assert_return (invoke "fac-rec" (i64.const 25)) (i64.const 7034535277573963776))
+    /*char args[][40]  = { "25" };
+    char fcall[]     = "fac-ssa";
     invoke(m, fcall, args);
-    //actual test 
+    //actual test */
     return 0;
 }
