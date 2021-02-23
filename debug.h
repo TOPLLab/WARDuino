@@ -36,8 +36,9 @@ void end();
 
 #define FATAL(...)                                      \
     {                                                   \
-        printf("Error(%s:%d): \n", __FILE__, __LINE__); \
+        printf("Error(%s:%d): ", __FILE__, __LINE__); \
         printf(__VA_ARGS__);                            \
+        printf("\n");                                  \
         end();                                          \
     } \
 
