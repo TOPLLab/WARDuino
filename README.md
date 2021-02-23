@@ -44,6 +44,14 @@ Follow these steps to execute the blink program on WARduino on an ESP8266 or ESP
 - Install wat2wasm from the [`wabt`](https://github.com/WebAssembly/wabt) package
 
 
+## Run the tests 
+
+- mkdir build_test 
+- cd build_test 
+- cmake ../ 
+- make TestWARDuino 
+- ./TestWarDuino <path-to-test-files>
+
 # LICENCE
 
 MPL-2.0 (see LICENSE).
