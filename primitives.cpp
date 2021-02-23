@@ -50,6 +50,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
@@ -62,6 +63,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 // Global index for installing primitives
 int prim_index = 0;
+double sensor_emu = 0;
 
 /*
     Private macros to install a primitive
@@ -422,7 +424,8 @@ def_prim (chip_delay_us, oneToNoneU32) {
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     uint8_t res = digitalRead(pin);
-    pushInt32(res);
+    pushInt32(abs(sin(sensor_emu) * 100));
+    sensor_emu += .25;
     return true;
 }
 
@@ -596,7 +599,8 @@ def_prim(chip_digital_write, twoToNoneU32) {
 
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
-    pushInt32(42);
+    pushInt32(abs(sin(sensor_emu) * 100));
+    sensor_emu += .25;
     return true;
 }
 
