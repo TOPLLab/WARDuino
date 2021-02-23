@@ -3,6 +3,7 @@ project (WARDuino)
 add_compile_options(-g -v -std=c++11  -Wall -Wextra -Wunused)
 set(SOURCE_FILES mem.cpp util.cpp util_arduino.cpp interrupt_operations.cpp debug.cpp WARDuino.cpp primitives.cpp instructions.cpp)
 add_executable(WARDuino demo/run_wa/main.cpp ${SOURCE_FILES})
+add_executable(TestWARDuino tests/main.cpp ${SOURCE_FILES})
 
 
 #add_definitions(-DARDUINO)
