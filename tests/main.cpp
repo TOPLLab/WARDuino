@@ -5,11 +5,17 @@
 #include "../instructions.h"
 #include <csignal>
 #include <sys/mman.h>
-#include <stdlib.h>
+#include <cstdlib>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <cstring>
+#include <cmath>
+
+extern "C" {
+    #include "./sexpr-parser/src/sexpr.h"
+}
 
 #include "assertion.h"
 
@@ -50,7 +56,7 @@ uint8_t *mmap_file(char *path, int *len) {
     res = fstat(fd, &sb);
     if (res < 0) { FATAL("could not stat file '%s' (%d)\n", path, res); }
 
-    bytes = (uint8_t*) mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    bytes = (uint8_t *) mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (len) {
         *len = sb.st_size;  // Return length if requested
     }
@@ -110,10 +116,10 @@ void invoke(Module* m, char* call_f, Value values[]) {
 
 void assertValue(Value* val,Module* m) {
 	switch (val->type) {
-		case I64V: 
+		case I64V:
 			if (val->uint64== m->stack->value.uint64) {
-				printf("OK");				
-			} 
+				printf("OK");
+			}
 			else {
 				printf("FAIL");
 			}
@@ -137,15 +143,15 @@ void assertResult(Result* result, Module* m)
 
 void runAction(Action* action, Module* m, Result* result) {
 	switch (action->type) {
-		case INVOKE: 
-			invoke(m,action->name,action->expr);	
+		case INVOKE:
+			invoke(m,action->name,action->expr);
 			assertResult(result,m);
 			break;
 		default:
 		printf("Error unsupported action");
 		exit(1);
 	}
-	
+
 }
 
 void runAssertion(Assertion* assertion, Module* m){
@@ -160,18 +166,23 @@ void runAssertion(Assertion* assertion, Module* m){
 }
 
 /**
- * Run code, ececute interrups in /tmp/change if a USR1 signal comes
+ * Run code, execute interrupts in /tmp/change if a USR1 signal comes
 */
-int main(int argc, char** argv) {
-    uint8_t  *bytes;
+int main(int argc, char **argv) {
+    uint8_t *bytes;
     int byte_count;
     signal(SIGUSR1, signalHandler);
     //Load the path name 
     char *mod_path = argv[1];
+    char *tests_path = argv[2];
+
+    FILE *fp = fopen(tests_path, "r");
+    struct SNode *node = snode_parse(fp);
+    fclose(fp);
 
     bytes = mmap_file(mod_path, &byte_count);
-    
-    if (bytes == NULL) {
+
+    if (bytes == nullptr) {
         fprintf(stderr, "Could not load %s", mod_path);
         return 2;
     }
@@ -181,7 +192,7 @@ int main(int argc, char** argv) {
     //(assert_return (invoke "fac-rec" (i64.const 25)) (i64.const 7034535277573963776))
     Value args[1];
     args[0] = *makeI64(25);
-    Result* result  = makeValueResult(makeI64(7034535277573963776)); 
+    Result* result  = makeValueResult(makeI64(7034535277573963776));
     Action* action  = makeInvokeAction("fac-rec",args);
     Assertion* assertion = makeAssertionReturn(action,result);
     printf("made an assertion\n");
