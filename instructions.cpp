@@ -1440,7 +1440,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool interpret(Module *m) {
+bool interpret(Module *m, bool return_exception) {
     uint8_t *block_ptr;
     uint8_t opcode;
 
@@ -1663,7 +1663,9 @@ bool interpret(Module *m) {
     dbg_trace("Interpretation ended %s with status %s\n",
               program_done ? "expectedly" : "unexpectedly",
               success ? "ok" : "error");
-    if (!success) {
+    if (!success && return_exception) {
+        m->exception = strdup(exception);
+    } else if (!success) {
         FATAL("%s\n", exception);
     }
     return success;

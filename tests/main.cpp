@@ -111,12 +111,11 @@ void invoke(Module *m, const char *call_f, Value values[]) {
     Type *type = func->type;
     parse_args(m, type, type->param_count, values);
     setup_call(m, fidx);
-    interpret(m);
-
-    printf("result :: %llu ", m->stack->value.uint64);
+    interpret(m, true);
 }
 
 void assertValue(Value *val, Module *m) {
+    printf("result :: %llu ", m->stack->value.uint64);
     switch (val->type) {
         case I64V:
             if (val->uint64 == m->stack->value.uint64) {
@@ -142,11 +141,19 @@ void assertResult(Result *result, Module *m) {
     }
 }
 
-void runAction(Action *action, Module *m, Result *result) {
+void assertString(Module *m, char *expected) {
+    printf("result :: %s ", m->exception);
+    if (strcmp(m->exception, expected) == 0) {
+        printf("OK\n");
+    } else {
+        printf("FAIL\n");
+    }
+}
+
+void runAction(Action *action, Module *m) {
     switch (action->type) {
         case INVOKE:
             invoke(m, action->name, action->expr);
-            assertResult(result, m);
             break;
         default:
             printf("Error unsupported action");
@@ -158,7 +165,12 @@ void runAction(Action *action, Module *m, Result *result) {
 void runAssertion(Assertion *assertion, Module *m) {
     switch (assertion->type) {
         case RETURN:
-            runAction(assertion->action, m, assertion->result);
+            runAction(assertion->action, m);
+            assertResult(assertion->result, m);
+            break;
+        case EXHAUSTION:
+            runAction(assertion->action, m);
+            assertString(m, "call stack exhausted");
             break;
         default:
             printf("Error unsupported assertion");
@@ -198,13 +210,11 @@ Action *parseActionNode(SNode *actionNode) {
 }
 
 void resolveAssert(SNode *node, Module *m) {
-    // resolve (assert_return (invoke "fac-rec" (i64.const 25)) (i64.const 7034535277573963776))
     char *assertType = node->value;
+
     if (strcmp(assertType, "assert_return") == 0) {
-        SNode *actionNode = node->next;
-        Action *action = parseActionNode(actionNode);  // TODO breaks invoke?
-        SNode *resultNode = actionNode->next;
-        Result *result = parseResultNode(resultNode);
+        Action *action = parseActionNode(node->next);
+        Result *result = parseResultNode(node->next->next);
 
         Assertion *assertion = makeAssertionReturn(action, result);
         printf("made an assertion\n");
@@ -212,6 +222,12 @@ void resolveAssert(SNode *node, Module *m) {
         runAssertion(assertion, m);
 
         free(result);
+        free(action);
+        free(assertion);
+    } else if (strcmp(assertType, "assert_exhaustion") == 0) {
+        Action *action = parseActionNode(node->next);
+        Assertion *assertion = makeAssertionExhaustion(action);
+        runAssertion(assertion, m);
         free(action);
         free(assertion);
     } else {
@@ -267,9 +283,6 @@ int main(int argc, char **argv) {
             default:
                 printf("Error unsupported type");
                 exit(1);
-        }
-        if (cursor == nullptr || cursor->next == nullptr) {
-            break;
         }
     }
 

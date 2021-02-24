@@ -161,6 +161,8 @@ typedef struct Module {
     int csp;                           // callstack pointer
     Frame callstack[CALLSTACK_SIZE];   // callstack
     uint32_t br_table[BR_TABLE_SIZE];  // br_table branch indexes
+
+    char *exception;                   // exception is set when the program fails
 } Module;
 
 typedef bool (*Primitive)(Module *);
