@@ -1,8 +1,8 @@
 #ifndef ASSERTION_H
 #define ASSERTION_H
- 
+
 #include <stdint.h>
-  
+
 /*
  cmd:
   <module>                                   ;; define, validate, and initialize module
@@ -43,55 +43,72 @@ meta:
   ( output <name>? <string>? )               ;; output module to stout or file
 */
 
-typedef enum { RETURN, TRAP, EXHAUSTION, MALFORMED, INVALID, UNLINKABLE} AssertionType;
-typedef enum { INVOKE, GET} ActionType;
-typedef enum { UI32,I32V,UI64,I64V,F32V,F64V } ValueType;  
-
+typedef enum {
+    RETURN, TRAP, EXHAUSTION, MALFORMED, INVALID, UNLINKABLE
+} AssertionType;
+typedef enum {
+    INVOKE, GET
+} ActionType;
+typedef enum {
+    UI32, I32V, UI64, I64V, F32V, F64V
+} ValueType;
 
 
 typedef struct {
-	ValueType type;
-	union {
-        	uint32_t uint32;
-        	int32_t int32;
-        	uint64_t uint64;
-        	int64_t int64;
-        	float f32;
-        	double f64;	
-	};
+    ValueType type;
+    union {
+        uint32_t uint32;
+        int32_t int32;
+        uint64_t uint64;
+        int64_t int64;
+        float f32;
+        double f64;
+        char *str;
+    };
 } Value;
 
-typedef enum { NAN_R, VAL } ResultType ;
+typedef enum {
+    EMPTY, NAN_R, VAL,
+} ResultType;
 
 typedef struct {
-	ResultType type;
-	union {
-		Value* value;
-	};
+    ResultType type;
+    union {
+        Value *value;
+    };
 } Result;
 
 typedef struct {
-	ActionType type;
-	char* name;
-	Value* expr; 
+    ActionType type;
+    char *name;
+    Value *expr;
 } Action;
 
 
 typedef struct {
-	AssertionType type;
-	union {
-		Action* action;
-		char*  module;
-	};	
-	union{
-		Result*  result;
-		char* failure;
-	};
+    AssertionType type;
+    union {
+        Action *action;
+        char *module;
+    };
+    union {
+        Result *result;
+        char *failure;
+    };
 } Assertion;
 
-Action* makeInvokeAction(char* name, Value* expr);
-Assertion* makeAssertionReturn(Action* action,Result* result);
-Result*    makeValueResult(Value* val);
-Value*     makeUI64(uint64_t value);
-Value*     makeI64(int64_t value);
+Action *makeInvokeAction(char *name, Value *expr);
+
+Assertion *makeAssertionReturn(Action *action, Result *result);
+
+Assertion *makeAssertionExhaustion(Action *action);
+
+Result *makeEmptyResult();
+
+Result *makeValueResult(Value *val);
+
+Value *makeUI64(uint64_t value);
+
+Value *makeI64(int64_t value);
+
 #endif
