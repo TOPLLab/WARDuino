@@ -96,7 +96,7 @@ void parse_args(Module *m, Type *type, int argc, Value argv[]) {
     }
 }
 
-void invoke(Module *m, char *call_f, Value values[]) {
+void invoke(Module *m, const char *call_f, Value values[]) {
     uint32_t fidx = -1;
     m->sp = -1;
     m->fp = -1;
@@ -126,9 +126,9 @@ void assertValue(Value *val, Module *m) {
     switch (val->type) {
         case I64V:
             if (val->uint64 == m->stack->value.uint64) {
-                printf("OK");
+                printf("OK\n");
             } else {
-                printf("FAIL");
+                printf("FAIL\n");
             }
             break;
         default:
@@ -171,6 +171,75 @@ void runAssertion(Assertion *assertion, Module *m) {
     }
 }
 
+Result *parseResultNode(SNode *node) {
+    Value *value = nullptr;
+
+    if (strcmp(node->list->value, "i64.const") == 0) {
+        value = makeI64(std::stoll(node->list->next->value));
+    } else if (strcmp(node->list->value, "u64.const") == 0) {
+        value = makeUI64(std::stoull(node->list->next->value));
+    } else {
+        // TODO
+    }
+
+    return makeValueResult(value);
+}
+
+Action *parseActionNode(SNode *actionNode) {
+    Value args[1];
+    if (strcmp(actionNode->list->next->next->list->value, "i64.const") == 0) {
+        args[0] = *makeI64(
+            std::stoll(actionNode->list->next->next->list->next->value));
+    } else if (strcmp(actionNode->list->next->next->list->value, "u64.const") ==
+               0) {
+        args[0] = *makeUI64(
+            std::stoull(actionNode->list->next->next->list->next->value));
+    } else {
+        // TODO
+    }
+
+    return makeInvokeAction(actionNode->list->next->value, args);
+}
+
+void resolveAssert(SNode *node, Module *m) {
+    // resolve (assert_return (invoke "fac-rec" (i64.const 25)) (i64.const
+    // 7034535277573963776))
+    char *assertType = node->value;
+    if (strcmp(assertType, "assert_return") == 0) {
+        SNode *actionNode = node->next;
+        //        Action *action = parseActionNode(actionNode);  // TODO breaks
+        //        invoke?
+        SNode *resultNode = actionNode->next;
+        Result *result = parseResultNode(resultNode);
+
+        Value args[1];
+        if (strcmp(actionNode->list->next->next->list->value, "i64.const") ==
+            0) {
+            args[0] = *makeI64(
+                std::stoll(actionNode->list->next->next->list->next->value));
+        } else if (strcmp(actionNode->list->next->next->list->value,
+                          "u64.const") == 0) {
+            args[0] = *makeUI64(
+                std::stoull(actionNode->list->next->next->list->next->value));
+        } else {
+            // TODO
+        }
+
+        Action *action = makeInvokeAction(actionNode->list->next->value, args);
+
+        Assertion *assertion = makeAssertionReturn(action, result);
+        printf("made an assertion\n");
+
+        runAssertion(assertion, m);
+
+        free(result);
+        free(action);
+        free(assertion);
+    } else {
+        // TODO
+    }
+}
+
 /**
  * Run code, execute interrupts in /tmp/change if a USR1 signal comes
  */
@@ -178,14 +247,12 @@ int main(int argc, char **argv) {
     uint8_t *bytes;
     int byte_count;
     signal(SIGUSR1, signalHandler);
+
     // Load the path name
     char *mod_path = argv[1];
     char *tests_path = argv[2];
 
-    FILE *fp = fopen(tests_path, "r");
-    struct SNode *node = snode_parse(fp);
-    fclose(fp);
-
+    // Load wasm program
     bytes = mmap_file(mod_path, &byte_count);
 
     if (bytes == nullptr) {
@@ -195,21 +262,37 @@ int main(int argc, char **argv) {
 
     Module *m = wac.load_module(bytes, byte_count, {});
 
-    //(assert_return (invoke "fac-rec" (i64.const 25)) (i64.const
-    // 7034535277573963776))
-    Value args[1];
-    args[0] = *makeI64(25);
-    Result *result = makeValueResult(makeI64(7034535277573963776));
-    Action *action = makeInvokeAction("fac-rec", args);
-    Assertion *assertion = makeAssertionReturn(action, result);
-    printf("made an assertion\n");
-    runAssertion(assertion, m);
+    // Parse asserts as sexpressions
+    FILE *fp = fopen(tests_path, "r");
+    if (fp == nullptr) {
+        fprintf(stderr, "Could not open %s", tests_path);
+        return 2;
+    }
+    struct SNode *node = snode_parse(fp);
+    fclose(fp);
 
-    //(assert_return (invoke "fac-rec" (i64.const 25)) (i64.const
-    // 7034535277573963776))
-    /*char args[][40]  = { "25" };
-    char fcall[]     = "fac-ssa";
-    invoke(m, fcall, args);
-    //actual test */
+    // Test asserts
+    struct SNode *cursor = node;
+    while (cursor != nullptr) {
+        switch (cursor->type) {
+            case LIST:
+                resolveAssert(cursor->list, m);
+                cursor = cursor->next;
+                break;
+            case STRING:
+            case SYMBOL:
+            case INTEGER:
+            case FLOAT:
+                printf("Error badly formed asserts");
+                exit(1);
+            default:
+                printf("Error unsupported result");
+                exit(1);
+        }
+        if (cursor == nullptr || cursor->next == nullptr) {
+            break;
+        }
+    }
+
     return 0;
 }
