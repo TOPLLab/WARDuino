@@ -14,7 +14,7 @@
 #include <cmath>
 
 extern "C" {
-    #include "./sexpr-parser/src/sexpr.h"
+#include "./sexpr-parser/src/sexpr.h"
 }
 
 #include "assertion.h"
@@ -46,32 +46,34 @@ void signalHandler(int /* signum */) {
 }
 
 uint8_t *mmap_file(char *path, int *len) {
-    int          fd;
-    int          res;
-    struct stat  sb;
-    uint8_t     *bytes;
+    int fd;
+    int res;
+    struct stat sb;
+    uint8_t *bytes;
 
     fd = open(path, O_RDONLY);
-    if (fd < 0) { FATAL("could not open file '%s'\n", path); }
+    if (fd < 0) {FATAL("could not open file '%s'\n", path); }
     res = fstat(fd, &sb);
-    if (res < 0) { FATAL("could not stat file '%s' (%d)\n", path, res); }
+    if (res < 0) {FATAL("could not stat file '%s' (%d)\n", path, res); }
 
     bytes = (uint8_t *) mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (len) {
         *len = sb.st_size;  // Return length if requested
     }
-    if (bytes == MAP_FAILED) { FATAL("could not mmap file '%s'", path); }
+    if (bytes == MAP_FAILED) {FATAL("could not mmap file '%s'", path); }
     return bytes;
 }
 
 // Parse and add arguments to the stack
 void parse_args(Module *m, Type *type, int argc, Value argv[]) {
-    for (int i=0; i<argc; i++) {
+    for (int i = 0; i < argc; i++) {
         m->sp++;
         StackValue *sv = &m->stack[m->sp];
         sv->value_type = type->params[i];
         switch (type->params[i]) {
-        case I64: sv->value.uint64 = argv[i].int64; break;
+            case I64:
+                sv->value.uint64 = argv[i].int64;
+                break;
 /*
         case I32: sv->value.uint32 = strtoul(argv[i], NULL, 0); break;
         case F32: if (strncmp("-nan", argv[i], 4) == 0) {
@@ -88,25 +90,25 @@ void parse_args(Module *m, Type *type, int argc, Value argv[]) {
     }
 }
 
-void invoke(Module* m, char* call_f, Value values[]) {
-    uint32_t fidx =  -1; 
-    m->sp  = -1;
-    m->fp  = -1;
+void invoke(Module *m, const char *call_f, Value values[]) {
+    uint32_t fidx = -1;
+    m->sp = -1;
+    m->fp = -1;
     m->csp = -1;
     //TODO move to the WARDuino class     
     for (uint32_t f = 0; f < m->function_count; f++) {
-	    char *fname = m->functions[f].export_name;
-	    if (!fname) {
-		    continue;
-	    }
-	    if (strncmp(call_f, fname, 1024) == 0) {
-		    fidx = f;
-		    break;
-	    }
+        char *fname = m->functions[f].export_name;
+        if (!fname) {
+            continue;
+        }
+        if (strncmp(call_f, fname, 1024) == 0) {
+            fidx = f;
+            break;
+        }
     }
 
     Block *func = &m->functions[fidx];
-    Type *type  = func->type; 
+    Type *type = func->type;
     parse_args(m, type, type->param_count, values);
     setup_call(m, fidx);
     interpret(m);
@@ -114,55 +116,114 @@ void invoke(Module* m, char* call_f, Value values[]) {
     printf("result :: %llu ", m->stack->value.uint64);
 }
 
-void assertValue(Value* val,Module* m) {
-	switch (val->type) {
-		case I64V:
-			if (val->uint64== m->stack->value.uint64) {
-				printf("OK");
-			}
-			else {
-				printf("FAIL");
-			}
-			break;
-		default:
-			printf("Error unsupported value");
-			exit(1);
-	}
+void assertValue(Value *val, Module *m) {
+    switch (val->type) {
+        case I64V:
+            if (val->uint64 == m->stack->value.uint64) {
+                printf("OK\n");
+            } else {
+                printf("FAIL\n");
+            }
+            break;
+        default:
+            printf("Error unsupported value");
+            exit(1);
+    }
 }
 
-void assertResult(Result* result, Module* m)
-{
-	switch (result->type) {
-		case VAL: assertValue(result->value,m);
-				break;
-		default:
-			printf("Error unsupported result");
-			exit(1);
-	}
+void assertResult(Result *result, Module *m) {
+    switch (result->type) {
+        case VAL:
+            assertValue(result->value, m);
+            break;
+        default:
+            printf("Error unsupported result");
+            exit(1);
+    }
 }
 
-void runAction(Action* action, Module* m, Result* result) {
-	switch (action->type) {
-		case INVOKE:
-			invoke(m,action->name,action->expr);
-			assertResult(result,m);
-			break;
-		default:
-		printf("Error unsupported action");
-		exit(1);
-	}
+void runAction(Action *action, Module *m, Result *result) {
+    switch (action->type) {
+        case INVOKE:
+            invoke(m, action->name, action->expr);
+            assertResult(result, m);
+            break;
+        default:
+            printf("Error unsupported action");
+            exit(1);
+    }
 
 }
 
-void runAssertion(Assertion* assertion, Module* m){
-	switch (assertion->type)
-	{
-		case RETURN: runAction(assertion->action,m,assertion->result);
-		break;
-	        default:
-		printf("Error unsupported assertion");
-		exit(1);
-	}
+void runAssertion(Assertion *assertion, Module *m) {
+    switch (assertion->type) {
+        case RETURN:
+            runAction(assertion->action, m, assertion->result);
+            break;
+        default:
+            printf("Error unsupported assertion");
+            exit(1);
+    }
+}
+
+Result *parseResultNode(SNode *node) {
+    Value *value = nullptr;
+
+    if (strcmp(node->list->value, "i64.const") == 0) {
+        value = makeI64(std::stoll(node->list->next->value));
+    } else if (strcmp(node->list->value, "u64.const") == 0) {
+        value = makeUI64(std::stoull(node->list->next->value));
+    } else {
+        // TODO
+    }
+
+    return makeValueResult(value);
+}
+
+Action *parseActionNode(SNode *actionNode) {
+    Value args[1];
+    if (strcmp(actionNode->list->next->next->list->value, "i64.const") == 0) {
+        args[0] = *makeI64(std::stoll(actionNode->list->next->next->list->next->value));
+    } else if (strcmp(actionNode->list->next->next->list->value, "u64.const") == 0) {
+        args[0] = *makeUI64(std::stoull(actionNode->list->next->next->list->next->value));
+    } else {
+        // TODO
+    }
+
+    return makeInvokeAction(actionNode->list->next->value,args);
+}
+
+void resolveAssert(SNode *node, Module *m) {
+    // resolve (assert_return (invoke "fac-rec" (i64.const 25)) (i64.const 7034535277573963776))
+    char *assertType = node->value;
+    if (strcmp(assertType, "assert_return") == 0) {
+        SNode *actionNode = node->next;
+//        Action *action = parseActionNode(actionNode);  // TODO breaks invoke?
+        SNode *resultNode = actionNode->next;
+        Result *result = parseResultNode(resultNode);
+
+        Value args[1];
+        if (strcmp(actionNode->list->next->next->list->value, "i64.const") == 0) {
+            args[0] = *makeI64(std::stoll(actionNode->list->next->next->list->next->value));
+        } else if (strcmp(actionNode->list->next->next->list->value, "u64.const") == 0) {
+            args[0] = *makeUI64(std::stoull(actionNode->list->next->next->list->next->value));
+        } else {
+            // TODO
+        }
+
+        Action* action  = makeInvokeAction(actionNode->list->next->value,args);
+
+        Assertion *assertion = makeAssertionReturn(action, result);
+        printf("made an assertion\n");
+
+        runAssertion(assertion, m);
+
+        free(result);
+        free(action);
+        free(assertion);
+    } else {
+        // TODO
+    }
 }
 
 /**
@@ -172,14 +233,12 @@ int main(int argc, char **argv) {
     uint8_t *bytes;
     int byte_count;
     signal(SIGUSR1, signalHandler);
-    //Load the path name 
+
+    // Load the path name
     char *mod_path = argv[1];
     char *tests_path = argv[2];
 
-    FILE *fp = fopen(tests_path, "r");
-    struct SNode *node = snode_parse(fp);
-    fclose(fp);
-
+    // Load wasm program
     bytes = mmap_file(mod_path, &byte_count);
 
     if (bytes == nullptr) {
@@ -187,21 +246,39 @@ int main(int argc, char **argv) {
         return 2;
     }
 
-    Module* m = wac.load_module(bytes, byte_count, {});
+    Module *m = wac.load_module(bytes, byte_count, {});
 
-    //(assert_return (invoke "fac-rec" (i64.const 25)) (i64.const 7034535277573963776))
-    Value args[1];
-    args[0] = *makeI64(25);
-    Result* result  = makeValueResult(makeI64(7034535277573963776));
-    Action* action  = makeInvokeAction("fac-rec",args);
-    Assertion* assertion = makeAssertionReturn(action,result);
-    printf("made an assertion\n");
-    runAssertion(assertion, m);
+    // Parse asserts as sexpressions
+    FILE *fp = fopen(tests_path, "r");
+    if (fp == nullptr) {
+        fprintf(stderr, "Could not open %s", tests_path);
+        return 2;
+    }
+    struct SNode *node = snode_parse(fp);
+    fclose(fp);
 
-    //(assert_return (invoke "fac-rec" (i64.const 25)) (i64.const 7034535277573963776))
-    /*char args[][40]  = { "25" };
-    char fcall[]     = "fac-ssa";
-    invoke(m, fcall, args);
-    //actual test */
+    // Test asserts
+    struct SNode *cursor = node;
+    while (cursor != nullptr) {
+        switch (cursor->type) {
+            case LIST:
+                resolveAssert(cursor->list, m);
+                cursor = cursor->next;
+                break;
+            case STRING:
+            case SYMBOL:
+            case INTEGER:
+            case FLOAT:
+                printf("Error badly formed asserts");
+                exit(1);
+            default:
+                printf("Error unsupported result");
+                exit(1);
+        }
+        if (cursor == nullptr || cursor->next == nullptr) {
+            break;
+        }
+    }
+
     return 0;
 }
