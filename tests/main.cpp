@@ -186,19 +186,20 @@ Result *parseResultNode(SNode *node) {
 }
 
 Action *parseActionNode(SNode *actionNode) {
-    Value args[1];
-    if (strcmp(actionNode->list->next->next->list->value, "i64.const") == 0) {
-        args[0] = *makeI64(
-            std::stoll(actionNode->list->next->next->list->next->value));
-    } else if (strcmp(actionNode->list->next->next->list->value, "u64.const") ==
-               0) {
-        args[0] = *makeUI64(
-            std::stoull(actionNode->list->next->next->list->next->value));
+    char *name = actionNode->list->next->value;
+    char *type = actionNode->list->next->next->list->value;
+    char *value = actionNode->list->next->next->list->next->value;
+
+    auto *args = (Value *)calloc(sizeof(Value), 1);
+    if (strcmp(type, "i64.const") == 0) {
+        args[0] = *makeI64(std::stoll(value));
+    } else if (strcmp(type, "u64.const") == 0) {
+        args[0] = *makeUI64(std::stoull(value));
     } else {
         // TODO
     }
 
-    return makeInvokeAction(actionNode->list->next->value, args);
+    return makeInvokeAction(name, args);
 }
 
 void resolveAssert(SNode *node, Module *m) {
@@ -207,25 +208,9 @@ void resolveAssert(SNode *node, Module *m) {
     char *assertType = node->value;
     if (strcmp(assertType, "assert_return") == 0) {
         SNode *actionNode = node->next;
-        //        Action *action = parseActionNode(actionNode);  // TODO breaks
-        //        invoke?
+        Action *action = parseActionNode(actionNode);  // TODO breaks invoke?
         SNode *resultNode = actionNode->next;
         Result *result = parseResultNode(resultNode);
-
-        Value args[1];
-        if (strcmp(actionNode->list->next->next->list->value, "i64.const") ==
-            0) {
-            args[0] = *makeI64(
-                std::stoll(actionNode->list->next->next->list->next->value));
-        } else if (strcmp(actionNode->list->next->next->list->value,
-                          "u64.const") == 0) {
-            args[0] = *makeUI64(
-                std::stoull(actionNode->list->next->next->list->next->value));
-        } else {
-            // TODO
-        }
-
-        Action *action = makeInvokeAction(actionNode->list->next->value, args);
 
         Assertion *assertion = makeAssertionReturn(action, result);
         printf("made an assertion\n");
@@ -262,7 +247,7 @@ int main(int argc, char **argv) {
 
     Module *m = wac.load_module(bytes, byte_count, {});
 
-    // Parse asserts as sexpressions
+    // Parse asserts as s-expressions
     FILE *fp = fopen(tests_path, "r");
     if (fp == nullptr) {
         fprintf(stderr, "Could not open %s", tests_path);
@@ -271,7 +256,7 @@ int main(int argc, char **argv) {
     struct SNode *node = snode_parse(fp);
     fclose(fp);
 
-    // Test asserts
+    // Loop over all asserts in the file
     struct SNode *cursor = node;
     while (cursor != nullptr) {
         switch (cursor->type) {
@@ -286,7 +271,7 @@ int main(int argc, char **argv) {
                 printf("Error badly formed asserts");
                 exit(1);
             default:
-                printf("Error unsupported result");
+                printf("Error unsupported type");
                 exit(1);
         }
         if (cursor == nullptr || cursor->next == nullptr) {
