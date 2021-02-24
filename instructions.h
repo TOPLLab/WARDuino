@@ -35,4 +35,4 @@ void setup_call(Module *m, uint32_t fidx);
  * @param m module that has been set up for a call
  * @return true if the interpretation ended as expected
  */
-bool interpret(Module *m);
+bool interpret(Module *m, bool return_exception = false);

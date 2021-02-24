@@ -65,39 +65,53 @@ typedef struct {
         int64_t int64;
         float f32;
         double f64;
+        char *str;
     };
 } Value;
 
-typedef enum { NAN_R, VAL } ResultType;
+typedef enum {
+    EMPTY,
+    NAN_R,
+    VAL,
+} ResultType;
 
 typedef struct {
     ResultType type;
     union {
-        Value* value;
+        Value *value;
     };
 } Result;
 
 typedef struct {
     ActionType type;
-    char* name;
-    Value* expr;
+    char *name;
+    Value *expr;
 } Action;
 
 typedef struct {
     AssertionType type;
     union {
-        Action* action;
-        char* module;
+        Action *action;
+        char *module;
     };
     union {
-        Result* result;
-        char* failure;
+        Result *result;
+        char *failure;
     };
 } Assertion;
 
-Action* makeInvokeAction(char* name, Value* expr);
-Assertion* makeAssertionReturn(Action* action, Result* result);
-Result* makeValueResult(Value* val);
-Value* makeUI64(uint64_t value);
-Value* makeI64(int64_t value);
+Action *makeInvokeAction(char *name, Value *expr);
+
+Assertion *makeAssertionReturn(Action *action, Result *result);
+
+Assertion *makeAssertionExhaustion(Action *action);
+
+Result *makeEmptyResult();
+
+Result *makeValueResult(Value *val);
+
+Value *makeUI64(uint64_t value);
+
+Value *makeI64(int64_t value);
+
 #endif
