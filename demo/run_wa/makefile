@@ -4,7 +4,7 @@
 # \        /  / __ \|  | \/ /_/ |  |  /  |   |  (  <_> )
 #  \__/\  /  (____  /__|  \____ |____/|__|___|  /\____/ 
 #       \/        \/           \/             \/        
-DEVICE=esp8266
+DEVICE=esp32
 
 DEBUGFLAGS = -DDEBUG=1 -DTRACE=1 -DINFO=1 -DWARN=1
 CXX       = g++
@@ -38,7 +38,7 @@ run: all
 	sed 's/{{src}}/$(subst .,_,$(basename $(notdir $<)))_wasm/g' ../main.$(DEVICE).template.ino >> $@
 
 up:	hello_world.ino
-	USE_TMPDIR=1  ../../scripts/upload ESP8266 $<
+	USE_TMPDIR=1  ../../scripts/upload ESP32 $<
 
 wa_sources/%.c: wa_sources/%.wast
 	$(MAKE) -C wa_sources
