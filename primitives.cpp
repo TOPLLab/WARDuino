@@ -88,7 +88,8 @@ double sensor_emu = 0;
 // TODO: use fp
 #define pop_args(n) m->sp -= n
 #define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
-#define pushInt32(arg) m->stack[m->sp].value.uint32 = arg
+#define pushUInt32(arg) m->stack[m->sp].value.int32 = arg
+#define pushInt32(arg) m->stack[m->sp].value.int32 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
@@ -195,8 +196,8 @@ Type NoneToNoneU32 = {
 // Util function declarations
 #ifdef ARDUINO
 void connect_wifi(const String ssid, const String password);
-uint32_t http_get_request(Module* m, const String url, uint32_t response, uint32_t size);
-uint32_t http_post_request(Module* m, const String url, const String body, const String content_type, const String authorization_parsed, uint32_t response, uint32_t size);
+int32_t http_get_request(Module* m, const String url, uint32_t response, uint32_t size);
+int32_t http_post_request(Module* m, const String url, const String body, const String content_type, const String authorization_parsed, uint32_t response, uint32_t size);
 #endif
 
 
@@ -238,9 +239,8 @@ def_prim(_rust_print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
 
-    Serial.println("print_string: ");
-
     String str = parse_utf8_string(m->memory.bytes, size, addr).c_str();
+
     Serial.println(str);
     Serial.flush();
     pop_args(2);
@@ -291,7 +291,7 @@ def_prim(_rust_connect, fourToNoneU32) {
 
 
 def_prim(get, fourToOneU32) {
-    uint32_t return_value = 0;
+    int32_t return_value = 0;
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
         uint32_t addr = arg3.uint32;
@@ -319,7 +319,7 @@ def_prim(get, fourToOneU32) {
 }
 
 def_prim(_rust_get, fourToOneU32) {
-    uint32_t return_value = 0;
+    int32_t return_value = 0;
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
         uint32_t addr = arg3.uint32;
@@ -347,7 +347,7 @@ def_prim(post, NoneToNoneU32) {
 }
 
 def_prim(_rust_post, tenToOneU32) {
-    uint32_t status_code = 0;
+    int32_t status_code = 0;
 
     //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED) {
@@ -423,8 +423,8 @@ def_prim (chip_delay_us, oneToNoneU32) {
 
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
-    uint8_t res = digitalRead(pin);
-    pushInt32(abs(sin(sensor_emu) * 100));
+    int8_t res = digitalRead(pin);
+    pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
     return true;
 }
@@ -510,7 +510,7 @@ def_prim(get, fourToOneU32) {
     // Get arguments
     uint32_t url = arg3.uint32;
     uint32_t length = arg2.uint32;
-    uint32_t response = arg1.uint32;
+    int32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
     // Parse url
     std::string text = parse_utf16_string(m->memory.bytes, length, url);
@@ -534,7 +534,7 @@ def_prim(_rust_get, fourToOneU32) {
     // Get arguments
     uint32_t url = arg3.uint32;
     uint32_t length = arg2.uint32;
-    uint32_t response = arg1.uint32;
+    int32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
     // Parse url
     std::string text = parse_utf8_string(m->memory.bytes, length, url);
@@ -570,7 +570,7 @@ def_prim(_rust_post, tenToOneU32) {
     uint32_t content_type_len = arg4.uint32;
     uint32_t authorization = arg3.uint32;
     uint32_t authorization_len = arg2.uint32;
-    uint32_t response = arg1.uint32;
+    int32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
 
     std::string url_parsed = parse_utf8_string(m->memory.bytes, url_len, url);
@@ -599,7 +599,7 @@ def_prim(chip_digital_write, twoToNoneU32) {
 
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
-    pushInt32(abs(sin(sensor_emu) * 100));
+    pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
     return true;
 }
@@ -674,12 +674,12 @@ void connect_wifi(const String ssid, const String password) {
     free(pass_buf);
 }
 
-uint32_t http_get_request(Module* m, const String url, const uint32_t response, const uint32_t size) {
+int32_t http_get_request(Module* m, const String url, const uint32_t response, const uint32_t size) {
     HTTPClient http;
-    uint32_t return_value = 0;
+    int32_t httpResponseCode = 0;
 
     http.begin(url.c_str());
-    int httpResponseCode = http.GET();
+    httpResponseCode = http.GET();
 
     if (httpResponseCode > 0) {
         printf("HTTP Response code: %i\n", httpResponseCode);
@@ -691,17 +691,16 @@ uint32_t http_get_request(Module* m, const String url, const uint32_t response, 
         for (unsigned long i = 0; i < payload.length(); i++) {
             m->memory.bytes[response + i] = (uint32_t) payload[i];
         }
-        return_value = response;
     } else {
         printf("Error code: %i\n", httpResponseCode);
     }
     // Free resources
     http.end();
 
-    return return_value;
+    return httpResponseCode;
 }
 
-uint32_t http_post_request(Module* m,
+int32_t http_post_request(Module* m,
                            const String url,
                            const String body,
                            const String contentType,
@@ -709,17 +708,24 @@ uint32_t http_post_request(Module* m,
                            const uint32_t response,
                            const uint32_t size) {
     HTTPClient http;
-    uint32_t httpResponseCode = 0;
+    int32_t httpResponseCode = 0;
 
     http.begin(url.c_str());
     http.addHeader("Authorization", authorizationToken.c_str());
     httpResponseCode = http.POST(body);
 
     if (httpResponseCode > 0) {
-        String responseBody = http.getString();
-
         Serial.print("Status code: ");
         Serial.print(httpResponseCode);
+
+        if (httpResponseCode == 204) {
+            Serial.println("");
+            http.end();
+            return httpResponseCode;
+        }
+
+        String responseBody = http.getString();
+
         Serial.println(" Response: ");
         Serial.println(responseBody);
 
