@@ -54,9 +54,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 18
+#define NUM_PRIMITIVES_ARDUINO 19
 #else
-#define NUM_PRIMITIVES_ARDUINO 18
+#define NUM_PRIMITIVES_ARDUINO 19
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -88,7 +88,7 @@ double sensor_emu = 0;
 // TODO: use fp
 #define pop_args(n) m->sp -= n
 #define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
-#define pushUInt32(arg) m->stack[m->sp].value.int32 = arg
+#define pushUInt32(arg) m->stack[m->sp].value.uint32 = arg
 #define pushInt32(arg) m->stack[m->sp].value.int32 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
@@ -140,6 +140,15 @@ Type fourToNoneU32 = {
 };
 
 Type oneToOneU32 = {
+        .form =  FUNC,
+        .param_count =  1,
+        .params =  param_I32_arr_len1,
+        .result_count =  1,
+        .results =  param_I32_arr_len1,
+        .mask =  0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+};
+
+Type oneToOneI32 = {
         .form =  FUNC,
         .param_count =  1,
         .params =  param_I32_arr_len1,
@@ -423,7 +432,14 @@ def_prim (chip_delay_us, oneToNoneU32) {
 
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
-    int8_t res = digitalRead(pin);
+    uint8_t res = digitalRead(pin);
+    pushUInt32(res);
+    return true;
+}
+
+def_prim(chip_analog_read, oneToOneI32) {
+    uint8_t pin = arg0.uint32;
+    int8_t res = analogRead(pin);
     pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
     return true;
@@ -598,6 +614,12 @@ def_prim(chip_digital_write, twoToNoneU32) {
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
+    uint8_t pin = arg0.uint32;
+    pushUInt32(1); // HIGH
+    return true;
+}
+
+def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
@@ -774,6 +796,7 @@ void install_primitives() {
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
     install_primitive(chip_digital_read);
+    install_primitive(chip_analog_read);
     install_primitive(chip_delay_us);
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
@@ -794,6 +817,7 @@ void install_primitives() {
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
     install_primitive(chip_digital_read);
+    install_primitive(chip_analog_read);
     install_primitive(chip_delay_us);
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
