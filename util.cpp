@@ -42,7 +42,7 @@ uint64_t read_LEB(uint8_t **pos, uint32_t maxbits) {
 }
 
 uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits) {
-    return read_LEB_(pos, maxbits, true);
+    return static_cast<int>(read_LEB_(pos, maxbits, true));
 }
 
 uint32_t read_uint32(uint8_t **pos) {
