@@ -54,8 +54,8 @@ The list of WebAssembly core spec tests in the `core` folder which succeed and t
 - [ ] unwind.wast
 - [ ] br\_table.wast
 - [ ] elem.wast
-- [ ] fac.wast (fails: WARDuino doesn't support multi-value)
-- [ ] i32.wast
+- [ ] fac.wast   **(fails: [Multi-value](https://github.com/WebAssembly/multi-value) not supported)**
+- [ ] i32.wast   **(fails: [Sign-extension operators](https://github.com/WebAssembly/sign-extension-ops) not supported)**
 - [ ] linking.wast
 - [ ] memory\_trap.wast
 - [ ] store.wast
