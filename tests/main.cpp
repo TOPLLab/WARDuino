@@ -78,11 +78,12 @@ void parse_args(Module *m, Type *type, int argc, Value argv[]) {
         sv->value_type = type->params[i];
         switch (type->params[i]) {
             case I64:
-                sv->value.uint64 = argv[i].int64;
+                sv->value.int64 = argv[i].int64;
                 break;
-                /*
-                        case I32: sv->value.uint32 = strtoul(argv[i], NULL, 0);
-                   break; case F32: if (strncmp("-nan", argv[i], 4) == 0) {
+            case I32:
+                sv->value.int32 = argv[i].int32;
+                break;
+                /*        case F32: if (strncmp("-nan", argv[i], 4) == 0) {
                                       sv->value.f32 = -NAN;
                                   } else {
                                       sv->value.f32 = atof(argv[i]);
@@ -125,6 +126,13 @@ void assertValue(Value *val, Module *m) {
     switch (val->type) {
         case I64V:
             if (val->uint64 == m->stack->value.uint64) {
+                printf("OK\n");
+            } else {
+                printf("FAIL\n");
+            }
+            break;
+        case I32V:
+            if (val->int32 == m->stack->value.int32) {
                 printf("OK\n");
             } else {
                 printf("FAIL\n");
@@ -190,6 +198,8 @@ Result *parseResultNode(SNode *node) {
         value = makeI64(std::stoll(node->list->next->value));
     } else if (strcmp(node->list->value, "u64.const") == 0) {
         value = makeUI64(std::stoull(node->list->next->value));
+    } else if (strcmp(node->list->value, "i32.const") == 0) {
+        value = makeI32(std::stoul(node->list->next->value));
     } else {
         // TODO
     }
@@ -199,17 +209,28 @@ Result *parseResultNode(SNode *node) {
 
 Action *parseActionNode(SNode *actionNode) {
     char *name = actionNode->list->next->value;
-    char *type = actionNode->list->next->next->list->value;
-    char *value = actionNode->list->next->next->list->next->value;
+    SNode *param = actionNode->list->next->next;
 
-    auto *args = (Value *)calloc(sizeof(Value), 1);
-    if (strcmp(type, "i64.const") == 0) {
-        args[0] = *makeI64(std::stoll(value));
-    } else if (strcmp(type, "u64.const") == 0) {
-        args[0] = *makeUI64(std::stoull(value));
-    } else {
-        // TODO
+    std::vector<Value> params;
+
+    while (param != nullptr) {
+        char *type = param->list->value;
+        char *value = param->list->next->value;
+
+        if (strcmp(type, "i64.const") == 0) {
+            params.push_back(*makeI64(std::stoll(value)));
+        } else if (strcmp(type, "u64.const") == 0) {
+            params.push_back(*makeUI64(std::stoull(value)));
+        } else if (strcmp(type, "i32.const") == 0) {
+            params.push_back(*makeI32(std::stoull(value)));
+        } else {
+            // TODO
+        }
+        param = param->next;
     }
+
+    auto *args = (Value *)calloc(sizeof(Value), params.size());
+    copy(params.begin(), params.end(), args);
 
     return makeInvokeAction(name, args);
 }

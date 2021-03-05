@@ -54,3 +54,10 @@ Value *makeI64(int64_t num) {
     value->int64 = num;
     return value;
 }
+
+Value *makeI32(int32_t num) {
+    Value *value = (Value *)malloc(sizeof(Value));
+    value->type = I32V;
+    value->int32 = num;
+    return value;
+}
