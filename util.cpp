@@ -2,6 +2,7 @@
 #include "debug.h"
 #include <math.h>
 #include <string.h>
+#include <cstdint>
 
 // Little endian base
 uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
@@ -25,8 +26,8 @@ uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
         }
     }
     if (sign && (shift < maxbits) && (byte & 0x40u)) {
-        // Sign extend
-        result |= -(1u << shift);
+        // Sign extend by highest bits set 1 except last shift bits
+        result |= UINT64_MAX << shift;
     }
     return result;
 }
@@ -40,7 +41,7 @@ uint64_t read_LEB(uint8_t **pos, uint32_t maxbits) {
 }
 
 uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits) {
-    return static_cast<int>(read_LEB_(pos, maxbits, true));
+    return read_LEB_(pos, maxbits, true);
 }
 
 uint32_t read_uint32(uint8_t **pos) {
