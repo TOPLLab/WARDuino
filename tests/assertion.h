@@ -114,4 +114,6 @@ Value *makeUI64(uint64_t value);
 
 Value *makeI64(int64_t value);
 
+Value *makeI32(int32_t value);
+
 #endif
