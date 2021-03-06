@@ -88,8 +88,8 @@ double sensor_emu = 0;
 // TODO: use fp
 #define pop_args(n) m->sp -= n
 #define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
-#define pushUInt32(arg) m->stack[m->sp].value.uint32 = arg
-#define pushInt32(arg) m->stack[m->sp].value.int32 = arg
+#define pushUInt32(arg) m->stack[++m->sp].value.uint32 = arg
+#define pushInt32(arg) m->stack[++m->sp].value.int32 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
@@ -312,7 +312,8 @@ def_prim(wifi_connect, fourToNoneU32) {
 }
 
 def_prim(wifi_status, NoneToOneU32) {
-    pushInt32(WiFi.status()); // TODO stack pointer isn't increased
+    int32_t status = WiFi.status();
+    pushInt32(status);
     return true;
 }
 
@@ -339,7 +340,7 @@ def_prim(get, fourToOneU32) {
         // Send HTTP GET request
         return_value = http_get_request(m, url, response, size);
     }
-    pop_args(3);
+    pop_args(4);
     pushInt32(return_value);
     Serial.flush();
     return true;
@@ -361,7 +362,7 @@ def_prim(_rust_get, fourToOneU32) {
         // Send HTTP GET request
         return_value = http_get_request(m, url, response, size);
     }
-    pop_args(3);
+    pop_args(4);
     pushInt32(return_value);
     Serial.flush();
     return true;
@@ -452,12 +453,14 @@ def_prim (chip_delay_us, oneToNoneU32) {
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     uint8_t res = digitalRead(pin);
+    pop_args(1);
     pushUInt32(res);
     return true;
 }
 
 def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
+    pop_args(1);
     int8_t res = analogRead(pin);
     pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
@@ -565,7 +568,7 @@ def_prim(get, fourToOneU32) {
         m->memory.bytes[response + (i * 2)] = (uint32_t) answer[i];
     }
     // Pop args and return response address
-    pop_args(3);
+    pop_args(4);
     pushInt32(response);
     return true;
 }
@@ -589,7 +592,7 @@ def_prim(_rust_get, fourToOneU32) {
         m->memory.bytes[response + i] = (uint32_t) answer[i];
     }
     // Pop args and return response address
-    pop_args(3);
+    pop_args(4);
     pushInt32(response);
     return true;
 }
@@ -620,7 +623,7 @@ def_prim(_rust_post, tenToOneU32) {
     debug("EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t '%s'\n",
           url_parsed.c_str(), content_type_parsed.c_str(), authorization_parsed.c_str(), body_parsed.c_str());
 
-    pop_args(9);
+    pop_args(10);
     pushInt32(response);
     return true;
 }
@@ -639,12 +642,14 @@ def_prim(chip_digital_write, twoToNoneU32) {
 
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
+    pop_args(1);
     pushUInt32(1); // HIGH
     return true;
 }
 
 def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
+    pop_args(1);
     pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
     return true;

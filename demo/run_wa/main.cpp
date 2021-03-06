@@ -28,7 +28,7 @@ void signalHandler(int /* signum */) {
     handlingInterrupt = false;
 }
 
-#include "wa_sources/sensor.c"
+#include "wa_sources/offline.c"
 
 /**
  * Run code, execute interrupts in /tmp/change if a USR1 signal comes
