@@ -54,9 +54,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 19
+#define NUM_PRIMITIVES_ARDUINO 20
 #else
-#define NUM_PRIMITIVES_ARDUINO 19
+#define NUM_PRIMITIVES_ARDUINO 20
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -202,13 +202,26 @@ Type NoneToNoneU32 = {
         .mask =  0x80000
 };
 
+Type NoneToOneU32 = {
+        .form =  FUNC,
+        .param_count =  0,
+        .params =  nullptr,
+        .result_count =  1,
+        .results =  param_I32_arr_len1,
+        .mask =  0x81000
+};
+
 // Util function declarations
 #ifdef ARDUINO
-void connect_wifi(const String ssid, const String password);
-int32_t http_get_request(Module* m, const String url, uint32_t response, uint32_t size);
-int32_t http_post_request(Module* m, const String url, const String body, const String content_type, const String authorization_parsed, uint32_t response, uint32_t size);
-#endif
 
+void connect(const String ssid, const String password);
+
+int32_t http_get_request(Module *m, const String url, uint32_t response, uint32_t size);
+
+int32_t http_post_request(Module *m, const String url, const String body, const String content_type,
+                          const String authorization_parsed, uint32_t response, uint32_t size);
+
+#endif
 
 //------------------------------------------------------
 // Arduino Specific Functions
@@ -256,7 +269,7 @@ def_prim(_rust_print_string, twoToNoneU32) {
     return true;
 }
 
-def_prim(connect, fourToNoneU32) {
+def_prim(_connect, fourToNoneU32) {  // TODO remove
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
     uint32_t pass = arg1.uint32;
@@ -273,14 +286,14 @@ def_prim(connect, fourToNoneU32) {
     Serial.print("SSID: ");
     Serial.println(ssid_str);
 
-    connect_wifi(ssid_str, pass_str);
+    connect(ssid_str, pass_str);
 
     Serial.flush();
     pop_args(4);
     return true;
 }
 
-def_prim(_rust_connect, fourToNoneU32) {
+def_prim(wifi_connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
     uint32_t pass = arg1.uint32;
@@ -291,10 +304,15 @@ def_prim(_rust_connect, fourToNoneU32) {
     Serial.print("SSID: ");
     Serial.println(ssid_str);
 
-    connect_wifi(ssid_str, pass_str);
+    connect(ssid_str, pass_str);
 
     Serial.flush();
     pop_args(4);
+    return true;
+}
+
+def_prim(wifi_status, NoneToOneU32) {
+    pushInt32(WiFi.status()); // TODO stack pointer isn't increased
     return true;
 }
 
@@ -302,7 +320,7 @@ def_prim(_rust_connect, fourToNoneU32) {
 def_prim(get, fourToOneU32) {
     int32_t return_value = 0;
     //Check WiFi connection status
-    if(WiFi.status()== WL_CONNECTED) {
+    if (WiFi.status() == WL_CONNECTED) {
         uint32_t addr = arg3.uint32;
         uint32_t length = arg2.uint32;
         uint32_t response = arg1.uint32;
@@ -328,9 +346,9 @@ def_prim(get, fourToOneU32) {
 }
 
 def_prim(_rust_get, fourToOneU32) {
-    int32_t return_value = 0;
+    int32_t return_value = -11;
     //Check WiFi connection status
-    if(WiFi.status()== WL_CONNECTED) {
+    if (WiFi.status() == WL_CONNECTED) {
         uint32_t addr = arg3.uint32;
         uint32_t length = arg2.uint32;
         uint32_t response = arg1.uint32;
@@ -356,10 +374,10 @@ def_prim(post, NoneToNoneU32) {
 }
 
 def_prim(_rust_post, tenToOneU32) {
-    int32_t status_code = 0;
+    int32_t status_code = -11;
 
     //Check WiFi connection status
-    if(WiFi.status()== WL_CONNECTED) {
+    if (WiFi.status() == WL_CONNECTED) {
         uint32_t url = arg9.uint32;
         uint32_t url_len = arg8.uint32;
         uint32_t body = arg7.uint32;
@@ -386,7 +404,8 @@ def_prim(_rust_post, tenToOneU32) {
         Serial.print("'\n");
 
         // Send HTTP POST request
-        status_code = http_post_request(m, url_parsed, body_parsed, content_type_parsed, authorization_parsed, response, size);
+        status_code = http_post_request(m, url_parsed, body_parsed, content_type_parsed, authorization_parsed, response,
+                                        size);
     }
 
     pop_args(9);
@@ -460,8 +479,8 @@ def_prim (spi_begin, NoneToNoneU32) {
     return true;
 }
 
-def_prim(write_spi_bytes_16,twoToNoneU32) {
-    write_spi_bytes_16_prim(arg1.uint32,arg0.uint32);
+def_prim(write_spi_bytes_16, twoToNoneU32) {
+    write_spi_bytes_16_prim(arg1.uint32, arg0.uint32);
     pop_args(2);
     return true;
 }
@@ -496,7 +515,7 @@ def_prim(_rust_print_string, twoToNoneU32) {
     return true;
 }
 
-def_prim(connect, fourToNoneU32) {
+def_prim(_connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
     uint32_t pass = arg1.uint32;
@@ -509,7 +528,7 @@ def_prim(connect, fourToNoneU32) {
     return true;
 }
 
-def_prim(_rust_connect, fourToNoneU32) {
+def_prim(wifi_connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
     uint32_t pass = arg1.uint32;
@@ -519,6 +538,11 @@ def_prim(_rust_connect, fourToNoneU32) {
     std::string pass_str = parse_utf8_string(m->memory.bytes, len1, pass);
     debug("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
     pop_args(4);
+    return true;
+}
+
+def_prim(wifi_status, NoneToOneU32) {
+    pushInt32(3);   // return WL_CONNECTED
     return true;
 }
 
@@ -594,7 +618,7 @@ def_prim(_rust_post, tenToOneU32) {
     std::string content_type_parsed = parse_utf8_string(m->memory.bytes, content_type_len, content_type);
     std::string authorization_parsed = parse_utf8_string(m->memory.bytes, authorization_len, authorization);
     debug("EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t '%s'\n",
-           url_parsed.c_str(), content_type_parsed.c_str(), authorization_parsed.c_str(), body_parsed.c_str());
+          url_parsed.c_str(), content_type_parsed.c_str(), authorization_parsed.c_str(), body_parsed.c_str());
 
     pop_args(9);
     pushInt32(response);
@@ -677,26 +701,21 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-void connect_wifi(const String ssid, const String password) {
+void connect(const String ssid, const String password) {
     char *ssid_buf = (char *) acalloc(ssid.length() + 1, sizeof(char), "ssid_buf");
     ssid.toCharArray(ssid_buf, ssid.length() + 1);
     char *pass_buf = (char *) acalloc(password.length() + 1, sizeof(char), "pass_buf");
     password.toCharArray(pass_buf, password.length() + 1);
     WiFi.begin(ssid_buf, pass_buf);
-    printf("Connecting to wifi\n");
-    while(WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("");
-    Serial.print("Connected to WiFi network with IP Address: ");
+
+    printf("Connecting to wifi network with IP Address: ");
     Serial.println(WiFi.localIP());
 
     free(ssid_buf);
     free(pass_buf);
 }
 
-int32_t http_get_request(Module* m, const String url, const uint32_t response, const uint32_t size) {
+int32_t http_get_request(Module *m, const String url, const uint32_t response, const uint32_t size) {
     HTTPClient http;
     int32_t httpResponseCode = 0;
 
@@ -706,7 +725,7 @@ int32_t http_get_request(Module* m, const String url, const uint32_t response, c
     if (httpResponseCode > 0) {
         printf("HTTP Response code: %i\n", httpResponseCode);
         String payload = http.getString();
-        if (payload.length() > size)    {
+        if (payload.length() > size) {
             sprintf(exception, "GET: buffer size is too small for response of %i bytes.", payload.length());
             return false;  // TRAP
         }
@@ -722,13 +741,13 @@ int32_t http_get_request(Module* m, const String url, const uint32_t response, c
     return httpResponseCode;
 }
 
-int32_t http_post_request(Module* m,
-                           const String url,
-                           const String body,
-                           const String contentType,
-                           const String authorizationToken,
-                           const uint32_t response,
-                           const uint32_t size) {
+int32_t http_post_request(Module *m,
+                          const String url,
+                          const String body,
+                          const String contentType,
+                          const String authorizationToken,
+                          const uint32_t response,
+                          const uint32_t size) {
     HTTPClient http;
     int32_t httpResponseCode = 0;
 
@@ -786,8 +805,9 @@ void install_primitives() {
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(_rust_print_string);
-    install_primitive(connect);
-    install_primitive(_rust_connect);
+    install_primitive(_connect);
+    install_primitive(wifi_connect);
+    install_primitive(wifi_status);
     install_primitive(get);
     install_primitive(_rust_get);
     install_primitive(post);
@@ -807,8 +827,9 @@ void install_primitives() {
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(_rust_print_string);
-    install_primitive(connect);
-    install_primitive(_rust_connect);
+    install_primitive(_connect);
+    install_primitive(wifi_connect);
+    install_primitive(wifi_status);
     install_primitive(get);
     install_primitive(_rust_get);
     install_primitive(post);
