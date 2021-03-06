@@ -235,8 +235,7 @@ def_prim(abort, NoneToNoneU32) {
 
 def_prim(print_int, oneToNoneU32) {
     uint32_t integer = arg0.uint32;
-    Serial.print("Printing integer: ");
-    Serial.println(integer);
+    Serial.print(integer);
     Serial.flush();
     pop_args(1);
     return true;
@@ -251,7 +250,7 @@ def_prim(print_string, oneToNoneU32) {
 //    }
 
     String str = parse_utf16_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr).c_str();
-    Serial.println(str);
+    Serial.print(str);
     Serial.flush();
     pop_args(1);
     return true;
@@ -263,7 +262,7 @@ def_prim(_rust_print_string, twoToNoneU32) {
 
     String str = parse_utf8_string(m->memory.bytes, size, addr).c_str();
 
-    Serial.println(str);
+    Serial.print(str);
     Serial.flush();
     pop_args(2);
     return true;
@@ -436,7 +435,6 @@ def_prim(chip_digital_write, twoToNoneU32) {
 }
 
 def_prim(chip_delay, oneToNoneU32) {
-    printf("chip_delay \n");
     delay(arg0.uint32);
     pop_args(1);
     return true;
@@ -711,10 +709,10 @@ void connect(const String ssid, const String password) {
     ssid.toCharArray(ssid_buf, ssid.length() + 1);
     char *pass_buf = (char *) acalloc(password.length() + 1, sizeof(char), "pass_buf");
     password.toCharArray(pass_buf, password.length() + 1);
+
     WiFi.begin(ssid_buf, pass_buf);
 
-    printf("Connecting to wifi network with IP Address: ");
-    Serial.println(WiFi.localIP());
+    printf("Connecting to wifi network.");
 
     free(ssid_buf);
     free(pass_buf);
