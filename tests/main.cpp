@@ -149,7 +149,7 @@ void assertResult(Result *result, Module *m) {
     }
 }
 
-void assertString(Module *m, char *expected) {
+void assertException(char *expected, Module *m) {
     printf("result :: %s ", m->exception);
     if (strcmp(m->exception, expected) == 0) {
         printf("OK\n");
@@ -178,7 +178,11 @@ void runAssertion(Assertion *assertion, Module *m) {
             break;
         case EXHAUSTION:
             runAction(assertion->action, m);
-            assertString(m, "call stack exhausted");
+            assertException("call stack exhausted", m);
+            break;
+        case INVALID:
+            runAction(assertion->action, m);
+            assertException(assertion->result->value->str, m);
             break;
         default:
             printf("Error unsupported assertion");
@@ -189,7 +193,9 @@ void runAssertion(Assertion *assertion, Module *m) {
 Result *parseResultNode(SNode *node) {
     Value *value = nullptr;
 
-    if (strcmp(node->list->value, "i64.const") == 0) {
+    if (node->type == STRING) {
+        value = makeSTR(node->value);
+    } else if (strcmp(node->list->value, "i64.const") == 0) {
         value = makeI64(std::stoll(node->list->next->value));
     } else if (strcmp(node->list->value, "u64.const") == 0) {
         value = makeUI64(std::stoull(node->list->next->value));
@@ -248,6 +254,13 @@ void resolveAssert(SNode *node, Module *m) {
     } else if (strcmp(assertType, "assert_exhaustion") == 0) {
         Action *action = parseActionNode(node->next);
         Assertion *assertion = makeAssertionExhaustion(action);
+        runAssertion(assertion, m);
+        free(action);
+        free(assertion);
+    } else if (strcmp(assertType, "assert_invalid") == 0) {
+        Action *action = parseActionNode(node->next);
+        Result *result = parseResultNode(node->next->next);
+        Assertion *assertion = makeAssertionInvalid(action, result);
         runAssertion(assertion, m);
         free(action);
         free(assertion);

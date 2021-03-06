@@ -50,7 +50,7 @@ typedef enum {
     INVOKE, GET
 } ActionType;
 typedef enum {
-    UI32, I32V, UI64, I64V, F32V, F64V
+    UI32, I32V, UI64, I64V, F32V, F64V, STR
 } ValueType;
 
 
@@ -103,6 +103,8 @@ Assertion *makeAssertionReturn(Action *action, Result *result);
 
 Assertion *makeAssertionExhaustion(Action *action);
 
+Assertion *makeAssertionInvalid(Action *action, Result *result);
+
 Result *makeEmptyResult();
 
 Result *makeValueResult(Value *val);
@@ -112,5 +114,7 @@ Value *makeUI64(uint64_t value);
 Value *makeI64(int64_t value);
 
 Value *makeI32(int32_t value);
+
+Value *makeSTR(char *text);
 
 #endif
