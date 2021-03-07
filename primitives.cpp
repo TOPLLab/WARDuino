@@ -318,7 +318,8 @@ def_prim(wifi_status, NoneToOneU32) {
 
 
 def_prim(get, fourToOneU32) {
-    int32_t return_value = 0;
+    int32_t return_value = -11;
+
     //Check WiFi connection status
     if (WiFi.status() == WL_CONNECTED) {
         uint32_t addr = arg3.uint32;
@@ -347,6 +348,7 @@ def_prim(get, fourToOneU32) {
 
 def_prim(_rust_get, fourToOneU32) {
     int32_t return_value = -11;
+
     //Check WiFi connection status
     if (WiFi.status() == WL_CONNECTED) {
         uint32_t addr = arg3.uint32;
@@ -358,12 +360,13 @@ def_prim(_rust_get, fourToOneU32) {
         Serial.print("GET ");
         Serial.println(url);
 
+        Serial.flush();
         // Send HTTP GET request
         return_value = http_get_request(m, url, response, size);
     }
+
     pop_args(4);
     pushInt32(return_value);
-    Serial.flush();
     return true;
 }
 
@@ -408,7 +411,7 @@ def_prim(_rust_post, tenToOneU32) {
                                         size);
     }
 
-    pop_args(9);
+    pop_args(10);
     pushInt32(status_code);
     Serial.flush();
     return true;
