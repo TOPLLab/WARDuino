@@ -462,9 +462,7 @@ def_prim(chip_digital_read, oneToOneU32) {
 def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    int8_t res = analogRead(pin);
-    pushInt32(sin(sensor_emu) * 100);
-    sensor_emu += .25;
+    pushInt32(analogRead(pin));
     return true;
 }
 
