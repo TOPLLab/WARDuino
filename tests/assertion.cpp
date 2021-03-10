@@ -39,14 +39,6 @@ Assertion *makeAssertionExhaustion(Action *action) {
     return assertion;
 }
 
-Assertion *makeAssertionInvalid(Action *action, Result *result) {
-    auto *assertion = (Assertion *) malloc(sizeof(Assertion));
-    assertion->type = INVALID;
-    assertion->action = action;
-    assertion->result = result;
-    return assertion;
-}
-
 Value *makeUI64(uint64_t num) {
     auto *value = (Value *) malloc(sizeof(Value));
     value->type = UI64;

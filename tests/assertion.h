@@ -103,8 +103,6 @@ Assertion *makeAssertionReturn(Action *action, Result *result);
 
 Assertion *makeAssertionExhaustion(Action *action);
 
-Assertion *makeAssertionInvalid(Action *action, Result *result);
-
 Result *makeEmptyResult();
 
 Result *makeValueResult(Value *val);

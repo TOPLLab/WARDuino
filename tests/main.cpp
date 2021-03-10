@@ -180,10 +180,6 @@ void runAssertion(Assertion *assertion, Module *m) {
             runAction(assertion->action, m);
             assertException("call stack exhausted", m);
             break;
-        case INVALID:
-            runAction(assertion->action, m);
-            assertException(assertion->result->value->str, m);
-            break;
         default:
             printf("Error unsupported assertion");
             exit(1);
@@ -244,7 +240,7 @@ void resolveAssert(SNode *node, Module *m) {
         Result *result = parseResultNode(node->next->next);
 
         Assertion *assertion = makeAssertionReturn(action, result);
-        printf("made an assertion\n");
+        printf("assert return value:\n");
 
         runAssertion(assertion, m);
 
@@ -254,16 +250,16 @@ void resolveAssert(SNode *node, Module *m) {
     } else if (strcmp(assertType, "assert_exhaustion") == 0) {
         Action *action = parseActionNode(node->next);
         Assertion *assertion = makeAssertionExhaustion(action);
+        printf("assert stack exhaustion:\n");
+
         runAssertion(assertion, m);
+
         free(action);
         free(assertion);
     } else if (strcmp(assertType, "assert_invalid") == 0) {
-        Action *action = parseActionNode(node->next);
-        Result *result = parseResultNode(node->next->next);
-        Assertion *assertion = makeAssertionInvalid(action, result);
-        runAssertion(assertion, m);
-        free(action);
-        free(assertion);
+        printf("assert invalid module: ignoring ...\n");
+    } else if (strcmp(assertType, "assert_malformed") == 0) {
+        printf("assert malformed module: ignoring ...\n");
     } else {
         // TODO
     }
