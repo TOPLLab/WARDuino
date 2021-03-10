@@ -310,8 +310,11 @@ int main(int argc, char **argv) {
                 resolveAssert(cursor->list, m);
                 cursor = cursor->next;
                 break;
-            case STRING:
             case SYMBOL:
+                // ignore comments
+                cursor = cursor->next;
+                break;
+            case STRING:
             case INTEGER:
             case FLOAT:
                 printf("Error badly formed asserts");
