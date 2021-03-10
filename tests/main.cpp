@@ -25,6 +25,8 @@ extern "C" {
 // END
 }
 
+#define COMPILE(command) system(command.c_str());
+
 WARDuino wac;
 
 volatile bool handlingInterrupt = false;
@@ -280,14 +282,26 @@ int main(int argc, char **argv) {
     signal(SIGUSR1, signalHandler);
 
     // Load the path name
-    char *mod_path = argv[1];
+    char *wast_path = argv[1];
     char *tests_path = argv[2];
+    char *wasm_command = argv[3];
+
+    // Compile wasm program
+    std::string out_path = wast_path;
+    out_path += ".wasm";
+    std::string command = wasm_command;
+    command += " ";
+    command += wast_path;
+    command += " -o ";
+    command += out_path;
+    printf("%s", command.c_str());
+    COMPILE(command);
 
     // Load wasm program
-    bytes = mmap_file(mod_path, &byte_count);
+    bytes = mmap_file(&out_path[0], &byte_count);
 
     if (bytes == nullptr) {
-        fprintf(stderr, "Could not load %s", mod_path);
+        fprintf(stderr, "Could not load %s", out_path.c_str());
         return 2;
     }
 
@@ -324,6 +338,9 @@ int main(int argc, char **argv) {
                 exit(1);
         }
     }
+
+    // Remove compiled file
+    remove(&out_path[0]);
 
     return 0;
 }
