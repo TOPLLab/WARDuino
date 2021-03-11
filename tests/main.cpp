@@ -25,7 +25,7 @@ extern "C" {
 // END
 }
 
-#define COMPILE(command) system(command.c_str());
+#define COMPILE(command) system((command).c_str());
 
 WARDuino wac;
 
@@ -124,9 +124,9 @@ void invoke(Module *m, const char *call_f, Value values[]) {
 }
 
 void assertValue(Value *val, Module *m) {
-    printf("result :: %llu ", m->stack->value.uint64);
     switch (val->type) {
         case I64V:
+            printf("result :: %lu ", m->stack->value.uint64);
             if (val->uint64 == m->stack->value.uint64) {
                 printf("OK\n");
             } else {
@@ -134,6 +134,7 @@ void assertValue(Value *val, Module *m) {
             }
             break;
         case I32V:
+            printf("result :: %d ", m->stack->value.int32);
             if (val->int32 == m->stack->value.int32) {
                 printf("OK\n");
             } else {
@@ -199,11 +200,11 @@ Result *parseResultNode(SNode *node) {
     if (node->type == STRING) {
         value = makeSTR(node->value);
     } else if (strcmp(node->list->value, "i64.const") == 0) {
-        value = makeI64(std::stoll(node->list->next->value));
+        value = makeI64(std::stoll(node->list->next->value, 0, 0));
     } else if (strcmp(node->list->value, "u64.const") == 0) {
-        value = makeUI64(std::stoull(node->list->next->value));
+        value = makeUI64(std::stoull(node->list->next->value, 0, 0));
     } else if (strcmp(node->list->value, "i32.const") == 0) {
-        value = makeI32(std::stoul(node->list->next->value));
+        value = makeI32(std::stol(node->list->next->value, 0, 0));
     } else {
         // TODO
     }
@@ -222,11 +223,11 @@ Action *parseActionNode(SNode *actionNode) {
         char *value = param->list->next->value;
 
         if (strcmp(type, "i64.const") == 0) {
-            params.push_back(*makeI64(std::stoll(value)));
+            params.push_back(*makeI64(std::stoll(value, 0, 0)));
         } else if (strcmp(type, "u64.const") == 0) {
-            params.push_back(*makeUI64(std::stoull(value)));
+            params.push_back(*makeUI64(std::stoull(value, 0, 0)));
         } else if (strcmp(type, "i32.const") == 0) {
-            params.push_back(*makeI32(std::stoull(value)));
+            params.push_back(*makeI32(std::stol(value, 0, 0)));
         } else {
             // TODO
         }
@@ -263,10 +264,6 @@ void resolveAssert(SNode *node, Module *m) {
 
         free(action);
         free(assertion);
-    } else if (strcmp(assertType, "assert_invalid") == 0) {
-        printf("assert invalid module: ignoring ...\n");
-    } else if (strcmp(assertType, "assert_malformed") == 0) {
-        printf("assert malformed module: ignoring ...\n");
     } else {
         // TODO
     }
@@ -293,7 +290,6 @@ int main(int argc, char **argv) {
     command += wast_path;
     command += " -o ";
     command += out_path;
-    printf("%s", command.c_str());
     COMPILE(command);
 
     // Load wasm program
