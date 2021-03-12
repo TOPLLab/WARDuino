@@ -54,9 +54,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 20
+#define NUM_PRIMITIVES_ARDUINO 16
 #else
-#define NUM_PRIMITIVES_ARDUINO 20
+#define NUM_PRIMITIVES_ARDUINO 16
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -241,22 +241,7 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
-def_prim(print_string, oneToNoneU32) {
-    uint32_t addr = arg0.uint32;
-//    if (m->memory.bytes[addr + length - 1] != 0) {
-//        URL isn't null-terminated
-//        sprintf(exception, "Print-string: string isn't null-terminated.");
-//        return false;
-//    }
-
-    String str = parse_utf16_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr).c_str();
-    Serial.print(str);
-    Serial.flush();
-    pop_args(1);
-    return true;
-}
-
-def_prim(_rust_print_string, twoToNoneU32) {
+def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
 
@@ -265,30 +250,6 @@ def_prim(_rust_print_string, twoToNoneU32) {
     Serial.print(str);
     Serial.flush();
     pop_args(2);
-    return true;
-}
-
-def_prim(_connect, fourToNoneU32) {  // TODO remove
-    uint32_t ssid = arg3.uint32;
-    uint32_t len0 = arg2.uint32;
-    uint32_t pass = arg1.uint32;
-    uint32_t len1 = arg0.uint32;
-
-    if (m->memory.bytes[ssid + len0 - 1] != 0 && m->memory.bytes[pass + len1 - 1] != 0) {
-        // One of the strings isn't null-terminated
-        sprintf(exception, "Connect: string isn't null-terminated.");
-        return false;
-    }
-
-    String ssid_str = parse_utf16_string(m->memory.bytes, len0, ssid).c_str();
-    String pass_str = parse_utf16_string(m->memory.bytes, len1, pass).c_str();
-    Serial.print("SSID: ");
-    Serial.println(ssid_str);
-
-    connect(ssid_str, pass_str);
-
-    Serial.flush();
-    pop_args(4);
     return true;
 }
 
@@ -316,37 +277,7 @@ def_prim(wifi_status, NoneToOneU32) {
     return true;
 }
 
-
-def_prim(get, fourToOneU32) {
-    int32_t return_value = -11;
-
-    //Check WiFi connection status
-    if (WiFi.status() == WL_CONNECTED) {
-        uint32_t addr = arg3.uint32;
-        uint32_t length = arg2.uint32;
-        uint32_t response = arg1.uint32;
-        uint32_t size = arg0.uint32;
-        // url string
-        if (m->memory.bytes[addr + length - 1] != 0) {
-            // URL isn't null-terminated
-            sprintf(exception, "Get: string isn't null-terminated.");
-            return false;
-        }
-
-        String url = parse_utf16_string(m->memory.bytes, length, addr).c_str();
-        Serial.print("GET ");
-        Serial.println(url);
-
-        // Send HTTP GET request
-        return_value = http_get_request(m, url, response, size);
-    }
-    pop_args(4);
-    pushInt32(return_value);
-    Serial.flush();
-    return true;
-}
-
-def_prim(_rust_get, fourToOneU32) {
+def_prim(http_get, fourToOneU32) {
     int32_t return_value = -11;
 
     //Check WiFi connection status
@@ -370,13 +301,7 @@ def_prim(_rust_get, fourToOneU32) {
     return true;
 }
 
-def_prim(post, NoneToNoneU32) {
-    // TODO
-    pop_args(0);
-    return true;
-}
-
-def_prim(_rust_post, tenToOneU32) {
+def_prim(http_post, tenToOneU32) {
     int32_t status_code = -11;
 
     //Check WiFi connection status
@@ -500,33 +425,12 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
-def_prim(print_string, oneToNoneU32) {
-    uint32_t addr = arg0.uint32;
-    std::string text = parse_utf16_string(m->memory.bytes, m->memory.pages * PAGE_SIZE, addr);
-    debug("EMU: print string at %i: %s\n", addr, text.c_str());
-    pop_args(1);
-    return true;
-}
-
-def_prim(_rust_print_string, twoToNoneU32) {
+def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
     std::string text = parse_utf8_string(m->memory.bytes, size, addr);
     debug("EMU: print string at %i: %s\n", addr, text.c_str());
     pop_args(2);
-    return true;
-}
-
-def_prim(_connect, fourToNoneU32) {
-    uint32_t ssid = arg3.uint32;
-    uint32_t len0 = arg2.uint32;
-    uint32_t pass = arg1.uint32;
-    uint32_t len1 = arg0.uint32;
-
-    std::string ssid_str = parse_utf16_string(m->memory.bytes, len0, ssid);
-    std::string pass_str = parse_utf16_string(m->memory.bytes, len1, pass);
-    debug("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
-    pop_args(4);
     return true;
 }
 
@@ -548,31 +452,7 @@ def_prim(wifi_status, NoneToOneU32) {
     return true;
 }
 
-def_prim(get, fourToOneU32) {
-    // Get arguments
-    uint32_t url = arg3.uint32;
-    uint32_t length = arg2.uint32;
-    int32_t response = arg1.uint32;
-    uint32_t size = arg0.uint32;
-    // Parse url
-    std::string text = parse_utf16_string(m->memory.bytes, length, url);
-    debug("EMU: http get request %s\n", text.c_str());
-    // Construct response
-    std::string answer = "Response code: 200.";
-    if (answer.length() > size) {
-        sprintf(exception, "GET: buffer size is too small for response.");
-        return false;  // TRAP
-    }
-    for (unsigned long i = 0; i < answer.length(); i++) {
-        m->memory.bytes[response + (i * 2)] = (uint32_t) answer[i];
-    }
-    // Pop args and return response address
-    pop_args(4);
-    pushInt32(response);
-    return true;
-}
-
-def_prim(_rust_get, fourToOneU32) {
+def_prim(http_get, fourToOneU32) {
     // Get arguments
     uint32_t url = arg3.uint32;
     uint32_t length = arg2.uint32;
@@ -596,13 +476,7 @@ def_prim(_rust_get, fourToOneU32) {
     return true;
 }
 
-def_prim(post, NoneToNoneU32) {
-    // TODO
-    pop_args(0);
-    return true;
-}
-
-def_prim(_rust_post, tenToOneU32) {
+def_prim(http_post, tenToOneU32) {
     // Get arguments
     uint32_t url = arg9.uint32;
     uint32_t url_len = arg8.uint32;
@@ -808,14 +682,10 @@ void install_primitives() {
     install_primitive(abort);
     install_primitive(print_int);
     install_primitive(print_string);
-    install_primitive(_rust_print_string);
-    install_primitive(_connect);
     install_primitive(wifi_connect);
     install_primitive(wifi_status);
-    install_primitive(get);
-    install_primitive(_rust_get);
-    install_primitive(post);
-    install_primitive(_rust_post);
+    install_primitive(http_get);
+    install_primitive(http_post);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
@@ -830,14 +700,10 @@ void install_primitives() {
     install_primitive(abort);
     install_primitive(print_int);
     install_primitive(print_string);
-    install_primitive(_rust_print_string);
-    install_primitive(_connect);
     install_primitive(wifi_connect);
     install_primitive(wifi_status);
-    install_primitive(get);
-    install_primitive(_rust_get);
-    install_primitive(post);
-    install_primitive(_rust_post);
+    install_primitive(http_get);
+    install_primitive(http_post);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
