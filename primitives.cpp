@@ -54,9 +54,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 16
+#define NUM_PRIMITIVES_ARDUINO 17
 #else
-#define NUM_PRIMITIVES_ARDUINO 16
+#define NUM_PRIMITIVES_ARDUINO 17
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -277,6 +277,19 @@ def_prim(wifi_status, NoneToOneU32) {
     return true;
 }
 
+def_prim(wifi_localip, twoToOneU32) {
+    uint32_t buff = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    String ip = String(WiFi.localIP());
+    // TODO handle too small buffer
+    for (unsigned long i = 0; i < ip.length(); i++) {
+        m->memory.bytes[buff + i] = (uint32_t) ip[i];
+    }
+    pop_args(2);
+    pushInt32(buff);
+    return true;
+}
+
 def_prim(http_get, fourToOneU32) {
     int32_t return_value = -11;
 
@@ -449,6 +462,19 @@ def_prim(wifi_connect, fourToNoneU32) {
 
 def_prim(wifi_status, NoneToOneU32) {
     pushInt32(3);   // return WL_CONNECTED
+    return true;
+}
+
+def_prim(wifi_localip, twoToOneU32) {
+    uint32_t buff = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    std::string ip = "192.168.0.181";
+
+    for (unsigned long i = 0; i < ip.length(); i++) {
+        m->memory.bytes[buff + i] = (uint32_t) ip[i];
+    }
+    pop_args(2);
+    pushInt32(buff);
     return true;
 }
 
@@ -684,6 +710,7 @@ void install_primitives() {
     install_primitive(print_string);
     install_primitive(wifi_connect);
     install_primitive(wifi_status);
+    install_primitive(wifi_localip);
     install_primitive(http_get);
     install_primitive(http_post);
     install_primitive(chip_pin_mode);
@@ -702,6 +729,7 @@ void install_primitives() {
     install_primitive(print_string);
     install_primitive(wifi_connect);
     install_primitive(wifi_status);
+    install_primitive(wifi_localip);
     install_primitive(http_get);
     install_primitive(http_post);
     install_primitive(chip_pin_mode);
