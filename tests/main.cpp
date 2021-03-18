@@ -1,29 +1,19 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
-#include <cmath>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 
-#include "../WARDuino.h"
-#include "../debug.h"
-#include "../instructions.h"
-
 extern "C" {
 #include "./sexpr-parser/src/sexpr.h"
 }
 
+#include "../debug.h"
+#include "../instructions.h"
 #include "assertion.h"
-
-extern "C" {
-// TODO: Stat files, alternative needed for arduino
-#include <sys/stat.h>
-// END
-}
 
 #define COMPILE(command) system((command).c_str());
 
@@ -201,11 +191,11 @@ Result *parseResultNode(SNode *node) {
     if (node->type == STRING) {
         value = makeSTR(node->value);
     } else if (strcmp(node->list->value, "i64.const") == 0) {
-        value = makeI64(std::stoll(node->list->next->value, 0, 0));
+        value = makeI64(std::stoll(node->list->next->value, nullptr, 0));
     } else if (strcmp(node->list->value, "u64.const") == 0) {
-        value = makeUI64(std::stoull(node->list->next->value, 0, 0));
+        value = makeUI64(std::stoull(node->list->next->value, nullptr, 0));
     } else if (strcmp(node->list->value, "i32.const") == 0) {
-        value = makeI32(std::stol(node->list->next->value, 0, 0));
+        value = makeI32(std::stol(node->list->next->value, nullptr, 0));
     } else {
         // TODO
     }
@@ -224,9 +214,9 @@ Action *parseActionNode(SNode *actionNode) {
         char *value = param->list->next->value;
 
         if (strcmp(type, "i64.const") == 0) {
-            params.push_back(*makeI64(std::stoll(value, 0, 0)));
+            params.push_back(*makeI64(std::stoll(value, nullptr, 0)));
         } else if (strcmp(type, "u64.const") == 0) {
-            params.push_back(*makeUI64(std::stoull(value, 0, 0)));
+            params.push_back(*makeUI64(std::stoull(value, nullptr, 0)));
         } else if (strcmp(type, "i32.const") == 0) {
             params.push_back(*makeI32(std::stol(value, 0, 0)));
         } else {
