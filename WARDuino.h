@@ -12,6 +12,7 @@
 #include <array>
 #include <vector>
 #include <set>
+#include "printing.h"
 
 // Constants
 #define WA_MAGIC 0x6d736100
@@ -162,8 +163,8 @@ typedef struct Module {
     int csp;                           // callstack pointer
     Frame callstack[CALLSTACK_SIZE];   // callstack
     uint32_t br_table[BR_TABLE_SIZE];  // br_table branch indexes
-
-    char *exception;                   // exception is set when the program fails
+		
+		char *exception;                   // exception is set when the program fails
 } Module;
 
 typedef bool (*Primitive)(Module *);
@@ -194,10 +195,12 @@ private:
     std::vector<uint8_t> interruptBuffer;
     long interruptSize;
 
+
 public:
 
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};
+		Printing printing;
 
     WARDuino();
 
