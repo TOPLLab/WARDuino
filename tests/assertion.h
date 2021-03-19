@@ -65,7 +65,7 @@ typedef struct {
         int64_t int64;
         float f32;
         double f64;
-        char *str;
+        const char *str;
     };
 } Value;
 
@@ -115,6 +115,10 @@ Value *makeUI64(uint64_t value);
 Value *makeI64(int64_t value);
 
 Value *makeI32(int32_t value);
+
+Value *makeF32(float num);
+
+Value *makeF64(double num);
 
 Value *makeSTR(char *text);
 
