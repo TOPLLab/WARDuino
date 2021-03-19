@@ -1452,6 +1452,28 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
         case 0xbf:
             m->stack[m->sp].value_type = F64;
             break;  // f64.reinterpret/i64
+
+            // sign extensions
+        case 0xc0:
+            sext_8_32(&m->stack[m->sp].value.uint32);
+            m->stack[m->sp].value_type = I32;
+            break;  // i32.extend8_s
+        case 0xc1:
+            sext_16_32(&m->stack[m->sp].value.uint32);
+            m->stack[m->sp].value_type = I32;
+            break;  // i32.extend16_s
+        case 0xc2:
+            sext_8_64(&m->stack[m->sp].value.uint64);
+            m->stack[m->sp].value_type = I64;
+            break;  // i64.extend8_s
+        case 0xc3:
+            sext_16_64(&m->stack[m->sp].value.uint64);
+            m->stack[m->sp].value_type = I64;
+            break;  // i64.extend16_s
+        case 0xc4:
+            sext_32_64(&m->stack[m->sp].value.uint64);
+            m->stack[m->sp].value_type = I64;
+            break;  // i64.extend32_s
         default:
             return false;
     }
@@ -1671,6 +1693,7 @@ bool interpret(Module *m) {
 
                 // conversion operations
             case 0xa7 ... 0xbb:
+            case 0xc0 ... 0xc4:
                 success &= i_instr_conversion(m, opcode);
                 continue;
             default:
