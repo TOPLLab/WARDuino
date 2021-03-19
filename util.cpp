@@ -129,6 +129,9 @@ uint64_t rotr64(uint64_t n, unsigned int c) {
 }
 
 double wa_fmax(double a, double b) {
+    if (std::isnan(a) || std::isnan(b)) {
+        return NAN;
+    }
     double c = fmax(a, b);
     if (c == 0 && a == b) {
         return std::signbit(a) ? b : a;
@@ -137,6 +140,9 @@ double wa_fmax(double a, double b) {
 }
 
 double wa_fmin(double a, double b) {
+    if (std::isnan(a) || std::isnan(b)) {
+        return NAN;
+    }
     double c = fmin(a, b);
     if (c == 0 && a == b) {
         return std::signbit(a) ? a : b;
