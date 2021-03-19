@@ -60,6 +60,20 @@ Value *makeI32(int32_t num) {
     return value;
 }
 
+Value *makeF32(float num) {
+    auto *value = (Value *) malloc(sizeof(Value));
+    value->type = F32V;
+    value->f32 = num;
+    return value;
+}
+
+Value *makeF64(double num) {
+    auto *value = (Value *) malloc(sizeof(Value));
+    value->type = F64V;
+    value->f64 = num;
+    return value;
+}
+
 Value *makeSTR(char *text) {
     auto *value = (Value *) malloc(sizeof(Value));
     value->type = STR;
