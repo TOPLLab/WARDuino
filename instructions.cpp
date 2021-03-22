@@ -1488,9 +1488,14 @@ bool interpret(Module *m, bool return_exception) {
 
         // Don't check for breakpoints while paused
         if (m->warduino->isBreakpoint(m->pc_ptr)) {
-            program_state = WARDUINOpause;
-            printf("AT %p!\n", (void *) m->pc_ptr);
-            continue;
+            if(m->warduino->skipBreakpoint){
+                m->warduino->skipBreakpoint = false;
+            }
+            else{
+                program_state = WARDUINOpause;
+                printf("AT %p!\n", (void *) m->pc_ptr);
+                continue;
+            }
         }
 
         opcode = *m->pc_ptr;

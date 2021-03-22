@@ -199,6 +199,8 @@ public:
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};
 
+	bool skipBreakpoint = false;
+
     WARDuino();
 
     int run_module(Module *m);
