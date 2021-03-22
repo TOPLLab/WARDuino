@@ -1,13 +1,8 @@
 #include <iostream>
-#include "../debug.h"
-#include "../WARDuino.h"
-#include "../WARDuino.h"
-#include "../instructions.h"
 #include <csignal>
 #include <sys/mman.h>
 #include <cstdlib>
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <cstring>
@@ -17,15 +12,11 @@ extern "C" {
 #include "./sexpr-parser/src/sexpr.h"
 }
 
+#include "../debug.h"
+#include "../instructions.h"
 #include "assertion.h"
 
-extern "C" {
-// TODO: Stat files, alternative needed for arduino
-#include <sys/stat.h>
-// END
-}
-
-#define COMPILE(command) system(command.c_str());
+#define COMPILE(command) system((command).c_str());
 
 WARDuino wac;
 
@@ -58,7 +49,7 @@ uint8_t *mmap_file(char *path, int *len) {
     res = fstat(fd, &sb);
     if (res < 0) {FATAL("could not stat file '%s' (%d)\n", path, res); }
 
-    bytes = (uint8_t *) mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    bytes = (uint8_t *) mmap(nullptr, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (len) {
         *len = sb.st_size;  // Return length if requested
     }
@@ -79,16 +70,12 @@ void parse_args(Module *m, Type *type, int argc, Value argv[]) {
             case I32:
                 sv->value.int32 = argv[i].int32;
                 break;
-/*        case F32: if (strncmp("-nan", argv[i], 4) == 0) {
-                      sv->value.f32 = -NAN;
-                  } else {
-                      sv->value.f32 = atof(argv[i]);
-                  }; break;
-        case F64: if (strncmp("-nan", argv[i], 4) == 0) {
-                      sv->value.f64 = -NAN;
-                  } else {
-                      sv->value.f64 = atof(argv[i]);
-                  }; break;*/
+            case F32:
+                sv->value.f32 = argv[i].f32;
+                break;
+            case F64:
+                sv->value.f64 = argv[i].f64;
+                break;
         }
     }
 }
@@ -118,9 +105,9 @@ void invoke(Module *m, const char *call_f, Value values[]) {
 }
 
 void assertValue(Value *val, Module *m) {
-    printf("result :: %llu ", m->stack->value.uint64);
     switch (val->type) {
         case I64V:
+            printf("result :: %lu ", m->stack->value.uint64);
             if (val->uint64 == m->stack->value.uint64) {
                 printf("OK\n");
             } else {
@@ -128,7 +115,26 @@ void assertValue(Value *val, Module *m) {
             }
             break;
         case I32V:
+            printf("result :: %d ", m->stack->value.int32);
             if (val->int32 == m->stack->value.int32) {
+                printf("OK\n");
+            } else {
+                printf("FAIL\n");
+            }
+            break;
+        case F32V:
+            printf("result :: %f ", m->stack->value.f32);
+            if (val->f32 == m->stack->value.f32
+                || (std::isnan(val->f32) && std::isnan(m->stack->value.f32))) {
+                printf("OK\n");
+            } else {
+                printf("FAIL\n");
+            }
+            break;
+        case F64V:
+            printf("result :: %f ", m->stack->value.f64);
+            if (val->f64 == m->stack->value.f64
+                || (std::isnan(val->f64) && std::isnan(m->stack->value.f64))) {
                 printf("OK\n");
             } else {
                 printf("FAIL\n");
@@ -194,11 +200,15 @@ Result *parseResultNode(SNode *node) {
     if (node->type == STRING) {
         value = makeSTR(node->value);
     } else if (strcmp(node->list->value, "i64.const") == 0) {
-        value = makeI64(std::stoll(node->list->next->value));
+        value = makeI64(std::stoll(node->list->next->value, nullptr, 0));
     } else if (strcmp(node->list->value, "u64.const") == 0) {
-        value = makeUI64(std::stoull(node->list->next->value));
+        value = makeUI64(std::stoull(node->list->next->value, nullptr, 0));
     } else if (strcmp(node->list->value, "i32.const") == 0) {
-        value = makeI32(std::stoul(node->list->next->value));
+        value = makeI32(std::stol(node->list->next->value, nullptr, 0));
+    } else if (strcmp(node->list->value, "f32.const") == 0) {
+        value = makeF32(std::stof(node->list->next->value, nullptr));
+    } else if (strcmp(node->list->value, "f64.const") == 0) {
+        value = makeF64(std::stod(node->list->next->value, nullptr));
     } else {
         // TODO
     }
@@ -217,12 +227,16 @@ Action *parseActionNode(SNode *actionNode) {
         char *value = param->list->next->value;
 
         if (strcmp(type, "i64.const") == 0) {
-            params.push_back(*makeI64(std::stoll(value)));
+            params.push_back(*makeI64(std::stoll(value, nullptr, 0)));
         } else if (strcmp(type, "u64.const") == 0) {
-            params.push_back(*makeUI64(std::stoull(value)));
+            params.push_back(*makeUI64(std::stoull(value, nullptr, 0)));
         } else if (strcmp(type, "i32.const") == 0) {
-            params.push_back(*makeI32(std::stoull(value)));
-        }else {
+            params.push_back(*makeI32(std::stol(value, nullptr, 0)));
+        } else if (strcmp(type, "f32.const") == 0) {
+            params.push_back(*makeF32(std::stof(value, nullptr)));
+        } else if (strcmp(type, "f64.const") == 0) {
+            params.push_back(*makeF64(std::stod(value, nullptr)));
+        } else {
             // TODO
         }
         param = param->next;
@@ -258,10 +272,6 @@ void resolveAssert(SNode *node, Module *m) {
 
         free(action);
         free(assertion);
-    } else if (strcmp(assertType, "assert_invalid") == 0) {
-        printf("assert invalid module: ignoring ...\n");
-    } else if (strcmp(assertType, "assert_malformed") == 0) {
-        printf("assert malformed module: ignoring ...\n");
     } else {
         // TODO
     }
@@ -288,7 +298,6 @@ int main(int argc, char **argv) {
     command += wast_path;
     command += " -o ";
     command += out_path;
-    printf("%s", command.c_str());
     COMPILE(command);
 
     // Load wasm program
