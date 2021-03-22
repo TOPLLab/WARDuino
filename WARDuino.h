@@ -235,6 +235,8 @@ class WARDuino {
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};
 
+    uint8_t *skipBreakpoint = nullptr;
+
     WARDuino();
 
     int run_module(Module *m);
