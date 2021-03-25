@@ -259,7 +259,7 @@ bool check_interrupts(Module *m, RunningState *program_state) {
                 if(*program_state == WARDUINOpause &&
                 m->warduino->isBreakpoint(m->pc_ptr)
                 ){
-                    m->warduino->skipBreakpoint = true;
+                    m->warduino->skipBreakpoint = m->pc_ptr;
                 }
                 *program_state = WARDUINOrun;
                 free(interruptData);
@@ -291,6 +291,7 @@ bool check_interrupts(Module *m, RunningState *program_state) {
                 }
                 auto *bpt = (uint8_t *) bp;
                 printf("BP %p!\n", static_cast<void *>(bpt));
+
                 if (*interruptData == 0x06) {
                     m->warduino->addBreakpoint(bpt);
                 } else {

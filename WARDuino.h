@@ -199,7 +199,7 @@ public:
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};
 
-	bool skipBreakpoint = false;
+    uint8_t* skipBreakpoint = nullptr;
 
     WARDuino();
 

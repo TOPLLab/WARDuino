@@ -1487,16 +1487,14 @@ bool interpret(Module *m, bool return_exception) {
         // Progam state is not paused
 
         // Don't check for breakpoints while paused
-        if (m->warduino->isBreakpoint(m->pc_ptr)) {
-            if(m->warduino->skipBreakpoint){
-                m->warduino->skipBreakpoint = false;
-            }
-            else{
+        if(m->warduino->isBreakpoint(m->pc_ptr)){
+            if(m->warduino->skipBreakpoint != m->pc_ptr){
                 program_state = WARDUINOpause;
                 printf("AT %p!\n", (void *) m->pc_ptr);
                 continue;
             }
         }
+        m->warduino->skipBreakpoint = nullptr;
 
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
