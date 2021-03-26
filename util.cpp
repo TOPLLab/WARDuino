@@ -1,9 +1,8 @@
 #include "util.h"
 
 #include <cmath>
-#include <cstring>
-
 #include <cstdint>
+#include <cstring>
 
 #include "debug.h"
 
