@@ -1,8 +1,11 @@
-# WARDuino tests
+# WARDuino integration tests
+
+This folder contains all the integration tests for the WARDuino virtual machine.
 
 ## Core spec tests
 
-The list of WebAssembly core spec tests in the `core` folder which succeed and those who fail:
+The `core` folder contains the list of official WebAssembly core specification tests.
+The following list keeps track of which tests succeed and which fail:
 
 - [ ] address.wast
 - [ ] call.wast
