@@ -14,6 +14,8 @@
 
 #define COMPILE(command) system((command).c_str());
 
+int COUNT = 0;
+
 uint8_t *mmap_file(char *path, int *len) {
     int fd;
     int res;
@@ -129,6 +131,10 @@ void assertValue(Value *val, Module *m) {
 }
 
 void assertResult(Result *result, Module *m) {
+    if (m->exception != nullptr) {
+        printf("exception :: %s FAIL\n", m->exception);
+        return;
+    }
     switch (result->type) {
         case VAL:
             assertValue(result->value, m);
@@ -140,7 +146,7 @@ void assertResult(Result *result, Module *m) {
 }
 
 void assertException(char *expected, Module *m) {
-    printf("result :: %s ", m->exception);
+    printf("exception :: %s ", m->exception);
     if (strcmp(m->exception, expected) == 0) {
         printf("OK\n");
     } else {
@@ -237,7 +243,7 @@ void resolveAssert(SNode *node, Module *m) {
         Result *result = parseResultNode(node->next->next);
 
         Assertion *assertion = makeAssertionReturn(action, result);
-        printf("assert return value:\n");
+        printf("%i. assert return %s:\n", COUNT++, action->name);
 
         runAssertion(assertion, m);
 

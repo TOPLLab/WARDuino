@@ -1683,6 +1683,9 @@ bool interpret(Module *m, bool return_exception) {
                 continue;
             default:
                 sprintf(exception, "unrecognized opcode 0x%x", opcode);
+                if (return_exception) {
+                    m->exception = strdup(exception);
+                }
                 return false;
         }
     }
