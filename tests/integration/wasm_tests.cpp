@@ -1,42 +1,22 @@
+#include "wasm_tests.h"
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
 #include <cmath>
-#include <csignal>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 
 extern "C" {
 #include "./sexpr-parser/src/sexpr.h"
 }
 
-#include "../debug.h"
-#include "../instructions.h"
+#include "../../debug.h"
+#include "../../instructions.h"
 #include "assertion.h"
 
 #define COMPILE(command) system((command).c_str());
-
-WARDuino wac;
-
-volatile bool handlingInterrupt = false;
-
-void signalHandler(int /* signum */) {
-    if (handlingInterrupt) return;
-
-    printf("CHANGE REQUESTED!");
-    struct stat statbuff {};
-    if (stat("/tmp/change", &statbuff) == 0 && statbuff.st_size > 0) {
-        auto *data = (uint8_t *)malloc(statbuff.st_size * sizeof(uint8_t));
-        FILE *fp = fopen("/tmp/change", "rb");
-        fread(data, statbuff.st_size, 1, fp);
-        fclose(fp);
-        wac.handleInterrupt(statbuff.st_size, data);
-    }
-
-    handlingInterrupt = false;
-}
 
 uint8_t *mmap_file(char *path, int *len) {
     int fd;
@@ -283,54 +263,51 @@ void resolveAssert(SNode *node, Module *m) {
     }
 }
 
-/**
- * Run code, execute interrupts in /tmp/change if a USR1 signal comes
- */
-int main(int argc, char **argv) {
-    uint8_t *bytes;
-    int byte_count;
-    signal(SIGUSR1, signalHandler);
-
-    // Load the path name
-    char *wast_path = argv[1];
-    char *tests_path = argv[2];
-    char *wasm_command = argv[3];
-
+int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
+                std::string &output_path, const std::string &wasm_command) {
     // Compile wasm program
-    std::string out_path = wast_path;
-    out_path += ".wasm";
-    std::string command = wasm_command;
-    command += " ";
-    command += wast_path;
-    command += " -o ";
-    command += out_path;
-    COMPILE(command);
+    COMPILE(wasm_command + " " + module_file_path + " -o " + output_path);
 
     // Load wasm program
-    bytes = mmap_file(&out_path[0], &byte_count);
+    int byte_count;
+    uint8_t *bytes = mmap_file(&output_path[0], &byte_count);
 
     if (bytes == nullptr) {
-        fprintf(stderr, "Could not load %s", out_path.c_str());
+        fprintf(stderr, "Could not load %s", output_path.c_str());
         return 2;
     }
 
-    Module *m = wac.load_module(bytes, byte_count, {});
+    test->module = wac.load_module(bytes, byte_count, {});
 
-    // Parse asserts as s-expressions
-    FILE *fp = fopen(tests_path, "r");
-    if (fp == nullptr) {
-        fprintf(stderr, "Could not open %s", tests_path);
-        return 2;
+    return 0;
+}
+
+int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
+                  char *wasm_command) {
+    FILE *asserts_file = fopen(asserts_file_path, "r");
+    auto *test = (Test *)calloc(1, sizeof(Test));
+    if (asserts_file == nullptr || test == nullptr) {
+        return -1;
     }
-    struct SNode *node = snode_parse(fp);
-    fclose(fp);
+
+    std::string output_path = module_file_path;
+    output_path += ".wasm";
+    int ret = init_module(std::move(wac), test, module_file_path, output_path,
+                          wasm_command);
+    if (ret != 0) {
+        return -1;
+    }
+
+    test->asserts = snode_parse(asserts_file);
+
+    fclose(asserts_file);
 
     // Loop over all asserts in the file
-    struct SNode *cursor = node;
+    struct SNode *cursor = test->asserts;
     while (cursor != nullptr) {
         switch (cursor->type) {
             case LIST:
-                resolveAssert(cursor->list, m);
+                resolveAssert(cursor->list, test->module);
                 cursor = cursor->next;
                 break;
             case SYMBOL:
@@ -349,7 +326,7 @@ int main(int argc, char **argv) {
     }
 
     // Remove compiled file
-    remove(&out_path[0]);
+    remove(&output_path[0]);
 
     return 0;
 }
