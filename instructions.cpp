@@ -1700,8 +1700,7 @@ bool interpret(Module *m, bool return_exception) {
                 continue;
 
                 // conversion operations
-            case 0xa7 ... 0xbb:
-            case 0xc0 ... 0xc4:
+            case 0xa7 ... 0xc4:
                 success &= i_instr_conversion(m, opcode);
                 continue;
             default:
