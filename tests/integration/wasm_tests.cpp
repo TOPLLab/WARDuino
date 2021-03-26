@@ -88,22 +88,25 @@ void invoke(Module *m, const char *call_f, Value values[]) {
     interpret(m, true);
 }
 
-void assertValue(Value *val, Module *m) {
+bool assertValue(Value *val, Module *m) {
     switch (val->type) {
         case I64V:
             printf("result :: %lu ", m->stack->value.uint64);
             if (val->uint64 == m->stack->value.uint64) {
                 printf("OK\n");
+                return true;
             } else {
                 printf("FAIL\n");
+                return false;
             }
-            break;
         case I32V:
             printf("result :: %d ", m->stack->value.int32);
             if (val->int32 == m->stack->value.int32) {
                 printf("OK\n");
+                return true;
             } else {
                 printf("FAIL\n");
+                return false;
             }
             break;
         case F32V:
@@ -111,8 +114,10 @@ void assertValue(Value *val, Module *m) {
             if (val->f32 == m->stack->value.f32 ||
                 (std::isnan(val->f32) && std::isnan(m->stack->value.f32))) {
                 printf("OK\n");
+                return true;
             } else {
                 printf("FAIL\n");
+                return false;
             }
             break;
         case F64V:
@@ -120,8 +125,10 @@ void assertValue(Value *val, Module *m) {
             if (val->f64 == m->stack->value.f64 ||
                 (std::isnan(val->f64) && std::isnan(m->stack->value.f64))) {
                 printf("OK\n");
+                return true;
             } else {
                 printf("FAIL\n");
+                return false;
             }
             break;
         default:
@@ -130,27 +137,28 @@ void assertValue(Value *val, Module *m) {
     }
 }
 
-void assertResult(Result *result, Module *m) {
+bool assertResult(Result *result, Module *m) {
     if (m->exception != nullptr) {
         printf("exception :: %s FAIL\n", m->exception);
-        return;
+        return false;
     }
     switch (result->type) {
         case VAL:
-            assertValue(result->value, m);
-            break;
+            return assertValue(result->value, m);
         default:
             printf("Error unsupported result");
             exit(1);
     }
 }
 
-void assertException(char *expected, Module *m) {
+bool assertException(char *expected, Module *m) {
     printf("exception :: %s ", m->exception);
     if (strcmp(m->exception, expected) == 0) {
         printf("OK\n");
+        return true;
     } else {
         printf("FAIL\n");
+        return false;
     }
 }
 
@@ -165,16 +173,14 @@ void runAction(Action *action, Module *m) {
     }
 }
 
-void runAssertion(Assertion *assertion, Module *m) {
+bool runAssertion(Assertion *assertion, Module *m) {
     switch (assertion->type) {
         case RETURN:
             runAction(assertion->action, m);
-            assertResult(assertion->result, m);
-            break;
+            return assertResult(assertion->result, m);
         case EXHAUSTION:
             runAction(assertion->action, m);
-            assertException("call stack exhausted", m);
-            break;
+            return assertException("call stack exhausted", m);
         default:
             printf("Error unsupported assertion");
             exit(1);
@@ -235,9 +241,9 @@ Action *parseActionNode(SNode *actionNode) {
     return makeInvokeAction(name, args);
 }
 
-void resolveAssert(SNode *node, Module *m) {
+bool resolveAssert(SNode *node, Module *m) {
     char *assertType = node->value;
-
+    bool success = false;
     if (strcmp(assertType, "assert_return") == 0) {
         Action *action = parseActionNode(node->next);
         Result *result = parseResultNode(node->next->next);
@@ -245,7 +251,7 @@ void resolveAssert(SNode *node, Module *m) {
         Assertion *assertion = makeAssertionReturn(action, result);
         printf("%i. assert return %s:\n", COUNT++, action->name);
 
-        runAssertion(assertion, m);
+        success = runAssertion(assertion, m);
 
         free(result);
         free(action);
@@ -255,13 +261,14 @@ void resolveAssert(SNode *node, Module *m) {
         Assertion *assertion = makeAssertionExhaustion(action);
         printf("assert stack exhaustion:\n");
 
-        runAssertion(assertion, m);
+        success = runAssertion(assertion, m);
 
         free(action);
         free(assertion);
     } else {
         // TODO
     }
+    return success;
 }
 
 int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
@@ -304,11 +311,12 @@ int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
     fclose(asserts_file);
 
     // Loop over all asserts in the file
+    bool all_tests_passed = true;
     struct SNode *cursor = test->asserts;
     while (cursor != nullptr) {
         switch (cursor->type) {
             case LIST:
-                resolveAssert(cursor->list, test->module);
+                all_tests_passed &= resolveAssert(cursor->list, test->module);
                 cursor = cursor->next;
                 break;
             case SYMBOL:
@@ -329,5 +337,5 @@ int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
     // Remove compiled file
     remove(&output_path[0]);
 
-    return 0;
+    return all_tests_passed ? 0 : 2;
 }
