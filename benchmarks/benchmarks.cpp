@@ -1,8 +1,10 @@
 #include <string.h>
+
 #include <iostream>
+
 #include "../WARDuino.h"
-#include "timer.h"
 #include "../debug.h"
+#include "timer.h"
 
 #define MAIN "main"
 #define MAX_PATH 100
@@ -28,31 +30,34 @@ unsigned int read_file_to_buf(unsigned char *bytes, string path) {
     ASSERT(num_bytes > 0, "Could not Ftell");
     if (num_bytes < MAX_BYTE_CODE_SIZE) {
         fseek(file, 0L, SEEK_SET);
-        size_t result = fread(bytes, sizeof(char), (size_t) num_bytes, file);
-        if (result != (size_t) num_bytes) {
+        size_t result = fread(bytes, sizeof(char), (size_t)num_bytes, file);
+        if (result != (size_t)num_bytes) {
             fprintf(stderr, "reading error while loading file %s", path);
             exit(1);
         }
         fclose(file);
-        return (unsigned int) num_bytes;
+        return (unsigned int)num_bytes;
     } else {
         fprintf(stderr, "File  < %s  > is too big for buffer", path);
         exit(1);
     }
 }
 
-void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
+int run_benchmarks(size_t num_benchmarks, string benchmarks[],
+                   uint32_t expected[]) {
     char path[MAX_PATH];
     unsigned char bytes[MAX_BYTE_CODE_SIZE];
     unsigned int bytes_length;
     auto *w = new WARDuino();
-
+    size_t correct = 0;
     for (size_t i = 0; i < num_benchmarks; i++) {
         string name = benchmarks[i];
         set_path(path, name);
         printf("[%lu/%lu: GO ] %s \n", i, num_benchmarks, path);
         bytes_length = read_file_to_buf(bytes, path);
-        Options opt = {.disable_memory_bounds = false, .mangle_table_index=false, .dlsym_trim_underscore=true};
+        Options opt = {.disable_memory_bounds = false,
+                       .mangle_table_index = false,
+                       .dlsym_trim_underscore = true};
         Timer tmr;
         tmr.reset();
         Module *m = w->load_module(bytes, bytes_length, opt);
@@ -72,11 +77,23 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
                        num_benchmarks, path);
                 exit(1);
             } else {
-                printf(
-                        "[%lu/%lu: OK ] %s (output: 0x%x = %u, load module: %fs, total: "
+                uint32_t res = m->stack->value.uint32;
+                if (res == expected[i]) {
+                    printf(
+                        "[%lu/%lu: OK ] %s (output: 0x%x = %u, load module: "
+                        "%fs, total: "
                         "%fs)\n",
-                        i + 1, num_benchmarks, path, m->stack->value.uint32, m->stack->value.uint32, load,
-                        total);
+                        i + 1, num_benchmarks, path, res, res, load, total);
+                    correct++;
+                } else {
+                    printf(
+                        "[%lu/%lu:FAIL] %s (output: 0x%x = %u (!= %u), load "
+                        "module: "
+                        "%fs, total: "
+                        "%fs)\n",
+                        i + 1, num_benchmarks, path, res, res, expected[i],
+                        load, total);
+                }
             }
         } else {
             printf("[%lu/%lu:FAIL] %s did not have an exported function " MAIN
@@ -84,10 +101,15 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
                    i, num_benchmarks, path);
         }
     }
+    return correct;
 }
 
 int main(int argc, const char *argv[]) {
     string benchmarks[] = {"tak", "fib", "fac", "gcd", "catalan", "primes"};
-    run_benchmarks((size_t) (sizeof(benchmarks) / sizeof(string *)), benchmarks);
-    return 0;
+    uint32_t expected[] = {7, 91, 82, 62882, 244, 1824};
+    size_t num = (size_t)(sizeof(benchmarks) / sizeof(string *));
+    size_t correct = run_benchmarks(num, benchmarks, expected);
+    bool pass = (num == correct);
+    printf("SUMMARY: %s (%u / %u)\n", pass ? "PASS" : "FAIL", correct, num);
+    return pass ? 0 : 1;
 }
