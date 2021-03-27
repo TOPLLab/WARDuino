@@ -11,6 +11,8 @@ The various benchmark tests are listed in the [tasks](tasks) folder. In there, e
 ## Local run
 
 To run the benchmarks localy on your computer, without board, execute one of the following in this folder.
+The benchmark program will also check the return values of all the functions in this mode and keep track of the total.
+Edit the `main` of benchmarks.cpp to add and/or remove tasks or modify their expected return values.
 
 - No tracing no debugging
   ```bash

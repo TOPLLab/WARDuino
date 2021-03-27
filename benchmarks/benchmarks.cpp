@@ -1,4 +1,5 @@
-#include <cstring>
+#include <string.h>
+
 #include <iostream>
 
 #include "../WARDuino.h"
@@ -42,12 +43,13 @@ unsigned int read_file_to_buf(unsigned char *bytes, string path) {
     }
 }
 
-void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
+int run_benchmarks(size_t num_benchmarks, string benchmarks[],
+                   uint32_t expected[]) {
     char path[MAX_PATH];
     unsigned char bytes[MAX_BYTE_CODE_SIZE];
     unsigned int bytes_length;
     auto *w = new WARDuino();
-
+    size_t correct = 0;
     for (size_t i = 0; i < num_benchmarks; i++) {
         string name = benchmarks[i];
         set_path(path, name);
@@ -76,12 +78,23 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
                        num_benchmarks, path);
                 exit(1);
             } else {
-                printf(
-                    "[%lu/%lu: OK ] %s (output: 0x%x = %u, load module: %fs, "
-                    "total: "
-                    "%fs)\n",
-                    i + 1, num_benchmarks, path, m->stack->value.uint32,
-                    m->stack->value.uint32, load, total);
+                uint32_t res = m->stack->value.uint32;
+                if (res == expected[i]) {
+                    printf(
+                        "[%lu/%lu: OK ] %s (output: 0x%x = %u, load module: "
+                        "%fs, total: "
+                        "%fs)\n",
+                        i + 1, num_benchmarks, path, res, res, load, total);
+                    correct++;
+                } else {
+                    printf(
+                        "[%lu/%lu:FAIL] %s (output: 0x%x = %u (!= %u), load "
+                        "module: "
+                        "%fs, total: "
+                        "%fs)\n",
+                        i + 1, num_benchmarks, path, res, res, expected[i],
+                        load, total);
+                }
             }
         } else {
             printf("[%lu/%lu:FAIL] %s did not have an exported function " MAIN
@@ -90,10 +103,15 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
         }
         w->unload_module(m);
     }
+    return correct;
 }
 
 int main(int argc, const char *argv[]) {
     string benchmarks[] = {"tak", "fib", "fac", "gcd", "catalan", "primes"};
-    run_benchmarks((size_t)(sizeof(benchmarks) / sizeof(string *)), benchmarks);
-    return 0;
+    uint32_t expected[] = {7, 91, 82, 62882, 244, 1824};
+    size_t num = (size_t)(sizeof(benchmarks) / sizeof(string *));
+    size_t correct = run_benchmarks(num, benchmarks, expected);
+    bool pass = (num == correct);
+    printf("SUMMARY: %s (%zu / %zu)\n", pass ? "PASS" : "FAIL", correct, num);
+    return pass ? 0 : 1;
 }
