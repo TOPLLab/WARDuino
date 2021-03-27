@@ -25,7 +25,7 @@ The following list keeps track of which tests succeed and which fail:
 - [ ] elem.wast
 - [ ] endianness.wast
 - [ ] exports.wast
-- [ ] f32.wast
+- [x] f32.wast
 - [ ] f32_bitwise.wast
 - [ ] f32_cmp.wast
 - [ ] f64.wast

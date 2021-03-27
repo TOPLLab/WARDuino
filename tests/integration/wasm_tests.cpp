@@ -19,7 +19,7 @@ int COUNT = 0;
 uint8_t *mmap_file(char *path, int *len) {
     int fd;
     int res;
-    struct stat sb;
+    struct stat sb {};
     uint8_t *bytes;
 
     fd = open(path, O_RDONLY);
@@ -243,7 +243,7 @@ Action *parseActionNode(SNode *actionNode) {
 
 bool resolveAssert(SNode *node, Module *m) {
     char *assertType = node->value;
-    bool success = false;
+    bool success = true;
     if (strcmp(assertType, "assert_return") == 0) {
         Action *action = parseActionNode(node->next);
         Result *result = parseResultNode(node->next->next);
@@ -274,7 +274,8 @@ bool resolveAssert(SNode *node, Module *m) {
 int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
                 std::string &output_path, const std::string &wasm_command) {
     // Compile wasm program
-    COMPILE(wasm_command + " " + module_file_path + " -o " + output_path);
+    COMPILE(wasm_command + " " + module_file_path + " -o " + output_path +
+            " --enable-sign-extension");
 
     // Load wasm program
     int byte_count;
