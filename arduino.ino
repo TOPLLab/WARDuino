@@ -33,7 +33,7 @@ void setup() {
 }
 
 void loop() {
-    Module* m = wac.load_module(hello_world_wasm, hello_world_wasm_len, {});
+    Module *m = wac.load_module(hello_world_wasm, hello_world_wasm_len, {});
     printf("START\n\n");
     for (size_t i = 0; i < 10; i++) {
         wac.run_module(m);

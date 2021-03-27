@@ -1,11 +1,9 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-
 #include <climits>
 #include <cstdint>
 #include <cstdlib>
-
 
 /**
  * Read a Little endian base value of 32 bits
@@ -16,11 +14,10 @@
  */
 uint32_t read_LEB_32(uint8_t **pos);
 
-
 /**
  * Read a Little endian base value
  * see: https://en.wikipedia.org/wiki/LEB128
- * 
+ *
  * @param bytes    from which to decode
  * @param pos      The index in the bytes array to start reading from
  * @param maxbits  The maximal numer of bits to read
@@ -29,13 +26,12 @@ uint64_t read_LEB(uint8_t **pos, uint32_t maxbits);
 
 /**
  * Read a Little endian base value as signed
- * 
+ *
  * @param bytes    from which to decode
  * @param pos      The index in the bytes array to start reading from
  * @param maxbits  The maximal numer of bits to read
  */
 uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits);
-
 
 uint32_t read_uint32(uint8_t **pos);
 
@@ -64,4 +60,3 @@ double wa_fmax(double a, double b);
 double wa_fmin(double a, double b);
 
 #endif
-
