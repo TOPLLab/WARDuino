@@ -34,6 +34,7 @@ CXXSOURCES = \
 	../WARDuino.cpp \
 	../primitives.cpp \
 	../instructions.cpp \
+	../glue.cpp \
 	benchmarks.cpp
 
 all: $(OUTPUTDIR)$(TARGET) $(addprefix tasks/,$(addsuffix /wast/impl.wasm, $(TASKS)))

@@ -23,7 +23,14 @@ all: $(addsuffix /wast/arduino/arduino.ino,$(TASKS)) $(addsuffix /wast/impl.wast
 		sed '/#include \+"Arduino.h"/d'>> $@
 
 %/wast/impl.wasm:  %/wast/impl.c
-	emcc $< -s ONLY_MY_CODE=1 --ignore-dynamic-linking -s WASM=1 -O3 -s NO_FILESYSTEM=1  -o $@
+	emcc $< \
+		-s STANDALONE_WASM \
+		--ignore-dynamic-linking \
+		-s WASM=1 \
+		-s NO_FILESYSTEM=1 \
+        -s SIDE_MODULE=1 \
+		-O3 \
+		-o $@
 	cat $@ > /dev/null
 
 %/wast/impl.wast: %/wast/impl.wasm
