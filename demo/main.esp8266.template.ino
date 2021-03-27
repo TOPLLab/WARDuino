@@ -1,16 +1,16 @@
+#include <Ticker.h>
+
 #include "Arduino.h"
 #include "WARDuino.h"
-#include <Ticker.h>
 WARDuino wac;
 
-#define  DBGTIMEOUT 500000
-
+#define DBGTIMEOUT 500000
 
 volatile bool handlingInterrupt = false;
 uint8_t buff[100] = {0};
 uint8_t buff_len = 0;
 
-void ICACHE_RAM_ATTR dbgCheck(){
+void ICACHE_RAM_ATTR dbgCheck() {
     noInterrupts();
     bool oldHandeling = handlingInterrupt;
     handlingInterrupt = true;
@@ -20,8 +20,8 @@ void ICACHE_RAM_ATTR dbgCheck(){
     while (Serial.available()) {
         size_t buff_len = 0;
         while (Serial.available()) {
-            buff[buff_len++] = (int8_t) Serial.read();
-            if(buff_len >= 99) break;
+            buff[buff_len++] = (int8_t)Serial.read();
+            if (buff_len >= 99) break;
         }
         if (buff_len) {
             wac.handleInterrupt(buff_len, buff);
@@ -33,8 +33,7 @@ void ICACHE_RAM_ATTR dbgCheck(){
     timer1_write(DBGTIMEOUT);
 }
 
-void setup()
-{
+void setup() {
     Serial.begin(115200);
 
     // Set timer
@@ -44,8 +43,12 @@ void setup()
 }
 
 void loop() {
-    Module* m = wac.load_module(
-            {{src}}, {{src}}_len,
-            {.disable_memory_bounds = false, .mangle_table_index=false, .dlsym_trim_underscore=true});
+    Module *m = wac.load_module(
+        // clang-format off
+        {{src}}, {{src}}_len,
+        // clang-format on
+        {.disable_memory_bounds = false,
+         .mangle_table_index = false,
+         .dlsym_trim_underscore = true});
     wac.run_module(m);
 }

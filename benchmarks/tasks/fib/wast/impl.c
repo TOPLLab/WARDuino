@@ -14,11 +14,10 @@ long __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE fib(int n) {
     return next;
 }
 
-int main()
-{
+int main() {
     int sum = 0;
-    #pragma nounroll
-    for(int i = 1000; i < 1050; i++){
+#pragma nounroll
+    for (int i = 1000; i < 1050; i++) {
         sum += fib(i);
         sum %= 97;
     }
