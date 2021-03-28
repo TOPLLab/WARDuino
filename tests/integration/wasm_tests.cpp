@@ -283,7 +283,7 @@ int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
 
     if (bytes == nullptr) {
         fprintf(stderr, "Could not load %s", output_path.c_str());
-        return 2;
+        return 1;
     }
 
     test->module = wac.load_module(bytes, byte_count, {});
@@ -296,7 +296,7 @@ int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
     FILE *asserts_file = fopen(asserts_file_path, "r");
     auto *test = (Test *)calloc(1, sizeof(Test));
     if (asserts_file == nullptr || test == nullptr) {
-        return -1;
+        return 1;
     }
 
     std::string output_path = module_file_path;
@@ -304,7 +304,7 @@ int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
     int ret = init_module(std::move(wac), test, module_file_path, output_path,
                           wasm_command);
     if (ret != 0) {
-        return -1;
+        return ret;
     }
 
     test->asserts = snode_parse(asserts_file);
@@ -337,6 +337,12 @@ int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
 
     // Remove compiled file
     remove(&output_path[0]);
+
+    if (all_tests_passed) {
+        printf("All tests passed.\n");
+    } else {
+        printf("Some tests failed.\n");
+    }
 
     return all_tests_passed ? 0 : 2;
 }
