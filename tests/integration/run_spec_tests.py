@@ -1,8 +1,5 @@
-import os
-import shutil
-import subprocess
-
-TEST_WARDUINO_EXECUTABLE = "../../cmake-build-debug/TestWARDuino"
+import argparse
+import os, shutil, subprocess
 
 
 def main(test_directory):
@@ -32,7 +29,7 @@ def main(test_directory):
                         asserts_file.close()
 
                         try:
-                            subprocess.run([TEST_WARDUINO_EXECUTABLE, modules_file.name, asserts_file.name, "wat2wasm"])
+                            subprocess.run([args.exec, modules_file.name, asserts_file.name, "wat2wasm"])
                         except:
                             pass
 
@@ -52,7 +49,7 @@ def main(test_directory):
             asserts_file.close()
 
             try:
-                subprocess.run([TEST_WARDUINO_EXECUTABLE, modules_file.name, asserts_file.name, "wat2wasm"])
+                subprocess.run([args.exec, modules_file.name, asserts_file.name, "wat2wasm"])
             except subprocess.CalledProcessError:
                 pass
 
@@ -64,4 +61,10 @@ def main(test_directory):
 
 
 if __name__ == '__main__':
+    # Args handling
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--exec",  default="../../cmake-build-debug/TestWARDuino")
+
+    args = parser.parse_args()
+
     main("core/")
