@@ -31,5 +31,6 @@ void *arecalloc(void *ptr, size_t old_nmemb, size_t nmemb, size_t size,
     memmove(res, ptr, old_nmemb * size);
     // Initialize new memory
     memset(res + old_nmemb * size, 0, (nmemb - old_nmemb) * size);
+    free(ptr);
     return res;
 }
