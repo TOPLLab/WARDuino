@@ -21,21 +21,21 @@
 #include <SPI.h>
 SPIClass *spi = new SPIClass();
 
-//Hardeware SPI
-void write_spi_byte(unsigned char c){
-  spi->beginTransaction(SPISettings(20000000, MSBFIRST, SPI_MODE0));
-  spi->transfer(c);
-  spi->endTransaction();
+// Hardeware SPI
+void write_spi_byte(unsigned char c) {
+    spi->beginTransaction(SPISettings(20000000, MSBFIRST, SPI_MODE0));
+    spi->transfer(c);
+    spi->endTransaction();
 }
 
 void write_spi_bytes_16_prim(int times, uint32_t color) {
     unsigned char colorB = color >> 8;
     spi->beginTransaction(SPISettings(200000000, MSBFIRST, SPI_MODE0));
-    for (int x=0; x < times; x++) {
+    for (int x = 0; x < times; x++) {
         spi->transfer(colorB);
-          spi->transfer(color);
+        spi->transfer(color);
     }
-      spi->endTransaction();
+    spi->endTransaction();
 }
 
 #else
@@ -66,11 +66,11 @@ int prim_index = 0;
 #define install_primitive(prim_name)                                       \
     {                                                                      \
         dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-                 prim_index+1, ALL_PRIMITIVES, #prim_name);                  \
+                 prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
         if (prim_index < ALL_PRIMITIVES) {                                 \
-            PrimitiveEntry* p = &primitives[prim_index++];                 \
+            PrimitiveEntry *p = &primitives[prim_index++];                 \
             p->name = #prim_name;                                          \
-            p->f = &(prim_name);                                             \
+            p->f = &(prim_name);                                           \
         } else {                                                           \
             FATAL("pim_index out of bounds");                              \
         }                                                                  \
@@ -78,7 +78,7 @@ int prim_index = 0;
 
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
-    bool function_name(Module* m)
+    bool function_name(Module *m)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
@@ -104,42 +104,38 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 
 Type oneToNoneU32 = {
-        .form =  FUNC,
-        .param_count =  1,
-        .params =  param_I32_arr_len1,
-        .result_count =  0,
-        .results =  nullptr,
-        .mask =  0x8001 /* 0x800 = no return ; 1 = I32*/
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x8001 /* 0x800 = no return ; 1 = I32*/
 };
 
 Type twoToNoneU32 = {
-        .form =  FUNC,
-        .param_count =  2,
-        .params =  param_I32_arr_len2,
-        .result_count =  0,
-        .results =  nullptr,
-        .mask =  0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
+    .form = FUNC,
+    .param_count = 2,
+    .params = param_I32_arr_len2,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
 };
-
 
 Type oneToOneU32 = {
-        .form =  FUNC,
-        .param_count =  1,
-        .params =  param_I32_arr_len1,
-        .result_count =  1,
-        .results =  param_I32_arr_len1,
-        .mask =  0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
 };
 
-Type NoneToNoneU32 = {
-        .form =  FUNC,
-        .param_count =  0,
-        .params =  nullptr,
-        .result_count =  0,
-        .results =  nullptr,
-        .mask =  0x80000
-};
-
+Type NoneToNoneU32 = {.form = FUNC,
+                      .param_count = 0,
+                      .params = nullptr,
+                      .result_count = 0,
+                      .results = nullptr,
+                      .mask = 0x80000};
 
 //------------------------------------------------------
 // Arduino Specific Functions
@@ -150,11 +146,10 @@ def_prim(assert_int, oneToNoneU32) {
     uint8_t boolean = arg0.uint32;
     sprintf(exception, "Trap: assertion failed");
     pop_args(1);
-    return (bool) boolean;
+    return (bool)boolean;
 }
 
-
-//warning: undefined symbol: chip_pin_mode
+// warning: undefined symbol: chip_pin_mode
 def_prim(chip_pin_mode, twoToNoneU32) {
     printf("chip_pin_mode \n");
     uint8_t pin = arg1.uint32;
@@ -181,8 +176,8 @@ def_prim(chip_delay, oneToNoneU32) {
     return true;
 }
 
-//warning: undefined symbol: chip_delay_us
-def_prim (chip_delay_us, oneToNoneU32) {
+// warning: undefined symbol: chip_delay_us
+def_prim(chip_delay_us, oneToNoneU32) {
     yield();
     delay_us(arg0.uint32);
     pop_args(1);
@@ -196,23 +191,23 @@ def_prim(chip_digital_read, oneToOneU32) {
     return true;
 }
 
-//warning: undefined symbol: write_spi_byte
-def_prim (write_spi_byte, oneToNoneU32) {
+// warning: undefined symbol: write_spi_byte
+def_prim(write_spi_byte, oneToNoneU32) {
     write_spi_byte(arg0.uint32);
     pop_args(1);
     return true;
 }
 
-//warning: undefined symbol: spi_begin
-def_prim (spi_begin, NoneToNoneU32) {
+// warning: undefined symbol: spi_begin
+def_prim(spi_begin, NoneToNoneU32) {
     yield();
     printf("spi_begin \n");
     spi->begin();
     return true;
 }
 
-def_prim(write_spi_bytes_16,twoToNoneU32) {
-        write_spi_bytes_16_prim(arg1.uint32,arg0.uint32);
+def_prim(write_spi_bytes_16, twoToNoneU32) {
+    write_spi_bytes_16_prim(arg1.uint32, arg0.uint32);
     pop_args(2);
     return true;
 }
@@ -223,7 +218,7 @@ def_prim(assert_int, oneToNoneU32) {
     uint8_t boolean = arg0.uint32;
     dbg_trace("EMU: assert(%u) \n", boolean);
     pop_args(1);
-    return (bool) boolean;
+    return (bool)boolean;
 }
 
 def_prim(chip_pin_mode, twoToNoneU32) {
@@ -258,15 +253,15 @@ def_prim(chip_delay_us, oneToNoneU32) {
     return true;
 }
 
-//warning: undefined symbol: write_spi_byte
-def_prim (write_spi_byte, oneToNoneU32) {
+// warning: undefined symbol: write_spi_byte
+def_prim(write_spi_byte, oneToNoneU32) {
     dbg_trace("EMU: write_spi_byte(%u) \n", arg0.uint32);
     pop_args(1);
     return true;
 }
 
-//warning: undefined symbol: spi_begin
-def_prim (spi_begin, NoneToNoneU32) {
+// warning: undefined symbol: spi_begin
+def_prim(spi_begin, NoneToNoneU32) {
     dbg_trace("EMU: spi_begin \n");
     return true;
 }
@@ -276,7 +271,6 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     pop_args(2);
     return true;
 }
-
 
 #endif
 
@@ -293,7 +287,7 @@ void analogWriteRange(uint32_t range)
 //------------------------------------------------------
 void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
-    //install_primitive(rand);
+    // install_primitive(rand);
 #ifdef ARDUINO
     dbg_info("INSTALLING ARDUINO\n");
     install_primitive(assert_int);
@@ -325,7 +319,7 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
 
     for (auto &primitive : primitives) {
-        //printf("Checking %s = %s  \n", symbol, primitives[i].name);
+        // printf("Checking %s = %s  \n", symbol, primitives[i].name);
         if (!strcmp(symbol, primitive.name)) {
             debug("FOUND PRIMITIVE\n");
             *val = primitive.f;
@@ -344,9 +338,9 @@ bool resolve_external_memory(char *symbol, Memory **val) {
             external_mem.initial = 256;
             external_mem.maximum = 256;
             external_mem.pages = 256;
-            external_mem.bytes = (uint8_t *) acalloc(
-                    external_mem.pages * PAGE_SIZE, sizeof(uint32_t),
-                    "Module->memory.bytes primitive");
+            external_mem.bytes = (uint8_t *)acalloc(
+                external_mem.pages * PAGE_SIZE, sizeof(uint32_t),
+                "Module->memory.bytes primitive");
         }
         *val = &external_mem;
         return true;

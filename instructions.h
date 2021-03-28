@@ -1,6 +1,5 @@
 #include "WARDuino.h"
 
-
 /**
  * Push a new frame on to the call stack
  * @param m module

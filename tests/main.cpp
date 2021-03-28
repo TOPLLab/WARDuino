@@ -1,23 +1,15 @@
-#include <iostream>
-#include "../debug.h"
-#include "../WARDuino.h"
-#include "../WARDuino.h"
-#include "../instructions.h"
-#include <csignal>
-#include <sys/mman.h>
-#include <cstdlib>
-
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <cstring>
-#include <cmath>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-extern "C" {
-#include "./sexpr-parser/src/sexpr.h"
-}
+#include <csignal>
+#include <iostream>
 
-#include "assertion.h"
+#include "../WARDuino.h"
+#include "../debug.h"
+#include "../instructions.h"
 
 extern "C" {
 // TODO: Stat files, alternative needed for arduino
@@ -35,9 +27,9 @@ void signalHandler(int /* signum */) {
     if (handlingInterrupt) return;
 
     printf("CHANGE REQUESTED!");
-    struct stat statbuff{};
+    struct stat statbuff {};
     if (stat("/tmp/change", &statbuff) == 0 && statbuff.st_size > 0) {
-        auto *data = (uint8_t *) malloc(statbuff.st_size * sizeof(uint8_t));
+        auto *data = (uint8_t *)malloc(statbuff.st_size * sizeof(uint8_t));
         FILE *fp = fopen("/tmp/change", "rb");
         fread(data, statbuff.st_size, 1, fp);
         fclose(fp);
@@ -54,51 +46,64 @@ uint8_t *mmap_file(char *path, int *len) {
     uint8_t *bytes;
 
     fd = open(path, O_RDONLY);
-    if (fd < 0) {FATAL("could not open file '%s'\n", path); }
+    if (fd < 0) {
+        FATAL("could not open file '%s'\n", path);
+    }
     res = fstat(fd, &sb);
-    if (res < 0) {FATAL("could not stat file '%s' (%d)\n", path, res); }
+    if (res < 0) {
+        FATAL("could not stat file '%s' (%d)\n", path, res);
+    }
 
-    bytes = (uint8_t *) mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    bytes = (uint8_t *)mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (len) {
         *len = sb.st_size;  // Return length if requested
     }
-    if (bytes == MAP_FAILED) {FATAL("could not mmap file '%s'", path); }
+    if (bytes == MAP_FAILED) {
+        FATAL("could not mmap file '%s'", path);
+    }
     return bytes;
 }
 
 // Parse and add arguments to the stack
-void parse_args(Module *m, Type *type, int argc, Value argv[]) {
+void parse_args(Module *m, Type *type, int argc, char argv[][40]) {
     for (int i = 0; i < argc; i++) {
+        for (int j = 0; argv[i][j]; j++) {
+            argv[i][j] = tolower(argv[i][j]);  // lowecase
+        }
         m->sp++;
         StackValue *sv = &m->stack[m->sp];
         sv->value_type = type->params[i];
         switch (type->params[i]) {
-            case I64:
-                sv->value.int64 = argv[i].int64;
-                break;
             case I32:
-                sv->value.int32 = argv[i].int32;
+                sv->value.uint32 = strtoul(argv[i], NULL, 0);
                 break;
-/*        case F32: if (strncmp("-nan", argv[i], 4) == 0) {
-                      sv->value.f32 = -NAN;
-                  } else {
-                      sv->value.f32 = atof(argv[i]);
-                  }; break;
-        case F64: if (strncmp("-nan", argv[i], 4) == 0) {
-                      sv->value.f64 = -NAN;
-                  } else {
-                      sv->value.f64 = atof(argv[i]);
-                  }; break;*/
+            case I64:
+                sv->value.uint64 = strtoull(argv[i], NULL, 0);
+                break;
+            case F32:
+                if (strncmp("-nan", argv[i], 4) == 0) {
+                    sv->value.f32 = -NAN;
+                } else {
+                    sv->value.f32 = atof(argv[i]);
+                };
+                break;
+            case F64:
+                if (strncmp("-nan", argv[i], 4) == 0) {
+                    sv->value.f64 = -NAN;
+                } else {
+                    sv->value.f64 = atof(argv[i]);
+                };
+                break;
         }
     }
 }
 
-void invoke(Module *m, const char *call_f, Value values[]) {
+void invoke(Module *m, char *call_f, char args[][40]) {
     uint32_t fidx = -1;
     m->sp = -1;
     m->fp = -1;
     m->csp = -1;
-    //TODO move to the WARDuino class     
+    // TODO move to the WARDuino class
     for (uint32_t f = 0; f < m->function_count; f++) {
         char *fname = m->functions[f].export_name;
         if (!fname) {
@@ -112,7 +117,7 @@ void invoke(Module *m, const char *call_f, Value values[]) {
 
     Block *func = &m->functions[fidx];
     Type *type = func->type;
-    parse_args(m, type, type->param_count, values);
+    parse_args(m, type, type->param_count, args);
     setup_call(m, fidx);
     interpret(m, true);
 }
@@ -268,43 +273,19 @@ void resolveAssert(SNode *node, Module *m) {
 }
 
 /**
- * Run code, execute interrupts in /tmp/change if a USR1 signal comes
-*/
+ * Run code, ececute interrups in /tmp/change if a USR1 signal comes
+ */
 int main(int argc, char **argv) {
     uint8_t *bytes;
     int byte_count;
     signal(SIGUSR1, signalHandler);
-
     // Load the path name
-    char *wast_path = argv[1];
-    char *tests_path = argv[2];
-    char *wasm_command = argv[3];
+    char *mod_path = argv[1];
 
-    // Compile wasm program
-    std::string out_path = wast_path;
-    out_path += ".wasm";
-    std::string command = wasm_command;
-    command += " ";
-    command += wast_path;
-    command += " -o ";
-    command += out_path;
-    printf("%s", command.c_str());
-    COMPILE(command);
+    bytes = mmap_file(mod_path, &byte_count);
 
-    // Load wasm program
-    bytes = mmap_file(&out_path[0], &byte_count);
-
-    if (bytes == nullptr) {
-        fprintf(stderr, "Could not load %s", out_path.c_str());
-        return 2;
-    }
-
-    Module *m = wac.load_module(bytes, byte_count, {});
-
-    // Parse asserts as s-expressions
-    FILE *fp = fopen(tests_path, "r");
-    if (fp == nullptr) {
-        fprintf(stderr, "Could not open %s", tests_path);
+    if (bytes == NULL) {
+        fprintf(stderr, "Could not load %s", mod_path);
         return 2;
     }
     struct SNode *node = snode_parse(fp);
@@ -336,5 +317,12 @@ int main(int argc, char **argv) {
     // Remove compiled file
     remove(&out_path[0]);
 
+    Module *m = wac.load_module(bytes, byte_count, {});
+    //(assert_return (invoke "fac-rec" (i64.const 25)) (i64.const
+    // 7034535277573963776))
+    char args[][40] = {"25"};
+    char fcall[] = "fac-rec";
+    invoke(m, fcall, args);
+    // actual test
     return 0;
 }
