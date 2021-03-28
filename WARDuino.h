@@ -1,5 +1,3 @@
-
-
 #ifndef WAC_H
 #define WAC_H
 
@@ -193,6 +191,7 @@ class WARDuino {
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};
 
+    // Breakpoint to skip in the next interpretation step
     uint8_t *skipBreakpoint = nullptr;
 
     WARDuino();
