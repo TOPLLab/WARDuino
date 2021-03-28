@@ -1487,13 +1487,12 @@ bool interpret(Module *m) {
         CallbackHandler::resolve_event();
         //        }
 
-        // Don't check for breakpoints while paused
-        if (m->warduino->isBreakpoint(m->pc_ptr)) {
-            if (m->warduino->skipBreakpoint != m->pc_ptr) {
-                program_state = WARDUINOpause;
-                printf("AT %p!\n", (void *)m->pc_ptr);
-                continue;
-            }
+        // if BP and not the one we just unpaused
+        if (m->warduino->isBreakpoint(m->pc_ptr) &&
+            m->warduino->skipBreakpoint != m->pc_ptr) {
+            program_state = WARDUINOpause;
+            printf("AT %p!\n", (void *)m->pc_ptr);
+            continue;
         }
         m->warduino->skipBreakpoint = nullptr;
 
