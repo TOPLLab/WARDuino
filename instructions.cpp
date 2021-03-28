@@ -567,8 +567,8 @@ bool i_instr_grow_memory(Module *m) {
     }
     m->memory.pages += delta;
     m->memory.bytes = (uint8_t *)arecalloc(
-        m->memory.bytes, prev_pages * PAGE_SIZE, m->memory.pages * PAGE_SIZE,
-        1, "Module->memory.bytes");
+        m->memory.bytes, prev_pages * PAGE_SIZE, m->memory.pages * PAGE_SIZE, 1,
+        "Module->memory.bytes");
     return true;
 }
 
