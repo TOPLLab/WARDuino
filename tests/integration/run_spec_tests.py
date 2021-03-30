@@ -45,7 +45,7 @@ def main(test_directory):
 
             if not failed:
                 try:
-                    subprocess.run([args.exec, modules_file.name, asserts_file.name, "wat2wasm"])
+                    subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler])
                 except subprocess.CalledProcessError:
                     pass
 
@@ -59,7 +59,8 @@ def main(test_directory):
 if __name__ == '__main__':
     # Args handling
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exec", default="../../cmake-build-debug/TestWARDuino")
+    parser.add_argument("--interpreter", default="../../cmake-build-debug/TestWARDuino", help="Interpreter")
+    parser.add_argument("--compiler", default="wat2wasm", help="WebAssembly text format compiler (default: wat2wasm)")
 
     args = parser.parse_args()
 
