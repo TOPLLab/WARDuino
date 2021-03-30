@@ -272,11 +272,12 @@ bool resolveAssert(SNode *node, Module *m) {
 int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
                 std::string &output_path, const std::string &wasm_command) {
     // Compile wasm program
-    std::string command = wasm_command + " " + module_file_path + " -o " +
-                          output_path + " --enable-sign-extension";
+    std::string command =
+        wasm_command + " " + module_file_path + " -o " + output_path;
     int return_code = system((command).c_str());
     if (return_code != 0) {
-        fprintf(stderr, "Error: compilation of test modules failed.\n");
+        fprintf(stderr, "Error: \"%s\" failed to compile test.\n",
+                wasm_command.c_str());
         return return_code;
     }
 
