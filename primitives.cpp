@@ -131,6 +131,15 @@ Type twoToNoneU32 = {
         .mask =  0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
 };
 
+Type threeToNoneU32 = {
+        .form =  FUNC,
+        .param_count =  3,
+        .params =  param_I32_arr_len3,
+        .result_count =  0,
+        .results =  nullptr,
+        .mask =  0x800111 /* 0x800 = no return ; 1=I32; 1=I32; 1=I32*/
+};
+
 Type fourToNoneU32 = {
         .form =  FUNC,
         .param_count =  4,
@@ -431,17 +440,15 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 #include <PubSubClient.h>
 
 WiFiClient wifiClient;
-PubSubClient mqttClient;
+PubSubClient mqttClient(wifiClient);
 
 def_prim(mqtt_init, threeToNoneU32) {
     uint32_t server_param = arg2.uint32;
     uint32_t length = arg1.uint32;
     uint32_t port = arg0.uint32;
 
-    String server = parse_utf8_string(m->memory.bytes, length, server_param).c_str();
-
-    mqttClient = client(wifiClient);
-    mqttClient.setServer(mqtt_server, port);
+    const char *server = parse_utf8_string(m->memory.bytes, length, server_param).c_str();
+    mqttClient.setServer(server, port);
 
     pop_args(2);
     return true;
