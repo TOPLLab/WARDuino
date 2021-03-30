@@ -54,7 +54,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 17
+#define NUM_PRIMITIVES_ARDUINO 25
 #else
 #define NUM_PRIMITIVES_ARDUINO 17
 #endif
@@ -63,6 +63,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 // Global index for installing primitives
 int prim_index = 0;
+
 double sensor_emu = 0;
 
 /*
@@ -425,6 +426,66 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     return true;
 }
 
+// MQTT MODULE
+
+#include <PubSubClient.h>
+
+WiFiClient wifiClient;
+PubSubClient mqttClient;
+
+def_prim(mqtt_init, threeToNoneU32) {
+    uint32_t server_param = arg2.uint32;
+    uint32_t length = arg1.uint32;
+    uint32_t port = arg0.uint32;
+
+    String server = parse_utf8_string(m->memory.bytes, length, server_param).c_str();
+
+    mqttClient = client(wifiClient);
+    mqttClient.setServer(mqtt_server, port);
+
+    pop_args(2);
+    return true;
+}
+
+def_prim(mqtt_set_callback, oneToNoneU32) {
+    // TODO set fixed callback function (save results to queue) and save actual callback function
+    pop_args(1);
+    return true;
+}
+
+def_prim(mqtt_connect, twoToOneU32) {
+    // TODO call connect (start with only the clientID parameter)
+    pop_args(2);
+    return true;
+}
+
+def_prim(mqtt_connected, NoneToOneU32) {
+    // TODO
+    return true;
+}
+
+def_prim(mqtt_state, NoneToOneU32) {
+    // TODO
+    return true;
+}
+
+def_prim(mqtt_publish, fourToOneU32) {
+    // TODO
+    pop_args(4);
+    return true;
+}
+
+def_prim(mqtt_subscribe, twoToOneU32) {
+    // TODO
+    pop_args(2);
+    return true;
+}
+
+def_prim(mqtt_loop, NoneToOneU32) {
+    // TODO
+    return true;
+}
+
 #else
 
 def_prim(abort, NoneToNoneU32) {
@@ -706,22 +767,36 @@ void install_primitives() {
 #ifdef ARDUINO
     dbg_info("INSTALLING ARDUINO\n");
     install_primitive(abort);
+
     install_primitive(print_int);
     install_primitive(print_string);
+
     install_primitive(wifi_connect);
     install_primitive(wifi_status);
     install_primitive(wifi_localip);
+
     install_primitive(http_get);
     install_primitive(http_post);
+
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
     install_primitive(chip_digital_read);
     install_primitive(chip_analog_read);
     install_primitive(chip_delay_us);
+
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
     install_primitive(write_spi_bytes_16);
+
+    install_primitive(mqtt_init);
+    install_primitive(mqtt_set_callback);
+    install_primitive(mqtt_connect);
+    install_primitive(mqtt_connected);
+    install_primitive(mqtt_state);
+    install_primitive(mqtt_publish);
+    install_primitive(mqtt_subscribe);
+    install_primitive(mqtt_loop);
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(abort);
