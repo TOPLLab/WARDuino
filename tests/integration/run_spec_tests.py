@@ -1,5 +1,7 @@
 import argparse
-import os, shutil, subprocess
+import os
+import shutil
+import subprocess
 
 
 def main(test_directory):
@@ -22,20 +24,13 @@ def main(test_directory):
 
             file = modules_file
             module = False
+            failed = False
             for line in open(test_directory + filename, "r"):
                 if line.startswith("(module"):
                     if module:
-                        modules_file.close()
-                        asserts_file.close()
-
-                        try:
-                            subprocess.run([args.exec, modules_file.name, asserts_file.name, "wat2wasm"])
-                        except:
-                            pass
-
-                        modules_file = open(base_name + "_modules.wast", "w")
-                        asserts_file = open(base_name + "_asserts.wast", "w")
-                        print("\nnew module")
+                        print(f"""Error {filename} requires support for multiple modules""")
+                        failed = True
+                        break
 
                     file = modules_file
                     module = True
@@ -48,10 +43,11 @@ def main(test_directory):
             modules_file.close()
             asserts_file.close()
 
-            try:
-                subprocess.run([args.exec, modules_file.name, asserts_file.name, "wat2wasm"])
-            except subprocess.CalledProcessError:
-                pass
+            if not failed:
+                try:
+                    subprocess.run([args.exec, modules_file.name, asserts_file.name, "wat2wasm"])
+                except subprocess.CalledProcessError:
+                    pass
 
     # Remove temporary files
     try:
@@ -63,7 +59,7 @@ def main(test_directory):
 if __name__ == '__main__':
     # Args handling
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exec",  default="../../cmake-build-debug/TestWARDuino")
+    parser.add_argument("--exec", default="../../cmake-build-debug/TestWARDuino")
 
     args = parser.parse_args()
 

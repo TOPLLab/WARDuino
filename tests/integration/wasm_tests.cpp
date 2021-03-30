@@ -12,8 +12,6 @@
 #include "../../instructions.h"
 #include "assertion.h"
 
-#define COMPILE(command) system((command).c_str());
-
 int COUNT = 0;
 
 uint8_t *mmap_file(char *path, int *len) {
@@ -275,7 +273,13 @@ bool resolveAssert(SNode *node, Module *m) {
 int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
                 std::string &output_path, const std::string &wasm_command) {
     // Compile wasm program
-    COMPILE(wasm_command + " " + module_file_path + " -o " + output_path);
+    std::string command = wasm_command + " " + module_file_path + " -o " +
+                          output_path + " --enable-sign-extension";
+    int return_code = system((command).c_str());
+    if (return_code != 0) {
+        fprintf(stderr, "Error: compilation of test modules failed.\n");
+        return return_code;
+    }
 
     // Load wasm program
     int byte_count;
