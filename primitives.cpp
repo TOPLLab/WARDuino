@@ -54,7 +54,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 25
+#define NUM_PRIMITIVES_ARDUINO 26
 #else
 #define NUM_PRIMITIVES_ARDUINO 17
 #endif
@@ -241,6 +241,11 @@ int32_t http_post_request(Module *m, const String url, const String body, const 
 def_prim(abort, NoneToNoneU32) {
     sprintf(exception, "Trap: assertion failed.");
     return false;
+}
+
+def_prim(millis, NoneToOneU32) {
+    pushInt32(millis());
+    return true;
 }
 
 def_prim(print_int, oneToNoneU32) {
@@ -780,6 +785,7 @@ void install_primitives() {
 #ifdef ARDUINO
     dbg_info("INSTALLING ARDUINO\n");
     install_primitive(abort);
+    install_primitive(millis);
 
     install_primitive(print_int);
     install_primitive(print_string);
