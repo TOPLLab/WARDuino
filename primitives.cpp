@@ -290,10 +290,16 @@ def_prim(wifi_status, NoneToOneU32) {
 def_prim(wifi_localip, twoToOneU32) {
     uint32_t buff = arg1.uint32;
     uint32_t size = arg0.uint32;
-    String ip = String(WiFi.localIP());
+    IPAddress ip = WiFi.localIP();
+
+    String ipString = String(ip[0]);
+    for (byte octet = 1; octet < 4; ++octet) {
+        ipString += '.' + String(ip[octet]);
+    }
+
     // TODO handle too small buffer
-    for (unsigned long i = 0; i < ip.length(); i++) {
-        m->memory.bytes[buff + i] = (uint32_t) ip[i];
+    for (unsigned long i = 0; i < ipString.length(); i++) {
+        m->memory.bytes[buff + i] = (uint32_t) ipString[i];
     }
     pop_args(2);
     pushInt32(buff);
