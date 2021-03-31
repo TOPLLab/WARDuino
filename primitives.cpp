@@ -276,8 +276,6 @@ def_prim(wifi_connect, fourToNoneU32) {
 
     String ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid).c_str();
     String pass_str = parse_utf8_string(m->memory.bytes, len1, pass).c_str();
-    Serial.print("SSID: ");
-    Serial.println(ssid_str);
 
     connect(ssid_str, pass_str);
 
@@ -461,7 +459,7 @@ def_prim(mqtt_init, threeToNoneU32) {
     const char *server = parse_utf8_string(m->memory.bytes, length, server_param).c_str();
     mqttClient.setServer(server, port);
 
-    pop_args(2);
+    pop_args(3);
     return true;
 }
 
@@ -472,24 +470,40 @@ def_prim(mqtt_set_callback, oneToNoneU32) {
 }
 
 def_prim(mqtt_connect, twoToOneU32) {
-    // TODO call connect (start with only the clientID parameter)
+    uint32_t client_id_param = arg1.uint32;
+    uint32_t length = arg0.uint32;
+
+    const char *client_id = parse_utf8_string(m->memory.bytes, length, client_id_param).c_str();
+    bool ret = mqttClient.connect(client_id);
+
     pop_args(2);
+    pushInt32((int) ret);
     return true;
 }
 
 def_prim(mqtt_connected, NoneToOneU32) {
-    // TODO
+    pushInt32((int) mqttClient.connected());
     return true;
 }
 
 def_prim(mqtt_state, NoneToOneU32) {
-    // TODO
+    pushInt32(mqttClient.state());
     return true;
 }
 
 def_prim(mqtt_publish, fourToOneU32) {
-    // TODO
+    uint32_t topic_param = arg3.uint32;
+    uint32_t topic_length = arg2.uint32;
+    uint32_t payload_param = arg1.uint32;
+    uint32_t payload_length = arg0.uint32;
+
+    const char *topic = parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
+    const char *payload = parse_utf8_string(m->memory.bytes, payload_length, payload_param).c_str();
+
+    bool ret = mqttClient.publish(topic, payload);
+
     pop_args(4);
+    pushInt32((int) ret);
     return true;
 }
 
@@ -500,7 +514,7 @@ def_prim(mqtt_subscribe, twoToOneU32) {
 }
 
 def_prim(mqtt_loop, NoneToOneU32) {
-    // TODO
+    pushInt32((int) mqttClient.loop());
     return true;
 }
 
