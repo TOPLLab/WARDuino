@@ -960,3 +960,37 @@ void WARDuino::delBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
 bool WARDuino::isBreakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end();
 }
+
+// Callback Handler
+
+void CallbackHandler::add_callback(const std::string& id, callback c) {
+    callbacks.insert(std::pair<std::string, callback>(id, c));
+}
+
+void CallbackHandler::push_event(const Event& e) {
+    events.push(e);
+}
+
+void CallbackHandler::process_event() {
+    if (events.empty()) {
+        return;
+    }
+
+    Event event = events.front();
+    events.pop();
+
+    auto iterator = callbacks.find(event.callback_function_id);
+    if (iterator != callbacks.end()) {
+        uint32_t function_index = iterator->second.function_index;
+        // TODO save state of VM
+
+        // TODO push arguments
+
+        // TODO call function
+
+        // TODO restore state of VM
+    } else {
+        // TODO error: event for non-existing iterator
+        return;
+    }
+}

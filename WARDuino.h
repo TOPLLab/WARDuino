@@ -11,6 +11,7 @@
 #include <array>
 #include <vector>
 #include <set>
+#include <unordered_map>
 
 // Constants
 #define WA_MAGIC 0x6d736100
@@ -178,6 +179,30 @@ enum RunningState {
     WARDUINOrun, WARDUINOpause, WARDUINOstep
 };
 
+struct callback {
+    uint32_t function_index;
+};
+
+class Event {
+public:
+    std::string callback_function_id;
+    // TODO make args generic
+    uint32_t topic;
+    uint32_t topic_length;
+    uint32_t payload;
+    uint32_t payload_length;
+};
+
+class CallbackHandler {
+private:
+    std::unordered_map<std::string, callback> callbacks;
+    std::queue<Event> events;
+public:
+    void add_callback(const std::string& id, callback c);
+    void push_event(const Event& e);
+    void process_event();
+};
+
 class WARDuino {
 private:
     std::vector<Module *> modules = {};
@@ -194,6 +219,7 @@ private:
     long interruptSize;
 
 public:
+    CallbackHandler *callbackHandler = new CallbackHandler();
 
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};

@@ -473,6 +473,7 @@ def_prim(mqtt_init, threeToNoneU32) {
 
 void callback(char* topic, byte* payload, unsigned int length) {
     // TODO save results to queue
+    // TODO problem: how to access the WARDuino instance (wac) ?
     Serial.print("WARDuino got message from ");
     Serial.print(topic);
     Serial.print(" ");
@@ -484,7 +485,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 def_prim(mqtt_set_callback, oneToNoneU32) {
-    // TODO save actual callback function
+    // TODO save actual callback function -> problem: how to access the CallbackHandler instance?
     mqttClient.setCallback(callback);
     pop_args(1);
     return true;
