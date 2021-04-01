@@ -459,12 +459,33 @@ def_prim(mqtt_init, threeToNoneU32) {
     const char *server = parse_utf8_string(m->memory.bytes, length, server_param).c_str();
     mqttClient.setServer(server, port);
 
+#if DEBUG
+    Serial.print("Set MQTT server to [");
+    Serial.print(server);
+    Serial.print(":");
+    Serial.print(port);
+    Serial.println("]");
+#endif
+
     pop_args(3);
     return true;
 }
 
+void callback(char* topic, byte* payload, unsigned int length) {
+    // TODO save results to queue
+    Serial.print("WARDuino got message from ");
+    Serial.print(topic);
+    Serial.print(" ");
+    Serial.print(": ");
+    for (int i = 0; i < length; i++) {
+        Serial.print((char) payload[i]);
+    }
+    Serial.println();
+}
+
 def_prim(mqtt_set_callback, oneToNoneU32) {
-    // TODO set fixed callback function (save results to queue) and save actual callback function
+    // TODO save actual callback function
+    mqttClient.setCallback(callback);
     pop_args(1);
     return true;
 }
@@ -474,6 +495,10 @@ def_prim(mqtt_connect, twoToOneU32) {
     uint32_t length = arg0.uint32;
 
     const char *client_id = parse_utf8_string(m->memory.bytes, length, client_id_param).c_str();
+#if DEBUG
+    Serial.print("Connecting to MQTT server as ");
+    Serial.println(client_id);
+#endif
     bool ret = mqttClient.connect(client_id);
 
     pop_args(2);
@@ -498,9 +523,35 @@ def_prim(mqtt_publish, fourToOneU32) {
     uint32_t payload_length = arg0.uint32;
 
     const char *topic = parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
+#if DEBUG
+    Serial.print(topic_param);
+    Serial.print(" ");
+    Serial.print(topic_length);
+    Serial.print(" ");
+    Serial.print(topic);
+    Serial.println("");
+#endif
     const char *payload = parse_utf8_string(m->memory.bytes, payload_length, payload_param).c_str();
+#if DEBUG
+    Serial.print(payload_param);
+    Serial.print(" ");
+    Serial.print(payload_length);
+    Serial.print(" ");
+    Serial.print(payload);
+    Serial.println("");
+#endif
 
     bool ret = mqttClient.publish(topic, payload);
+
+#if DEBUG
+    Serial.print("Publish to ");
+    Serial.print(topic);
+    Serial.print(": ");
+    Serial.print(payload);
+    Serial.print(". ");
+    Serial.print(ret);
+    Serial.println("");
+#endif
 
     pop_args(4);
     pushInt32((int) ret);
@@ -508,8 +559,20 @@ def_prim(mqtt_publish, fourToOneU32) {
 }
 
 def_prim(mqtt_subscribe, twoToOneU32) {
-    // TODO
+    uint32_t topic_param = arg1.uint32;
+    uint32_t topic_length = arg0.uint32;
+
+    const char *topic = parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
+    bool ret = mqttClient.subscribe(topic);
+
+#if DEBUG
+    Serial.print("Subscribe to ");
+    Serial.print(topic);
+    Serial.println("");
+#endif
+
     pop_args(2);
+    pushInt32((int) ret);
     return true;
 }
 
