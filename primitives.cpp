@@ -56,7 +56,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 #ifdef ARDUINO
 #define NUM_PRIMITIVES_ARDUINO 26
 #else
-#define NUM_PRIMITIVES_ARDUINO 17
+#define NUM_PRIMITIVES_ARDUINO 18
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -580,6 +580,21 @@ def_prim(abort, NoneToNoneU32) {
     return false;
 }
 
+// call callback test function (temporary)
+def_prim(test, oneToNoneU32) {
+    uint32_t fidx = arg0.uint32;
+    Callback c = Callback(m, fidx);
+    CallbackHandler::add_callback("TEST", c);
+    auto topic = (char *) calloc(9, sizeof(char));
+    auto payload = (unsigned char *) calloc(11, sizeof(unsigned char));
+    CallbackHandler::push_event(topic, payload, 11);
+    free(topic);
+    free(payload);
+    CallbackHandler::resolve_event();
+    pop_args(1);
+    return true;
+}
+
 def_prim(print_int, oneToNoneU32) {
     debug("EMU: print %i\n", arg0.uint32);
     pop_args(1);
@@ -889,6 +904,7 @@ void install_primitives() {
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(abort);
+    install_primitive(test);
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(wifi_connect);

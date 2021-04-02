@@ -11,6 +11,8 @@
 
 #define UNDEF (uint32_t)(-1)
 
+#define pushUInt32(m, arg) m->stack[++(m)->sp].value.uint32 = arg
+
 char exception[512];
 
 // UTIL
@@ -1018,6 +1020,8 @@ void Callback::resolve_event(const Event &e) {
     module->sp = -1;
     module->fp = -1;
     module->csp = -1;
+
+    // TODO copy topic and payload to linear memory
 
     // TODO push arguments (5 args)
 
