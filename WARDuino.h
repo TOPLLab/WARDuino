@@ -187,20 +187,20 @@ class Event {
 public:
     std::string callback_function_id;
     // TODO make args generic
-    uint32_t topic;
-    uint32_t topic_length;
-    uint32_t payload;
-    uint32_t payload_length;
+    char *topic{};
+    char *payload{};
+
+    Event(char *topic, char* payload);
 };
 
 class CallbackHandler {
 private:
-    std::unordered_map<std::string, callback> callbacks;
-    std::queue<Event> events;
+    static std::unordered_map<std::string, callback> *callbacks;
+    static std::queue<Event> *events;
 public:
-    void add_callback(const std::string& id, callback c);
-    void push_event(const Event& e);
-    void process_event();
+    static void add_callback(const std::string& id, callback c);
+    static void push_event(char* topic, unsigned char* payload, unsigned int length);
+    static void process_event();
 };
 
 class WARDuino {

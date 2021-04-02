@@ -4,6 +4,7 @@
 #include "instructions.h"
 #include "primitives.h"
 #include <algorithm>    // std::find
+#include <utility>
 #include "debug.h"
 #include "mem.h"
 #include "util.h"
@@ -873,13 +874,9 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
     m->fp = -1;
     m->csp = -1;
 
-    dbg_trace("Interpretation starts\n");
-    dbg_dump_stack(m);
-    setup_call(m, fidx);
-    dbg_trace("Call setup\n");
-    result = interpret(m);
-    dbg_trace("Interpretation ended\n");
-    dbg_dump_stack(m);
+    dbg_trace("Interpretation starts\n");dbg_dump_stack(m);
+    setup_call(m, fidx);dbg_trace("Call setup\n");
+    result = interpret(m);dbg_trace("Interpretation ended\n");dbg_dump_stack(m);
     return result;
 }
 
@@ -961,26 +958,34 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end();
 }
 
-// Callback Handler
+// CallbackHandler class
 
-void CallbackHandler::add_callback(const std::string& id, callback c) {
-    callbacks.insert(std::pair<std::string, callback>(id, c));
+std::unordered_map<std::string, callback> *CallbackHandler::callbacks = new std::unordered_map<std::string, callback>();
+std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
+
+void CallbackHandler::add_callback(const std::string &id, callback c) {
+    callbacks->insert(std::pair<std::string, callback>(id, c));
 }
 
-void CallbackHandler::push_event(const Event& e) {
-    events.push(e);
+void CallbackHandler::push_event(char *topic, unsigned char *payload, unsigned int length) {
+    // TODO save results to queue
+    // TODO generic parameters. Should parameters be added to wasm linear memory?
+    // TODO make callback struct a class and move push_event to it
+    auto e = new Event(topic, reinterpret_cast<char *>(payload));
+    printf("Push event {id: %s, topic: %s, payload: %s}\n", e->callback_function_id.c_str(), e->topic, e->payload);
+    events->push(*e);
 }
 
 void CallbackHandler::process_event() {
-    if (events.empty()) {
+    if (CallbackHandler::events->empty()) {
         return;
     }
 
-    Event event = events.front();
-    events.pop();
+    Event event = CallbackHandler::events->front();
+    CallbackHandler::events->pop();
 
-    auto iterator = callbacks.find(event.callback_function_id);
-    if (iterator != callbacks.end()) {
+    auto iterator = CallbackHandler::callbacks->find(event.callback_function_id);
+    if (iterator != CallbackHandler::callbacks->end()) {
         uint32_t function_index = iterator->second.function_index;
         // TODO save state of VM
 
@@ -993,4 +998,12 @@ void CallbackHandler::process_event() {
         // TODO error: event for non-existing iterator
         return;
     }
+}
+
+// Event class
+
+Event::Event(char *topic, char *payload) {
+    this->callback_function_id = "MQTT";
+    this->topic = topic;
+    this->payload = payload;
 }

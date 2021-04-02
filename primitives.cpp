@@ -451,6 +451,8 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
+const std::string CALLBACK_ID = "MQTT";
+
 def_prim(mqtt_init, threeToNoneU32) {
     uint32_t server_param = arg2.uint32;
     uint32_t length = arg1.uint32;
@@ -471,22 +473,11 @@ def_prim(mqtt_init, threeToNoneU32) {
     return true;
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
-    // TODO save results to queue
-    // TODO problem: how to access the WARDuino instance (wac) ?
-    Serial.print("WARDuino got message from ");
-    Serial.print(topic);
-    Serial.print(" ");
-    Serial.print(": ");
-    for (int i = 0; i < length; i++) {
-        Serial.print((char) payload[i]);
-    }
-    Serial.println();
-}
-
 def_prim(mqtt_set_callback, oneToNoneU32) {
-    // TODO save actual callback function -> problem: how to access the CallbackHandler instance?
-    mqttClient.setCallback(callback);
+    uint32_t fidx = arg0.uint32;
+    mqttClient.setCallback(m->warduino->callbackHandler->push_event);
+    struct callback c = {fidx};
+    m->warduino->callbackHandler->add_callback(CALLBACK_ID, c);
     pop_args(1);
     return true;
 }
@@ -653,6 +644,7 @@ def_prim(http_get, fourToOneU32) {
     for (unsigned long i = 0; i < answer.length(); i++) {
         m->memory.bytes[response + i] = (uint32_t) answer[i];
     }
+
     // Pop args and return response address
     pop_args(4);
     pushInt32(response);
