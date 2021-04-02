@@ -476,7 +476,7 @@ def_prim(mqtt_init, threeToNoneU32) {
 def_prim(mqtt_set_callback, oneToNoneU32) {
     uint32_t fidx = arg0.uint32;
     mqttClient.setCallback(m->warduino->callbackHandler->push_event);
-    struct callback c = {fidx};
+    Callback c = Callback(m, fidx);
     m->warduino->callbackHandler->add_callback(CALLBACK_ID, c);
     pop_args(1);
     return true;

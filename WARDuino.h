@@ -179,13 +179,9 @@ enum RunningState {
     WARDUINOrun, WARDUINOpause, WARDUINOstep
 };
 
-struct callback {
-    uint32_t function_index;
-};
-
 class Event {
 public:
-    std::string callback_function_id;
+    std::string callback_function_id;  // TODO is always "MQTT" now
     // TODO make args generic
     char *topic{};
     char *payload{};
@@ -193,14 +189,25 @@ public:
     Event(char *topic, char* payload);
 };
 
+class Callback {
+private:
+    Module *module; // reference to module
+public:
+    uint32_t function_index;
+
+    explicit Callback(Module *m, uint32_t fidx);
+
+    void resolve_event(const Event& e);
+};
+
 class CallbackHandler {
 private:
-    static std::unordered_map<std::string, callback> *callbacks;
+    static std::unordered_map<std::string, Callback> *callbacks;
     static std::queue<Event> *events;
 public:
-    static void add_callback(const std::string& id, callback c);
+    static void add_callback(const std::string& id, Callback c);
     static void push_event(char* topic, unsigned char* payload, unsigned int length);
-    static void process_event();
+    static void resolve_event();
 };
 
 class WARDuino {

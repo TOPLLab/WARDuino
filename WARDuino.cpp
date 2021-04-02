@@ -960,11 +960,12 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
 
 // CallbackHandler class
 
-std::unordered_map<std::string, callback> *CallbackHandler::callbacks = new std::unordered_map<std::string, callback>();
+std::unordered_map<std::string, Callback> *CallbackHandler::callbacks = new std::unordered_map<std::string, Callback>();
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
-void CallbackHandler::add_callback(const std::string &id, callback c) {
-    callbacks->insert(std::pair<std::string, callback>(id, c));
+void CallbackHandler::add_callback(const std::string &id, Callback c) {
+    printf("Add Callback(%i)\n", c.function_index);
+    callbacks->insert(std::pair<std::string, Callback>(id, c));
 }
 
 void CallbackHandler::push_event(char *topic, unsigned char *payload, unsigned int length) {
@@ -976,7 +977,7 @@ void CallbackHandler::push_event(char *topic, unsigned char *payload, unsigned i
     events->push(*e);
 }
 
-void CallbackHandler::process_event() {
+void CallbackHandler::resolve_event() {
     if (CallbackHandler::events->empty()) {
         return;
     }
@@ -986,18 +987,49 @@ void CallbackHandler::process_event() {
 
     auto iterator = CallbackHandler::callbacks->find(event.callback_function_id);
     if (iterator != CallbackHandler::callbacks->end()) {
-        uint32_t function_index = iterator->second.function_index;
-        // TODO save state of VM
-
-        // TODO push arguments
-
-        // TODO call function
-
-        // TODO restore state of VM
+        iterator->second.resolve_event(event);
     } else {
         // TODO error: event for non-existing iterator
         return;
     }
+}
+
+// Callback class
+
+Callback::Callback(Module *m, uint32_t fidx) {
+    this->function_index = fidx;
+    this->module = m;
+}
+
+void Callback::resolve_event(const Event &e) {
+    // Save runtime state of VM
+    uint8_t *pc_ptr = module->pc_ptr;   // program counter
+    int sp = module->sp;                // operand stack pointer
+    int fp = module->fp;                // current frame pointer into stack
+    StackValue stack[STACK_SIZE];       // main operand stack
+    std::copy(std::begin(module->stack), std::end(module->stack), std::begin(stack));
+    int csp = module->csp;              // callstack pointer
+    Frame callstack[CALLSTACK_SIZE];    // callstack
+    std::copy(std::begin(module->callstack), std::end(module->callstack), std::begin(callstack));
+    uint32_t br_table[BR_TABLE_SIZE];   // br_table branch indexes
+    std::copy(std::begin(module->br_table), std::end(module->br_table), std::begin(br_table));
+
+    // TODO Empty stacks
+    module->sp = -1;
+    module->fp = -1;
+    module->csp = -1;
+
+    // TODO push arguments (5 args)
+
+    // TODO setup function
+
+    // TODO validate argument count
+
+    // TODO call function (call interpret - only callback function on callstack)
+
+    // TODO restore state of VM
+
+    // TODO copy over result of function call
 }
 
 // Event class
