@@ -86,6 +86,7 @@ void doDump(Module *m) {
                f->block->block_type, f->block->fidx, f->sp, f->fp,
                static_cast<void *>(f->ra_ptr), (i < m->csp) ? "," : "]}\n");
     }
+    fflush(stdout);
 }
 
 void doDumpLocals(Module *m) {
