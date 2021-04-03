@@ -966,7 +966,7 @@ std::unordered_map<std::string, Callback> *CallbackHandler::callbacks = new std:
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
 void CallbackHandler::add_callback(const Callback &c) {
-    printf("Add Callback(%s, %i)\n", c.id.c_str(), c.function_index);
+    printf("Add Callback(%s, %i)\n", c.id.c_str(), c.table_index);
     callbacks->insert(std::pair<std::string, Callback>(c.id, c));  // TODO what if id already present?
 }
 
@@ -998,14 +998,14 @@ void CallbackHandler::resolve_event() {
 
 // Callback class
 
-Callback::Callback(Module *m, std::string id, uint32_t fidx) {
+Callback::Callback(Module *m, std::string id, uint32_t tidx) {
     this->module = m;
     this->id = std::move(id);
-    this->function_index = fidx;
+    this->table_index = tidx;
 }
 
 void Callback::resolve_event(const Event &e) {
-    printf("Callback(%s, %i): resolving Event(%s, %s, %s)\n", id.c_str(), function_index,
+    printf("Callback(%s, %i): resolving Event(%s, %s, %s)\n", id.c_str(), table_index,
            e.callback_function_id.c_str(), e.topic, e.payload);
     // Save runtime state of VM
     uint8_t *pc_ptr = module->pc_ptr;   // program counter
@@ -1043,14 +1043,15 @@ void Callback::resolve_event(const Event &e) {
     module->stack[++module->sp].value.uint32 = payload.length();
 
     // Setup function
-    setup_call(module, function_index);
+    uint32_t fidx = module->table.entries[table_index];
+    setup_call(module, fidx);
 
     // Validate argument count
     // Callback function cannot return a result, should have return type void
     // TODO
 
     // Call function (call interpret - only callback function on callstack)
-    interpret(module);  // TODO error: pc_ptr is NULL
+    interpret(module);
 
     // Restore state of VM
     module->pc_ptr = pc_ptr;   // program counter

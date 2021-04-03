@@ -194,9 +194,9 @@ private:
     Module *module; // reference to module
 public:
     std::string id;
-    uint32_t function_index;
+    uint32_t table_index;
 
-    explicit Callback(Module *m, std::string id, uint32_t fidx);
+    explicit Callback(Module *m, std::string id, uint32_t tidx);
 
     void resolve_event(const Event& e);
 };
