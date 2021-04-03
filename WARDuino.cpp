@@ -965,9 +965,9 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
 std::unordered_map<std::string, Callback> *CallbackHandler::callbacks = new std::unordered_map<std::string, Callback>();
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
-void CallbackHandler::add_callback(const std::string &id, Callback c) {
-    printf("Add Callback(%i)\n", c.function_index);
-    callbacks->insert(std::pair<std::string, Callback>(id, c));
+void CallbackHandler::add_callback(const Callback &c) {
+    printf("Add Callback(%s, %i)\n", c.id.c_str(), c.function_index);
+    callbacks->insert(std::pair<std::string, Callback>(c.id, c));  // TODO what if id already present?
 }
 
 void CallbackHandler::push_event(const char *topic, const unsigned char *payload, unsigned int length) {
@@ -975,7 +975,7 @@ void CallbackHandler::push_event(const char *topic, const unsigned char *payload
     // TODO generic parameters. Should parameters be added to wasm linear memory?
     // TODO make callback struct a class and move push_event to it
     auto e = new Event(topic, reinterpret_cast<const char *>(payload));
-    printf("Push event {id: %s, topic: %s, payload: %s}\n", e->callback_function_id.c_str(), e->topic, e->payload);
+    printf("Push Event(%s, %s, %s)\n", e->callback_function_id.c_str(), e->topic, e->payload);
     events->push(*e);
 }
 
@@ -998,12 +998,15 @@ void CallbackHandler::resolve_event() {
 
 // Callback class
 
-Callback::Callback(Module *m, uint32_t fidx) {
-    this->function_index = fidx;
+Callback::Callback(Module *m, std::string id, uint32_t fidx) {
     this->module = m;
+    this->id = std::move(id);
+    this->function_index = fidx;
 }
 
 void Callback::resolve_event(const Event &e) {
+    printf("Callback(%s, %i): resolving Event(%s, %s, %s)\n", id.c_str(), function_index,
+           e.callback_function_id.c_str(), e.topic, e.payload);
     // Save runtime state of VM
     uint8_t *pc_ptr = module->pc_ptr;   // program counter
     int sp = module->sp;                // operand stack pointer
@@ -1016,24 +1019,47 @@ void Callback::resolve_event(const Event &e) {
     uint32_t br_table[BR_TABLE_SIZE];   // br_table branch indexes
     std::copy(std::begin(module->br_table), std::end(module->br_table), std::begin(br_table));
 
-    // TODO Empty stacks
+    // Empty stacks
     module->sp = -1;
     module->fp = -1;
     module->csp = -1;
 
-    // TODO copy topic and payload to linear memory
+    // Copy topic and payload to linear memory
+    uint32_t start = 10000;  // TODO use reserved area in linear memory
+    std::string topic = e.topic;
+    std::string payload = e.payload;
+    for (unsigned long i = 0; i < topic.length(); i++) {
+        module->memory.bytes[start + i] = (uint32_t) e.topic[i];
+    }
+    for (unsigned long i = topic.length(); i < payload.length(); i++) {
+        module->memory.bytes[start + i] = (uint32_t) e.payload[i];
+    }
 
-    // TODO push arguments (5 args)
+    // Push arguments (5 args)
+    module->stack[++module->sp].value.uint32 = start;
+    module->stack[++module->sp].value.uint32 = topic.length();
+    module->stack[++module->sp].value.uint32 = start + topic.length();
+    module->stack[++module->sp].value.uint32 = payload.length();
+    module->stack[++module->sp].value.uint32 = payload.length();
 
-    // TODO setup function
+    // Setup function
+    setup_call(module, function_index);
 
-    // TODO validate argument count
+    // Validate argument count
+    // Callback function cannot return a result, should have return type void
+    // TODO
 
-    // TODO call function (call interpret - only callback function on callstack)
+    // Call function (call interpret - only callback function on callstack)
+    interpret(module);  // TODO error: pc_ptr is NULL
 
-    // TODO restore state of VM
-
-    // TODO copy over result of function call
+    // Restore state of VM
+    module->pc_ptr = pc_ptr;   // program counter
+    module->sp = sp;                // operand stack pointer
+    module->fp = fp;                // current frame pointer into stack
+    std::copy(std::begin(stack), std::end(stack), std::begin(module->stack));
+    module->csp = csp;              // callstack pointer
+    std::copy(std::begin(callstack), std::end(callstack), std::begin(module->callstack));
+    std::copy(std::begin(br_table), std::end(br_table), std::begin(module->br_table));
 }
 
 // Event class

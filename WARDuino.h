@@ -193,9 +193,10 @@ class Callback {
 private:
     Module *module; // reference to module
 public:
+    std::string id;
     uint32_t function_index;
 
-    explicit Callback(Module *m, uint32_t fidx);
+    explicit Callback(Module *m, std::string id, uint32_t fidx);
 
     void resolve_event(const Event& e);
 };
@@ -205,7 +206,7 @@ private:
     static std::unordered_map<std::string, Callback> *callbacks;
     static std::queue<Event> *events;
 public:
-    static void add_callback(const std::string& id, Callback c);
+    static void add_callback(const Callback& c);
     static void push_event(const char* topic, const unsigned char* payload, unsigned int length);
     static void resolve_event();
 };
