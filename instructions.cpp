@@ -1467,6 +1467,11 @@ bool interpret(Module *m, bool return_exception) {
 
         // Progam state is not paused
 
+        // Resolve 1 callback event if queue is not empty and no event currently resolving
+        if (!CallbackHandler::resolving_event) {
+            CallbackHandler::resolve_event();
+        }
+
         // Don't check for breakpoints while paused
         if (m->warduino->isBreakpoint(m->pc_ptr)) {
             program_state = WARDUINOpause;
