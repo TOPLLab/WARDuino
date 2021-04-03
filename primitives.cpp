@@ -475,9 +475,9 @@ def_prim(mqtt_init, threeToNoneU32) {
 
 def_prim(mqtt_set_callback, oneToNoneU32) {
     uint32_t fidx = arg0.uint32;
-    mqttClient.setCallback(m->warduino->callbackHandler->push_event);
+    mqttClient.setCallback(CallbackHandler::push_event);
     Callback c = Callback(m, CALLBACK_ID, fidx);
-    m->warduino->callbackHandler->add_callback(c);
+    CallbackHandler::add_callback(c);
     pop_args(1);
     return true;
 }
@@ -588,7 +588,6 @@ def_prim(test, oneToNoneU32) {
     const char *topic = "TestTopic";
     auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
     CallbackHandler::push_event(topic, payload, 11);
-    CallbackHandler::resolve_event();
     pop_args(1);
     return true;
 }

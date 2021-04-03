@@ -1478,12 +1478,11 @@ bool interpret(Module *m, bool return_exception) {
         block_ptr = m->pc_ptr;
         m->pc_ptr += 1;
 
-        dbg_dump_stack(m);
-        dbg_trace(" PC: %p OPCODE: <%s> in %s\n", block_ptr,
-                  opcode_repr(opcode),
-                  m->pc_ptr > m->bytes && m->pc_ptr < m->bytes + m->byte_count
-                  ? "module"
-                  : "patch");
+        dbg_dump_stack(m);dbg_trace(" PC: %p OPCODE: <%s> in %s\n", block_ptr,
+                                    opcode_repr(opcode),
+                                    m->pc_ptr > m->bytes && m->pc_ptr < m->bytes + m->byte_count
+                                    ? "module"
+                                    : "patch");
 
         switch (opcode) {
             //
@@ -1659,6 +1658,9 @@ bool interpret(Module *m, bool return_exception) {
                 return false;
         }
     }
+
+    // Resolve all unhandled callback events
+    while (!CallbackHandler::resolving_event && CallbackHandler::resolve_event());
 
     dbg_trace("Interpretation ended %s with status %s\n",
               program_done ? "expectedly" : "unexpectedly",

@@ -206,16 +206,17 @@ private:
     static std::unordered_map<std::string, Callback> *callbacks;
     static std::queue<Event> *events;
 public:
+    static bool resolving_event;
+
     static void add_callback(const Callback& c);
     static void push_event(const char* topic, const unsigned char* payload, unsigned int length);
-    static void resolve_event();
+    static bool resolve_event();
 };
 
 class WARDuino {
 private:
     std::vector<Module *> modules = {};
     std::deque<uint8_t *> parsedInterrups = {};
-
 
     // factualy volatile
 
@@ -227,8 +228,6 @@ private:
     long interruptSize;
 
 public:
-    CallbackHandler *callbackHandler = new CallbackHandler();
-
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};
 

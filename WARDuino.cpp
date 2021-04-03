@@ -962,6 +962,7 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
 
 // CallbackHandler class
 
+bool CallbackHandler::resolving_event = false;
 std::unordered_map<std::string, Callback> *CallbackHandler::callbacks = new std::unordered_map<std::string, Callback>();
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
@@ -979,10 +980,11 @@ void CallbackHandler::push_event(const char *topic, const unsigned char *payload
     events->push(*e);
 }
 
-void CallbackHandler::resolve_event() {
+bool CallbackHandler::resolve_event() {
     if (CallbackHandler::events->empty()) {
-        return;
+        return false;
     }
+    CallbackHandler::resolving_event = true;
 
     Event event = CallbackHandler::events->front();
     CallbackHandler::events->pop();
@@ -991,9 +993,10 @@ void CallbackHandler::resolve_event() {
     if (iterator != CallbackHandler::callbacks->end()) {
         iterator->second.resolve_event(event);
     } else {
-        // TODO error: event for non-existing iterator
-        return;
+        // TODO handle error: event for non-existing iterator
     }
+    CallbackHandler::resolving_event = false;
+    return !CallbackHandler::events->empty();
 }
 
 // Callback class
@@ -1054,7 +1057,7 @@ void Callback::resolve_event(const Event &e) {
     interpret(module);
 
     // Restore state of VM
-    module->pc_ptr = pc_ptr;   // program counter
+    module->pc_ptr = pc_ptr;        // program counter
     module->sp = sp;                // operand stack pointer
     module->fp = fp;                // current frame pointer into stack
     std::copy(std::begin(stack), std::end(stack), std::begin(module->stack));
