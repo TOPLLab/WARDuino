@@ -183,10 +183,10 @@ class Event {
 public:
     std::string callback_function_id;  // TODO is always "MQTT" now
     // TODO make args generic
-    char *topic{};
-    char *payload{};
+    const char *topic;
+    const char *payload;
 
-    Event(char *topic, char* payload);
+    Event(const char *topic, const char* payload);
 };
 
 class Callback {
@@ -206,7 +206,7 @@ private:
     static std::queue<Event> *events;
 public:
     static void add_callback(const std::string& id, Callback c);
-    static void push_event(char* topic, unsigned char* payload, unsigned int length);
+    static void push_event(const char* topic, const unsigned char* payload, unsigned int length);
     static void resolve_event();
 };
 

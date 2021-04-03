@@ -584,12 +584,10 @@ def_prim(abort, NoneToNoneU32) {
 def_prim(test, oneToNoneU32) {
     uint32_t fidx = arg0.uint32;
     Callback c = Callback(m, fidx);
-    CallbackHandler::add_callback("TEST", c);
-    auto topic = (char *) calloc(9, sizeof(char));
-    auto payload = (unsigned char *) calloc(11, sizeof(unsigned char));
+    CallbackHandler::add_callback("MQTT", c);
+    const char *topic = "TestTopic";
+    auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
     CallbackHandler::push_event(topic, payload, 11);
-    free(topic);
-    free(payload);
     CallbackHandler::resolve_event();
     pop_args(1);
     return true;

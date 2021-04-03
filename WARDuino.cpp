@@ -970,11 +970,11 @@ void CallbackHandler::add_callback(const std::string &id, Callback c) {
     callbacks->insert(std::pair<std::string, Callback>(id, c));
 }
 
-void CallbackHandler::push_event(char *topic, unsigned char *payload, unsigned int length) {
+void CallbackHandler::push_event(const char *topic, const unsigned char *payload, unsigned int length) {
     // TODO save results to queue
     // TODO generic parameters. Should parameters be added to wasm linear memory?
     // TODO make callback struct a class and move push_event to it
-    auto e = new Event(topic, reinterpret_cast<char *>(payload));
+    auto e = new Event(topic, reinterpret_cast<const char *>(payload));
     printf("Push event {id: %s, topic: %s, payload: %s}\n", e->callback_function_id.c_str(), e->topic, e->payload);
     events->push(*e);
 }
@@ -1038,7 +1038,7 @@ void Callback::resolve_event(const Event &e) {
 
 // Event class
 
-Event::Event(char *topic, char *payload) {
+Event::Event(const char *topic, const char *payload) {
     this->callback_function_id = "MQTT";
     this->topic = topic;
     this->payload = payload;
