@@ -31,6 +31,8 @@
 #define FUNC 0x60     // -0x20
 #define BLOCK 0x40    // -0x40
 
+#define EVENTS_SIZE 1
+
 #define KIND_FUNCTION 0
 #define KIND_TABLE 1
 #define KIND_MEMORY 2

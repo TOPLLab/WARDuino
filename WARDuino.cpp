@@ -972,12 +972,12 @@ void CallbackHandler::add_callback(const Callback &c) {
 }
 
 void CallbackHandler::push_event(const char *topic, const unsigned char *payload, unsigned int length) {
-    // TODO save results to queue
-    // TODO generic parameters. Should parameters be added to wasm linear memory?
     // TODO make callback struct a class and move push_event to it
-    auto e = new Event(topic, reinterpret_cast<const char *>(payload));
-    printf("Push Event(%s, %s, %s)\n", e->callback_function_id.c_str(), e->topic, e->payload);
-    events->push(*e);
+    if (events->size() < EVENTS_SIZE) {
+        auto e = new Event(topic, reinterpret_cast<const char *>(payload));
+        printf("Push Event(%s, %s, %s)\n", e->callback_function_id.c_str(), e->topic, e->payload);
+        events->push(*e);
+    }
 }
 
 bool CallbackHandler::resolve_event() {
