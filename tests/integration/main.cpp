@@ -35,6 +35,7 @@ int main(int argc, char **argv) {
 
     // Load the path name
     // TODO parse args
+    // TODO add verbose args
     char *module_file_path = argv[1];
     char *asserts_file_path = argv[2];
     char *wasm_command = argv[3];

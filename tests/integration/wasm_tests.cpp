@@ -345,9 +345,9 @@ int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
 
     if (all_tests_passed) {
         printf("All tests passed.\n");
+        return 0;
     } else {
         printf("Some tests failed.\n");
+        return 2;
     }
-
-    return all_tests_passed ? 0 : 2;
 }

@@ -13,6 +13,8 @@ def main(test_directory):
     if not os.path.exists(tmp_directory):
         os.mkdir(tmp_directory)
 
+    passed_tests = []
+
     # For each test file in the test directory
     for filename in os.listdir(test_directory):
         if filename.endswith(".wast"):
@@ -45,9 +47,17 @@ def main(test_directory):
 
             if not failed:
                 try:
-                    subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler])
+                    completion = subprocess.run(
+                        [args.interpreter, modules_file.name, asserts_file.name, args.compiler])
+                    if completion.returncode == 0:
+                        passed_tests.append((filename, completion.returncode))
                 except subprocess.CalledProcessError:
                     pass
+
+    if args.verbose:
+        print("\n\n=============\nPassed tests:")
+        for passed_test in passed_tests:
+            print(f"""\t{passed_test}""")
 
     # Remove temporary files
     try:
@@ -61,6 +71,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--interpreter", default="../../cmake-build-debug/TestWARDuino", help="Interpreter")
     parser.add_argument("--compiler", default="wat2wasm", help="WebAssembly text format compiler (default: wat2wasm)")
+    parser.add_argument("--verbose", default=False, help="Verbose output (default: False)")
 
     args = parser.parse_args()
 
