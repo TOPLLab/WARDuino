@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+
+# run_spec_tests.py
+#
+# Runs all WebAssembly Core Spec tests for WARDuino.
+#
+# Requirements:
+#   command to translate WebAssembly text format to the WebAssembly binary format (default: wat2wasm)
+#   TESTWARDuino executable (build cmake project in root)
+#
+# Author: Tom Lauwaerts
+
 import argparse
 import os
 import shutil
@@ -13,13 +25,22 @@ class TestsuiteStatistics:
         self.success = 0
         self.results = []
 
+    def testsuite_pass(self):
+        return self.success == self.total
+
     def __str__(self):
-        return "\n\n=============\nTestsuite results:\n" \
+        individual_passed_tests = sum([result.passed_tests for result in self.results])
+        individual_tests = sum([result.total_tests for result in self.results])
+        individual_percentage = (individual_passed_tests / individual_tests) * 100
+
+        files_mark = "\u2714" if self.success / self.total == 1.0 else "\u274C"
+        individual_mark = "\u2714" if individual_percentage == 100 else "\u274C"
+        return "\nTESTSUITE RESULTS:\n==================\n" \
                + f"total: {self.total}, skipped: {self.skipped}, failed: {self.failed}, " \
                + f"crashed: {self.crashed}, success: {self.success}\n\n" \
-               + f"{self.success}/{self.total} testfiles passed completely.\n" \
-               + f"{sum([result.passed_tests for result in self.results])}" \
-               + f"/{sum([result.total_tests for result in self.results])} individual tests passed.\n"
+               + f"{files_mark} {self.success}/{self.total} testfiles passed completely.\n" \
+               + f"{individual_mark} {individual_passed_tests}/{individual_tests}" \
+               + f" (~{individual_percentage:.2f}%) individual tests passed.\n"
 
 
 class TestResults:
@@ -34,12 +55,16 @@ class TestResults:
         self.crashed_tests = self.total_tests - (self.passed_tests + self.failed_tests)
 
     def __str__(self):
-        mark = "\u274C" if self.return_code != 0 else "\u2713"
-        string_representation = f"(exit {self.return_code}) {mark}"
+        mark = "\u274C" if self.return_code != 0 else "\u2714"
+        string_representation = f"{mark} "
         if self.crashed_tests != 0:
-            string_representation += f" ({self.crashed_tests} tests crashed)"
+            string_representation += f"(crashed with: exit {self.return_code})"
         elif self.total_tests > 0:
-            string_representation += f" ({self.passed_tests}/{self.total_tests})"
+            string_representation += f"{self.passed_tests}/{self.total_tests} passed"
+        elif self.return_code != 0:
+            string_representation += f"(crashed with: exit {self.return_code})"
+        else:
+            string_representation += f"passed (0 tests)"
         if args.verbose and len(self.stderr) > 0:
             string_representation += "\n"
             string_representation += self.stderr.decode("utf-8")
@@ -58,9 +83,10 @@ def main(test_directory):
 
     stats = TestsuiteStatistics()
     # For each test file in the test directory
-    print(f"""RUNNING TESTSUITE:\n==================""")
+    print(f"""RUNNING TESTSUITE:\n==================\n""")
     for filename in tests:
-        print(f"""\t{filename}\t""", end="")
+        tabs = '\t' * (7 - (len(filename)//4))
+        print(f"""{filename}{tabs}""".expandtabs(4), end="")
         stats.total += 1
 
         base_name = tmp_directory + os.path.splitext(filename)[0]
@@ -73,7 +99,7 @@ def main(test_directory):
         for line in open(test_directory + filename, "r"):
             if line.startswith("(module"):
                 if module:
-                    print(f"(has multiple modules) \u274C""", end="")  # WARDuino doesn't support this yet. Is skipped.
+                    print(f"\u274C (has multiple modules)""", end="")  # WARDuino doesn't support this yet. Is skipped.
                     failed = True
                     break
 
@@ -111,7 +137,7 @@ def main(test_directory):
     print(stats)
     if args.verbose:
         print("Passed files:")
-        for passed_test in stats.passed_files:
+        for passed_test in stats.results:
             print(f"""\t{passed_test.name}""")
 
     # Remove temporary files
@@ -119,6 +145,8 @@ def main(test_directory):
         shutil.rmtree(tmp_directory)
     except OSError as e:
         print("Error: %s - %s." % (e.filename, e.strerror))
+
+    exit(int(not stats.testsuite_pass()))
 
 
 if __name__ == '__main__':
