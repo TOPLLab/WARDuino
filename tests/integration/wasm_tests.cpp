@@ -17,7 +17,7 @@ int COUNT = 0;
 uint8_t *mmap_file(char *path, int *len) {
     int fd;
     int res;
-    struct stat sb {};
+    struct stat sb{};
     uint8_t *bytes;
 
     fd = open(path, O_RDONLY);
@@ -29,7 +29,7 @@ uint8_t *mmap_file(char *path, int *len) {
         FATAL("could not stat file '%s' (%d)\n", path, res);
     }
 
-    bytes = (uint8_t *)mmap(nullptr, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    bytes = (uint8_t *) mmap(nullptr, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (len) {
         *len = sb.st_size;  // Return length if requested
     }
@@ -177,8 +177,9 @@ bool runAssertion(Assertion *assertion, Module *m) {
             runAction(assertion->action, m);
             return assertResult(assertion->result, m);
         case EXHAUSTION:
+        case TRAP:
             runAction(assertion->action, m);
-            return assertException("call stack exhausted", m);
+            return assertException(assertion->failure, m);
         default:
             printf("Error unsupported assertion");
             exit(1);
@@ -188,9 +189,7 @@ bool runAssertion(Assertion *assertion, Module *m) {
 Result *parseResultNode(SNode *node) {
     Value *value = nullptr;
 
-    if (node->type == STRING) {
-        value = makeSTR(node->value);
-    } else if (strcmp(node->list->value, "i64.const") == 0) {
+    if (strcmp(node->list->value, "i64.const") == 0) {
         value = makeI64(std::stoll(node->list->next->value, nullptr, 0));
     } else if (strcmp(node->list->value, "u64.const") == 0) {
         value = makeUI64(std::stoull(node->list->next->value, nullptr, 0));
@@ -233,7 +232,7 @@ Action *parseActionNode(SNode *actionNode) {
         param = param->next;
     }
 
-    auto *args = (Value *)calloc(sizeof(Value), params.size());
+    auto *args = (Value *) calloc(sizeof(Value), params.size());
     copy(params.begin(), params.end(), args);
 
     return makeInvokeAction(name, args);
@@ -263,7 +262,17 @@ bool resolveAssert(SNode *node, Module *m) {
 
         free(action);
         free(assertion);
+    } else if (strcmp(assertType, "assert_trap") == 0) {
+        Action *action = parseActionNode(node->next);
+        Assertion *assertion = makeAssertionTrap(action, node->next->next->value);
+        printf("assert trap:\n");
+
+        success = runAssertion(assertion, m);
+
+        free(action);
+        free(assertion);
     } else {
+
         // TODO
     }
     return success;
@@ -273,7 +282,7 @@ int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
                 std::string &output_path, const std::string &wasm_command) {
     // Compile wasm program
     std::string command =
-        wasm_command + " " + module_file_path + " -o " + output_path;
+            wasm_command + " " + module_file_path + " -o " + output_path;
     int return_code = system((command).c_str());
     if (return_code != 0) {
         fprintf(stderr, "Error: \"%s\" failed to compile test.\n",
@@ -298,7 +307,7 @@ int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
 int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
                   char *wasm_command) {
     FILE *asserts_file = fopen(asserts_file_path, "r");
-    auto *test = (Test *)calloc(1, sizeof(Test));
+    auto *test = (Test *) calloc(1, sizeof(Test));
     if (asserts_file == nullptr || test == nullptr) {
         return 1;
     }
