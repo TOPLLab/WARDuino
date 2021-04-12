@@ -284,7 +284,7 @@ int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
     if (return_code != 0) {
         fprintf(stderr, "Error: \"%s\" failed to compile test.\n",
                 wasm_command.c_str());
-        return return_code;
+        return 1;
     }
 
     // Load wasm program
