@@ -33,6 +33,7 @@ void setup_call(Module *m, uint32_t fidx);
  * Start interpretation of the module that has a call set up for it.
  * See #setup_call
  * @param m module that has been set up for a call
+ * @param return_exception whether to save the exception method or not
  * @return true if the interpretation ended as expected
  */
 bool interpret(Module *m);
