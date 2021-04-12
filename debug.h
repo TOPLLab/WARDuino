@@ -23,12 +23,15 @@
  */
 void end();
 
+#ifdef ARDUINO
+
 #define ASSERT(exp, ...)                                           \
     {                                                              \
         if (!(exp)) {                                              \
             printf("Assert Failed (%s:%d): ", __FILE__, __LINE__); \
             printf(__VA_ARGS__);                                   \
-            exit(-1);                                              \
+            printf("\n\n\nlooping...\n");                          \
+            end();                                                 \
         }                                                          \
     }
 
@@ -36,8 +39,28 @@ void end();
     {                                                   \
         printf("Error(%s:%d): \n", __FILE__, __LINE__); \
         printf(__VA_ARGS__);                            \
-        exit(-1);                                       \
+        end();                                          \
     }
+
+#else
+
+#define ASSERT(exp, ...)                                           \
+    {                                                              \
+        if (!(exp)) {                                              \
+            printf("Assert Failed (%s:%d): ", __FILE__, __LINE__); \
+            printf(__VA_ARGS__);                                   \
+            exit(1);                                               \
+        }                                                          \
+    }
+
+#define FATAL(...)                                      \
+    {                                                   \
+        printf("Error(%s:%d): \n", __FILE__, __LINE__); \
+        printf(__VA_ARGS__);                            \
+        exit(1);                                        \
+    }
+
+#endif
 
 #if DEBUG
 #define debug(...)                                       \

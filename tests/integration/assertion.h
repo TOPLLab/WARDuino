@@ -53,12 +53,8 @@ typedef enum {
     INVALID,
     UNLINKABLE
 } AssertionType;
-typedef enum {
-    INVOKE, GET
-} ActionType;
-typedef enum {
-    UI32, I32V, UI64, I64V, F32V, F64V
-} ValueType;
+typedef enum { INVOKE, GET } ActionType;
+typedef enum { UI32, I32V, UI64, I64V, F32V, F64V } ValueType;
 
 typedef struct {
     ValueType type;
