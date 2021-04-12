@@ -4,60 +4,88 @@ import shutil
 import subprocess
 
 
+class TestStatistics:
+    def __init__(self):
+        self.total = 0
+        self.skipped = 0
+        self.failed = 0
+        self.crashed = 0
+        self.timeout = 0
+        self.success = 0
+        self.passed_files = []
+
+    def __str__(self):
+        return "\n\n=============\nTestsuite results:\n" \
+               + f"""total: {self.total}, skipped: {self.skipped}, failed: {self.failed}, """ \
+               + f"""crashed: {self.crashed}, timeout: {self.timeout}, success: {self.success}\n\n""" \
+               + f"""{self.success}/{self.total} testfiles passed completely."""  # \
+               # + f"""{}/{} individual tests passed.\n"""
+
+
 def main(test_directory):
     if test_directory[-1] != "/":
         test_directory += "/"
-
     # Create temporary directory
     tmp_directory = test_directory + ".tmp/"
     if not os.path.exists(tmp_directory):
         os.mkdir(tmp_directory)
 
-    passed_tests = []
+    tests = [filename for filename in os.listdir(test_directory) if filename.endswith(".wast")]
+
+    stats = TestStatistics()
 
     # For each test file in the test directory
-    for filename in os.listdir(test_directory):
-        if filename.endswith(".wast"):
-            print(f"""\n====== TESTING {filename} ======""")
+    for filename in tests:
+        print(f"""\n====== TESTING {filename} ======""")
+        stats.total += 1
 
-            base_name = tmp_directory + os.path.splitext(filename)[0]
-            modules_file = open(base_name + "_modules.wast", "w")
-            asserts_file = open(base_name + "_asserts.wast", "w")
+        base_name = tmp_directory + os.path.splitext(filename)[0]
+        modules_file = open(base_name + "_modules.wast", "w")
+        asserts_file = open(base_name + "_asserts.wast", "w")
 
-            file = modules_file
-            module = False
-            failed = False
-            for line in open(test_directory + filename, "r"):
-                if line.startswith("(module"):
-                    if module:
-                        print(f"""Error {filename} requires support for multiple modules""")
-                        failed = True
-                        break
+        file = modules_file
+        module = False
+        failed = False
+        for line in open(test_directory + filename, "r"):
+            if line.startswith("(module"):
+                if module:
+                    print(f"""Error {filename} requires support for multiple modules""")
+                    failed = True
+                    break
 
-                    file = modules_file
-                    module = True
-                elif line.startswith("(assert"):
-                    file = asserts_file
+                file = modules_file
+                module = True
+            elif line.startswith("(assert"):
+                file = asserts_file
 
-                if not line.startswith(";;"):
-                    file.write(line)
+            if not line.startswith(";;"):
+                file.write(line)
 
-            modules_file.close()
-            asserts_file.close()
+        modules_file.close()
+        asserts_file.close()
 
-            if not failed:
-                try:
-                    completion = subprocess.run(
-                        [args.interpreter, modules_file.name, asserts_file.name, args.compiler])
-                    if completion.returncode == 0:
-                        passed_tests.append((filename, completion.returncode))
-                except subprocess.CalledProcessError:
-                    pass
+        if not failed:
+            try:
+                completion = subprocess.run(
+                    [args.interpreter, modules_file.name, asserts_file.name, args.compiler])
+                print(f"""exit({completion.returncode})""")
+                if completion.returncode == 0:
+                    stats.success += 1
+                    stats.passed_files.append((filename, completion.returncode))
+                elif completion.returncode == 2:
+                    stats.failed += 1
+                else:
+                    stats.crashed += 1
+            except subprocess.CalledProcessError:
+                pass
+        else:
+            stats.skipped += 1
 
+    print(stats)
     if args.verbose:
-        print("\n\n=============\nPassed tests:")
-        for passed_test in passed_tests:
-            print(f"""\t{passed_test}""")
+        print("Passed files:")
+        for passed_test in stats.passed_files:
+            print(f"""\t{passed_test[0]}""")
 
     # Remove temporary files
     try:
