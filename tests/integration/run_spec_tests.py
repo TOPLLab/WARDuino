@@ -4,22 +4,46 @@ import shutil
 import subprocess
 
 
-class TestStatistics:
+class TestsuiteStatistics:
     def __init__(self):
         self.total = 0
         self.skipped = 0
         self.failed = 0
         self.crashed = 0
-        self.timeout = 0
         self.success = 0
-        self.passed_files = []
+        self.results = []
 
     def __str__(self):
         return "\n\n=============\nTestsuite results:\n" \
-               + f"""total: {self.total}, skipped: {self.skipped}, failed: {self.failed}, """ \
-               + f"""crashed: {self.crashed}, timeout: {self.timeout}, success: {self.success}\n\n""" \
-               + f"""{self.success}/{self.total} testfiles passed completely."""  # \
-        # + f"""{}/{} individual tests passed.\n"""
+               + f"total: {self.total}, skipped: {self.skipped}, failed: {self.failed}, " \
+               + f"crashed: {self.crashed}, success: {self.success}\n\n" \
+               + f"{self.success}/{self.total} testfiles passed completely.\n" \
+               + f"{sum([result.passed_tests for result in self.results])}" \
+               + f"/{sum([result.total_tests for result in self.results])} individual tests passed.\n"
+
+
+class TestResults:
+
+    def __init__(self, name, completion):
+        self.name = name
+        self.stderr = completion.stderr
+        self.return_code = completion.returncode
+        self.passed_tests = completion.stdout.count(b'OK')
+        self.failed_tests = completion.stdout.count(b'FAIL')
+        self.total_tests = completion.stdout.count(b'assert')
+        self.crashed_tests = self.total_tests - (self.passed_tests + self.failed_tests)
+
+    def __str__(self):
+        mark = "\u274C" if self.return_code != 0 else "\u2713"
+        string_representation = f"(exit {self.return_code}) {mark}"
+        if self.crashed_tests != 0:
+            string_representation += f" ({self.crashed_tests} tests crashed)"
+        elif self.total_tests > 0:
+            string_representation += f" ({self.passed_tests}/{self.total_tests})"
+        if args.verbose and len(self.stderr) > 0:
+            string_representation += "\n"
+            string_representation += self.stderr.decode("utf-8")
+        return string_representation.rstrip()
 
 
 def main(test_directory):
@@ -32,7 +56,7 @@ def main(test_directory):
 
     tests = [filename for filename in os.listdir(test_directory) if filename.endswith(".wast")]
 
-    stats = TestStatistics()
+    stats = TestsuiteStatistics()
     # For each test file in the test directory
     print(f"""RUNNING TESTSUITE:\n==================""")
     for filename in tests:
@@ -49,9 +73,7 @@ def main(test_directory):
         for line in open(test_directory + filename, "r"):
             if line.startswith("(module"):
                 if module:
-                    print("\u274C")
-                    if args.verbose:
-                        print(f"""Error {filename} requires support for multiple modules""", end="")
+                    print(f"(has multiple modules) \u274C""", end="")  # WARDuino doesn't support this yet. Is skipped.
                     failed = True
                     break
 
@@ -69,27 +91,28 @@ def main(test_directory):
         if not failed:
             try:
                 completion = subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler],
-                                            stdout=subprocess.PIPE)
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                test_results = TestResults(filename, completion)
+                stats.results.append(test_results)
                 if completion.returncode == 0:
-                    print("\u2713")
                     stats.success += 1
-                    stats.passed_files.append((filename, completion.returncode))
                 elif completion.returncode == 2:
-                    print("\u274C")
                     stats.failed += 1
                 else:
-                    print("\u274C")
                     stats.crashed += 1
+                print(test_results, end="")
             except subprocess.CalledProcessError:
                 pass
         else:
             stats.skipped += 1
 
+        print("")
+
     print(stats)
     if args.verbose:
         print("Passed files:")
         for passed_test in stats.passed_files:
-            print(f"""\t{passed_test[0]}""")
+            print(f"""\t{passed_test.name}""")
 
     # Remove temporary files
     try:
