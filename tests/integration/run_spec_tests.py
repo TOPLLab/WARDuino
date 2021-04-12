@@ -19,7 +19,7 @@ class TestStatistics:
                + f"""total: {self.total}, skipped: {self.skipped}, failed: {self.failed}, """ \
                + f"""crashed: {self.crashed}, timeout: {self.timeout}, success: {self.success}\n\n""" \
                + f"""{self.success}/{self.total} testfiles passed completely."""  # \
-               # + f"""{}/{} individual tests passed.\n"""
+        # + f"""{}/{} individual tests passed.\n"""
 
 
 def main(test_directory):
@@ -33,10 +33,10 @@ def main(test_directory):
     tests = [filename for filename in os.listdir(test_directory) if filename.endswith(".wast")]
 
     stats = TestStatistics()
-
     # For each test file in the test directory
+    print(f"""RUNNING TESTSUITE:\n==================""")
     for filename in tests:
-        print(f"""\n====== TESTING {filename} ======""")
+        print(f"""\t{filename}\t""", end="")
         stats.total += 1
 
         base_name = tmp_directory + os.path.splitext(filename)[0]
@@ -49,7 +49,9 @@ def main(test_directory):
         for line in open(test_directory + filename, "r"):
             if line.startswith("(module"):
                 if module:
-                    print(f"""Error {filename} requires support for multiple modules""")
+                    print("\u274C")
+                    if args.verbose:
+                        print(f"""Error {filename} requires support for multiple modules""", end="")
                     failed = True
                     break
 
@@ -66,15 +68,17 @@ def main(test_directory):
 
         if not failed:
             try:
-                completion = subprocess.run(
-                    [args.interpreter, modules_file.name, asserts_file.name, args.compiler])
-                print(f"""exit({completion.returncode})""")
+                completion = subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler],
+                                            stdout=subprocess.PIPE)
                 if completion.returncode == 0:
+                    print("\u2713")
                     stats.success += 1
                     stats.passed_files.append((filename, completion.returncode))
                 elif completion.returncode == 2:
+                    print("\u274C")
                     stats.failed += 1
                 else:
+                    print("\u274C")
                     stats.crashed += 1
             except subprocess.CalledProcessError:
                 pass
