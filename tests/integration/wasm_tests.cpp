@@ -350,6 +350,6 @@ int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
         return 0;
     } else {
         printf("Some tests failed.\n");
-        return 2;   // Exit code 2 is reserved to indicate assert(s) failed
+        return 2;  // Exit code 2 is reserved to indicate assert(s) failed
     }
 }
