@@ -53,8 +53,12 @@ typedef enum {
     INVALID,
     UNLINKABLE
 } AssertionType;
-typedef enum { INVOKE, GET } ActionType;
-typedef enum { UI32, I32V, UI64, I64V, F32V, F64V, STR } ValueType;
+typedef enum {
+    INVOKE, GET
+} ActionType;
+typedef enum {
+    UI32, I32V, UI64, I64V, F32V, F64V
+} ValueType;
 
 typedef struct {
     ValueType type;
@@ -65,12 +69,10 @@ typedef struct {
         int64_t int64;
         float f32;
         double f64;
-        const char *str;
     };
 } Value;
 
 typedef enum {
-    EMPTY,
     NAN_R,
     VAL,
 } ResultType;
@@ -104,9 +106,9 @@ Action *makeInvokeAction(char *name, Value *expr);
 
 Assertion *makeAssertionReturn(Action *action, Result *result);
 
-Assertion *makeAssertionExhaustion(Action *action);
+Assertion *makeAssertionTrap(Action *action, char *result);
 
-Result *makeEmptyResult();
+Assertion *makeAssertionExhaustion(Action *action);
 
 Result *makeValueResult(Value *val);
 
@@ -119,7 +121,5 @@ Value *makeI32(int32_t value);
 Value *makeF32(float num);
 
 Value *makeF64(double num);
-
-Value *makeSTR(char *text);
 
 #endif
