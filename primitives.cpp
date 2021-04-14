@@ -12,33 +12,34 @@
 #include "primitives.h"
 
 #include "debug.h"
-#include "mem.h"
 #include "glue.h"
+#include "mem.h"
 
 #ifdef ARDUINO
-#include "Arduino.h"
-#include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFi.h>
+
+#include "Arduino.h"
 
 #define delay_us(ms) delayMicroseconds(ms)
 #include <SPI.h>
 SPIClass *spi = new SPIClass();
 
-//Hardeware SPI
-void write_spi_byte(unsigned char c){
-  spi->beginTransaction(SPISettings(20000000, MSBFIRST, SPI_MODE0));
-  spi->transfer(c);
-  spi->endTransaction();
+// Hardeware SPI
+void write_spi_byte(unsigned char c) {
+    spi->beginTransaction(SPISettings(20000000, MSBFIRST, SPI_MODE0));
+    spi->transfer(c);
+    spi->endTransaction();
 }
 
 void write_spi_bytes_16_prim(int times, uint32_t color) {
     unsigned char colorB = color >> 8;
     spi->beginTransaction(SPISettings(200000000, MSBFIRST, SPI_MODE0));
-    for (int x=0; x < times; x++) {
+    for (int x = 0; x < times; x++) {
         spi->transfer(colorB);
-          spi->transfer(color);
+        spi->transfer(color);
     }
-      spi->endTransaction();
+    spi->endTransaction();
 }
 
 #else
@@ -48,9 +49,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #endif
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <cmath>
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
@@ -72,11 +73,11 @@ double sensor_emu = 0;
 #define install_primitive(prim_name)                                       \
     {                                                                      \
         dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-                 prim_index+1, ALL_PRIMITIVES, #prim_name);                  \
+                 prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
         if (prim_index < ALL_PRIMITIVES) {                                 \
-            PrimitiveEntry* p = &primitives[prim_index++];                 \
+            PrimitiveEntry *p = &primitives[prim_index++];                 \
             p->name = #prim_name;                                          \
-            p->f = &(prim_name);                                             \
+            p->f = &(prim_name);                                           \
         } else {                                                           \
             FATAL("pim_index out of bounds");                              \
         }                                                                  \
@@ -84,7 +85,7 @@ double sensor_emu = 0;
 
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
-    bool function_name(Module* m)
+    bool function_name(Module *m)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
@@ -111,125 +112,126 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
-uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32, I32, I32, I32, I32, I32};
+uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
+                                    I32, I32, I32, I32, I32};
 
 Type oneToNoneU32 = {
-        .form =  FUNC,
-        .param_count =  1,
-        .params =  param_I32_arr_len1,
-        .result_count =  0,
-        .results =  nullptr,
-        .mask =  0x8001 /* 0x800 = no return ; 1 = I32*/
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x8001 /* 0x800 = no return ; 1 = I32*/
 };
 
 Type twoToNoneU32 = {
-        .form =  FUNC,
-        .param_count =  2,
-        .params =  param_I32_arr_len2,
-        .result_count =  0,
-        .results =  nullptr,
-        .mask =  0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
+    .form = FUNC,
+    .param_count = 2,
+    .params = param_I32_arr_len2,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
 };
 
 Type threeToNoneU32 = {
-        .form =  FUNC,
-        .param_count =  3,
-        .params =  param_I32_arr_len3,
-        .result_count =  0,
-        .results =  nullptr,
-        .mask =  0x800111 /* 0x800 = no return ; 1=I32; 1=I32; 1=I32*/
+    .form = FUNC,
+    .param_count = 3,
+    .params = param_I32_arr_len3,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x800111 /* 0x800 = no return ; 1=I32; 1=I32; 1=I32*/
 };
 
 Type fourToNoneU32 = {
-        .form =  FUNC,
-        .param_count =  4,
-        .params =  param_I32_arr_len4,
-        .result_count =  0,
-        .results =  nullptr,
-        .mask =  0x8001111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
+    .form = FUNC,
+    .param_count = 4,
+    .params = param_I32_arr_len4,
+    .result_count = 0,
+    .results = nullptr,
+    .mask =
+        0x8001111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
 };
 
 Type oneToOneU32 = {
-        .form =  FUNC,
-        .param_count =  1,
-        .params =  param_I32_arr_len1,
-        .result_count =  1,
-        .results =  param_I32_arr_len1,
-        .mask =  0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
 };
 
 Type oneToOneI32 = {
-        .form =  FUNC,
-        .param_count =  1,
-        .params =  param_I32_arr_len1,
-        .result_count =  1,
-        .results =  param_I32_arr_len1,
-        .mask =  0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
 };
 
 Type twoToOneU32 = {
-        .form =  FUNC,
-        .param_count =  2,
-        .params =  param_I32_arr_len2,
-        .result_count =  1,
-        .results =  param_I32_arr_len1,
-        .mask =  0x81011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+    .form = FUNC,
+    .param_count = 2,
+    .params = param_I32_arr_len2,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x81011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
 };
 
 Type threeToOneU32 = {
-        .form =  FUNC,
-        .param_count =  3,
-        .params =  param_I32_arr_len3,
-        .result_count =  1,
-        .results =  param_I32_arr_len1,
-        .mask =  0x810111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32*/
+    .form = FUNC,
+    .param_count = 3,
+    .params = param_I32_arr_len3,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x810111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32*/
 };
 
 Type fourToOneU32 = {
-        .form =  FUNC,
-        .param_count =  4,
-        .params =  param_I32_arr_len4,
-        .result_count =  1,
-        .results =  param_I32_arr_len1,
-        .mask =  0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
+    .form = FUNC,
+    .param_count = 4,
+    .params = param_I32_arr_len4,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
 
 Type tenToOneU32 = {
-        .form =  FUNC,
-        .param_count =  10,
-        .params =  param_I32_arr_len10,
-        .result_count =  1,
-        .results =  param_I32_arr_len1,
-        .mask =  0x8101111111111 /* 0x8 1=I32 0=endRet ; 10 params 1=I32*/
+    .form = FUNC,
+    .param_count = 10,
+    .params = param_I32_arr_len10,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x8101111111111 /* 0x8 1=I32 0=endRet ; 10 params 1=I32*/
 };
 
-Type NoneToNoneU32 = {
-        .form =  FUNC,
-        .param_count =  0,
-        .params =  nullptr,
-        .result_count =  0,
-        .results =  nullptr,
-        .mask =  0x80000
-};
+Type NoneToNoneU32 = {.form = FUNC,
+                      .param_count = 0,
+                      .params = nullptr,
+                      .result_count = 0,
+                      .results = nullptr,
+                      .mask = 0x80000};
 
-Type NoneToOneU32 = {
-        .form =  FUNC,
-        .param_count =  0,
-        .params =  nullptr,
-        .result_count =  1,
-        .results =  param_I32_arr_len1,
-        .mask =  0x81000
-};
+Type NoneToOneU32 = {.form = FUNC,
+                     .param_count = 0,
+                     .params = nullptr,
+                     .result_count = 1,
+                     .results = param_I32_arr_len1,
+                     .mask = 0x81000};
 
 // Util function declarations
 #ifdef ARDUINO
 
 void connect(const String ssid, const String password);
 
-int32_t http_get_request(Module *m, const String url, uint32_t response, uint32_t size);
+int32_t http_get_request(Module *m, const String url, uint32_t response,
+                         uint32_t size);
 
-int32_t http_post_request(Module *m, const String url, const String body, const String content_type,
-                          const String authorization_parsed, uint32_t response, uint32_t size);
+int32_t http_post_request(Module *m, const String url, const String body,
+                          const String content_type,
+                          const String authorization_parsed, uint32_t response,
+                          uint32_t size);
 
 #endif
 
@@ -302,7 +304,7 @@ def_prim(wifi_localip, twoToOneU32) {
 
     // TODO handle too small buffer
     for (unsigned long i = 0; i < ipString.length(); i++) {
-        m->memory.bytes[buff + i] = (uint32_t) ipString[i];
+        m->memory.bytes[buff + i] = (uint32_t)ipString[i];
     }
     pop_args(2);
     pushInt32(buff);
@@ -312,7 +314,7 @@ def_prim(wifi_localip, twoToOneU32) {
 def_prim(http_get, fourToOneU32) {
     int32_t return_value = -11;
 
-    //Check WiFi connection status
+    // Check WiFi connection status
     if (WiFi.status() == WL_CONNECTED) {
         uint32_t addr = arg3.uint32;
         uint32_t length = arg2.uint32;
@@ -336,7 +338,7 @@ def_prim(http_get, fourToOneU32) {
 def_prim(http_post, tenToOneU32) {
     int32_t status_code = -11;
 
-    //Check WiFi connection status
+    // Check WiFi connection status
     if (WiFi.status() == WL_CONNECTED) {
         uint32_t url = arg9.uint32;
         uint32_t url_len = arg8.uint32;
@@ -349,10 +351,16 @@ def_prim(http_post, tenToOneU32) {
         uint32_t response = arg1.uint32;
         uint32_t size = arg0.uint32;
 
-        String url_parsed = parse_utf8_string(m->memory.bytes, url_len, url).c_str();
-        String body_parsed = parse_utf8_string(m->memory.bytes, body_len, body).c_str();
-        String content_type_parsed = parse_utf8_string(m->memory.bytes, content_type_len, content_type).c_str();
-        String authorization_parsed = parse_utf8_string(m->memory.bytes, authorization_len, authorization).c_str();
+        String url_parsed =
+            parse_utf8_string(m->memory.bytes, url_len, url).c_str();
+        String body_parsed =
+            parse_utf8_string(m->memory.bytes, body_len, body).c_str();
+        String content_type_parsed =
+            parse_utf8_string(m->memory.bytes, content_type_len, content_type)
+                .c_str();
+        String authorization_parsed =
+            parse_utf8_string(m->memory.bytes, authorization_len, authorization)
+                .c_str();
         Serial.print("POST ");
         Serial.print(url_parsed);
         Serial.print("\n\t Content-type: '");
@@ -364,8 +372,9 @@ def_prim(http_post, tenToOneU32) {
         Serial.print("'\n");
 
         // Send HTTP POST request
-        status_code = http_post_request(m, url_parsed, body_parsed, content_type_parsed, authorization_parsed, response,
-                                        size);
+        status_code =
+            http_post_request(m, url_parsed, body_parsed, content_type_parsed,
+                              authorization_parsed, response, size);
     }
 
     pop_args(10);
@@ -374,7 +383,7 @@ def_prim(http_post, tenToOneU32) {
     return true;
 }
 
-//warning: undefined symbol: chip_pin_mode
+// warning: undefined symbol: chip_pin_mode
 def_prim(chip_pin_mode, twoToNoneU32) {
     printf("chip_pin_mode \n");
     uint8_t pin = arg1.uint32;
@@ -400,8 +409,8 @@ def_prim(chip_delay, oneToNoneU32) {
     return true;
 }
 
-//warning: undefined symbol: chip_delay_us
-def_prim (chip_delay_us, oneToNoneU32) {
+// warning: undefined symbol: chip_delay_us
+def_prim(chip_delay_us, oneToNoneU32) {
     yield();
     delay_us(arg0.uint32);
     pop_args(1);
@@ -423,15 +432,15 @@ def_prim(chip_analog_read, oneToOneI32) {
     return true;
 }
 
-//warning: undefined symbol: write_spi_byte
-def_prim (write_spi_byte, oneToNoneU32) {
+// warning: undefined symbol: write_spi_byte
+def_prim(write_spi_byte, oneToNoneU32) {
     write_spi_byte(arg0.uint32);
     pop_args(1);
     return true;
 }
 
-//warning: undefined symbol: spi_begin
-def_prim (spi_begin, NoneToNoneU32) {
+// warning: undefined symbol: spi_begin
+def_prim(spi_begin, NoneToNoneU32) {
     yield();
     printf("spi_begin \n");
     spi->begin();
@@ -458,7 +467,8 @@ def_prim(mqtt_init, threeToNoneU32) {
     uint32_t length = arg1.uint32;
     uint32_t port = arg0.uint32;
 
-    const char *server = parse_utf8_string(m->memory.bytes, length, server_param).c_str();
+    const char *server =
+        parse_utf8_string(m->memory.bytes, length, server_param).c_str();
     mqttClient.setServer(server, port);
 
 #if DEBUG
@@ -486,7 +496,8 @@ def_prim(mqtt_connect, twoToOneU32) {
     uint32_t client_id_param = arg1.uint32;
     uint32_t length = arg0.uint32;
 
-    const char *client_id = parse_utf8_string(m->memory.bytes, length, client_id_param).c_str();
+    const char *client_id =
+        parse_utf8_string(m->memory.bytes, length, client_id_param).c_str();
 #if DEBUG
     Serial.print("Connecting to MQTT server as ");
     Serial.println(client_id);
@@ -494,12 +505,12 @@ def_prim(mqtt_connect, twoToOneU32) {
     bool ret = mqttClient.connect(client_id);
 
     pop_args(2);
-    pushInt32((int) ret);
+    pushInt32((int)ret);
     return true;
 }
 
 def_prim(mqtt_connected, NoneToOneU32) {
-    pushInt32((int) mqttClient.connected());
+    pushInt32((int)mqttClient.connected());
     return true;
 }
 
@@ -514,7 +525,8 @@ def_prim(mqtt_publish, fourToOneU32) {
     uint32_t payload_param = arg1.uint32;
     uint32_t payload_length = arg0.uint32;
 
-    const char *topic = parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
+    const char *topic =
+        parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
 #if DEBUG
     Serial.print(topic_param);
     Serial.print(" ");
@@ -523,7 +535,9 @@ def_prim(mqtt_publish, fourToOneU32) {
     Serial.print(topic);
     Serial.println("");
 #endif
-    const char *payload = parse_utf8_string(m->memory.bytes, payload_length, payload_param).c_str();
+    const char *payload =
+        parse_utf8_string(m->memory.bytes, payload_length, payload_param)
+            .c_str();
 #if DEBUG
     Serial.print(payload_param);
     Serial.print(" ");
@@ -546,7 +560,7 @@ def_prim(mqtt_publish, fourToOneU32) {
 #endif
 
     pop_args(4);
-    pushInt32((int) ret);
+    pushInt32((int)ret);
     return true;
 }
 
@@ -554,7 +568,8 @@ def_prim(mqtt_subscribe, twoToOneU32) {
     uint32_t topic_param = arg1.uint32;
     uint32_t topic_length = arg0.uint32;
 
-    const char *topic = parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
+    const char *topic =
+        parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
     bool ret = mqttClient.subscribe(topic);
 
 #if DEBUG
@@ -564,12 +579,12 @@ def_prim(mqtt_subscribe, twoToOneU32) {
 #endif
 
     pop_args(2);
-    pushInt32((int) ret);
+    pushInt32((int)ret);
     return true;
 }
 
 def_prim(mqtt_loop, NoneToOneU32) {
-    pushInt32((int) mqttClient.loop());
+    pushInt32((int)mqttClient.loop());
     return true;
 }
 
@@ -615,13 +630,14 @@ def_prim(wifi_connect, fourToNoneU32) {
 
     std::string ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid);
     std::string pass_str = parse_utf8_string(m->memory.bytes, len1, pass);
-    debug("EMU: connect to %s with password %s\n", ssid_str.c_str(), pass_str.c_str());
+    debug("EMU: connect to %s with password %s\n", ssid_str.c_str(),
+          pass_str.c_str());
     pop_args(4);
     return true;
 }
 
 def_prim(wifi_status, NoneToOneU32) {
-    pushInt32(3);   // return WL_CONNECTED
+    pushInt32(3);  // return WL_CONNECTED
     return true;
 }
 
@@ -631,7 +647,7 @@ def_prim(wifi_localip, twoToOneU32) {
     std::string ip = "192.168.0.181";
 
     for (unsigned long i = 0; i < ip.length(); i++) {
-        m->memory.bytes[buff + i] = (uint32_t) ip[i];
+        m->memory.bytes[buff + i] = (uint32_t)ip[i];
     }
     pop_args(2);
     pushInt32(buff);
@@ -654,7 +670,7 @@ def_prim(http_get, fourToOneU32) {
         return false;  // TRAP
     }
     for (unsigned long i = 0; i < answer.length(); i++) {
-        m->memory.bytes[response + i] = (uint32_t) answer[i];
+        m->memory.bytes[response + i] = (uint32_t)answer[i];
     }
 
     // Pop args and return response address
@@ -677,11 +693,17 @@ def_prim(http_post, tenToOneU32) {
     uint32_t size = arg0.uint32;
 
     std::string url_parsed = parse_utf8_string(m->memory.bytes, url_len, url);
-    std::string body_parsed = parse_utf8_string(m->memory.bytes, body_len, body);
-    std::string content_type_parsed = parse_utf8_string(m->memory.bytes, content_type_len, content_type);
-    std::string authorization_parsed = parse_utf8_string(m->memory.bytes, authorization_len, authorization);
-    debug("EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t '%s'\n",
-          url_parsed.c_str(), content_type_parsed.c_str(), authorization_parsed.c_str(), body_parsed.c_str());
+    std::string body_parsed =
+        parse_utf8_string(m->memory.bytes, body_len, body);
+    std::string content_type_parsed =
+        parse_utf8_string(m->memory.bytes, content_type_len, content_type);
+    std::string authorization_parsed =
+        parse_utf8_string(m->memory.bytes, authorization_len, authorization);
+    debug(
+        "EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t "
+        "'%s'\n",
+        url_parsed.c_str(), content_type_parsed.c_str(),
+        authorization_parsed.c_str(), body_parsed.c_str());
 
     pop_args(10);
     pushInt32(response);
@@ -703,7 +725,7 @@ def_prim(chip_digital_write, twoToNoneU32) {
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    pushUInt32(1); // HIGH
+    pushUInt32(1);  // HIGH
     return true;
 }
 
@@ -735,15 +757,15 @@ def_prim(chip_delay_us, oneToNoneU32) {
     return true;
 }
 
-//warning: undefined symbol: write_spi_byte
-def_prim (write_spi_byte, oneToNoneU32) {
+// warning: undefined symbol: write_spi_byte
+def_prim(write_spi_byte, oneToNoneU32) {
     debug("EMU: write_spi_byte(%u) \n", arg0.uint32);
     pop_args(1);
     return true;
 }
 
-//warning: undefined symbol: spi_begin
-def_prim (spi_begin, NoneToNoneU32) {
+// warning: undefined symbol: spi_begin
+def_prim(spi_begin, NoneToNoneU32) {
     debug("EMU: spi_begin \n");
     return true;
 }
@@ -754,7 +776,6 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     return true;
 }
 
-
 #endif
 
 //------------------------------------------------------
@@ -762,14 +783,17 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 //------------------------------------------------------
 #ifdef ARDUINO
 
-#include "Arduino.h"
-#include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFi.h>
+
+#include "Arduino.h"
 
 void connect(const String ssid, const String password) {
-    char *ssid_buf = (char *) acalloc(ssid.length() + 1, sizeof(char), "ssid_buf");
+    char *ssid_buf =
+        (char *)acalloc(ssid.length() + 1, sizeof(char), "ssid_buf");
     ssid.toCharArray(ssid_buf, ssid.length() + 1);
-    char *pass_buf = (char *) acalloc(password.length() + 1, sizeof(char), "pass_buf");
+    char *pass_buf =
+        (char *)acalloc(password.length() + 1, sizeof(char), "pass_buf");
     password.toCharArray(pass_buf, password.length() + 1);
 
     WiFi.begin(ssid_buf, pass_buf);
@@ -780,7 +804,8 @@ void connect(const String ssid, const String password) {
     free(pass_buf);
 }
 
-int32_t http_get_request(Module *m, const String url, const uint32_t response, const uint32_t size) {
+int32_t http_get_request(Module *m, const String url, const uint32_t response,
+                         const uint32_t size) {
     HTTPClient http;
     int32_t httpResponseCode = 0;
 
@@ -791,11 +816,13 @@ int32_t http_get_request(Module *m, const String url, const uint32_t response, c
         printf("HTTP Response code: %i\n", httpResponseCode);
         String payload = http.getString();
         if (payload.length() > size) {
-            sprintf(exception, "GET: buffer size is too small for response of %i bytes.", payload.length());
+            sprintf(exception,
+                    "GET: buffer size is too small for response of %i bytes.",
+                    payload.length());
             return false;  // TRAP
         }
         for (unsigned long i = 0; i < payload.length(); i++) {
-            m->memory.bytes[response + i] = (uint32_t) payload[i];
+            m->memory.bytes[response + i] = (uint32_t)payload[i];
         }
     } else {
         printf("Error code: %i\n", httpResponseCode);
@@ -806,13 +833,10 @@ int32_t http_get_request(Module *m, const String url, const uint32_t response, c
     return httpResponseCode;
 }
 
-int32_t http_post_request(Module *m,
-                          const String url,
-                          const String body,
+int32_t http_post_request(Module *m, const String url, const String body,
                           const String contentType,
                           const String authorizationToken,
-                          const uint32_t response,
-                          const uint32_t size) {
+                          const uint32_t response, const uint32_t size) {
     HTTPClient http;
     int32_t httpResponseCode = 0;
 
@@ -835,8 +859,9 @@ int32_t http_post_request(Module *m,
         Serial.println(" Response: ");
         Serial.println(responseBody);
 
-        for (unsigned long i = 0; i < responseBody.length(); i++) {  // TODO check size
-            m->memory.bytes[response + i] = (uint32_t) responseBody[i];
+        for (unsigned long i = 0; i < responseBody.length();
+             i++) {  // TODO check size
+            m->memory.bytes[response + i] = (uint32_t)responseBody[i];
         }
     } else {
         printf("Error code: %i\n", httpResponseCode);
@@ -863,7 +888,7 @@ void analogWriteRange(uint32_t range)
 //------------------------------------------------------
 void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
-    //install_primitive(rand);
+    // install_primitive(rand);
 #ifdef ARDUINO
     dbg_info("INSTALLING ARDUINO\n");
     install_primitive(abort);
@@ -928,7 +953,7 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
 
     for (auto &primitive : primitives) {
-//        printf("Checking %s = %s  \n", symbol, primitive.name);
+        //        printf("Checking %s = %s  \n", symbol, primitive.name);
         if (!strcmp(symbol, primitive.name)) {
             debug("FOUND PRIMITIVE\n");
             *val = primitive.f;
@@ -947,9 +972,9 @@ bool resolve_external_memory(char *symbol, Memory **val) {
             external_mem.initial = 256;
             external_mem.maximum = 256;
             external_mem.pages = 256;
-            external_mem.bytes = (uint8_t *) acalloc(
-                    external_mem.pages * PAGE_SIZE, sizeof(uint32_t),
-                    "Module->memory.bytes primitive");
+            external_mem.bytes = (uint8_t *)acalloc(
+                external_mem.pages * PAGE_SIZE, sizeof(uint32_t),
+                "Module->memory.bytes primitive");
         }
         *val = &external_mem;
         return true;

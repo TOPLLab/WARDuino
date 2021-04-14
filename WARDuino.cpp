@@ -1,12 +1,14 @@
 #include "WARDuino.h"
+
+#include <algorithm>  // std::find
 #include <cmath>
 #include <cstring>
-#include "instructions.h"
-#include "primitives.h"
-#include <algorithm>    // std::find
 #include <utility>
+
 #include "debug.h"
+#include "instructions.h"
 #include "mem.h"
+#include "primitives.h"
 #include "util.h"
 
 #define UNDEF (uint32_t)(-1)
@@ -16,35 +18,35 @@
 char exception[512];
 
 // UTIL
-bool resolvesym(char *filename, char *symbol, uint8_t external_kind, void **val, char **err) {
+bool resolvesym(char *filename, char *symbol, uint8_t external_kind, void **val,
+                char **err) {
     if (nullptr != filename && !strcmp(filename, "env")) {
-
         switch (external_kind) {
             case 0x00:  // Function
             {
-                return resolve_primitive(symbol, (Primitive *) val);
+                return resolve_primitive(symbol, (Primitive *)val);
                 break;
             }
             case 0x01:  // Table
             {
-                *err = (char *) "Unsupported type of import: table (0x01)";
+                *err = (char *)"Unsupported type of import: table (0x01)";
                 return false;
             }
             case 0x02:  // Memory
             {
-                return resolve_external_memory(symbol, (Memory **) val);
+                return resolve_external_memory(symbol, (Memory **)val);
             }
             case 0x03:  // Global
             {
-                *err = (char *) "Unsupported type of import: global (0x03)";
+                *err = (char *)"Unsupported type of import: global (0x03)";
                 return false;
             }
             default:
-                *err = (char *) "Unsupported type of import";
+                *err = (char *)"Unsupported type of import";
                 return false;
         }
     } else {
-        *err = (char *) "Imports are only supported from the module env";
+        *err = (char *)"Imports are only supported from the module env";
         return false;
     }
 }
@@ -53,10 +55,7 @@ bool resolvesym(char *filename, char *symbol, uint8_t external_kind, void **val,
 // char  exception[4096];
 
 // Static definition of block_types
-uint32_t block_type_results[4][1] = {{I32},
-                                     {I64},
-                                     {F32},
-                                     {F64}};
+uint32_t block_type_results[4][1] = {{I32}, {I64}, {F32}, {F64}};
 
 Type block_types[5];
 
@@ -89,7 +88,8 @@ Type *get_block_type(uint8_t value_type) {
             return &block_types[3];
         case F64:
             return &block_types[4];
-        default: FATAL("invalid block_type value_type: %d\n", value_type);
+        default:
+            FATAL("invalid block_type value_type: %d\n", value_type);
             return nullptr;
     }
 }
@@ -136,7 +136,7 @@ void parse_memory_type(Module *m, uint8_t **pos) {
     // Limit the maximum to 2GB
     if (flags & 0x1u) {
         pages = read_LEB_32(pos);  // Max size
-        m->memory.maximum = (uint32_t) fmin(0x8000, pages);
+        m->memory.maximum = (uint32_t)fmin(0x8000, pages);
     } else {
         m->memory.maximum = 0x8000;
     }
@@ -160,7 +160,7 @@ void skip_immediates(uint8_t **pos) {
             // varuint32 + varuint1
         case 0x11:  // call_indirect
             // encoding: 0x11 x 0x00
-            read_LEB_32(pos);         // read x
+            read_LEB_32(pos);  // read x
             read_LEB(pos, 7);  // 0x00 byte
             break;
             // varint64
@@ -185,7 +185,7 @@ void skip_immediates(uint8_t **pos) {
             read_LEB_32(pos);
             break;
             // br_table
-        case 0x0e:                             // br_table
+        case 0x0e:                     // br_table
             count = read_LEB_32(pos);  // target count
             for (uint32_t i = 0; i < count; i++) {
                 read_LEB_32(pos);
@@ -202,7 +202,8 @@ void find_blocks(Module *m) {
     Block *block;
     Block *blockstack[BLOCKSTACK_SIZE];
     int top = -1;
-    uint8_t opcode = 0x00;dbg_info("  find_blocks: function_count: %d\n", m->function_count);
+    uint8_t opcode = 0x00;
+    dbg_info("  find_blocks: function_count: %d\n", m->function_count);
     for (uint32_t f = m->import_count; f < m->function_count; f++) {
         function = &m->functions[f];
         debug("    fidx: 0x%x, start: 0x%p, end: 0x%p\n", f,
@@ -210,11 +211,11 @@ void find_blocks(Module *m) {
         uint8_t *pos = function->start_ptr;
         while (pos <= function->end_ptr) {
             opcode = *pos;
-            switch (opcode) { // NOLINT(hicpp-multiway-paths-covered)
-                case 0x02:  // block
-                case 0x03:  // loop
-                case 0x04:  // if
-                    block = (Block *) acalloc(1, sizeof(Block), "Block");
+            switch (opcode) {  // NOLINT(hicpp-multiway-paths-covered)
+                case 0x02:     // block
+                case 0x03:     // loop
+                case 0x04:     // if
+                    block = (Block *)acalloc(1, sizeof(Block), "Block");
                     block->block_type = opcode;
                     block->type = get_block_type(*(pos + 1));
                     block->start_ptr = pos;
@@ -222,8 +223,8 @@ void find_blocks(Module *m) {
                     m->block_lookup[pos] = block;
                     break;
                 case 0x05:  // else
-                ASSERT(blockstack[top]->block_type == 0x04,
-                       "else not matched with if")
+                    ASSERT(blockstack[top]->block_type == 0x04,
+                           "else not matched with if")
                     blockstack[top]->else_ptr = pos + 1;
                     break;
                 case 0x0b:  // end
@@ -241,10 +242,10 @@ void find_blocks(Module *m) {
                         block->br_ptr = pos;
                     }
                     debug(
-                            "      block start: 0x%p, end: 0x%p,"
-                            " br_addr: 0x%p, else_addr: 0x%p\n",
-                            block->start_ptr, block->end_ptr, block->br_ptr,
-                            block->else_ptr);
+                        "      block start: 0x%p, end: 0x%p,"
+                        " br_addr: 0x%p, else_addr: 0x%p\n",
+                        block->start_ptr, block->end_ptr, block->br_ptr,
+                        block->else_ptr);
                     break;
             }
             skip_immediates(&pos);
@@ -300,7 +301,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     uint32_t word;
     Module *m;
     // Allocate the module
-    m = (Module *) acalloc(1, sizeof(Module), "Module");
+    m = (Module *)acalloc(1, sizeof(Module), "Module");
     m->warduino = this;
     m->options = options;
     // Empty stacks
@@ -311,7 +312,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     m->bytes = bytes;
     m->byte_count = byte_count;
     // run constructor with already allocated memory
-    new(&m->block_lookup) std::map<uint8_t *, Block *>;
+    new (&m->block_lookup) std::map<uint8_t *, Block *>;
     m->start_function = UNDEF;
 
     // Check the module
@@ -330,7 +331,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
         debug("Reading section %d at 0x%p, length %d\n", id, pos, section_len);
         switch (id) {
             case 0: {
-                dbg_warn("Parsing Custom(0) section (length: 0x%x)\n", section_len);
+                dbg_warn("Parsing Custom(0) section (length: 0x%x)\n",
+                         section_len);
                 uint8_t *end_pos = pos + section_len;
                 char *name = read_string(&pos, nullptr);
                 dbg_warn("  Section name '%s'\n", name);
@@ -339,18 +341,20 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     // TODO: make use of these
                     uint32_t memorysize = read_LEB_32(&pos);
                     uint32_t tablesize = read_LEB_32(&pos);
-                    (void) memorysize;
-                    (void) tablesize;
+                    (void)memorysize;
+                    (void)tablesize;
                 } else {
                     dbg_warn("Ignoring unknown custom section '%s'\n", name);
                 }
                 pos = end_pos;
                 break;
             }
-            case 1: dbg_warn("Parsing Type(1) section (length: 0x%x)\n", section_len);
+            case 1:
+                dbg_warn("Parsing Type(1) section (length: 0x%x)\n",
+                         section_len);
                 m->type_count = read_LEB_32(&pos);
-                m->types = (Type *) acalloc(m->type_count, sizeof(Type),
-                                            "Module->types");
+                m->types = (Type *)acalloc(m->type_count, sizeof(Type),
+                                           "Module->types");
 
                 for (uint32_t c = 0; c < m->type_count; c++) {
                     Type *type = &m->types[c];
@@ -360,16 +364,16 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
 
                     // read vector params
                     type->param_count = read_LEB_32(&pos);
-                    type->params = (uint32_t *) acalloc(
-                            type->param_count, sizeof(uint32_t), "type->params");
+                    type->params = (uint32_t *)acalloc(
+                        type->param_count, sizeof(uint32_t), "type->params");
                     for (uint32_t p = 0; p < type->param_count; p++) {
                         type->params[p] = read_LEB_32(&pos);
                     }
 
                     // read vector results
                     type->result_count = read_LEB_32(&pos);
-                    type->results = (uint32_t *) acalloc(
-                            type->result_count, sizeof(uint32_t), "type->results");
+                    type->results = (uint32_t *)acalloc(
+                        type->result_count, sizeof(uint32_t), "type->results");
                     for (uint32_t r = 0; r < type->result_count; r++) {
                         type->results[r] = read_LEB_32(&pos);
                     }
@@ -380,7 +384,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 }
                 break;
             case 2: {
-                dbg_warn("Parsing Import(2) section (length: 0x%x)\n", section_len);
+                dbg_warn("Parsing Import(2) section (length: 0x%x)\n",
+                         section_len);
                 uint32_t import_count = read_LEB_32(&pos);
                 for (uint32_t gidx = 0; gidx < import_count; gidx++) {
                     uint32_t module_len, field_len;
@@ -396,8 +401,9 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     uint32_t type_index = 0, fidx;
                     uint8_t content_type = 0, mutability;
 
-                    switch (external_kind) { // NOLINT(hicpp-multiway-paths-covered)
-                        case 0x00:  // Function
+                    switch (
+                        external_kind) {  // NOLINT(hicpp-multiway-paths-covered)
+                        case 0x00:        // Function
                             type_index = read_LEB_32(&pos);
                             break;
                         case 0x01:  // Table
@@ -410,18 +416,19 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                             content_type = read_LEB(&pos, 7);
                             // TODO: use mutability
                             mutability = read_LEB(&pos, 1);
-                            (void) mutability;
+                            (void)mutability;
                             break;
                     }
 
                     void *val;
                     char *err,
-                            *sym = (char *) malloc(module_len + field_len + 5);
+                        *sym = (char *)malloc(module_len + field_len + 5);
 
                     // TODO add special case form primitives with resolvePrim
                     do {
                         // Try using module as handle filename
-                        if (resolvesym(import_module, import_field, external_kind, &val, &err)) {
+                        if (resolvesym(import_module, import_field,
+                                       external_kind, &val, &err)) {
                             break;
                         }
 
@@ -434,7 +441,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                                 sym[sidx] = '_';
                             }
                         }
-                        if (resolvesym(nullptr, sym, external_kind, &val, &err)) {
+                        if (resolvesym(nullptr, sym, external_kind, &val,
+                                       &err)) {
                             break;
                         }
 
@@ -444,7 +452,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                             (strncmp("env", import_module, 4) == 0) &&
                             (strncmp("_", import_field, 1) == 0)) {
                             sprintf(sym, "%s", import_field + 1);
-                            if (resolvesym(nullptr, sym, external_kind, &val, &err)) {
+                            if (resolvesym(nullptr, sym, external_kind, &val,
+                                           &err)) {
                                 break;
                             }
                         }
@@ -452,7 +461,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                         // Try the plain symbol by itself with module
                         // name/handle
                         sprintf(sym, "%s", import_field);
-                        if (resolvesym(nullptr, sym, external_kind, &val, &err)) {
+                        if (resolvesym(nullptr, sym, external_kind, &val,
+                                       &err)) {
                             break;
                         }
 
@@ -470,34 +480,34 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                             fidx = m->function_count;
                             m->import_count += 1;
                             m->function_count += 1;
-                            m->functions = (Block *) arecalloc(
-                                    m->functions, fidx, m->import_count,
-                                    sizeof(Block), "Block(imports)");
+                            m->functions = (Block *)arecalloc(
+                                m->functions, fidx, m->import_count,
+                                sizeof(Block), "Block(imports)");
 
                             Block *func = &m->functions[fidx];
                             func->import_module = import_module;
                             func->import_field = import_field;
                             func->type = &m->types[type_index];
                             debug(
-                                    "  import: %s.%s, fidx: 0x%x, type_index: "
-                                    "0x%x\n",
-                                    func->import_module, func->import_field, fidx,
-                                    type_index);
+                                "  import: %s.%s, fidx: 0x%x, type_index: "
+                                "0x%x\n",
+                                func->import_module, func->import_field, fidx,
+                                type_index);
 
-                            func->func_ptr = (void (*)()) val;
+                            func->func_ptr = (void (*)())val;
                             break;
                         }
                         case 0x01:  // Table
                         {
                             ASSERT(!m->table.entries,
                                    "More than 1 table not supported\n");
-                            Table *tval = (Table *) val;
-                            m->table.entries = (uint32_t *) val;
+                            Table *tval = (Table *)val;
+                            m->table.entries = (uint32_t *)val;
                             ASSERT(m->table.initial <= tval->maximum,
                                    "Imported table is not large enough\n");
                             dbg_warn("  setting table.entries to: %p\n",
-                                     *(uint32_t **) val);
-                            m->table.entries = *(uint32_t **) val;
+                                     *(uint32_t **)val);
+                            m->table.entries = *(uint32_t **)val;
                             m->table.size = tval->size;
                             m->table.maximum = tval->maximum;
                             m->table.entries = tval->entries;
@@ -507,13 +517,13 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                         {
                             ASSERT(!m->memory.bytes,
                                    "More than 1 memory not supported\n");
-                            auto *mval = (Memory *) val;
+                            auto *mval = (Memory *)val;
                             ASSERT(m->memory.initial <= mval->maximum,
                                    "Imported memory is not large enough\n");
                             dbg_warn(
-                                    "  setting memory pages: %d, max: %d, bytes: "
-                                    "%p\n",
-                                    mval->pages, mval->maximum, mval->bytes);
+                                "  setting memory pages: %d, max: %d, bytes: "
+                                "%p\n",
+                                mval->pages, mval->maximum, mval->bytes);
                             m->memory.pages = mval->pages;
                             m->memory.maximum = mval->maximum;
                             m->memory.bytes = mval->bytes;
@@ -522,13 +532,14 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                         case 0x03:  // Global
                         {
                             m->global_count += 1;
-                            m->globals = (StackValue *) arecalloc(
-                                    m->globals, m->global_count - 1,
-                                    m->global_count, sizeof(StackValue), "globals");
+                            m->globals = (StackValue *)arecalloc(
+                                m->globals, m->global_count - 1,
+                                m->global_count, sizeof(StackValue), "globals");
                             StackValue *glob = &m->globals[m->global_count - 1];
                             glob->value_type = content_type;
 
-                            switch (content_type) { // NOLINT(hicpp-multiway-paths-covered)
+                            switch (
+                                content_type) {  // NOLINT(hicpp-multiway-paths-covered)
                                 case I32:
                                     memcpy(&glob->value.uint32, val, 4);
                                     break;
@@ -543,27 +554,29 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                                     break;
                             }
                             debug(
-                                    "    setting global %d (content_type %d) to "
-                                    "%p: %s\n",
-                                    m->global_count - 1, content_type, val,
-                                    value_repr(glob));
+                                "    setting global %d (content_type %d) to "
+                                "%p: %s\n",
+                                m->global_count - 1, content_type, val,
+                                value_repr(glob));
                             break;
                         }
-                        default: FATAL("Import of kind %d not supported\n",
-                                       external_kind);
+                        default:
+                            FATAL("Import of kind %d not supported\n",
+                                  external_kind);
                     }
                 }
                 break;
             }
             case 3: {
-                dbg_warn("Parsing Function(3) section (length: 0x%x)\n", section_len);
+                dbg_warn("Parsing Function(3) section (length: 0x%x)\n",
+                         section_len);
                 m->function_count += read_LEB_32(&pos);
                 debug("  import_count: %d, new count: %d\n", m->import_count,
                       m->function_count);
 
                 Block *functions;
-                functions = (Block *) acalloc(m->function_count, sizeof(Block),
-                                              "Block(function)");
+                functions = (Block *)acalloc(m->function_count, sizeof(Block),
+                                             "Block(function)");
                 if (m->import_count != 0) {
                     memcpy(functions, m->functions,
                            sizeof(Block) * m->import_count);
@@ -588,8 +601,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 parse_table_type(m, &pos);
                 // If it's not imported then don't mangle it
                 m->options.mangle_table_index = false;
-                m->table.entries = (uint32_t *) acalloc(
-                        m->table.size, sizeof(uint32_t), "Module->table.entries");
+                m->table.entries = (uint32_t *)acalloc(
+                    m->table.size, sizeof(uint32_t), "Module->table.entries");
                 //}
                 break;
             }
@@ -601,9 +614,9 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 // Allocate memory
                 // for (uint32_t c=0; c<memory_count; c++) {
                 parse_memory_type(m, &pos);
-                m->memory.bytes = (uint8_t *) acalloc(
-                        m->memory.pages * PAGE_SIZE, 1, //sizeof(uint32_t),
-                        "Module->memory.bytes");
+                m->memory.bytes = (uint8_t *)acalloc(
+                    m->memory.pages * PAGE_SIZE, 1,  // sizeof(uint32_t),
+                    "Module->memory.bytes");
                 //}
                 break;
             }
@@ -615,12 +628,12 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     uint8_t type = read_LEB(&pos, 7);
                     // TODO: use mutability
                     uint8_t mutability = read_LEB(&pos, 1);
-                    (void) mutability;
+                    (void)mutability;
                     uint32_t gidx = m->global_count;
                     m->global_count += 1;
-                    m->globals = (StackValue *) arecalloc(
-                            m->globals, gidx, m->global_count, sizeof(StackValue),
-                            "globals");
+                    m->globals = (StackValue *)arecalloc(
+                        m->globals, gidx, m->global_count, sizeof(StackValue),
+                        "globals");
                     m->globals[gidx].value_type = type;
 
                     // Run the init_expr to get global value
@@ -632,7 +645,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 break;
             }
             case 7: {
-                dbg_warn("Parsing Export(7) section (length: 0x%x)\n", section_len);
+                dbg_warn("Parsing Export(7) section (length: 0x%x)\n",
+                         section_len);
                 uint32_t export_count = read_LEB_32(&pos);
                 for (uint32_t e = 0; e < export_count; e++) {
                     char *name = read_string(&pos, nullptr);
@@ -641,9 +655,9 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     uint32_t index = read_LEB_32(&pos);
                     if (kind != 0x00) {
                         dbg_warn(
-                                "  ignoring non-function export '%s'"
-                                " kind 0x%x index 0x%x\n",
-                                name, kind, index);
+                            "  ignoring non-function export '%s'"
+                            " kind 0x%x index 0x%x\n",
+                            name, kind, index);
                         continue;
                     }
                     m->functions[index].export_name = name;
@@ -662,11 +676,13 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                  * can be an import, and can also be exported There can only be
                  * at most one start node per module
                  */
-            dbg_warn("Parsing Start(8) section (length: 0x%x)\n", section_len);
+                dbg_warn("Parsing Start(8) section (length: 0x%x)\n",
+                         section_len);
                 m->start_function = read_LEB_32(&pos);
                 break;
             case 9: {
-                dbg_warn("Parsing Element(9) section (length: 0x%x)\n", section_len);
+                dbg_warn("Parsing Element(9) section (length: 0x%x)\n",
+                         section_len);
                 uint32_t element_count = read_LEB_32(&pos);
 
                 for (uint32_t c = 0; c < element_count; c++) {
@@ -682,14 +698,14 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                         // offset is the table address + the index (not sized
                         // for the pointer size) so get the actual (sized) index
                         debug(
-                                "   origin offset: 0x%x, table addr: 0x%x, new "
-                                "offset: 0x%x\n",
-                                offset, (uint32_t) ((uint64_t) m->table.entries),
-                                offset - (uint32_t) ((uint64_t) m->table.entries));
+                            "   origin offset: 0x%x, table addr: 0x%x, new "
+                            "offset: 0x%x\n",
+                            offset, (uint32_t)((uint64_t)m->table.entries),
+                            offset - (uint32_t)((uint64_t)m->table.entries));
                         // offset = offset -
                         // (uint32_t)((uint64_t)m->table.entries & 0xFFFFFFFF);
                         offset =
-                                offset - (uint32_t) ((uint64_t) m->table.entries);
+                            offset - (uint32_t)((uint64_t)m->table.entries);
                     }
 
                     uint32_t num_elem = read_LEB_32(&pos);
@@ -702,12 +718,11 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     }
                     for (uint32_t n = 0; n < num_elem; n++) {
                         debug(
-                                "  write table entries %p, offset: 0x%x, n: 0x%x, "
-                                "addr: %p\n",
-                                m->table.entries, offset, n,
-                                &m->table.entries[offset + n]);
-                        m->table.entries[offset + n] =
-                                read_LEB_32(&pos);
+                            "  write table entries %p, offset: 0x%x, n: 0x%x, "
+                            "addr: %p\n",
+                            m->table.entries, offset, n,
+                            &m->table.entries[offset + n]);
+                        m->table.entries[offset + n] = read_LEB_32(&pos);
                     }
                 }
                 pos = start_pos + section_len;
@@ -715,7 +730,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 // 9 and 11 are similar so keep them together, 10 is below 11
             }
             case 11: {
-                dbg_warn("Parsing Data(11) section (length: 0x%x)\n", section_len);
+                dbg_warn("Parsing Data(11) section (length: 0x%x)\n",
+                         section_len);
                 uint32_t seg_count = read_LEB_32(&pos);
                 for (uint32_t s = 0; s < seg_count; s++) {
                     uint32_t midx = read_LEB_32(&pos);
@@ -731,11 +747,12 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     if (!m->options.disable_memory_bounds) {
                         ASSERT(offset + size <= m->memory.pages * PAGE_SIZE,
                                "memory overflow %d+%d > %d\n", offset, size,
-                               (uint32_t) (m->memory.pages * PAGE_SIZE));
-                    }dbg_info(
-                            "  setting 0x%x bytes of memory at 0x%p + offset "
-                            "0x%x\n",
-                            size, m->memory.bytes, offset);
+                               (uint32_t)(m->memory.pages * PAGE_SIZE));
+                    }
+                    dbg_info(
+                        "  setting 0x%x bytes of memory at 0x%p + offset "
+                        "0x%x\n",
+                        size, m->memory.bytes, offset);
                     memcpy(m->memory.bytes + offset, pos, size);
                     pos += size;
                 }
@@ -743,7 +760,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 break;
             }
             case 10: {
-                dbg_warn("Parsing Code(10) section (length: 0x%x)\n", section_len);
+                dbg_warn("Parsing Code(10) section (length: 0x%x)\n",
+                         section_len);
                 uint32_t body_count = read_LEB_32(&pos);
                 for (uint32_t b = 0; b < body_count; b++) {
                     Block *function = &m->functions[m->import_count + b];
@@ -762,13 +780,13 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                         lecount = read_LEB_32(&pos);
                         function->local_count += lecount;
                         tidx = read_LEB(&pos, 7);
-                        (void) tidx;  // TODO: use tidx?
+                        (void)tidx;  // TODO: use tidx?
                     }
 
                     if (function->local_count > 0) {
-                        function->local_value_type = (uint8_t *) acalloc(
-                                function->local_count, sizeof(uint8_t),
-                                "function->local_value_type");
+                        function->local_value_type = (uint8_t *)acalloc(
+                            function->local_count, sizeof(uint8_t),
+                            "function->local_value_type");
                     }
 
                     // Restore position and read the locals
@@ -791,7 +809,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 }
                 break;
             }
-            default: FATAL("Section %d unimplemented\n", id);
+            default:
+                FATAL("Section %d unimplemented\n", id);
                 pos += section_len;
         }
     }
@@ -833,8 +852,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
 
 void WARDuino::unload_module(Module *m) {
     auto it = std::find(this->modules.begin(), this->modules.end(), m);
-    if (it != this->modules.end())
-        this->modules.erase(it);
+    if (it != this->modules.end()) this->modules.erase(it);
 
     if (m->types != nullptr) {
         for (uint32_t i = 0; i < m->type_count; i++) {
@@ -851,14 +869,11 @@ void WARDuino::unload_module(Module *m) {
         free(m->functions);
     }
 
-    if (m->globals != nullptr)
-        free(m->globals);
+    if (m->globals != nullptr) free(m->globals);
 
-    if (m->table.entries != nullptr)
-        free(m->table.entries);
+    if (m->table.entries != nullptr) free(m->table.entries);
 
-    if (m->memory.bytes != nullptr)
-        free(m->memory.bytes);
+    if (m->memory.bytes != nullptr) free(m->memory.bytes);
 
     free(m);
 }
@@ -876,9 +891,13 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
     m->fp = -1;
     m->csp = -1;
 
-    dbg_trace("Interpretation starts\n");dbg_dump_stack(m);
-    setup_call(m, fidx);dbg_trace("Call setup\n");
-    result = interpret(m);dbg_trace("Interpretation ended\n");dbg_dump_stack(m);
+    dbg_trace("Interpretation starts\n");
+    dbg_dump_stack(m);
+    setup_call(m, fidx);
+    dbg_trace("Call setup\n");
+    result = interpret(m);
+    dbg_trace("Interpretation ended\n");
+    dbg_dump_stack(m);
     return result;
 }
 
@@ -917,9 +936,9 @@ void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
             if (this->interruptEven) {
                 if (!this->interruptBuffer.empty()) {
                     // done, send to process
-                    auto *data = (uint8_t *) acalloc(
-                            sizeof(uint8_t), this->interruptBuffer.size(),
-                            "interrupt buffer");
+                    auto *data = (uint8_t *)acalloc(
+                        sizeof(uint8_t), this->interruptBuffer.size(),
+                        "interrupt buffer");
                     memcpy(data, this->interruptBuffer.data(),
                            this->interruptBuffer.size() * sizeof(uint8_t));
                     this->parsedInterrups.push_back(data);
@@ -932,10 +951,11 @@ void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
             }
         } else {  // good parse
             if (!this->interruptEven) {
-                this->interruptLastChar = (this->interruptLastChar << 4u) + (uint8_t) r;
+                this->interruptLastChar =
+                    (this->interruptLastChar << 4u) + (uint8_t)r;
                 this->interruptBuffer.push_back(this->interruptLastChar);
             } else {
-                this->interruptLastChar = (uint8_t) r;
+                this->interruptLastChar = (uint8_t)r;
             }
             this->interruptEven = !this->interruptEven;
         }
@@ -963,19 +983,24 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
 // CallbackHandler class
 
 bool CallbackHandler::resolving_event = false;
-std::unordered_map<std::string, Callback> *CallbackHandler::callbacks = new std::unordered_map<std::string, Callback>();
+std::unordered_map<std::string, Callback> *CallbackHandler::callbacks =
+    new std::unordered_map<std::string, Callback>();
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
 void CallbackHandler::add_callback(const Callback &c) {
     printf("Add Callback(%s, %i)\n", c.id.c_str(), c.table_index);
-    callbacks->insert(std::pair<std::string, Callback>(c.id, c));  // TODO what if id already present?
+    callbacks->insert(std::pair<std::string, Callback>(
+        c.id, c));  // TODO what if id already present?
 }
 
-void CallbackHandler::push_event(const char *topic, const unsigned char *payload, unsigned int length) {
+void CallbackHandler::push_event(const char *topic,
+                                 const unsigned char *payload,
+                                 unsigned int length) {
     // TODO make callback struct a class and move push_event to it
     if (events->size() < EVENTS_SIZE) {
         auto e = new Event(topic, reinterpret_cast<const char *>(payload));
-        printf("Push Event(%s, %s, %s)\n", e->callback_function_id.c_str(), e->topic, e->payload);
+        printf("Push Event(%s, %s, %s)\n", e->callback_function_id.c_str(),
+               e->topic, e->payload);
         events->push(*e);
     }
 }
@@ -989,7 +1014,8 @@ bool CallbackHandler::resolve_event() {
     Event event = CallbackHandler::events->front();
     CallbackHandler::events->pop();
 
-    auto iterator = CallbackHandler::callbacks->find(event.callback_function_id);
+    auto iterator =
+        CallbackHandler::callbacks->find(event.callback_function_id);
     if (iterator != CallbackHandler::callbacks->end()) {
         iterator->second.resolve_event(event);
     } else {
@@ -1008,19 +1034,22 @@ Callback::Callback(Module *m, std::string id, uint32_t tidx) {
 }
 
 void Callback::resolve_event(const Event &e) {
-    printf("Callback(%s, %i): resolving Event(%s, %s, %s)\n", id.c_str(), table_index,
-           e.callback_function_id.c_str(), e.topic, e.payload);
+    printf("Callback(%s, %i): resolving Event(%s, %s, %s)\n", id.c_str(),
+           table_index, e.callback_function_id.c_str(), e.topic, e.payload);
     // Save runtime state of VM
-    uint8_t *pc_ptr = module->pc_ptr;   // program counter
-    int sp = module->sp;                // operand stack pointer
-    int fp = module->fp;                // current frame pointer into stack
-    StackValue stack[STACK_SIZE];       // main operand stack
-    std::copy(std::begin(module->stack), std::end(module->stack), std::begin(stack));
-    int csp = module->csp;              // callstack pointer
-    Frame callstack[CALLSTACK_SIZE];    // callstack
-    std::copy(std::begin(module->callstack), std::end(module->callstack), std::begin(callstack));
-    uint32_t br_table[BR_TABLE_SIZE];   // br_table branch indexes
-    std::copy(std::begin(module->br_table), std::end(module->br_table), std::begin(br_table));
+    uint8_t *pc_ptr = module->pc_ptr;  // program counter
+    int sp = module->sp;               // operand stack pointer
+    int fp = module->fp;               // current frame pointer into stack
+    StackValue stack[STACK_SIZE];      // main operand stack
+    std::copy(std::begin(module->stack), std::end(module->stack),
+              std::begin(stack));
+    int csp = module->csp;            // callstack pointer
+    Frame callstack[CALLSTACK_SIZE];  // callstack
+    std::copy(std::begin(module->callstack), std::end(module->callstack),
+              std::begin(callstack));
+    uint32_t br_table[BR_TABLE_SIZE];  // br_table branch indexes
+    std::copy(std::begin(module->br_table), std::end(module->br_table),
+              std::begin(br_table));
 
     // Empty stacks
     module->sp = -1;
@@ -1032,10 +1061,10 @@ void Callback::resolve_event(const Event &e) {
     std::string topic = e.topic;
     std::string payload = e.payload;
     for (unsigned long i = 0; i < topic.length(); i++) {
-        module->memory.bytes[start + i] = (uint32_t) e.topic[i];
+        module->memory.bytes[start + i] = (uint32_t)e.topic[i];
     }
     for (unsigned long i = topic.length(); i < payload.length(); i++) {
-        module->memory.bytes[start + i] = (uint32_t) e.payload[i];
+        module->memory.bytes[start + i] = (uint32_t)e.payload[i];
     }
 
     // Push arguments (5 args)
@@ -1057,13 +1086,15 @@ void Callback::resolve_event(const Event &e) {
     interpret(module);
 
     // Restore state of VM
-    module->pc_ptr = pc_ptr;        // program counter
-    module->sp = sp;                // operand stack pointer
-    module->fp = fp;                // current frame pointer into stack
+    module->pc_ptr = pc_ptr;  // program counter
+    module->sp = sp;          // operand stack pointer
+    module->fp = fp;          // current frame pointer into stack
     std::copy(std::begin(stack), std::end(stack), std::begin(module->stack));
-    module->csp = csp;              // callstack pointer
-    std::copy(std::begin(callstack), std::end(callstack), std::begin(module->callstack));
-    std::copy(std::begin(br_table), std::end(br_table), std::begin(module->br_table));
+    module->csp = csp;  // callstack pointer
+    std::copy(std::begin(callstack), std::end(callstack),
+              std::begin(module->callstack));
+    std::copy(std::begin(br_table), std::end(br_table),
+              std::begin(module->br_table));
 }
 
 // Event class

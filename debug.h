@@ -1,8 +1,9 @@
 
 #pragma once
 
-#include "WARDuino.h"
 #include <cstdio>
+
+#include "WARDuino.h"
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -22,7 +23,6 @@
  */
 void end();
 
-
 #define ASSERT(exp, ...)                                           \
     {                                                              \
         if (!(exp)) {                                              \
@@ -31,16 +31,15 @@ void end();
             printf("\n\n\nlooping...\n");                          \
             end();                                                 \
         }                                                          \
-    }\
+    }
 
-
-#define FATAL(...)                                      \
-    {                                                   \
+#define FATAL(...)                                    \
+    {                                                 \
         printf("Error(%s:%d): ", __FILE__, __LINE__); \
-        printf(__VA_ARGS__);                            \
-        printf("\n");                                  \
-        end();                                          \
-    } \
+        printf(__VA_ARGS__);                          \
+        printf("\n");                                 \
+        end();                                        \
+    }
 
 #if DEBUG
 #define debug(...)                                       \
@@ -65,7 +64,6 @@ void end();
 #else
 #define dbg_trace(...) ;
 #endif
-
 
 #if WARN
 #define dbg_warn(...) \

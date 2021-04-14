@@ -3,15 +3,15 @@
 #ifndef WAC_H
 #define WAC_H
 
+#include <array>
 #include <climits>
 #include <cstdint>
 #include <cstdio>
 #include <map>
 #include <queue>  // std::queue
-#include <array>
-#include <vector>
 #include <set>
 #include <unordered_map>
+#include <vector>
 
 // Constants
 #define WA_MAGIC 0x6d736100
@@ -66,12 +66,12 @@ typedef union FuncPtr {
 
 // A block or function
 typedef struct Block {
-    uint8_t block_type;    // 0x00: function, 0x01: init_exp
+    uint8_t block_type;  // 0x00: function, 0x01: init_exp
     // 0x02: block, 0x03: loop, 0x04: if
-    uint32_t fidx;         // function only (index)
-    Type *type;            // params/results type
-    uint32_t local_count;  // function only
-    uint8_t *local_value_type;      // types of locals (function only)
+    uint32_t fidx;              // function only (index)
+    Type *type;                 // params/results type
+    uint32_t local_count;       // function only
+    uint8_t *local_value_type;  // types of locals (function only)
     uint8_t *start_ptr;
     uint8_t *end_ptr;
     uint8_t *else_ptr;    // if block only
@@ -79,7 +79,7 @@ typedef struct Block {
     char *export_name;    // function only (exported)
     char *import_module;  // function only (imported)
     char *import_field;   // function only (imported)
-    void (*func_ptr)();  // function only (imported)
+    void (*func_ptr)();   // function only (imported)
 } Block;
 
 ///
@@ -132,7 +132,7 @@ typedef struct Options {
     bool dlsym_trim_underscore;
 } Options;
 
-class WARDuino; // predeclare for it work in the module decl
+class WARDuino;  // predeclare for it work in the module decl
 
 typedef struct Module {
     WARDuino *warduino;
@@ -149,7 +149,7 @@ typedef struct Module {
     uint32_t function_count;  // number of function (including imports)
     Block *functions;         // imported and locally defined functions
     std::map<uint8_t *, Block *>
-            block_lookup;         // map of module byte position to Blocks
+        block_lookup;  // map of module byte position to Blocks
     // same length as byte_count
     uint32_t start_function;  // function to run on module load
     Table table;
@@ -165,7 +165,7 @@ typedef struct Module {
     Frame callstack[CALLSTACK_SIZE];   // callstack
     uint32_t br_table[BR_TABLE_SIZE];  // br_table branch indexes
 
-    char *exception;                   // exception is set when the program fails
+    char *exception;  // exception is set when the program fails
 } Module;
 
 typedef bool (*Primitive)(Module *);
@@ -176,47 +176,46 @@ typedef struct PrimitiveEntry {
     Type t;
 } PrimitiveEntry;
 
-
-enum RunningState {
-    WARDUINOrun, WARDUINOpause, WARDUINOstep
-};
+enum RunningState { WARDUINOrun, WARDUINOpause, WARDUINOstep };
 
 class Event {
-public:
+   public:
     std::string callback_function_id;  // TODO is always "MQTT" now
     // TODO make args generic
     const char *topic;
     const char *payload;
 
-    Event(const char *topic, const char* payload);
+    Event(const char *topic, const char *payload);
 };
 
 class Callback {
-private:
-    Module *module; // reference to module
-public:
+   private:
+    Module *module;  // reference to module
+   public:
     std::string id;
     uint32_t table_index;
 
     explicit Callback(Module *m, std::string id, uint32_t tidx);
 
-    void resolve_event(const Event& e);
+    void resolve_event(const Event &e);
 };
 
 class CallbackHandler {
-private:
+   private:
     static std::unordered_map<std::string, Callback> *callbacks;
     static std::queue<Event> *events;
-public:
+
+   public:
     static bool resolving_event;
 
-    static void add_callback(const Callback& c);
-    static void push_event(const char* topic, const unsigned char* payload, unsigned int length);
+    static void add_callback(const Callback &c);
+    static void push_event(const char *topic, const unsigned char *payload,
+                           unsigned int length);
     static bool resolve_event();
 };
 
 class WARDuino {
-private:
+   private:
     std::vector<Module *> modules = {};
     std::deque<uint8_t *> parsedInterrups = {};
 
@@ -229,7 +228,7 @@ private:
     std::vector<uint8_t> interruptBuffer;
     long interruptSize;
 
-public:
+   public:
     // vector, we expect few breakpoints
     std::set<uint8_t *> breakpoints = {};
 
@@ -256,7 +255,6 @@ public:
 
     // Get interrupt or NULL if none
     uint8_t *getInterrupt();
-
 };
 
 #endif
