@@ -7,7 +7,7 @@ This folder contains all the integration tests for the WARDuino virtual machine.
 The `core` folder contains the list of official WebAssembly core specification tests.
 The following list keeps track of which tests succeed and which fail:
 
-- [x] address.wast
+- [ ] address.wast
 - [ ] align.wast
 - [ ] binary-leb128.wast
 - [ ] binary.wast
@@ -25,7 +25,7 @@ The following list keeps track of which tests succeed and which fail:
 - [ ] elem.wast
 - [ ] endianness.wast
 - [ ] exports.wast
-- [x] f32.wast
+- [ ] f32.wast
 - [ ] f32_bitwise.wast
 - [ ] f32_cmp.wast
 - [ ] f64.wast
@@ -35,8 +35,8 @@ The following list keeps track of which tests succeed and which fail:
 - [ ] float_exprs.wast
 - [ ] float_literals.wast
 - [ ] float_memory.wast
-- [ ] float_misc.wast
-- [ ] forward.wast
+- [x] float_misc.wast
+- [x] forward.wast
 - [ ] func.wast
 - [ ] func_ptrs.wast
 - [ ] global.wast
@@ -44,11 +44,11 @@ The following list keeps track of which tests succeed and which fail:
 - [ ] i64.wast
 - [ ] if.wast
 - [ ] imports.wast
-- [ ] inline-module.wast
+- [x] inline-module.wast
 - [ ] int_exprs.wast
 - [ ] int_literals.wast
 - [ ] labels.wast
-- [ ] left-to-right.wast
+- [x] left-to-right.wast
 - [ ] linking.wast
 - [ ] load.wast
 - [ ] local_get.wast
@@ -80,3 +80,4 @@ The following list keeps track of which tests succeed and which fail:
 - [ ] utf8-import-field.wast
 - [ ] utf8-import-module.wast
 - [ ] utf8-invalid-encoding.wast
+
