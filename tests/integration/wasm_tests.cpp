@@ -268,8 +268,6 @@ bool resolveAssert(SNode *node, Module *m) {
 
         free(action);
         free(assertion);
-    } else {
-        FATAL("Unsupported assert.\n");
     }
     return success;
 }

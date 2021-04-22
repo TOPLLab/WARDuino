@@ -28,6 +28,17 @@ class TestsuiteStatistics:
     def testsuite_passed(self):
         return self.success == self.total
 
+    def add_result(self, test_results, has_module):
+        self.results.append(test_results)
+        if not has_module and test_results.passed_tests == test_results.total_tests:
+            test_results.return_code = 0  # ignore empty module error
+        if test_results.return_code == 0:
+            self.success += 1
+        elif test_results.return_code == 2:
+            self.failed += 1
+        else:
+            self.crashed += 1
+
     def __str__(self):
         individual_passed_tests = sum([result.passed_tests for result in self.results])
         individual_tests = sum([result.total_tests for result in self.results])
@@ -47,15 +58,25 @@ class TestsuiteStatistics:
 
 class TestResults:
 
-    def __init__(self, name, completion):
+    def __init__(self, name):
         self.name = name
-        self.stdout = completion.stdout
-        self.stderr = completion.stderr
-        self.return_code = completion.returncode
-        self.passed_tests = completion.stdout.count(b'OK')
-        self.failed_tests = completion.stdout.count(b'FAIL')
-        self.total_tests = completion.stdout.count(b'assert')
-        self.crashed_tests = self.total_tests - (self.passed_tests + self.failed_tests)
+        self.stdout = b''
+        self.stderr = b''
+        self.return_code = 0
+        self.passed_tests = 0
+        self.failed_tests = 0
+        self.total_tests = 0
+        self.crashed_tests = 0
+
+    def add_completion(self, completion):
+        self.stdout += completion.stdout
+        self.stderr += completion.stderr
+        if self.return_code < completion.returncode:
+            self.return_code = completion.returncode
+        self.passed_tests += completion.stdout.count(b'OK')
+        self.failed_tests += completion.stdout.count(b'FAIL')
+        self.total_tests += completion.stdout.count(b'assert')
+        self.crashed_tests += self.total_tests - (self.passed_tests + self.failed_tests)
 
     def test_passed(self):
         return self.return_code == 0 and self.passed_tests == self.total_tests
@@ -97,6 +118,8 @@ def main(test_directory):
     # For each test file in the test directory
     print(f"""RUNNING TESTSUITE:\n==================\n""")
     for filename in tests:
+        test_results = TestResults(filename)
+
         tabs = '\t' * (7 - (len(filename) // 4))
         print(f"""{filename}{tabs}""".expandtabs(4), end="")
         stats.total += 1
@@ -107,22 +130,23 @@ def main(test_directory):
 
         file = modules_file
         module = False
-        failed = False
         for line in open(test_directory + filename, "r"):
             if line.startswith("(module"):
                 if module:
-                    # WARDuino doesn't support multiple modules yet. Test is skipped.
-                    print("\u274C", end=""),
-                    if args.verbosity > 0:
-                        print(f" (has multiple modules)", end="")
-                    failed = True
-                    break
-
-                file = modules_file
+                    modules_file.close()
+                    asserts_file.close()
+                    try:
+                        completion = subprocess.run(
+                            [args.interpreter, modules_file.name, asserts_file.name, args.compiler],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        test_results.add_completion(completion)
+                    except subprocess.CalledProcessError:
+                        pass
+                    modules_file = open(base_name + "_modules.wast", "w")
+                    asserts_file = open(base_name + "_asserts.wast", "w")
                 module = True
-            elif line.startswith("(assert_return") \
-                    or line.startswith("(assert_exhaustion") \
-                    or line.startswith("(assert_trap"):
+                file = modules_file
+            elif line.startswith("(assert"):
                 file = asserts_file
 
             if not line.startswith(";;"):
@@ -131,25 +155,14 @@ def main(test_directory):
         modules_file.close()
         asserts_file.close()
 
-        if not failed:
-            try:
-                completion = subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler],
-                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                test_results = TestResults(filename, completion)
-                if not module and test_results.passed_tests == test_results.total_tests:
-                    test_results.return_code = 0  # ignore empty module error
-                stats.results.append(test_results)
-                if completion.returncode == 0:
-                    stats.success += 1
-                elif completion.returncode == 2:
-                    stats.failed += 1
-                else:
-                    stats.crashed += 1
-                print(test_results, end="")
-            except subprocess.CalledProcessError:
-                pass
-        else:
-            stats.skipped += 1
+        try:
+            completion = subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler],
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            test_results.add_completion(completion)
+            stats.add_result(test_results, module)
+            print(test_results, end="")
+        except subprocess.CalledProcessError:
+            pass
 
         print("")
 
