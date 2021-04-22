@@ -120,7 +120,9 @@ def main(test_directory):
 
                 file = modules_file
                 module = True
-            elif line.startswith("(assert"):
+            elif line.startswith("(assert_return") \
+                    or line.startswith("(assert_exhaustion") \
+                    or line.startswith("(assert_trap"):
                 file = asserts_file
 
             if not line.startswith(";;"):
@@ -134,6 +136,8 @@ def main(test_directory):
                 completion = subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler],
                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 test_results = TestResults(filename, completion)
+                if not module and test_results.passed_tests == test_results.total_tests:
+                    test_results.return_code = 0  # ignore empty module error
                 stats.results.append(test_results)
                 if completion.returncode == 0:
                     stats.success += 1
