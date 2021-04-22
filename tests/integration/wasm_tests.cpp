@@ -252,7 +252,7 @@ bool resolveAssert(SNode *node, Module *m) {
     } else if (strcmp(assertType, "assert_exhaustion") == 0) {
         Action *action = parseActionNode(node->next);
         Assertion *assertion = makeAssertionExhaustion(action);
-        printf("assert stack exhaustion:\n");
+        printf("%i. assert stack exhaustion:\n", COUNT++);
 
         success = runAssertion(assertion, m);
 
@@ -262,7 +262,7 @@ bool resolveAssert(SNode *node, Module *m) {
         Action *action = parseActionNode(node->next);
         Assertion *assertion =
             makeAssertionTrap(action, node->next->next->value);
-        printf("assert trap:\n");
+        printf("%i. assert trap %s:\n", COUNT++, action->name);
 
         success = runAssertion(assertion, m);
 
