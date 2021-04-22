@@ -19,6 +19,7 @@ import subprocess
 class TestsuiteStatistics:
     def __init__(self):
         self.total = 0
+        # TODO arrays instead of numbers
         self.skipped = 0
         self.failed = 0
         self.crashed = 0
@@ -28,16 +29,16 @@ class TestsuiteStatistics:
     def testsuite_passed(self):
         return self.success == self.total
 
-    def add_result(self, test_results, has_module):
-        self.results.append(test_results)
-        if not has_module and test_results.passed_tests == test_results.total_tests:
-            test_results.return_code = 0  # ignore empty module error
-        if test_results.return_code == 0:
-            self.success += 1
-        elif test_results.return_code == 2:
+    def add_result(self, result, has_module):
+        self.results.append(result)
+        if result.return_code == 2:
             self.failed += 1
-        else:
+        elif result.return_code != 0 or result.crashed_tests != 0:
             self.crashed += 1
+        elif not has_module or result.total_tests == 0:
+            self.skipped += 1
+        else:
+            self.success += 1
 
     def __str__(self):
         individual_passed_tests = sum([result.passed_tests for result in self.results])
@@ -46,13 +47,13 @@ class TestsuiteStatistics:
 
         files_mark = "\u2714" if self.success / self.total == 1.0 else "\u274C"
         individual_mark = "\u2714" if individual_percentage == 100 else "\u274C"
-        overview = "\nTESTSUITE RESULTS:\n==================\n" \
+        overview = "\nTESTSUITE RESULTS:\n" \
                    + f"total: {self.total}, skipped: {self.skipped}, failed: {self.failed}, " \
                    + f"crashed: {self.crashed}, success: {self.success}\n\n"
         if args.verbosity > 0:
-            overview += f"{files_mark} {self.success}/{self.total} testfiles passed completely.\n" \
+            overview += f"{files_mark} {self.success}/{self.total - self.skipped} categories in testsuite passed.\n" \
                         + f"{individual_mark} {individual_passed_tests}/{individual_tests}" \
-                        + f" (~{individual_percentage:.2f}%) individual tests passed.\n"
+                        + f" (~{individual_percentage:.2f}%) asserts succeeded.\n"
         return overview
 
 
@@ -83,18 +84,22 @@ class TestResults:
 
     def __str__(self):
         mark = "\u274C" if self.return_code != 0 else "\u2714"
-        string_representation = f"{mark} "
+        string_representation = f"{mark}\t"
         if args.verbosity > 0:
-            if self.crashed_tests != 0:
-                string_representation += f"(crashed with: exit {self.return_code})"
-            elif self.total_tests > 0:
-                string_representation += f"{self.passed_tests}/{self.total_tests} passed"
-            elif self.return_code != 0:
-                string_representation += f"(crashed with: exit {self.return_code})"
+            if self.return_code == 2:
+                string_representation += f"{self.passed_tests}/{self.total_tests} passed" + (
+                    f"(exit {self.return_code})" if args.verbosity > 1 else "")
+            elif self.return_code != 0 or self.crashed_tests != 0:
+                string_representation += ("compiler " if b'failed to compile test' in self.stderr else "") + "crashed" \
+                                         + (f"(exit {self.return_code})" if args.verbosity > 1 else "")
+            elif self.total_tests == 0:
+                string_representation += f"skipped" + ("(0 tests)" if args.verbosity > 2 else "")
             else:
-                string_representation += f"passed (0 tests)"
+                string_representation += f"{self.passed_tests}/{self.total_tests} passed" + (
+                    f"(exit {self.return_code})" if args.verbosity > 1 else "")
+
         string_representation = string_representation.rstrip()
-        if args.verbosity > 1:
+        if args.verbosity > 2:
             string_representation += "\n> stdout:\n\t".expandtabs(2)
             string_representation += self.stdout.decode("utf-8").rstrip().replace("\n", "\n\t").expandtabs(2)
             if len(self.stderr) > 0:
@@ -104,7 +109,8 @@ class TestResults:
         return string_representation
 
 
-def main(test_directory):
+def main():
+    test_directory = args.testsuite
     if test_directory[-1] != "/":
         test_directory += "/"
     # Create temporary directory
@@ -116,18 +122,19 @@ def main(test_directory):
 
     stats = TestsuiteStatistics()
     # For each test file in the test directory
-    print(f"""RUNNING TESTSUITE:\n==================\n""")
+    print(f"RUNNING TESTSUITE: {args.testsuite.strip('/')}\n")
     for filename in tests:
-        test_results = TestResults(filename)
+        base_path = tmp_directory + os.path.splitext(filename)[0]
+        modules_file = open(base_path + "_modules.wast", "w")
+        asserts_file = open(base_path + "_asserts.wast", "w")
 
-        tabs = '\t' * (7 - (len(filename) // 4))
-        print(f"""{filename}{tabs}""".expandtabs(4), end="")
+        base_name = base_path.split("/")[-1]
+
+        tabs = '\t' * (7 - (len(base_name) // 4))
+        print(f"""{base_name}{tabs}""".expandtabs(4), end="")
         stats.total += 1
 
-        base_name = tmp_directory + os.path.splitext(filename)[0]
-        modules_file = open(base_name + "_modules.wast", "w")
-        asserts_file = open(base_name + "_asserts.wast", "w")
-
+        test_results = TestResults(base_name)
         file = modules_file
         module = False
         for line in open(test_directory + filename, "r"):
@@ -142,8 +149,8 @@ def main(test_directory):
                         test_results.add_completion(completion)
                     except subprocess.CalledProcessError:
                         pass
-                    modules_file = open(base_name + "_modules.wast", "w")
-                    asserts_file = open(base_name + "_asserts.wast", "w")
+                    modules_file = open(base_path + "_modules.wast", "w")
+                    asserts_file = open(base_path + "_asserts.wast", "w")
                 module = True
                 file = modules_file
             elif line.startswith("(assert"):
@@ -170,9 +177,9 @@ def main(test_directory):
     if args.verbosity > 1:
         print("Passed testfiles:")
         for test_result in stats.results:
-            if test_result.test_passed():
+            if test_result.test_passed() and test_result.total_tests > 0:
                 tabs = '\t' * (14 - (len(test_result.name) // 2))
-                print(f"> {test_result.name}{tabs}(# tests run: {str(test_result.total_tests).zfill(4)})".expandtabs(2))
+                print(f"> {test_result.name}{tabs}# tests run: {str(test_result.total_tests)}".expandtabs(2))
 
     # Remove temporary files
     try:
@@ -186,11 +193,12 @@ def main(test_directory):
 if __name__ == '__main__':
     # Handle script arguments
     parser = argparse.ArgumentParser()
+    parser.add_argument("--testsuite", default="core/", help="Testsuite directory (default: core/)")
     parser.add_argument("--interpreter", default="../../cmake-build-debug/TestWARDuino",
                         help="Interpreter (TestWARDuino executable")
     parser.add_argument("--compiler", default="wat2wasm", help="WebAssembly text format compiler (default: wat2wasm)")
-    parser.add_argument("--verbosity", type=int, default=1, help="Verbosity level: 0-2 (default: 1)")
+    parser.add_argument("--verbosity", type=int, default=1, help="Verbosity level: 0-3 (default: 1)")
 
     args = parser.parse_args()
 
-    main("core/")
+    main()
