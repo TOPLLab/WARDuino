@@ -31,7 +31,7 @@ class TestsuiteStatistics:
     def testsuite_passed(self):
         return self.success == self.total
 
-    def add_result(self, result, has_module):
+    def add_result(self, result):
         self.results.append(result)
         if result.skipped():
             self.skipped += 1
@@ -69,7 +69,6 @@ class TestResults:
         self.failed_tests = 0
         self.total_tests = 0
         self.crashed_tests = 0
-        self.has_module = False
 
     def add_completion(self, completion):
         self.stdout += completion.stdout
@@ -82,11 +81,11 @@ class TestResults:
         self.crashed_tests += self.total_tests - (self.passed_tests + self.failed_tests)
 
     def passed(self):
-        return not self.skipped() and not self.compiler_crashed() and not self.failed() and (
+        return not self.compiler_crashed() and not self.failed() and (
                     self.return_code == 0 and self.passed_tests == self.total_tests)
 
     def skipped(self):
-        return not self.compiler_crashed() and (not self.has_module or self.total_tests == 0)
+        return not self.compiler_crashed() and self.total_tests == 0
 
     def failed(self):
         return self.return_code == 2
@@ -99,7 +98,7 @@ class TestResults:
         string_representation = f"{mark}\t"
         if args.verbosity > 0:
             if self.skipped():
-                string_representation += f"skipped" + (f" ({self.total_tests} tests)" if args.verbosity > 1 else "")
+                string_representation += f"skipped" + (" (0 tests)" if args.verbosity > 2 else "")
             elif self.failed():
                 string_representation += f"{self.passed_tests}/{self.total_tests} passed" + (
                     f" (exit {self.return_code})" if args.verbosity > 1 else "")
@@ -121,8 +120,6 @@ class TestResults:
 
 
 def main():
-    TOTAL = 0
-
     test_directory = args.testsuite
     if test_directory[-1] != "/":
         test_directory += "/"
@@ -158,13 +155,14 @@ def main():
                     modules_file.close()
                     asserts_file.close()
 
-                    try:
-                        completion = subprocess.run(
-                            [args.interpreter, modules_file.name, asserts_file.name, args.compiler],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                        test_results.add_completion(completion)
-                    except subprocess.CalledProcessError:
-                        pass
+                    if os.path.getsize(asserts_path):
+                        try:
+                            completion = subprocess.run(
+                                [args.interpreter, modules_file.name, asserts_file.name, args.compiler],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            test_results.add_completion(completion)
+                        except subprocess.CalledProcessError:
+                            pass
                     modules_file = open(base_path + "_modules.wast", "w")
                     asserts_file = open(base_path + "_asserts.wast", "w")
                 has_module = True
@@ -181,19 +179,16 @@ def main():
         modules_file.close()
         asserts_file.close()
 
-        try:
-            completion = subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler],
-                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            test_results.add_completion(completion)
-            test_results.total_tests = total_asserts
-            test_results.has_module = has_module
-            stats.add_result(test_results, has_module)
-            print(test_results, end="")
-        except subprocess.CalledProcessError:
-            pass
-
-        print("")
-    print(TOTAL)
+        if os.path.getsize(asserts_path):
+            try:
+                completion = subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler],
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                test_results.add_completion(completion)
+                test_results.total_tests = total_asserts
+            except subprocess.CalledProcessError:
+                pass
+        stats.add_result(test_results)
+        print(test_results)
 
     print(stats)
     if args.verbosity > 2:
