@@ -15,6 +15,8 @@ import os
 import shutil
 import subprocess
 
+SUPPORTED_ASSERTS = ["assert_return", "assert_exhaustion", "assert_trap"]
+
 
 class TestsuiteStatistics:
     def __init__(self):
@@ -31,14 +33,14 @@ class TestsuiteStatistics:
 
     def add_result(self, result, has_module):
         self.results.append(result)
-        if result.return_code == 2:
-            self.failed += 1
-        elif result.return_code != 0 or result.crashed_tests != 0:
-            self.crashed += 1
-        elif not has_module or result.total_tests == 0:
+        if result.skipped():
             self.skipped += 1
-        else:
+        elif result.passed():
             self.success += 1
+        elif result.compiler_crashed():
+            self.crashed += 1
+        else:
+            self.failed += 1
 
     def __str__(self):
         individual_passed_tests = sum([result.passed_tests for result in self.results])
@@ -51,8 +53,7 @@ class TestsuiteStatistics:
                    + f"total: {self.total}, skipped: {self.skipped}, failed: {self.failed}, " \
                    + f"crashed: {self.crashed}, success: {self.success}\n\n"
         if args.verbosity > 0:
-            overview += f"{files_mark} {self.success}/{self.total - self.skipped} categories in testsuite passed.\n" \
-                        + f"{individual_mark} {individual_passed_tests}/{individual_tests}" \
+            overview += f"{individual_mark} {individual_passed_tests}/{individual_tests}" \
                         + f" (~{individual_percentage:.2f}%) asserts succeeded.\n"
         return overview
 
@@ -68,6 +69,7 @@ class TestResults:
         self.failed_tests = 0
         self.total_tests = 0
         self.crashed_tests = 0
+        self.has_module = False
 
     def add_completion(self, completion):
         self.stdout += completion.stdout
@@ -79,37 +81,48 @@ class TestResults:
         self.total_tests += completion.stdout.count(b'assert')
         self.crashed_tests += self.total_tests - (self.passed_tests + self.failed_tests)
 
-    def test_passed(self):
-        return self.return_code == 0 and self.passed_tests == self.total_tests
+    def passed(self):
+        return not self.skipped() and not self.compiler_crashed() and not self.failed() and (
+                    self.return_code == 0 and self.passed_tests == self.total_tests)
+
+    def skipped(self):
+        return not self.compiler_crashed() and (not self.has_module or self.total_tests == 0)
+
+    def failed(self):
+        return self.return_code == 2
+
+    def compiler_crashed(self):
+        return self.return_code != 0 and b'compile' in self.stderr
 
     def __str__(self):
-        mark = "\u274C" if self.return_code != 0 else "\u2714"
+        mark = "\u2714" if self.passed() else "\u274C"
         string_representation = f"{mark}\t"
         if args.verbosity > 0:
-            if self.return_code == 2:
+            if self.skipped():
+                string_representation += f"skipped" + (f" ({self.total_tests} tests)" if args.verbosity > 1 else "")
+            elif self.failed():
                 string_representation += f"{self.passed_tests}/{self.total_tests} passed" + (
-                    f"(exit {self.return_code})" if args.verbosity > 1 else "")
-            elif self.return_code != 0 or self.crashed_tests != 0:
-                string_representation += ("compiler " if b'failed to compile test' in self.stderr else "") + "crashed" \
-                                         + (f"(exit {self.return_code})" if args.verbosity > 1 else "")
-            elif self.total_tests == 0:
-                string_representation += f"skipped" + ("(0 tests)" if args.verbosity > 2 else "")
+                    f" (exit {self.return_code})" if args.verbosity > 1 else "")
+            elif self.compiler_crashed():
+                string_representation += "compiler crashed" + (
+                    f" (exit {self.return_code})" if args.verbosity > 1 else "")
             else:
                 string_representation += f"{self.passed_tests}/{self.total_tests} passed" + (
-                    f"(exit {self.return_code})" if args.verbosity > 1 else "")
+                    f" (exit {self.return_code})" if args.verbosity > 1 else "")
 
         string_representation = string_representation.rstrip()
         if args.verbosity > 2:
             string_representation += "\n> stdout:\n\t".expandtabs(2)
             string_representation += self.stdout.decode("utf-8").rstrip().replace("\n", "\n\t").expandtabs(2)
-            if len(self.stderr) > 0:
-                string_representation += "\n> stderr:\n\t".expandtabs(2)
-                string_representation += self.stderr.decode("utf-8")
+            string_representation += "\n> stderr:\n\t".expandtabs(2)
+            string_representation += self.stderr.decode("utf-8")
             string_representation = string_representation.rstrip() + "\n"
         return string_representation
 
 
 def main():
+    TOTAL = 0
+
     test_directory = args.testsuite
     if test_directory[-1] != "/":
         test_directory += "/"
@@ -125,8 +138,9 @@ def main():
     print(f"RUNNING TESTSUITE: {args.testsuite.strip('/')}\n")
     for filename in tests:
         base_path = tmp_directory + os.path.splitext(filename)[0]
+        asserts_path = base_path + "_asserts.wast"
         modules_file = open(base_path + "_modules.wast", "w")
-        asserts_file = open(base_path + "_asserts.wast", "w")
+        asserts_file = open(asserts_path, "w")
 
         base_name = base_path.split("/")[-1]
 
@@ -136,12 +150,14 @@ def main():
 
         test_results = TestResults(base_name)
         file = modules_file
-        module = False
+        has_module = False
+        total_asserts = 0
         for line in open(test_directory + filename, "r"):
             if line.startswith("(module"):
-                if module:
+                if has_module:
                     modules_file.close()
                     asserts_file.close()
+
                     try:
                         completion = subprocess.run(
                             [args.interpreter, modules_file.name, asserts_file.name, args.compiler],
@@ -151,12 +167,15 @@ def main():
                         pass
                     modules_file = open(base_path + "_modules.wast", "w")
                     asserts_file = open(base_path + "_asserts.wast", "w")
-                module = True
+                has_module = True
                 file = modules_file
             elif line.startswith("(assert"):
-                file = asserts_file
+                file = False
+                if any([line.startswith(f"({_assert}") for _assert in SUPPORTED_ASSERTS]):
+                    total_asserts += 1
+                    file = asserts_file
 
-            if not line.startswith(";;"):
+            if file and not line.startswith(";;"):
                 file.write(line)
 
         modules_file.close()
@@ -166,18 +185,21 @@ def main():
             completion = subprocess.run([args.interpreter, modules_file.name, asserts_file.name, args.compiler],
                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             test_results.add_completion(completion)
-            stats.add_result(test_results, module)
+            test_results.total_tests = total_asserts
+            test_results.has_module = has_module
+            stats.add_result(test_results, has_module)
             print(test_results, end="")
         except subprocess.CalledProcessError:
             pass
 
         print("")
+    print(TOTAL)
 
     print(stats)
-    if args.verbosity > 1:
+    if args.verbosity > 2:
         print("Passed testfiles:")
         for test_result in stats.results:
-            if test_result.test_passed() and test_result.total_tests > 0:
+            if test_result.passed() and test_result.total_tests > 0:
                 tabs = '\t' * (14 - (len(test_result.name) // 2))
                 print(f"> {test_result.name}{tabs}# tests run: {str(test_result.total_tests)}".expandtabs(2))
 

@@ -313,6 +313,7 @@ int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
     if (ret != 0) {
         return ret;
     }
+    printf("Test module loaded.\n");
 
     test->asserts = snode_parse(asserts_file);
 
