@@ -113,8 +113,8 @@ class TestResults:
             string_representation += f"            \\hline\n{start}{space} "
             for i, freq in enumerate(self.assert_frequencies):
                 percent = "& \smath{"
-                percent += f"{(self.assert_passed[i]/freq) * 100:.0f}" if freq > 0 else "-"
-                percent += " \%}"
+                percent += f"{(self.assert_passed[i]/freq) * 100:.0f} \%" if freq > 0 else "-"
+                percent += "}"
                 space = " " * (26 - len(percent))
                 string_representation += f"{percent}{space} "
             total_percent = 0 if self.total_tests == 0 else (self.passed_tests / self.total_tests) * 100
