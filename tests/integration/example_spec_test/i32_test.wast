@@ -1,7 +1,0 @@
-(assert_return (invoke "extend8_s" (i32.const 0)) (i32.const 0))
-(assert_return (invoke "extend8_s" (i32.const 0x7f)) (i32.const 127))
-(assert_return (invoke "extend8_s" (i32.const 0x80)) (i32.const -128))
-(assert_return (invoke "extend8_s" (i32.const 0xff)) (i32.const -1))
-(assert_return (invoke "extend8_s" (i32.const 0x012345_00)) (i32.const 0))
-(assert_return (invoke "extend8_s" (i32.const 0xfedcba_80)) (i32.const -0x80))
-(assert_return (invoke "extend8_s" (i32.const -1)) (i32.const -1))
