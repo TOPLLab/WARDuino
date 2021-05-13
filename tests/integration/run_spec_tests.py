@@ -46,9 +46,8 @@ class TestsuiteStatistics:
         individual_passed_tests = sum([result.passed_tests for result in self.results])
         individual_tests = sum([result.total_tests for result in self.results])
         individual_percentage = (individual_passed_tests / individual_tests) * 100
-
-        files_mark = "\u2714" if self.success / self.total == 1.0 else "\u274C"
         individual_mark = "\u2714" if individual_percentage == 100 else "\u274C"
+
         overview = "\nTESTSUITE RESULTS:\n" \
                    + f"total: {self.total}, skipped: {self.skipped}, failed: {self.failed}, " \
                    + f"crashed: {self.crashed}, success: {self.success}\n\n"
@@ -69,20 +68,30 @@ class TestResults:
         self.failed_tests = 0
         self.total_tests = 0
         self.crashed_tests = 0
+        self.assert_frequencies = [0, 0, 0]
+        self.assert_passed = [0, 0, 0]
 
     def add_completion(self, completion):
         self.stdout += completion.stdout
         self.stderr += completion.stderr
         if self.return_code < completion.returncode:
             self.return_code = completion.returncode
+        self._count_results(completion)
+
+    def _count_results(self, completion):
         self.passed_tests += completion.stdout.count(b'OK')
         self.failed_tests += completion.stdout.count(b'FAIL')
         self.total_tests += completion.stdout.count(b'assert')
         self.crashed_tests += self.total_tests - (self.passed_tests + self.failed_tests)
 
+        for part in completion.stdout.split(b'. '):
+            if b'assert' in part and b'OK' in part:
+                self.assert_passed[
+                    [l for l, a in enumerate(SUPPORTED_ASSERTS) if a.split("_")[1] in str(part)][0]] += 1
+
     def passed(self):
         return not self.compiler_crashed() and not self.failed() and (
-                    self.return_code == 0 and self.passed_tests == self.total_tests)
+            self.return_code == 0 and self.passed_tests == self.total_tests)
 
     def skipped(self):
         return not self.compiler_crashed() and self.total_tests == 0
@@ -94,6 +103,35 @@ class TestResults:
         return self.return_code != 0 and b'compile' in self.stderr
 
     def __str__(self):
+        string_representation = ""
+        if args.verbosity < 0:
+            # negative verbosity gives latex table
+            if self.skipped():
+                return ""
+            start = "            \cat{" + self.name + "}"
+            space = " " * (36 - len(start))
+            string_representation += f"            \\hline\n{start}{space} "
+            for i, freq in enumerate(self.assert_frequencies):
+                percent = "& \smath{"
+                percent += f"{(self.assert_passed[i]/freq) * 100:.0f}" if freq > 0 else "-"
+                percent += " \%}"
+                space = " " * (26 - len(percent))
+                string_representation += f"{percent}{space} "
+            total_percent = 0 if self.total_tests == 0 else (self.passed_tests / self.total_tests) * 100
+            total = "& \smath{" + f"{total_percent:.0f} \\%" + "} "
+            string_representation += total + (" " * (28 - len(total)))
+            space = " " * 37
+            string_representation += f"\\\\\n{space}"
+            for i, freq in enumerate(self.assert_frequencies):
+                div = "& \smallsmath{"
+                div += f"{self.assert_passed[i]}/{freq}" if freq > 0 else "-"
+                div += "}"
+                space = " " * (26 - len(div))
+                string_representation += f"{div}{space} "
+            total = "& \smallsmath{" + f"{self.passed_tests}/{self.total_tests}" + "} "
+            string_representation += total + (" " * (28 - len(total))) + "\\\\"
+            return string_representation
+
         mark = "\u2714" if self.passed() else "\u274C"
         string_representation = f"{mark}\t"
         if args.verbosity > 0:
@@ -141,8 +179,9 @@ def main():
 
         base_name = base_path.split("/")[-1]
 
-        tabs = '\t' * (7 - (len(base_name) // 4))
-        print(f"""{base_name}{tabs}""".expandtabs(4), end="")
+        if args.verbosity >= 0:
+            tabs = '\t' * (7 - (len(base_name) // 4))
+            print(f"""{base_name}{tabs}""".expandtabs(4), end="")
         stats.total += 1
 
         test_results = TestResults(base_name)
@@ -172,6 +211,8 @@ def main():
                 if any([line.startswith(f"({_assert}") for _assert in SUPPORTED_ASSERTS]):
                     total_asserts += 1
                     file = asserts_file
+                    test_results.assert_frequencies[
+                        [l for l, a in enumerate(SUPPORTED_ASSERTS) if line.startswith(f"({a}")][0]] += 1
 
             if file and not line.startswith(";;"):
                 file.write(line)
