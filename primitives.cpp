@@ -463,6 +463,7 @@ PubSubClient mqttClient(wifiClient);
 const std::string CALLBACK_ID = "MQTT";
 
 def_prim(mqtt_init, threeToNoneU32) {
+    WiFi.mode(WIFI_STA);
     uint32_t server_param = arg2.uint32;
     uint32_t length = arg1.uint32;
     uint32_t port = arg0.uint32;
@@ -470,6 +471,7 @@ def_prim(mqtt_init, threeToNoneU32) {
     const char *server =
         parse_utf8_string(m->memory.bytes, length, server_param).c_str();
     mqttClient.setServer(server, port);
+    mqttClient.setCallback(CallbackHandler::push_event);
 
 #if DEBUG
     Serial.print("Set MQTT server to [");
@@ -485,7 +487,6 @@ def_prim(mqtt_init, threeToNoneU32) {
 
 def_prim(mqtt_set_callback, oneToNoneU32) {
     uint32_t fidx = arg0.uint32;
-    mqttClient.setCallback(CallbackHandler::push_event);
     Callback c = Callback(m, CALLBACK_ID, fidx);
     CallbackHandler::add_callback(c);
     pop_args(1);
@@ -496,13 +497,21 @@ def_prim(mqtt_connect, twoToOneU32) {
     uint32_t client_id_param = arg1.uint32;
     uint32_t length = arg0.uint32;
 
-    const char *client_id =
+    String client_id =
         parse_utf8_string(m->memory.bytes, length, client_id_param).c_str();
 #if DEBUG
     Serial.print("Connecting to MQTT server as ");
-    Serial.println(client_id);
+    Serial.print(client_id);
 #endif
-    bool ret = mqttClient.connect(client_id);
+    bool ret = mqttClient.connect(client_id.c_str());
+
+#if DEBUG
+    Serial.print(": ");
+    Serial.print(mqttClient.state());
+    Serial.print(", ");
+    Serial.println(ret);
+    Serial.flush();
+#endif
 
     pop_args(2);
     pushInt32((int)ret);
@@ -525,7 +534,7 @@ def_prim(mqtt_publish, fourToOneU32) {
     uint32_t payload_param = arg1.uint32;
     uint32_t payload_length = arg0.uint32;
 
-    const char *topic =
+    String topic =
         parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
 #if DEBUG
     Serial.print(topic_param);
@@ -535,7 +544,7 @@ def_prim(mqtt_publish, fourToOneU32) {
     Serial.print(topic);
     Serial.println("");
 #endif
-    const char *payload =
+    String payload =
         parse_utf8_string(m->memory.bytes, payload_length, payload_param)
             .c_str();
 #if DEBUG
@@ -544,10 +553,12 @@ def_prim(mqtt_publish, fourToOneU32) {
     Serial.print(payload_length);
     Serial.print(" ");
     Serial.print(payload);
+    Serial.print(" and topic is ");
+    Serial.print(topic);
     Serial.println("");
 #endif
 
-    bool ret = mqttClient.publish(topic, payload);
+    bool ret = mqttClient.publish(topic.c_str(), payload.c_str());
 
 #if DEBUG
     Serial.print("Publish to ");
@@ -557,6 +568,7 @@ def_prim(mqtt_publish, fourToOneU32) {
     Serial.print(". ");
     Serial.print(ret);
     Serial.println("");
+    Serial.flush();
 #endif
 
     pop_args(4);
@@ -576,6 +588,7 @@ def_prim(mqtt_subscribe, twoToOneU32) {
     Serial.print("Subscribe to ");
     Serial.print(topic);
     Serial.println("");
+    Serial.flush();
 #endif
 
     pop_args(2);

@@ -996,11 +996,12 @@ void CallbackHandler::add_callback(const Callback &c) {
 void CallbackHandler::push_event(const char *topic,
                                  const unsigned char *payload,
                                  unsigned int length) {
-    // TODO make callback struct a class and move push_event to it
     if (events->size() < EVENTS_SIZE) {
-        auto e = new Event(topic, reinterpret_cast<const char *>(payload));
-        printf("Push Event(%s, %s, %s)\n", e->callback_function_id.c_str(),
-               e->topic, e->payload);
+        char *message = (char *)(malloc(sizeof(char) * length + 1));
+        snprintf(message, length + 1, "%s", payload);
+        auto e = new Event(topic, reinterpret_cast<const char *>(message));
+        dbg_info("Push Event(%s, %s, %s)\n", e->callback_function_id.c_str(),
+                 e->topic, e->payload);
         events->push(*e);
     }
 }
@@ -1034,8 +1035,8 @@ Callback::Callback(Module *m, std::string id, uint32_t tidx) {
 }
 
 void Callback::resolve_event(const Event &e) {
-    printf("Callback(%s, %i): resolving Event(%s, %s, %s)\n", id.c_str(),
-           table_index, e.callback_function_id.c_str(), e.topic, e.payload);
+    dbg_trace("Callback(%s, %i): resolving Event(%s, %s, %s)\n", id.c_str(),
+              table_index, e.callback_function_id.c_str(), e.topic, e.payload);
     // Save runtime state of VM
     uint8_t *pc_ptr = module->pc_ptr;  // program counter
     int sp = module->sp;               // operand stack pointer
@@ -1063,14 +1064,15 @@ void Callback::resolve_event(const Event &e) {
     for (unsigned long i = 0; i < topic.length(); i++) {
         module->memory.bytes[start + i] = (uint32_t)e.topic[i];
     }
-    for (unsigned long i = topic.length(); i < payload.length(); i++) {
+    start += topic.length();
+    for (unsigned long i = 0; i < payload.length(); i++) {
         module->memory.bytes[start + i] = (uint32_t)e.payload[i];
     }
 
     // Push arguments (5 args)
-    module->stack[++module->sp].value.uint32 = start;
+    module->stack[++module->sp].value.uint32 = start - topic.length();
     module->stack[++module->sp].value.uint32 = topic.length();
-    module->stack[++module->sp].value.uint32 = start + topic.length();
+    module->stack[++module->sp].value.uint32 = start;
     module->stack[++module->sp].value.uint32 = payload.length();
     module->stack[++module->sp].value.uint32 = payload.length();
 
