@@ -192,7 +192,7 @@ class Callback {
    private:
     Module *module;  // reference to module
    public:
-    std::string id;
+    std::string topic;
     uint32_t table_index;
 
     explicit Callback(Module *m, std::string id, uint32_t tidx);
@@ -202,7 +202,7 @@ class Callback {
 
 class CallbackHandler {
    private:
-    static std::unordered_map<std::string, Callback> *callbacks;
+    static std::unordered_map<std::string, std::vector<Callback>> *callbacks;
     static std::queue<Event> *events;
 
    public:

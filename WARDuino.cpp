@@ -983,14 +983,18 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
 // CallbackHandler class
 
 bool CallbackHandler::resolving_event = false;
-std::unordered_map<std::string, Callback> *CallbackHandler::callbacks =
-    new std::unordered_map<std::string, Callback>();
+std::unordered_map<std::string, std::vector<Callback>> *CallbackHandler::callbacks =
+    new std::unordered_map<std::string, std::vector<Callback>>();
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
 void CallbackHandler::add_callback(const Callback &c) {
-    printf("Add Callback(%s, %i)\n", c.id.c_str(), c.table_index);
-    callbacks->insert(std::pair<std::string, Callback>(
-        c.id, c));  // TODO what if id already present?
+    printf("Add Callback(%s, %i)\n", c.topic.c_str(), c.table_index);
+    auto item = callbacks->find(c.topic);
+    if (item == callbacks->end()) {
+        callbacks->emplace(c.topic, std::vector<Callback>());
+    } else {
+        item->second.push_back(c);
+    }
 }
 
 void CallbackHandler::push_event(const char *topic,
@@ -1018,7 +1022,9 @@ bool CallbackHandler::resolve_event() {
     auto iterator =
         CallbackHandler::callbacks->find(event.callback_function_id);
     if (iterator != CallbackHandler::callbacks->end()) {
-        iterator->second.resolve_event(event);
+        for (Callback cbs : iterator->second) {
+            cbs.resolve_event(event);
+        }
     } else {
         // TODO handle error: event for non-existing iterator
     }
@@ -1030,12 +1036,12 @@ bool CallbackHandler::resolve_event() {
 
 Callback::Callback(Module *m, std::string id, uint32_t tidx) {
     this->module = m;
-    this->id = std::move(id);
+    this->topic = std::move(id);
     this->table_index = tidx;
 }
 
 void Callback::resolve_event(const Event &e) {
-    dbg_trace("Callback(%s, %i): resolving Event(%s, %s, %s)\n", id.c_str(),
+    dbg_trace("Callback(%s, %i): resolving Event(%s, %s, %s)\n", topic.c_str(),
               table_index, e.callback_function_id.c_str(), e.topic, e.payload);
     // Save runtime state of VM
     uint8_t *pc_ptr = module->pc_ptr;  // program counter
