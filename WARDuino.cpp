@@ -983,8 +983,9 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
 // CallbackHandler class
 
 bool CallbackHandler::resolving_event = false;
-std::unordered_map<std::string, std::vector<Callback>> *CallbackHandler::callbacks =
-    new std::unordered_map<std::string, std::vector<Callback>>();
+std::unordered_map<std::string, std::vector<Callback>>
+    *CallbackHandler::callbacks =
+        new std::unordered_map<std::string, std::vector<Callback>>();
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
 void CallbackHandler::add_callback(const Callback &c) {
@@ -995,6 +996,17 @@ void CallbackHandler::add_callback(const Callback &c) {
     } else {
         item->second.push_back(c);
     }
+}
+
+void CallbackHandler::remove_callback(const Callback &c) {
+    // Remove callbacks with the same table_index as from the list of callbacks
+    // for the topic of c.
+    auto list = callbacks->find(c.topic)->second;
+    list.erase(std::remove_if(list.begin(), list.end(),
+                              [c](Callback const &cb) {
+                                  return c.table_index == cb.table_index;
+                              }),
+               list.end());
 }
 
 void CallbackHandler::push_event(const char *topic,

@@ -209,6 +209,7 @@ class CallbackHandler {
     static bool resolving_event;
 
     static void add_callback(const Callback &c);
+    static void remove_callback(const Callback &c);
     static void push_event(const char *topic, const unsigned char *payload,
                            unsigned int length);
     static bool resolve_event();
@@ -219,7 +220,7 @@ class WARDuino {
     std::vector<Module *> modules = {};
     std::deque<uint8_t *> parsedInterrups = {};
 
-    // factualy volatile
+    // factually volatile
 
     volatile bool interruptWrite;
     volatile bool interruptRead;
