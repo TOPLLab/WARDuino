@@ -1445,14 +1445,22 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
     return true;
 }
 
+/**
+ * 0xe0 ... 0xe3 callback operations
+ */
+bool i_instr_callback(Module *m, uint8_t opcode) {
+    // TODO
+    return true;
+}
+
 bool interpret(Module *m, bool return_exception) {
     uint8_t *block_ptr;
     uint8_t opcode;
 
-    // keep track of occuring errors
+    // keep track of occurring errors
     bool success = true;
 
-    // set to true when finishes sucessfully
+    // set to true when finishes successfully
     bool program_done = false;
 
     // TODO: this is actually a property of warduino
@@ -1471,7 +1479,7 @@ bool interpret(Module *m, bool return_exception) {
             continue;
         }
 
-        // Progam state is not paused
+        // Program state is not paused
 
         // Resolve 1 callback event if queue is not empty and no event currently
         // resolving
@@ -1665,6 +1673,11 @@ bool interpret(Module *m, bool return_exception) {
                 // conversion operations
             case 0xa7 ... 0xbb:
                 success &= i_instr_conversion(m, opcode);
+                continue;
+
+                // callback operations
+            case 0xe0 ... 0xe3:
+                success &= i_instr_callback(m, opcode);
                 continue;
             default:
                 sprintf(exception, "unrecognized opcode 0x%x", opcode);

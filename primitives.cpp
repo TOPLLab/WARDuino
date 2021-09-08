@@ -55,7 +55,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 26
+#define NUM_PRIMITIVES_ARDUINO 27
 #else
 #define NUM_PRIMITIVES_ARDUINO 18
 #endif
@@ -450,6 +450,22 @@ def_prim(spi_begin, NoneToNoneU32) {
 def_prim(write_spi_bytes_16, twoToNoneU32) {
     write_spi_bytes_16_prim(arg1.uint32, arg0.uint32);
     pop_args(2);
+    return true;
+}
+
+// INTERRUPTS
+
+def_prim(subscribe_interrupt, threeToNoneU32) {
+    uint8_t pin  = arg2.uint32;  // GPIOPin
+    uint8_t mode = arg1.uint32;
+    uint8_t fidx = arg0.uint32;
+
+    attachInterrupt(
+        pin, []() { CallbackHandler::push_event(pin, "", 0); }, mode);  // TODO keep static?
+    Callback c = Callback(m, pin, fidx);
+    CallbackHandler::add_callback(c);
+
+    pop_args(3);
     return true;
 }
 
@@ -927,6 +943,8 @@ void install_primitives() {
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
     install_primitive(write_spi_bytes_16);
+
+    install_primitive(subscribe_interrupt);
 
     install_primitive(mqtt_init);
     install_primitive(mqtt_set_callback);

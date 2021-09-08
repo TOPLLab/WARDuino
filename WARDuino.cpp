@@ -999,8 +999,8 @@ void CallbackHandler::add_callback(const Callback &c) {
 }
 
 void CallbackHandler::remove_callback(const Callback &c) {
-    // Remove callbacks with the same table_index as from the list of callbacks
-    // for the topic of c.
+    // Remove callbacks with the same table_index as c from the list of
+    // callbacks for the topic of c.
     auto list = callbacks->find(c.topic)->second;
     list.erase(std::remove_if(list.begin(), list.end(),
                               [c](Callback const &cb) {

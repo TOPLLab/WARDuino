@@ -205,6 +205,8 @@ class CallbackHandler {
     static std::unordered_map<std::string, std::vector<Callback>> *callbacks;
     static std::queue<Event> *events;
 
+    CallbackHandler() = default;  // Disallow creation
+
    public:
     static bool resolving_event;
 
