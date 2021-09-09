@@ -455,17 +455,56 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 
 // INTERRUPTS
 
-def_prim(subscribe_interrupt, threeToNoneU32) {
-    uint8_t pin  = arg2.uint32;  // GPIOPin
-    uint8_t mode = arg1.uint32;
-    uint8_t fidx = arg0.uint32;
+class Interrupt {
+   public:
+    void setup(uint8_t pin, void (*ISR_callback)(void), uint8_t mode) {
+        this->pin = pin;
+        this->mode = mode;
+        attachInterrupt(digitalPinToInterrupt(pin), ISR_callback, mode);
+    }
+    void handleInterrupt();
+    uint8_t pin;
 
-    attachInterrupt(
-        pin, []() { CallbackHandler::push_event(pin, "", 0); }, mode);  // TODO keep static?
-    Callback c = Callback(m, pin, fidx);
+   private:
+    uint8_t mode;
+    void (*ISR_callback)();
+};
+
+void Interrupt::handleInterrupt() {
+    const char *callback_id = reinterpret_cast<const char *>(pin);
+    auto *empty = reinterpret_cast<const unsigned char *>("");
+    CallbackHandler::push_event(callback_id, empty, 0);
+}
+
+std::vector<Interrupt *> handlers;
+
+def_prim(subscribe_interrupt, threeToNoneU32) {
+    uint8_t pin = arg2.uint32;  // GPIOPin
+    uint8_t mode = arg1.uint32;
+    uint8_t fidx = arg0.uint32;  // Callback function
+
+    Interrupt *handler = new Interrupt();
+    handlers.push_back(handler);
+    handler->setup(
+        pin, [] { handlers.back()->handleInterrupt(); }, mode);
+
+    Callback c = Callback(m, "topic", fidx);
     CallbackHandler::add_callback(c);
 
     pop_args(3);
+    return true;
+}
+
+def_prim(unsubscribe_interrupt, oneToNoneU32) {
+    uint8_t pin = arg0.uint32;
+
+    handlers.erase(std::remove_if(handlers.begin(), handlers.end(),
+                                  [pin](Interrupt *handler) {
+                                      return handler->pin == pin;
+                                  }),
+                   handlers.end());
+
+    pop_args(1);
     return true;
 }
 
