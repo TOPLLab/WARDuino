@@ -989,11 +989,9 @@ std::unordered_map<std::string, std::vector<Callback> *>
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
 void CallbackHandler::add_callback(const Callback &c) {
-    printf("Add Callback(%s, %i)\n", c.callback_function_id.c_str(),
-           c.table_index);
     auto item = callbacks->find(c.callback_function_id);
     if (item == callbacks->end()) {
-        std::vector<Callback> *list = new std::vector<Callback>();
+        auto *list = new std::vector<Callback>();
         list->push_back(c);
         callbacks->emplace(c.callback_function_id, list);
     } else {
@@ -1030,12 +1028,10 @@ bool CallbackHandler::resolve_event() {
     if (CallbackHandler::events->empty()) {
         return false;
     }
-    printf("Resolving event ...");
     CallbackHandler::resolving_event = true;
 
     Event event = CallbackHandler::events->front();
     CallbackHandler::events->pop();
-    printf(" callback_id: %s ", event.callback_function_id.c_str());
 
     auto iterator =
         CallbackHandler::callbacks->find(event.callback_function_id);
@@ -1049,7 +1045,6 @@ bool CallbackHandler::resolve_event() {
         // TODO handle error: event for non-existing iterator
     }
     CallbackHandler::resolving_event = false;
-    printf("done.\n");
     return !CallbackHandler::events->empty();
 }
 
