@@ -983,39 +983,43 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
 // CallbackHandler class
 
 bool CallbackHandler::resolving_event = false;
-std::unordered_map<std::string, std::vector<Callback>>
+std::unordered_map<std::string, std::vector<Callback> *>
     *CallbackHandler::callbacks =
-        new std::unordered_map<std::string, std::vector<Callback>>();
+        new std::unordered_map<std::string, std::vector<Callback> *>();
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
 void CallbackHandler::add_callback(const Callback &c) {
-    printf("Add Callback(%s, %i)\n", c.topic.c_str(), c.table_index);
-    auto item = callbacks->find(c.topic);
+    printf("Add Callback(%s, %i)\n", c.callback_function_id.c_str(),
+           c.table_index);
+    auto item = callbacks->find(c.callback_function_id);
     if (item == callbacks->end()) {
-        callbacks->emplace(c.topic, std::vector<Callback>());
+        std::vector<Callback> *list = new std::vector<Callback>();
+        list->push_back(c);
+        callbacks->emplace(c.callback_function_id, list);
     } else {
-        item->second.push_back(c);
+        item->second->push_back(c);
     }
 }
 
 void CallbackHandler::remove_callback(const Callback &c) {
     // Remove callbacks with the same table_index as c from the list of
-    // callbacks for the topic of c.
-    auto list = callbacks->find(c.topic)->second;
-    list.erase(std::remove_if(list.begin(), list.end(),
-                              [c](Callback const &cb) {
-                                  return c.table_index == cb.table_index;
-                              }),
-               list.end());
+    // callbacks for the callback_function_id of c.
+    auto list = callbacks->find(c.callback_function_id)->second;
+    list->erase(std::remove_if(list->begin(), list->end(),
+                               [c](Callback const &cb) {
+                                   return c.table_index == cb.table_index;
+                               }),
+                list->end());
 }
 
-void CallbackHandler::push_event(const char *topic,
+void CallbackHandler::push_event(const char *callback_id, const char *topic,
                                  const unsigned char *payload,
                                  unsigned int length) {
     if (events->size() < EVENTS_SIZE) {
         char *message = (char *)(malloc(sizeof(char) * length + 1));
         snprintf(message, length + 1, "%s", payload);
-        auto e = new Event(topic, reinterpret_cast<const char *>(message));
+        auto e = new Event(callback_id, topic,
+                           reinterpret_cast<const char *>(message));
         dbg_info("Push Event(%s, %s, %s)\n", e->callback_function_id.c_str(),
                  e->topic, e->payload);
         events->push(*e);
@@ -1026,21 +1030,26 @@ bool CallbackHandler::resolve_event() {
     if (CallbackHandler::events->empty()) {
         return false;
     }
+    printf("Resolving event ...");
     CallbackHandler::resolving_event = true;
 
     Event event = CallbackHandler::events->front();
     CallbackHandler::events->pop();
+    printf(" callback_id: %s ", event.callback_function_id.c_str());
 
     auto iterator =
         CallbackHandler::callbacks->find(event.callback_function_id);
     if (iterator != CallbackHandler::callbacks->end()) {
-        for (Callback cbs : iterator->second) {
+        std::string key = iterator->first;
+        std::vector<Callback> *value = iterator->second;
+        for (Callback cbs : *iterator->second) {
             cbs.resolve_event(event);
         }
     } else {
         // TODO handle error: event for non-existing iterator
     }
     CallbackHandler::resolving_event = false;
+    printf("done.\n");
     return !CallbackHandler::events->empty();
 }
 
@@ -1048,7 +1057,7 @@ bool CallbackHandler::resolve_event() {
 
 Callback::Callback(Module *m, std::string id, uint32_t tidx) {
     this->module = m;
-    this->topic = std::move(id);
+    this->callback_function_id = std::move(id);
     this->table_index = tidx;
 }
 
@@ -1075,7 +1084,7 @@ void Callback::resolve_event(const Event &e) {
     module->fp = -1;
     module->csp = -1;
 
-    // Copy topic and payload to linear memory
+    // Copy callback_function_id and payload to linear memory
     uint32_t start = 10000;  // TODO use reserved area in linear memory
     std::string topic = e.topic;
     std::string payload = e.payload;
@@ -1116,11 +1125,16 @@ void Callback::resolve_event(const Event &e) {
     std::copy(std::begin(br_table), std::end(br_table),
               std::begin(module->br_table));
 }
+Callback::Callback(const Callback &c) {
+    module = c.module;
+    callback_function_id = c.callback_function_id;
+    table_index = c.table_index;
+}
 
 // Event class
 
-Event::Event(const char *topic, const char *payload) {
-    this->callback_function_id = "MQTT";
+Event::Event(const char *callback_id, const char *topic, const char *payload) {
+    this->callback_function_id = callback_id;
     this->topic = topic;
     this->payload = payload;
 }

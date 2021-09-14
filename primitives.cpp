@@ -11,6 +11,8 @@
  */
 #include "primitives.h"
 
+#include <cstring>
+
 #include "debug.h"
 #include "glue.h"
 #include "mem.h"
@@ -460,8 +462,12 @@ class Interrupt {
     void setup(uint8_t pin, void (*ISR_callback)(void), uint8_t mode) {
         this->pin = pin;
         this->mode = mode;
+        Serial.print("Attaching to ");
+        Serial.print(pin);
+        Serial.println("");
         attachInterrupt(digitalPinToInterrupt(pin), ISR_callback, mode);
     }
+
     void handleInterrupt();
     uint8_t pin;
 
@@ -471,24 +477,27 @@ class Interrupt {
 };
 
 void Interrupt::handleInterrupt() {
-    const char *callback_id = reinterpret_cast<const char *>(pin);
+    String callback_function_id = "interrupt";
+    callback_function_id += String(pin);
     auto *empty = reinterpret_cast<const unsigned char *>("");
-    CallbackHandler::push_event(callback_id, empty, 0);
+    CallbackHandler::push_event(callback_function_id.c_str(), callback_function_id.c_str(), empty, 0);
 }
 
 std::vector<Interrupt *> handlers;
 
 def_prim(subscribe_interrupt, threeToNoneU32) {
-    uint8_t pin = arg2.uint32;  // GPIOPin
-    uint8_t mode = arg1.uint32;
-    uint8_t fidx = arg0.uint32;  // Callback function
+    uint8_t pin = arg2.uint32;   // GPIOPin
+    uint8_t fidx = arg1.uint32;  // Callback function
+    uint8_t mode = arg0.uint32;
 
     Interrupt *handler = new Interrupt();
     handlers.push_back(handler);
     handler->setup(
         pin, [] { handlers.back()->handleInterrupt(); }, mode);
 
-    Callback c = Callback(m, "topic", fidx);
+    String callback_id = "interrupt";
+    callback_id += String(pin);
+    Callback c = Callback(m, callback_id.c_str(), fidx);
     CallbackHandler::add_callback(c);
 
     pop_args(3);
@@ -526,7 +535,10 @@ def_prim(mqtt_init, threeToNoneU32) {
     const char *server =
         parse_utf8_string(m->memory.bytes, length, server_param).c_str();
     mqttClient.setServer(server, port);
-    mqttClient.setCallback(CallbackHandler::push_event);
+    mqttClient.setCallback([](const char *callback_function_id, const unsigned char *payload,
+                              unsigned int length) {
+        CallbackHandler::push_event("MQTT", callback_function_id, payload, length);
+    });
 
 #if DEBUG
     Serial.print("Set MQTT server to [");
@@ -589,14 +601,14 @@ def_prim(mqtt_publish, fourToOneU32) {
     uint32_t payload_param = arg1.uint32;
     uint32_t payload_length = arg0.uint32;
 
-    String topic =
+    String callback_function_id =
         parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
 #if DEBUG
     Serial.print(topic_param);
     Serial.print(" ");
     Serial.print(topic_length);
     Serial.print(" ");
-    Serial.print(topic);
+    Serial.print(callback_function_id);
     Serial.println("");
 #endif
     String payload =
@@ -608,16 +620,16 @@ def_prim(mqtt_publish, fourToOneU32) {
     Serial.print(payload_length);
     Serial.print(" ");
     Serial.print(payload);
-    Serial.print(" and topic is ");
-    Serial.print(topic);
+    Serial.print(" and callback_function_id is ");
+    Serial.print(callback_function_id);
     Serial.println("");
 #endif
 
-    bool ret = mqttClient.publish(topic.c_str(), payload.c_str());
+    bool ret = mqttClient.publish(callback_function_id.c_str(), payload.c_str());
 
 #if DEBUG
     Serial.print("Publish to ");
-    Serial.print(topic);
+    Serial.print(callback_function_id);
     Serial.print(": ");
     Serial.print(payload);
     Serial.print(". ");
@@ -635,13 +647,13 @@ def_prim(mqtt_subscribe, twoToOneU32) {
     uint32_t topic_param = arg1.uint32;
     uint32_t topic_length = arg0.uint32;
 
-    const char *topic =
+    const char *callback_function_id =
         parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
-    bool ret = mqttClient.subscribe(topic);
+    bool ret = mqttClient.subscribe(callback_function_id);
 
 #if DEBUG
     Serial.print("Subscribe to ");
-    Serial.print(topic);
+    Serial.print(callback_function_id);
     Serial.println("");
     Serial.flush();
 #endif
@@ -666,11 +678,14 @@ def_prim(abort, NoneToNoneU32) {
 // call callback test function (temporary)
 def_prim(test, oneToNoneU32) {
     uint32_t fidx = arg0.uint32;
-    Callback c = Callback(m, "MQTT", fidx);
+
+    std::string topic = "interrupt";
+    topic.append(std::to_string(fidx));
+
+    Callback c = Callback(m, topic, fidx);
     CallbackHandler::add_callback(c);
-    const char *topic = "TestTopic";
     auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
-    CallbackHandler::push_event(topic, payload, 11);
+    CallbackHandler::push_event(topic.c_str(), topic.c_str(), payload, 11);
     pop_args(1);
     return true;
 }
