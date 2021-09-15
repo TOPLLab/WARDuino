@@ -989,11 +989,11 @@ std::unordered_map<std::string, std::vector<Callback> *>
 std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
 
 void CallbackHandler::add_callback(const Callback &c) {
-    auto item = callbacks->find(c.callback_function_id);
+    auto item = callbacks->find(c.topic);
     if (item == callbacks->end()) {
         auto *list = new std::vector<Callback>();
         list->push_back(c);
-        callbacks->emplace(c.callback_function_id, list);
+        callbacks->emplace(c.topic, list);
     } else {
         item->second->push_back(c);
     }
@@ -1001,8 +1001,8 @@ void CallbackHandler::add_callback(const Callback &c) {
 
 void CallbackHandler::remove_callback(const Callback &c) {
     // Remove callbacks with the same table_index as c from the list of
-    // callbacks for the callback_function_id of c.
-    auto list = callbacks->find(c.callback_function_id)->second;
+    // callbacks for the topic of c.
+    auto list = callbacks->find(c.topic)->second;
     list->erase(std::remove_if(list->begin(), list->end(),
                                [c](Callback const &cb) {
                                    return c.table_index == cb.table_index;
@@ -1010,16 +1010,15 @@ void CallbackHandler::remove_callback(const Callback &c) {
                 list->end());
 }
 
-void CallbackHandler::push_event(const char *callback_id, const char *topic,
+void CallbackHandler::push_event(std::string topic,
                                  const unsigned char *payload,
                                  unsigned int length) {
     if (events->size() < EVENTS_SIZE) {
         char *message = (char *)(malloc(sizeof(char) * length + 1));
         snprintf(message, length + 1, "%s", payload);
-        auto e = new Event(callback_id, topic,
+        auto e = new Event(std::move(topic),
                            reinterpret_cast<const char *>(message));
-        dbg_info("Push Event(%s, %s, %s)\n", e->callback_function_id.c_str(),
-                 e->topic, e->payload);
+        dbg_info("Push Event(%s, %s)\n", e->topic.c_str(), e->payload);
         events->push(*e);
     }
 }
@@ -1033,11 +1032,12 @@ bool CallbackHandler::resolve_event() {
     Event event = CallbackHandler::events->front();
     CallbackHandler::events->pop();
 
-    auto iterator =
-        CallbackHandler::callbacks->find(event.callback_function_id);
+    dbg_info("Resolving an event. (%lu remaining)\n",
+           CallbackHandler::events->size());
+
+    auto iterator = CallbackHandler::callbacks->find(event.topic);
     if (iterator != CallbackHandler::callbacks->end()) {
         std::string key = iterator->first;
-        std::vector<Callback> *value = iterator->second;
         for (Callback cbs : *iterator->second) {
             cbs.resolve_event(event);
         }
@@ -1052,13 +1052,13 @@ bool CallbackHandler::resolve_event() {
 
 Callback::Callback(Module *m, std::string id, uint32_t tidx) {
     this->module = m;
-    this->callback_function_id = std::move(id);
+    this->topic = std::move(id);
     this->table_index = tidx;
 }
 
 void Callback::resolve_event(const Event &e) {
-    dbg_trace("Callback(%s, %i): resolving Event(%s, %s, %s)\n", topic.c_str(),
-              table_index, e.callback_function_id.c_str(), e.topic, e.payload);
+    dbg_trace("Callback(%s, %i): resolving Event(%s, \"%s\")\n", topic.c_str(),
+              table_index, e.topic.c_str(), e.payload);
     // Save runtime state of VM
     uint8_t *pc_ptr = module->pc_ptr;  // program counter
     int sp = module->sp;               // operand stack pointer
@@ -1079,7 +1079,7 @@ void Callback::resolve_event(const Event &e) {
     module->fp = -1;
     module->csp = -1;
 
-    // Copy callback_function_id and payload to linear memory
+    // Copy topic and payload to linear memory
     uint32_t start = 10000;  // TODO use reserved area in linear memory
     std::string topic = e.topic;
     std::string payload = e.payload;
@@ -1122,14 +1122,13 @@ void Callback::resolve_event(const Event &e) {
 }
 Callback::Callback(const Callback &c) {
     module = c.module;
-    callback_function_id = c.callback_function_id;
+    topic = c.topic;
     table_index = c.table_index;
 }
 
 // Event class
 
-Event::Event(const char *callback_id, const char *topic, const char *payload) {
-    this->callback_function_id = callback_id;
+Event::Event(std::string topic, const char *payload) {
     this->topic = topic;
     this->payload = payload;
 }

@@ -283,7 +283,6 @@ def_prim(wifi_connect, fourToNoneU32) {
 
     connect(ssid_str, pass_str);
 
-    Serial.flush();
     pop_args(4);
     return true;
 }
@@ -477,10 +476,10 @@ class Interrupt {
 };
 
 void Interrupt::handleInterrupt() {
-    String callback_function_id = "interrupt";
-    callback_function_id += String(pin);
+    String topic = "interrupt";
+    topic += String(pin);
     auto *empty = reinterpret_cast<const unsigned char *>("");
-    CallbackHandler::push_event(callback_function_id.c_str(), callback_function_id.c_str(), empty, 0);
+    CallbackHandler::push_event(topic.c_str(), empty, 0);
 }
 
 std::vector<Interrupt *> handlers;
@@ -524,8 +523,6 @@ def_prim(unsubscribe_interrupt, oneToNoneU32) {
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-const std::string CALLBACK_ID = "MQTT";
-
 def_prim(mqtt_init, threeToNoneU32) {
     WiFi.mode(WIFI_STA);
     uint32_t server_param = arg2.uint32;
@@ -535,9 +532,9 @@ def_prim(mqtt_init, threeToNoneU32) {
     const char *server =
         parse_utf8_string(m->memory.bytes, length, server_param).c_str();
     mqttClient.setServer(server, port);
-    mqttClient.setCallback([](const char *callback_function_id, const unsigned char *payload,
+    mqttClient.setCallback([](const char *topic, const unsigned char *payload,
                               unsigned int length) {
-        CallbackHandler::push_event("MQTT", callback_function_id, payload, length);
+        CallbackHandler::push_event(topic, payload, length);
     });
 
 #if DEBUG
@@ -549,14 +546,6 @@ def_prim(mqtt_init, threeToNoneU32) {
 #endif
 
     pop_args(3);
-    return true;
-}
-
-def_prim(mqtt_set_callback, oneToNoneU32) {
-    uint32_t fidx = arg0.uint32;
-    Callback c = Callback(m, CALLBACK_ID, fidx);
-    CallbackHandler::add_callback(c);
-    pop_args(1);
     return true;
 }
 
@@ -601,40 +590,36 @@ def_prim(mqtt_publish, fourToOneU32) {
     uint32_t payload_param = arg1.uint32;
     uint32_t payload_length = arg0.uint32;
 
-    String callback_function_id =
+    String topic =
         parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
 #if DEBUG
+    Serial.println("MQTT Publish");
+    Serial.print("(");
     Serial.print(topic_param);
-    Serial.print(" ");
+    Serial.print(", ");
     Serial.print(topic_length);
-    Serial.print(" ");
-    Serial.print(callback_function_id);
+    Serial.print(") ");
+    Serial.print(topic);
     Serial.println("");
 #endif
     String payload =
         parse_utf8_string(m->memory.bytes, payload_length, payload_param)
             .c_str();
 #if DEBUG
+    Serial.print("(");
     Serial.print(payload_param);
-    Serial.print(" ");
+    Serial.print(", ");
     Serial.print(payload_length);
-    Serial.print(" ");
+    Serial.print(") ");
     Serial.print(payload);
-    Serial.print(" and callback_function_id is ");
-    Serial.print(callback_function_id);
     Serial.println("");
 #endif
 
-    bool ret = mqttClient.publish(callback_function_id.c_str(), payload.c_str());
+    bool ret = mqttClient.publish(topic.c_str(), payload.c_str());
 
 #if DEBUG
-    Serial.print("Publish to ");
-    Serial.print(callback_function_id);
-    Serial.print(": ");
-    Serial.print(payload);
-    Serial.print(". ");
-    Serial.print(ret);
-    Serial.println("");
+    Serial.print("Status code: ");
+    Serial.println(ret);
     Serial.flush();
 #endif
 
@@ -643,18 +628,46 @@ def_prim(mqtt_publish, fourToOneU32) {
     return true;
 }
 
-def_prim(mqtt_subscribe, twoToOneU32) {
-    uint32_t topic_param = arg1.uint32;
-    uint32_t topic_length = arg0.uint32;
+def_prim(mqtt_subscribe, threeToOneU32) {
+    uint32_t topic_param = arg2.uint32;
+    uint32_t topic_length = arg1.uint32;
+    uint32_t fidx = arg0.uint32;
 
-    const char *callback_function_id =
+    const char *topic =
         parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
-    bool ret = mqttClient.subscribe(callback_function_id);
+
+    Callback c = Callback(m, topic, fidx);
+    CallbackHandler::add_callback(c);
+
+    bool ret = mqttClient.subscribe(topic);
 
 #if DEBUG
-    Serial.print("Subscribe to ");
-    Serial.print(callback_function_id);
-    Serial.println("");
+    Serial.print("Subscribed to ");
+    Serial.println(topic);
+    Serial.flush();
+#endif
+
+    pop_args(2);
+    pushInt32((int)ret);
+    return true;
+}
+
+def_prim(mqtt_unsubscribe, threeToOneU32) {
+    uint32_t topic_param = arg2.uint32;
+    uint32_t topic_length = arg1.uint32;
+    uint32_t fidx = arg0.uint32;
+
+    const char *topic =
+        parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
+
+    Callback c = Callback(m, topic, fidx);
+    CallbackHandler::remove_callback(c);
+
+    bool ret = mqttClient.unsubscribe(topic);
+
+#if DEBUG
+    Serial.print("Unsubscribed to ");
+    Serial.println(topic);
     Serial.flush();
 #endif
 
@@ -685,7 +698,7 @@ def_prim(test, oneToNoneU32) {
     Callback c = Callback(m, topic, fidx);
     CallbackHandler::add_callback(c);
     auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
-    CallbackHandler::push_event(topic.c_str(), topic.c_str(), payload, 11);
+    CallbackHandler::push_event(topic, payload, 11);
     pop_args(1);
     return true;
 }
@@ -881,7 +894,8 @@ void connect(const String ssid, const String password) {
 
     WiFi.begin(ssid_buf, pass_buf);
 
-    printf("Connecting to wifi network.");
+    Serial.println("Connecting to wifi network.");
+    Serial.flush();
 
     free(ssid_buf);
     free(pass_buf);
@@ -1001,12 +1015,12 @@ void install_primitives() {
     install_primitive(subscribe_interrupt);
 
     install_primitive(mqtt_init);
-    install_primitive(mqtt_set_callback);
     install_primitive(mqtt_connect);
     install_primitive(mqtt_connected);
     install_primitive(mqtt_state);
     install_primitive(mqtt_publish);
     install_primitive(mqtt_subscribe);
+    install_primitive(mqtt_unsubscribe);
     install_primitive(mqtt_loop);
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
