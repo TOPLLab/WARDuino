@@ -1059,25 +1059,19 @@ Callback::Callback(Module *m, std::string id, uint32_t tidx) {
 void Callback::resolve_event(const Event &e) {
     dbg_trace("Callback(%s, %i): resolving Event(%s, \"%s\")\n", topic.c_str(),
               table_index, e.topic.c_str(), e.payload);
-    // Save runtime state of VM
+
+#if DEBUG
+    // Save stack pointer
+    int sp = module->sp;
+#endif
+
+    // Save and empty callstack
     uint8_t *pc_ptr = module->pc_ptr;  // program counter
-    int sp = module->sp;               // operand stack pointer
-    int fp = module->fp;               // current frame pointer into stack
-    StackValue stack[STACK_SIZE];      // main operand stack
-    std::copy(std::begin(module->stack), std::end(module->stack),
-              std::begin(stack));
-    int csp = module->csp;            // callstack pointer
-    Frame callstack[CALLSTACK_SIZE];  // callstack
+    int csp = module->csp;             // callstack pointer
+    module->csp = -1;
+    Frame callstack[CALLSTACK_SIZE];  // copy of callstack
     std::copy(std::begin(module->callstack), std::end(module->callstack),
               std::begin(callstack));
-    uint32_t br_table[BR_TABLE_SIZE];  // br_table branch indexes
-    std::copy(std::begin(module->br_table), std::end(module->br_table),
-              std::begin(br_table));
-
-    // Empty stacks
-    module->sp = -1;
-    module->fp = -1;
-    module->csp = -1;
 
     // Copy topic and payload to linear memory
     uint32_t start = 10000;  // TODO use reserved area in linear memory
@@ -1107,18 +1101,17 @@ void Callback::resolve_event(const Event &e) {
     // TODO
 
     // Call function (call interpret - only callback function on callstack)
-    interpret(module);
+    interpret(module);  // TODO tail recursion?
 
-    // Restore state of VM
+#if DEBUG
+    ASSERT(module->sp == sp, "Interrupt callback return type not void.");
+#endif
+
+    // Restore callstack
     module->pc_ptr = pc_ptr;  // program counter
-    module->sp = sp;          // operand stack pointer
-    module->fp = fp;          // current frame pointer into stack
-    std::copy(std::begin(stack), std::end(stack), std::begin(module->stack));
     module->csp = csp;  // callstack pointer
     std::copy(std::begin(callstack), std::end(callstack),
               std::begin(module->callstack));
-    std::copy(std::begin(br_table), std::end(br_table),
-              std::begin(module->br_table));
 }
 Callback::Callback(const Callback &c) {
     module = c.module;
