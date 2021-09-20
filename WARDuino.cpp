@@ -982,7 +982,7 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
 
 // CallbackHandler class
 
-bool CallbackHandler::resolving_event = false;
+//bool CallbackHandler::resolving_event = false;
 std::unordered_map<std::string, std::vector<Callback> *>
     *CallbackHandler::callbacks =
         new std::unordered_map<std::string, std::vector<Callback> *>();
@@ -1027,7 +1027,7 @@ bool CallbackHandler::resolve_event() {
     if (CallbackHandler::events->empty()) {
         return false;
     }
-    CallbackHandler::resolving_event = true;
+//    CallbackHandler::resolving_event = true;
 
     Event event = CallbackHandler::events->front();
     CallbackHandler::events->pop();
@@ -1044,7 +1044,7 @@ bool CallbackHandler::resolve_event() {
     } else {
         // TODO handle error: event for non-existing iterator
     }
-    CallbackHandler::resolving_event = false;
+//    CallbackHandler::resolving_event = false;
     return !CallbackHandler::events->empty();
 }
 
@@ -1059,19 +1059,6 @@ Callback::Callback(Module *m, std::string id, uint32_t tidx) {
 void Callback::resolve_event(const Event &e) {
     dbg_trace("Callback(%s, %i): resolving Event(%s, \"%s\")\n", topic.c_str(),
               table_index, e.topic.c_str(), e.payload);
-
-#if DEBUG
-    // Save stack pointer
-    int sp = module->sp;
-#endif
-
-    // Save and empty callstack
-    uint8_t *pc_ptr = module->pc_ptr;  // program counter
-    int csp = module->csp;             // callstack pointer
-    module->csp = -1;
-    Frame callstack[CALLSTACK_SIZE];  // copy of callstack
-    std::copy(std::begin(module->callstack), std::end(module->callstack),
-              std::begin(callstack));
 
     // Copy topic and payload to linear memory
     uint32_t start = 10000;  // TODO use reserved area in linear memory
@@ -1099,20 +1086,8 @@ void Callback::resolve_event(const Event &e) {
     // Validate argument count
     // Callback function cannot return a result, should have return type void
     // TODO
-
-    // Call function (call interpret - only callback function on callstack)
-    interpret(module);  // TODO tail recursion?
-
-#if DEBUG
-    ASSERT(module->sp == sp, "Interrupt callback return type not void.");
-#endif
-
-    // Restore callstack
-    module->pc_ptr = pc_ptr;  // program counter
-    module->csp = csp;  // callstack pointer
-    std::copy(std::begin(callstack), std::end(callstack),
-              std::begin(module->callstack));
 }
+
 Callback::Callback(const Callback &c) {
     module = c.module;
     topic = c.topic;
