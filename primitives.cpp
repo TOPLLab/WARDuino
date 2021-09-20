@@ -51,15 +51,17 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #endif
 
+#include <sys/time.h>
+
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 27
+#define NUM_PRIMITIVES_ARDUINO 28
 #else
-#define NUM_PRIMITIVES_ARDUINO 18
+#define NUM_PRIMITIVES_ARDUINO 19
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -94,6 +96,9 @@ double sensor_emu = 0;
 #define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
 #define pushUInt32(arg) m->stack[++m->sp].value.uint32 = arg
 #define pushInt32(arg) m->stack[++m->sp].value.int32 = arg
+#define pushUInt64(arg)               \
+    m->stack[++m->sp].value_type = I64; \
+    m->stack[m->sp].value.uint64 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
@@ -116,6 +121,8 @@ uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
 uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                     I32, I32, I32, I32, I32};
+
+uint32_t param_I64_arr_len1[1] = {I64};
 
 Type oneToNoneU32 = {
     .form = FUNC,
@@ -222,6 +229,13 @@ Type NoneToOneU32 = {.form = FUNC,
                      .results = param_I32_arr_len1,
                      .mask = 0x81000};
 
+Type NoneToOneU64 = {.form = FUNC,
+                     .param_count = 0,
+                     .params = nullptr,
+                     .result_count = 1,
+                     .results = param_I64_arr_len1,
+                     .mask = 0x82000};
+
 // Util function declarations
 #ifdef ARDUINO
 
@@ -249,6 +263,11 @@ def_prim(abort, NoneToNoneU32) {
 
 def_prim(millis, NoneToOneU32) {
     pushInt32(millis());
+    return true;
+}
+
+def_prim(micros, NoneToOneU64) {
+    pushUInt64(micros());
     return true;
 }
 
@@ -543,6 +562,7 @@ def_prim(mqtt_init, threeToNoneU32) {
     Serial.print(":");
     Serial.print(port);
     Serial.println("]");
+    Serial.flush();
 #endif
 
     pop_args(3);
@@ -686,6 +706,14 @@ def_prim(mqtt_loop, NoneToOneU32) {
 def_prim(abort, NoneToNoneU32) {
     debug("EMU: abort\n");
     return false;
+}
+
+def_prim(micros, NoneToOneU64) {
+    struct timeval tv {};
+    gettimeofday(&tv, nullptr);
+    unsigned long micros = 1000000 * tv.tv_sec + tv.tv_usec;
+    pushUInt64(micros);
+    return true;
 }
 
 // call callback test function (temporary)
@@ -990,6 +1018,7 @@ void install_primitives() {
     dbg_info("INSTALLING ARDUINO\n");
     install_primitive(abort);
     install_primitive(millis);
+    install_primitive(micros);
 
     install_primitive(print_int);
     install_primitive(print_string);
@@ -1025,6 +1054,7 @@ void install_primitives() {
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(abort);
+    install_primitive(micros);
     install_primitive(test);
     install_primitive(print_int);
     install_primitive(print_string);
