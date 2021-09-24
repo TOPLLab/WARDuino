@@ -130,6 +130,7 @@ typedef struct Options {
     //   m->table.entries[index]
     bool mangle_table_index;
     bool dlsym_trim_underscore;
+    bool return_exception;
 } Options;
 
 class WARDuino;  // predeclare for it work in the module decl

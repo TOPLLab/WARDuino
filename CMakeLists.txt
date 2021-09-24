@@ -5,12 +5,13 @@ set(SOURCE_FILES mem.cpp util.cpp util_arduino.cpp interrupt_operations.cpp debu
 add_executable(WARDuino demo/run_wa/main.cpp ${SOURCE_FILES})
 add_executable(TestWARDuino tests/main.cpp ${SOURCE_FILES} tests/assertion.cpp tests/sexpr-parser/src/sexpr.c)
 
+add_executable(warduino cli/main.cpp ${SOURCE_FILES})
 
 #add_definitions(-DARDUINO)
 add_definitions(-DINFO=0)
-add_definitions(-DDEBUG=1)
+add_definitions(-DDEBUG=0)
 add_definitions(-DTRACE=0)
-add_definitions(-DWARN=1)
+add_definitions(-DWARN=0)
 
 add_executable(WARDuinoBench benchmarks/benchmarks.cpp ${SOURCE_FILES})
 install(TARGETS WARDuino DESTINATION demo/run_wa/bin)

@@ -52,7 +52,7 @@ void run_benchmarks(size_t num_benchmarks, string benchmarks[]) {
         set_path(path, name);
         printf("[%lu/%lu: GO ] %s \n", i, num_benchmarks, path);
         bytes_length = read_file_to_buf(bytes, path);
-        Options opt = {.disable_memory_bounds = false, .mangle_table_index=false, .dlsym_trim_underscore=true};
+        Options opt = {.disable_memory_bounds = false, .mangle_table_index=false, .dlsym_trim_underscore=true, .return_exception= false};
         Timer tmr;
         tmr.reset();
         Module *m = w->load_module(bytes, bytes_length, opt);

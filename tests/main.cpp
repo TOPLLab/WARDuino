@@ -111,7 +111,8 @@ void invoke(Module *m, const char *call_f, Value values[]) {
     Type *type = func->type;
     parse_args(m, type, type->param_count, values);
     setup_call(m, fidx);
-    interpret(m, true);
+    m->options.return_exception = true;
+    interpret(m);
 }
 
 void assertValue(Value *val, Module *m) {

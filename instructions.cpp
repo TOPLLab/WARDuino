@@ -1453,7 +1453,7 @@ bool i_instr_callback(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool interpret(Module *m, bool return_exception) {
+bool interpret(Module *m) {
     uint8_t *block_ptr;
     uint8_t opcode;
 
@@ -1693,7 +1693,7 @@ bool interpret(Module *m, bool return_exception) {
     dbg_trace("Interpretation ended %s with status %s\n",
               program_done ? "expectedly" : "unexpectedly",
               success ? "ok" : "error");
-    if (!success && return_exception) {
+    if (!success && m->options.return_exception) {
         m->exception = strdup(exception);
     } else if (!success) {
         FATAL("%s\n", exception);
