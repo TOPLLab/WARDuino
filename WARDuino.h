@@ -208,7 +208,7 @@ class CallbackHandler {
     CallbackHandler() = default;  // Disallow creation
 
    public:
-//    static bool resolving_event;
+    //    static bool resolving_event;
 
     static void add_callback(const Callback &c);
     static void remove_callback(const Callback &c);

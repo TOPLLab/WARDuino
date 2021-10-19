@@ -5,29 +5,31 @@
 
 /*
  cmd:
-  <module>                                   ;; define, validate, and initialize module
-  ( register <string> <name>? )              ;; register module for imports
+  <module>                                   ;; define, validate, and initialize
+module ( register <string> <name>? )              ;; register module for imports
   <action>                                   ;; perform action and print results
   <assertion>                                ;; assert result of an action
   <meta>                                     ;; meta command
 
 module:
   ...
-  ( module <name>? binary <string>* )        ;; module in binary format (may be malformed)
-  ( module <name>? quote <string>* )         ;; module quoted in text (may be malformed)
+  ( module <name>? binary <string>* )        ;; module in binary format (may be
+malformed) ( module <name>? quote <string>* )         ;; module quoted in text
+(may be malformed)
 
 action:
   ( invoke <name>? <string> <expr>* )        ;; invoke function export
   ( get    <name>? <string> )                ;; get global export
 
 assertion:
-  ( assert_return <action> <result>* )       ;; assert action has expected results
-  ( assert_trap <action> <failure> )         ;; assert action traps with given failure string
-  ( assert_exhaustion <action> <failure> )   ;; assert action exhausts system resources
-  ( assert_malformed <module> <failure> )    ;; assert module cannot be decoded with given failure string
-  ( assert_invalid <module> <failure> )      ;; assert module is invalid with given failure string
-  ( assert_unlinkable <module> <failure> )   ;; assert module fails to link
-  ( assert_trap <module> <failure> )         ;; assert module traps on instantiation
+  ( assert_return <action> <result>* )       ;; assert action has expected
+results ( assert_trap <action> <failure> )         ;; assert action traps with
+given failure string ( assert_exhaustion <action> <failure> )   ;; assert action
+exhausts system resources ( assert_malformed <module> <failure> )    ;; assert
+module cannot be decoded with given failure string ( assert_invalid <module>
+<failure> )      ;; assert module is invalid with given failure string (
+assert_unlinkable <module> <failure> )   ;; assert module fails to link (
+assert_trap <module> <failure> )         ;; assert module traps on instantiation
 
 result:
   ( <val_type>.const <numpat> )
@@ -44,15 +46,15 @@ meta:
 */
 
 typedef enum {
-    RETURN, TRAP, EXHAUSTION, MALFORMED, INVALID, UNLINKABLE
+    RETURN,
+    TRAP,
+    EXHAUSTION,
+    MALFORMED,
+    INVALID,
+    UNLINKABLE
 } AssertionType;
-typedef enum {
-    INVOKE, GET
-} ActionType;
-typedef enum {
-    UI32, I32V, UI64, I64V, F32V, F64V
-} ValueType;
-
+typedef enum { INVOKE, GET } ActionType;
+typedef enum { UI32, I32V, UI64, I64V, F32V, F64V } ValueType;
 
 typedef struct {
     ValueType type;
@@ -68,7 +70,9 @@ typedef struct {
 } Value;
 
 typedef enum {
-    EMPTY, NAN_R, VAL,
+    EMPTY,
+    NAN_R,
+    VAL,
 } ResultType;
 
 typedef struct {
@@ -83,7 +87,6 @@ typedef struct {
     char *name;
     Value *expr;
 } Action;
-
 
 typedef struct {
     AssertionType type;

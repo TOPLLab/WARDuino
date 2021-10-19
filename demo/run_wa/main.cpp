@@ -1,6 +1,7 @@
-#include <iostream>
-#include "../../WARDuino.h"
 #include <csignal>
+#include <iostream>
+
+#include "../../WARDuino.h"
 
 extern "C" {
 // TODO: Stat files, alternative needed for arduino
@@ -16,9 +17,9 @@ void signalHandler(int /* signum */) {
     if (handlingInterrupt) return;
 
     printf("CHANGE REQUESTED!");
-    struct stat statbuff{};
+    struct stat statbuff {};
     if (stat("/tmp/change", &statbuff) == 0 && statbuff.st_size > 0) {
-        auto *data = (uint8_t *) malloc(statbuff.st_size * sizeof(uint8_t));
+        auto *data = (uint8_t *)malloc(statbuff.st_size * sizeof(uint8_t));
         FILE *fp = fopen("/tmp/change", "rb");
         fread(data, statbuff.st_size, 1, fp);
         fclose(fp);
@@ -32,8 +33,8 @@ void signalHandler(int /* signum */) {
 
 /**
  * Run code, execute interrupts in /tmp/change if a USR1 signal comes
-*/
-int main(int /*argc*/, const char **/*argv*/) {
+ */
+int main(int /*argc*/, const char ** /*argv*/) {
     signal(SIGUSR1, signalHandler);
     Module *m = wac.load_module(hello_world_wasm, hello_world_wasm_len, {});
     wac.run_module(m);

@@ -1,6 +1,5 @@
 #include <emscripten/emscripten.h>
 
-
 int __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE is_prime(unsigned n) {
     if (n < 3) {
         return n > 1;
@@ -16,7 +15,6 @@ int __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE is_prime(unsigned n) {
                 i += 6;
             }
             return 1;
-
         }
     }
 }
@@ -39,7 +37,7 @@ int main() {
     unsigned sum = 0;
     int count = 0;
     for (unsigned i = 1; sum < 13374242; i++) {
-        if (is_prime(i)){
+        if (is_prime(i)) {
             sum += i;
             count++;
         }

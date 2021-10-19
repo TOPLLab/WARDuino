@@ -1483,9 +1483,9 @@ bool interpret(Module *m) {
 
         // Resolve 1 callback event if queue is not empty and no event currently
         // resolving
-//        if (!CallbackHandler::resolving_event) {
+        //        if (!CallbackHandler::resolving_event) {
         CallbackHandler::resolve_event();
-//        }
+        //        }
 
         // Don't check for breakpoints while paused
         if (m->warduino->isBreakpoint(m->pc_ptr)) {

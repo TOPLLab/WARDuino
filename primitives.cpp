@@ -96,7 +96,7 @@ double sensor_emu = 0;
 #define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
 #define pushUInt32(arg) m->stack[++m->sp].value.uint32 = arg
 #define pushInt32(arg) m->stack[++m->sp].value.int32 = arg
-#define pushUInt64(arg)               \
+#define pushUInt64(arg)                 \
     m->stack[++m->sp].value_type = I64; \
     m->stack[m->sp].value.uint64 = arg
 #define arg0 get_arg(m, 0)

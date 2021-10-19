@@ -982,7 +982,7 @@ bool WARDuino::isBreakpoint(uint8_t *loc) {
 
 // CallbackHandler class
 
-//bool CallbackHandler::resolving_event = false;
+// bool CallbackHandler::resolving_event = false;
 std::unordered_map<std::string, std::vector<Callback> *>
     *CallbackHandler::callbacks =
         new std::unordered_map<std::string, std::vector<Callback> *>();
@@ -1027,13 +1027,13 @@ bool CallbackHandler::resolve_event() {
     if (CallbackHandler::events->empty()) {
         return false;
     }
-//    CallbackHandler::resolving_event = true;
+    //    CallbackHandler::resolving_event = true;
 
     Event event = CallbackHandler::events->front();
     CallbackHandler::events->pop();
 
     dbg_info("Resolving an event. (%lu remaining)\n",
-           CallbackHandler::events->size());
+             CallbackHandler::events->size());
 
     auto iterator = CallbackHandler::callbacks->find(event.topic);
     if (iterator != CallbackHandler::callbacks->end()) {
@@ -1044,7 +1044,7 @@ bool CallbackHandler::resolve_event() {
     } else {
         // TODO handle error: event for non-existing iterator
     }
-//    CallbackHandler::resolving_event = false;
+    //    CallbackHandler::resolving_event = false;
     return !CallbackHandler::events->empty();
 }
 

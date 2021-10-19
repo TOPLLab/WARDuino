@@ -30,7 +30,7 @@ void print_help() {
     fprintf(stdout, "Options:\n");
     fprintf(stdout,
             "    --loop   Let the runtime loop infinitely on exceptions\n");
-    fprintf(stdout,"    --file   Wasm file to execute\n");
+    fprintf(stdout, "    --file   Wasm file to execute\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {

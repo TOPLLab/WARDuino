@@ -1,17 +1,17 @@
-#include <iostream>
-#include "../debug.h"
-#include "../WARDuino.h"
-#include "../WARDuino.h"
-#include "../instructions.h"
-#include <csignal>
-#include <sys/mman.h>
-#include <cstdlib>
-
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <cstring>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include <cmath>
+#include <csignal>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+
+#include "../WARDuino.h"
+#include "../debug.h"
+#include "../instructions.h"
 
 extern "C" {
 #include "./sexpr-parser/src/sexpr.h"
@@ -33,9 +33,9 @@ void signalHandler(int /* signum */) {
     if (handlingInterrupt) return;
 
     printf("CHANGE REQUESTED!");
-    struct stat statbuff{};
+    struct stat statbuff {};
     if (stat("/tmp/change", &statbuff) == 0 && statbuff.st_size > 0) {
-        auto *data = (uint8_t *) malloc(statbuff.st_size * sizeof(uint8_t));
+        auto *data = (uint8_t *)malloc(statbuff.st_size * sizeof(uint8_t));
         FILE *fp = fopen("/tmp/change", "rb");
         fread(data, statbuff.st_size, 1, fp);
         fclose(fp);
@@ -52,15 +52,21 @@ uint8_t *mmap_file(char *path, int *len) {
     uint8_t *bytes;
 
     fd = open(path, O_RDONLY);
-    if (fd < 0) {FATAL("could not open file '%s'\n", path); }
+    if (fd < 0) {
+        FATAL("could not open file '%s'\n", path);
+    }
     res = fstat(fd, &sb);
-    if (res < 0) {FATAL("could not stat file '%s' (%d)\n", path, res); }
+    if (res < 0) {
+        FATAL("could not stat file '%s' (%d)\n", path, res);
+    }
 
-    bytes = (uint8_t *) mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    bytes = (uint8_t *)mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (len) {
         *len = sb.st_size;  // Return length if requested
     }
-    if (bytes == MAP_FAILED) {FATAL("could not mmap file '%s'", path); }
+    if (bytes == MAP_FAILED) {
+        FATAL("could not mmap file '%s'", path);
+    }
     return bytes;
 }
 
@@ -74,18 +80,18 @@ void parse_args(Module *m, Type *type, int argc, Value argv[]) {
             case I64:
                 sv->value.uint64 = argv[i].int64;
                 break;
-/*
-        case I32: sv->value.uint32 = strtoul(argv[i], NULL, 0); break;
-        case F32: if (strncmp("-nan", argv[i], 4) == 0) {
-                      sv->value.f32 = -NAN;
-                  } else {
-                      sv->value.f32 = atof(argv[i]);
-                  }; break;
-        case F64: if (strncmp("-nan", argv[i], 4) == 0) {
-                      sv->value.f64 = -NAN;
-                  } else {
-                      sv->value.f64 = atof(argv[i]);
-                  }; break;*/
+                /*
+                        case I32: sv->value.uint32 = strtoul(argv[i], NULL, 0);
+                   break; case F32: if (strncmp("-nan", argv[i], 4) == 0) {
+                                      sv->value.f32 = -NAN;
+                                  } else {
+                                      sv->value.f32 = atof(argv[i]);
+                                  }; break;
+                        case F64: if (strncmp("-nan", argv[i], 4) == 0) {
+                                      sv->value.f64 = -NAN;
+                                  } else {
+                                      sv->value.f64 = atof(argv[i]);
+                                  }; break;*/
         }
     }
 }
@@ -95,7 +101,7 @@ void invoke(Module *m, const char *call_f, Value values[]) {
     m->sp = -1;
     m->fp = -1;
     m->csp = -1;
-    //TODO move to the WARDuino class     
+    // TODO move to the WARDuino class
     for (uint32_t f = 0; f < m->function_count; f++) {
         char *fname = m->functions[f].export_name;
         if (!fname) {
@@ -160,7 +166,6 @@ void runAction(Action *action, Module *m) {
             printf("Error unsupported action");
             exit(1);
     }
-
 }
 
 void runAssertion(Assertion *assertion, Module *m) {
@@ -198,7 +203,7 @@ Action *parseActionNode(SNode *actionNode) {
     char *type = actionNode->list->next->next->list->value;
     char *value = actionNode->list->next->next->list->next->value;
 
-    auto *args = (Value *) calloc(sizeof(Value), 1);
+    auto *args = (Value *)calloc(sizeof(Value), 1);
     if (strcmp(type, "i64.const") == 0) {
         args[0] = *makeI64(std::stoll(value));
     } else if (strcmp(type, "u64.const") == 0) {
@@ -238,7 +243,7 @@ void resolveAssert(SNode *node, Module *m) {
 
 /**
  * Run code, execute interrupts in /tmp/change if a USR1 signal comes
-*/
+ */
 int main(int argc, char **argv) {
     uint8_t *bytes;
     int byte_count;

@@ -294,7 +294,6 @@ int diff(int a, int b) { return a < b ? b - a : a - b; }
 #define WHITE 0xFFFF
 #define BLACK 0x0000
 
-
 #define PURPLE (RED | BLUE)
 #define CYAN (BLUE | GREEN)
 #define YELLOW (GREEN | RED)
@@ -338,35 +337,27 @@ int main() {
     chip_fill_screen(BGCOL);
     int x = 64 - 20; /* padle pos */
 
-
     while (1) {
         // update ball
         int nextX = ball.pos.x + ball.speed.x;
         if (ball.speed.x > 0) {
-            chip_fill_rect(
-                    ball.pos.x / 100, ball.pos.y / 100,
-                    diff(ball.pos.x / 100, nextX / 100), BSIZE,
-                    BGCOL);
+            chip_fill_rect(ball.pos.x / 100, ball.pos.y / 100,
+                           diff(ball.pos.x / 100, nextX / 100), BSIZE, BGCOL);
         } else {
-            chip_fill_rect(
-                    nextX / 100 + BSIZE, ball.pos.y / 100,
-                    diff(ball.pos.x / 100, nextX / 100), BSIZE,
-                    BGCOL);
+            chip_fill_rect(nextX / 100 + BSIZE, ball.pos.y / 100,
+                           diff(ball.pos.x / 100, nextX / 100), BSIZE, BGCOL);
         }
         int nextY = ball.pos.y + ball.speed.y;
         if (ball.speed.y > 0) {
-            chip_fill_rect(
-                    ball.pos.x / 100, ball.pos.y / 100,
-                    BSIZE, diff(ball.pos.y / 100, nextY / 100),
-                    BGCOL);
+            chip_fill_rect(ball.pos.x / 100, ball.pos.y / 100, BSIZE,
+                           diff(ball.pos.y / 100, nextY / 100), BGCOL);
         } else {
-            chip_fill_rect(
-                    ball.pos.x / 100, nextY / 100 + BSIZE, //
-                    BSIZE, diff(ball.pos.y / 100, nextY / 100),
-                    BGCOL); //
-
+            chip_fill_rect(ball.pos.x / 100, nextY / 100 + BSIZE,  //
+                           BSIZE, diff(ball.pos.y / 100, nextY / 100),
+                           BGCOL);  //
         }
-        //chip_fill_rect(ball.pos.x / 100, ball.pos.y / 100, BSIZE, BSIZE, BGCOL);
+        // chip_fill_rect(ball.pos.x / 100, ball.pos.y / 100, BSIZE, BSIZE,
+        // BGCOL);
         ball.pos.x += ball.speed.x;
         ball.pos.y += ball.speed.y;
         chip_fill_rect(ball.pos.x / 100, ball.pos.y / 100, BSIZE, BSIZE,
@@ -388,19 +379,19 @@ int main() {
         // update paddle
 
         if (ball.pos.y / 100 + BSIZE >= PYPOS) {
-            if (ball.pos.x / 100 + BSIZE > x && ball.pos.x / 100 < x + PSIZE && ball.speed.y > 0) {
+            if (ball.pos.x / 100 + BSIZE > x && ball.pos.x / 100 < x + PSIZE &&
+                ball.speed.y > 0) {
                 ball.speed.y *= -1;
                 ball.speed.y += ball.speed.y < 0 ? -1 : 1;
                 ball.speed.x += ball.speed.x < 0 ? -1 : 1;
-
             }
         }
 
-        if (chip_digital_read(D4)) {// ->
+        if (chip_digital_read(D4)) {  // ->
             x = min(x + 1, 128 - PSIZE);
             chip_fill_rect(x - 1, PYPOS, 1, 5, BGCOL);
             chip_fill_rect(x - 1 + PSIZE, PYPOS, 1, 5, PCOL);
-        } else {// <-
+        } else {  // <-
             x = max(0, x - 1);
             chip_fill_rect(x + PSIZE, PYPOS, 1, 5, BGCOL);
             chip_fill_rect(x, PYPOS, 1, 5, PCOL);
