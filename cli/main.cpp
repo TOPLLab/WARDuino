@@ -1,13 +1,13 @@
 //
 // WARDuino - WebAssembly interpreter for embedded devices.
 //
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 #include "../WARDuino.h"
 
 // Constants
-#define MAX_MODULE_SIZE 64 * 1024 * 1024
+#define MAX_MODULE_SIZE (64 * 1024 * 1024)
 
 #define ARGV_SHIFT() \
     {                \
@@ -26,11 +26,11 @@ void print_help() {
     //    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.1.0\n\n");
     fprintf(stdout, "Usage:\n");
     fprintf(stdout, "    warduino [options] <file>\n");
-    //    fprintf(stdout, "    warduino --test <file>"); TODO for running
-    //    testsuites
+    //    fprintf(stdout, "    warduino --test <file>"); TODO for running tests
     fprintf(stdout, "Options:\n");
     fprintf(stdout,
             "    --loop   Let the runtime loop infinitely on exceptions\n");
+    fprintf(stdout,"    --file   Wasm file to execute\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -74,7 +74,7 @@ error:
 }
 
 int main(int argc, const char *argv[]) {
-    ARGV_SHIFT();  // warduino
+    ARGV_SHIFT();  // Skip command name
 
     WARDuino wac;
     Module *m;
@@ -94,6 +94,8 @@ int main(int argc, const char *argv[]) {
             return 0;
         } else if (!strcmp("--loop", arg)) {
             return_exception = false;
+        } else if (!strcmp("--file", arg)) {
+            break;
         }
     }
 

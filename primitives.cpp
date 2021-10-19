@@ -732,7 +732,8 @@ def_prim(test, oneToNoneU32) {
 }
 
 def_prim(print_int, oneToNoneU32) {
-    debug("EMU: print %i\n", arg0.uint32);
+    debug("EMU: print ");
+    printf("%u\n", arg0.uint32);
     pop_args(1);
     return true;
 }
