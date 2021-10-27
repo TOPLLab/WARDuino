@@ -304,6 +304,13 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     m = (Module *)acalloc(1, sizeof(Module), "Module");
     m->warduino = this;
     m->options = options;
+
+    // Allocate stacks
+    m->stack = (StackValue *)acalloc(STACK_SIZE, sizeof(StackValue), "Stack");
+    m->callstack = (Frame *)acalloc(CALLSTACK_SIZE, sizeof(Frame), "Callstack");
+    m->br_table =
+        (uint32_t *)acalloc(BR_TABLE_SIZE, sizeof(uint32_t), "Branch table");
+
     // Empty stacks
     m->sp = -1;
     m->fp = -1;
@@ -494,7 +501,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                                 func->import_module, func->import_field, fidx,
                                 type_index);
 
-                            func->func_ptr = (void (*)())val;
+                            func->func_ptr = (void(*)())val;
                             break;
                         }
                         case 0x01:  // Table
@@ -874,6 +881,12 @@ void WARDuino::unload_module(Module *m) {
     if (m->table.entries != nullptr) free(m->table.entries);
 
     if (m->memory.bytes != nullptr) free(m->memory.bytes);
+
+    if (m->stack != nullptr) free(m->stack);
+
+    if (m->callstack != nullptr) free(m->callstack);
+
+    if (m->br_table != nullptr) free(m->br_table);
 
     free(m);
 }
