@@ -8,8 +8,6 @@ Follow these steps to execute the blink program on WARduino on an ESP8266 or ESP
 
 - Download [Arduino](https://www.arduino.cc/) and install it.
 
-- Setup `emcc` version v.1.38.47 or higher.
-
 - Clone this repository under `$(HOME)/Arduino/libraries`.
 
 - Add the `esp8266` or `esp32` driver depending on your board:
