@@ -1,6 +1,4 @@
-#include <emscripten/emscripten.h>
-
-unsigned long __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE fac(int x) {
+unsigned long __attribute__((noinline)) fac(int x) {
     if (x <= 1) {
         return 1;
     } else {

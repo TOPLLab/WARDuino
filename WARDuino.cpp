@@ -501,7 +501,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                                 func->import_module, func->import_field, fidx,
                                 type_index);
 
-                            func->func_ptr = (void(*)())val;
+                            func->func_ptr = (void (*)())val;
                             break;
                         }
                         case 0x01:  // Table

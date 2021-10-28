@@ -16,20 +16,19 @@ all: $(addsuffix /wast/arduino/arduino.ino,$(TASKS)) $(addsuffix /wast/impl.wast
 	echo '#include "Arduino.h"' > $@
 	echo '#pragma GCC optimize ("O0")' >> $@
 	cat $^ | \
-		sed '/#include \+<emscripten\/emscripten.h>/d' | \
-		sed 's/EMSCRIPTEN_KEEPALIVE//g' | \
 		sed '/#pragma \+nounroll/d' | \
 		sed '/int *main() */s/int/int __attribute__((optimize("no-unroll-loops")))/' | \
 		sed '/#include \+"Arduino.h"/d'>> $@
 
 %/wast/impl.wasm:  %/wast/impl.c
-	emcc $< \
-		-s STANDALONE_WASM \
-		--ignore-dynamic-linking \
-		-s WASM=1 \
-		-s NO_FILESYSTEM=1 \
-        -s SIDE_MODULE=1 \
+	clang $< \
+		--target=wasm32 \
 		-O3 \
+		-flto \
+		-nostdlib \
+		-Wl,--export-all \
+		-Wl,--no-entry \
+		-Wl,--lto-O3 \
 		-o $@
 	cat $@ > /dev/null
 
