@@ -10,9 +10,9 @@ jobs:
               run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             - name: Verify Brew
               run: brew help
-            - name: Install LLVM
+            - name: Install LLVM/clang
               run: brew install llvm
-            - name: Verify
+            - name: Verify clang
               run: clang --version
             - name: Build benchmarks
               run: make -C benchmarks/ clean all
