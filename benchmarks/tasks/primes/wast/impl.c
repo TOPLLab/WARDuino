@@ -1,6 +1,4 @@
-#include <emscripten/emscripten.h>
-
-int __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE is_prime(unsigned n) {
+int __attribute__((noinline)) is_prime(unsigned n) {
     if (n < 3) {
         return n > 1;
     } else {

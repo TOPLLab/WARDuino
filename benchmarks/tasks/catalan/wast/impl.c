@@ -1,5 +1,3 @@
-#include <emscripten/emscripten.h>
-//#define EMSCRIPTEN_KEEPALIVE
 typedef unsigned long ull;
 
 ull binomial(ull m, ull n) {
@@ -17,7 +15,7 @@ ull binomial(ull m, ull n) {
     return r;
 }
 
-ull EMSCRIPTEN_KEEPALIVE __attribute__((noinline)) catalan(int n) {
+ull __attribute__((noinline)) catalan(int n) {
     return binomial(2 * n, n) / (1 + n);
 }
 

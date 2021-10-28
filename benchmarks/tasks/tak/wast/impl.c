@@ -1,6 +1,4 @@
-#include <emscripten/emscripten.h>
-
-int __attribute__((noinline)) EMSCRIPTEN_KEEPALIVE tak(int x, int y, int z) {
+int __attribute__((noinline)) tak(int x, int y, int z) {
     if (!(y < x)) {
         return z;
     } else {
