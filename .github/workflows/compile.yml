@@ -1,7 +1,3 @@
-env:
-    EM_VERSION: 2.0.1
-    EM_CACHE_FOLDER: "emsdk-cache"
-
 name: Compile and test
 on: [push, pull_request]
 jobs:
@@ -10,19 +6,14 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
-            - name: Setup cache
-              id: cache-system-libraries
-              uses: actions/cache@v2
-              with:
-                  path: ${{env.EM_CACHE_FOLDER}}
-                  key: ${{env.EM_VERSION}}-${{ runner.os }}
-            - name: Setup emsdk
-              uses: mymindstorm/setup-emsdk@v7
-              with:
-                  version: ${{env.EM_VERSION}}
-                  actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
+            - name: Install Brew
+              run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            - name: Verify Brew
+              run: brew help
+            - name: Install LLVM
+              run: brew install llvm
             - name: Verify
-              run: emcc -v
+              run: clang --version
             - name: Build benchmarks
               run: make -C benchmarks/ clean all
             - name: Run benchmarks
