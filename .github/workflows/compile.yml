@@ -6,6 +6,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
+            # Install with brew to have wasm-ld
             - name: Install Brew
               run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             - name: Verify Brew
