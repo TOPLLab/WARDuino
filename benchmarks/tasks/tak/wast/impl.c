@@ -6,4 +6,4 @@ int __attribute__((noinline)) tak(int x, int y, int z) {
     }
 }
 
-int main() { return tak(18, 12, 6); }
+int bench() { return tak(18, 12, 6); }

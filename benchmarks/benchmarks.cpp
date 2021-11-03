@@ -6,7 +6,7 @@
 #include "../debug.h"
 #include "timer.h"
 
-#define MAIN "main"
+#define MAIN "bench"
 #define MAX_PATH 100
 #define MAX_BYTE_CODE_SIZE 10000
 #define BENCHMARK_PATH "./tasks/"

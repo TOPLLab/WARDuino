@@ -6,7 +6,7 @@ unsigned long __attribute__((noinline)) fac(int x) {
     }
 }
 
-int main() {
+int bench() {
     int sum = 0;
 #pragma nounroll
     for (int i = 0; i < 10000; i++) {

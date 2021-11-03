@@ -31,7 +31,7 @@ int __attribute__((noinline)) is_prime(unsigned n) {
        i ← i + 6
     return true
  * */
-int main() {
+int bench() {
     unsigned sum = 0;
     int count = 0;
     for (unsigned i = 1; sum < 13374242; i++) {
