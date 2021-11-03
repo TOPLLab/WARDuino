@@ -44,8 +44,7 @@ Block *pop_block(Module *m) {
     // Restore stack pointer
     if (t->result_count == 1) {
         // Save top value as result
-        if (-2 < frame->sp &&
-            frame->sp < m->sp) {  // TODO frame->sp should never be < -1
+        if (frame->sp < m->sp) {
             m->stack[frame->sp + 1] = m->stack[m->sp];
             m->sp = frame->sp + 1;
         }

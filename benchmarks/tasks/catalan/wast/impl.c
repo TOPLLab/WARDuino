@@ -19,7 +19,7 @@ ull __attribute__((noinline)) catalan(int n) {
     return binomial(2 * n, n) / (1 + n);
 }
 
-int main() {
+int bench() {
     // printf("%lu!!",catalan(17) );
     int sum = 0;
 
