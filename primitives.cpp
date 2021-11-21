@@ -525,11 +525,14 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 def_prim(unsubscribe_interrupt, oneToNoneU32) {
     uint8_t pin = arg0.uint32;
 
-    handlers.erase(std::remove_if(handlers.begin(), handlers.end(),
-                                  [pin](Interrupt *handler) {
-                                      return handler->pin == pin;
-                                  }),
-                   handlers.end());
+    auto it = std::remove_if(
+        handlers.begin(), handlers.end(),
+        [pin](Interrupt *handler) { return handler->pin == pin; });
+
+    if (it != handlers.end()) {
+        handlers.erase(it, handlers.end());
+        detachInterrupt(digitalPinToInterrupt(pin));
+    }
 
     pop_args(1);
     return true;
