@@ -59,7 +59,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 28
+#define NUM_PRIMITIVES_ARDUINO 29
 #else
 #define NUM_PRIMITIVES_ARDUINO 19
 #endif
@@ -1047,6 +1047,7 @@ void install_primitives() {
     install_primitive(write_spi_bytes_16);
 
     install_primitive(subscribe_interrupt);
+    install_primitive(unsubscribe_interrupt);
 
     install_primitive(mqtt_init);
     install_primitive(mqtt_connect);
