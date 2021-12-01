@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "../WARDuino.h"
+#include "../tests/integration/wasm_tests.h"
 
 // Constants
 #define MAX_MODULE_SIZE (64 * 1024 * 1024)
@@ -26,11 +27,18 @@ void print_help() {
     //    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.1.0\n\n");
     fprintf(stdout, "Usage:\n");
     fprintf(stdout, "    warduino [options] <file>\n");
-    //    fprintf(stdout, "    warduino --test <file>"); TODO for running tests
     fprintf(stdout, "Options:\n");
+    fprintf(
+        stdout,
+        "    --loop         Let the runtime loop infinitely on exceptions\n");
     fprintf(stdout,
-            "    --loop   Let the runtime loop infinitely on exceptions\n");
-    fprintf(stdout, "    --file   Wasm file to execute\n");
+            "    --asserts      Name of file containing asserts to run against "
+            "loaded module\n");
+    fprintf(stdout,
+            "    --watcompiler  Command to compile Wat files to Wasm "
+            "binaries (default: wat2wasm)\n");
+    fprintf(stdout,
+            "    --file         Wasm file (module) to load and execute\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -79,7 +87,11 @@ int main(int argc, const char *argv[]) {
     WARDuino wac;
     Module *m;
     bool return_exception = true;
+    bool run_tests = false;
     const char *file_name = nullptr;
+
+    const char *asserts_file = nullptr;
+    const char *watcompiler = "wat2wasm";
 
     // Parse options
     while (argc > 0) {
@@ -95,12 +107,25 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp("--loop", arg)) {
             return_exception = false;
         } else if (!strcmp("--file", arg)) {
-            break;
+            ARGV_GET(file_name);
+        } else if (!strcmp("--asserts", arg)) {
+            run_tests = true;
+            ARGV_GET(asserts_file);
+        } else if (!strcmp("--watcompiler", arg)) {
+            ARGV_GET(watcompiler);
         }
     }
 
     if (argc == 1) {
         ARGV_GET(file_name);
+        ARGV_SHIFT();
+    }
+
+    if (argc == 0 && file_name != nullptr) {
+        if (run_tests) {
+            run_wasm_test(wac, file_name, asserts_file, watcompiler);
+            return 0;
+        }
         m = load(wac, file_name,
                  {.disable_memory_bounds = false,
                   .mangle_table_index = false,
