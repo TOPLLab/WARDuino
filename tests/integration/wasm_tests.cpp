@@ -299,8 +299,8 @@ int init_module(WARDuino wac, Test *test, const std::string &module_file_path,
     return 0;
 }
 
-int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
-                  char *wasm_command) {
+int run_wasm_test(WARDuino wac, const char *module_file_path,
+                  const char *asserts_file_path, const char *wasm_command) {
     FILE *asserts_file = fopen(asserts_file_path, "r");
     auto *test = (Test *)calloc(1, sizeof(Test));
     if (asserts_file == nullptr || test == nullptr) {

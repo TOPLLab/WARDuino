@@ -15,7 +15,7 @@ struct Test {
     Module *module;
 };
 
-int run_wasm_test(WARDuino wac, char *module_file_path, char *asserts_file_path,
-                  char *wasm_command);
+int run_wasm_test(WARDuino wac, const char *module_file_path, const char *asserts_file_path,
+                  const char *wasm_command);
 
 #endif  // WASM_TESTS_H
