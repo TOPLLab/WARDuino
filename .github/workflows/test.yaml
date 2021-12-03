@@ -1,0 +1,29 @@
+name: Specfication tests
+on: [push, pull_request]
+jobs:
+    test:
+        name: Test Wasm specification
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+              with:
+                submodules: recursive
+            - uses: actions/setup-python@v2
+              with:
+                python-version: "3.x"
+            - name: Build warduino cli
+              run: cmake . ; cmake --build . --target warduino
+            - name: Build WABT  # Build latest version
+              run: |
+                git clone --recursive https://github.com/WebAssembly/wabt
+                cd wabt
+                git submodule update --init
+                mkdir build; cd build
+                cmake ..
+                cmake --build .
+            - name: Verify wat2wasm
+              run: ./wabt/build/wat2wasm --version
+            - name: Install Python dependencies
+              run: pip install -r requirements.txt
+            - name: Clone and run tests
+              run: ./tests/integration/run_spec_tests.py --compiler "./wabt/build/wat2wasm" --interpreter "./warduino"
