@@ -79,8 +79,14 @@ def main():
              filename.endswith(".wast")]
     for filename in tests:
         asserts_file = os.path.splitext(filename)[0] + ".asserts.wast"
-        subprocess.run(
-            [args.interpreter, "--file", filename, "--asserts", asserts_file, "--watcompiler", args.compiler])
+        status = subprocess.run(
+            [args.interpreter, "--file", filename, "--asserts", asserts_file, "--watcompiler", args.compiler],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if status.returncode == 0:
+            print(f"{filename}: All tests passed.\n")
+        else:
+            print(f"""{filename}:\n {status.stdout.decode("utf-8")}\n""")
+            exit(status.returncode)
 
 
 if __name__ == '__main__':

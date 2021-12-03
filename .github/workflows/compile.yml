@@ -1,4 +1,4 @@
-name: Compile and test
+name: Compile and run
 on: [push, pull_request]
 jobs:
     build:
