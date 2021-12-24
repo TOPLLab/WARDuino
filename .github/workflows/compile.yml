@@ -19,6 +19,58 @@ jobs:
               run: make -C benchmarks/ clean all
             - name: Run benchmarks
               run: cd benchmarks/ && ./bin/warduino_benchmark
+    test-compile-on-esp32:
+        name: Test compile on ${{matrix.board.fqbn }}
+        runs-on: ubuntu-latest
+        env:
+#           SKETCHES: |
+#               - tests/compilation/arduino
+            LIBRARIES: |
+                - source-path: ./
+                - name: WiFi
+                - name: HTTPClient
+                - name: PubSubClient
+        strategy:
+            fail-fast: false
+            matrix:
+                board:
+                    - fqbn: "esp32:esp32:esp32"
+                      platform-name: esp32:esp32
+#                   - fqbn: "esp8266:esp8266:huzzah"
+#                     platform-name: esp8266:esp8266
+                include:
+                    - board:
+                        platform-name: esp32:esp32
+                      platforms: |
+                        # Install ESP32 platform via Boards Manager
+                        - name: esp32:esp32
+                          source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+#                     libraries:
+#                     sketch-paths: |
+#                       - tests/compilation/esp32
+#                   - board:
+#                       platform-name: esp8266:esp8266
+#                     platforms: |
+                        # Install ESP8266 platform via Boards Manager
+#                       - name: esp8266:esp8266
+#                         source-url: https://arduino.esp8266.com/stable/package_esp8266com_index.json
+#                         version: 2.5.0
+#                    libraries:
+#                    sketch-paths:
+        steps:
+            - uses: actions/checkout@v2
+            - name: Compile sketches
+              uses: arduino/compile-sketches@v1
+              with:
+                  platforms: ${{ matrix.platforms }}
+                  fqbn: ${{ matrix.board.fqbn }}
+                  sketch-paths: |
+                      tests/compilation/esp32
+#                     ${{ env.SKETCHES }}
+#                     ${{ matrix.sketch-paths }}
+                  libraries: |
+                      ${{ env.LIBRARIES }}
+#                     ${{ matrix.libraries }}
     formatting-check:
         name: Formatting Check
         runs-on: ubuntu-latest
