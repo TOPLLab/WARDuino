@@ -35,6 +35,13 @@ def sanitise_repo():
     shutil.rmtree(os.path.join(args.testsuite, "proposals"))
     shutil.rmtree(os.path.join(args.testsuite, "repos"))
 
+    if args.ignore is not None:
+        with open(args.ignore, "r") as ignore:
+            for line in ignore:
+                filename = args.testsuite + line.strip()
+                if os.path.exists(filename):
+                    os.remove(filename)
+
     tests = [os.path.join(args.testsuite, filename) for filename in os.listdir(args.testsuite) if
              filename.endswith(".wast")]
     for filename in tests:
@@ -75,12 +82,12 @@ def sanitise_testfile(filename):
 
 
 def main():
-    tests = [os.path.join(args.testsuite, filename) for filename in os.listdir(args.testsuite) if
-             filename.endswith(".wast")]
+    tests = [os.path.join(args.testsuite, filename) for filename in sorted(os.listdir(args.testsuite)) if
+             filename.endswith(".asserts.wast")]
     for filename in tests:
-        asserts_file = os.path.splitext(filename)[0] + ".asserts.wast"
+        module_file = "".join(os.path.basename(filename).split(".")[:-2]) + ".wast"
         status = subprocess.run(
-            [args.interpreter, "--file", filename, "--asserts", asserts_file, "--watcompiler", args.compiler],
+            [args.interpreter, "--file", module_file, "--asserts", filename, "--watcompiler", args.compiler],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if status.returncode == 0:
             print(f"{filename}: All tests passed.\n")
@@ -99,6 +106,7 @@ if __name__ == '__main__':
                         help="Interpreter (TestWARDuino executable")
     parser.add_argument("--compiler", default="wat2wasm", help="WebAssembly text format compiler (default: wat2wasm)")
     parser.add_argument("--verbosity", type=int, default=1, help="Verbosity level: 0-3 (default: 1)")
+    parser.add_argument("--ignore", type=str, default=None, help="Ignore file lists tests to ignore")
 
     args = parser.parse_args()
 
