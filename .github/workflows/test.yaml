@@ -1,8 +1,8 @@
-name: Specfication tests
+name: Test
 on: [push, pull_request]
 jobs:
     test:
-        name: Test Wasm specification
+        name: Wasm specification tests
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
