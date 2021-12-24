@@ -1,7 +1,7 @@
-name: Compile and run
+name: Compile
 on: [push, pull_request]
 jobs:
-    build:
+    compile-benchmarks:
         name: Check if benchmarks work
         runs-on: ubuntu-latest
         steps:
@@ -15,16 +15,18 @@ jobs:
               run: brew install llvm
             - name: Verify clang
               run: clang --version
-            - name: Build benchmarks
+            - name: Compile benchmarks
               run: make -C benchmarks/ clean all
             - name: Run benchmarks
               run: cd benchmarks/ && ./bin/warduino_benchmark
-    test-compile-on-esp32:
-        name: Test compile on ${{matrix.board.fqbn }}
+    test-compile-on-mcus:
+        name: Test compile on ${{matrix.board.platform-name }}
         runs-on: ubuntu-latest
         env:
 #           SKETCHES: |
 #               - tests/compilation/arduino
+            SKETCHES_REPORTS_PATH: sketches-reports
+            SKETCHES_REPORTS_ARTIFACT_NAME: sketches-reports
             LIBRARIES: |
                 - source-path: ./
                 - name: WiFi
@@ -34,9 +36,9 @@ jobs:
             fail-fast: false
             matrix:
                 board:
-                    - fqbn: "esp32:esp32:esp32"
+                    - fqbn: 'esp32:esp32:esp32'
                       platform-name: esp32:esp32
-#                   - fqbn: "esp8266:esp8266:huzzah"
+#                   - fqbn: 'esp8266:esp8266:huzzah'
 #                     platform-name: esp8266:esp8266
                 include:
                     - board:
@@ -71,6 +73,27 @@ jobs:
                   libraries: |
                       ${{ env.LIBRARIES }}
 #                     ${{ matrix.libraries }}
+                  enable-deltas-report: true
+                  sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
+            - name: Upload sketches report to workflow artifact
+              uses: actions/upload-artifact@v2
+              with:
+                name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
+                path: ${{ env.SKETCHES_REPORTS_PATH }}
+    report:
+        name: Report memory usage of the Arduino sketches
+        needs: test-compile-on-mcus
+        if: ${{ github.event_name == 'pull_request' }}
+        runs-on: ubuntu-latest
+        steps:
+            - name: Download sketches reports artifact
+              uses: actions/download-artifact@v2
+              with:
+                name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
+                path: ${{ env.SKETCHES_REPORTS_PATH }}
+            - uses: arduino/report-size-deltas@v1
+              with:
+                sketches-reports-source: ${{ env.SKETCHES_REPORTS_PATH }}
     formatting-check:
         name: Formatting Check
         runs-on: ubuntu-latest
@@ -79,6 +102,6 @@ jobs:
             - name: Run clang-format style check for C/C++ programs.
               uses: jidicula/clang-format-action@v3.5.1
               with:
-                  clang-format-version: "11"
-                  check-path: "."
-                  fallback-style: "Google"
+                clang-format-version: '11'
+                check-path: '.'
+                fallback-style: 'Google'
