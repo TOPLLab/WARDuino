@@ -26,4 +26,4 @@ jobs:
             - name: Install Python dependencies
               run: pip install -r requirements.txt
             - name: Clone and run tests
-              run: ./tests/integration/run_spec_tests.py --compiler "./wabt/build/wat2wasm" --interpreter "./warduino"
+              run: ./tests/integration/run_spec_tests.py --compiler "./wabt/build/wat2wasm" --interpreter "./warduino" --ignore "./tests/integration/ignore.txt"
