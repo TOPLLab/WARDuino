@@ -13,6 +13,7 @@ add_definitions(-DINFO=0)
 add_definitions(-DDEBUG=0)
 add_definitions(-DTRACE=0)
 add_definitions(-DWARN=0)
+add_definitions(-DTEST=1)
 
 add_executable(WARDuinoBench benchmarks/benchmarks.cpp ${SOURCE_FILES})
 install(TARGETS WARDuino DESTINATION demo/run_wa/bin)

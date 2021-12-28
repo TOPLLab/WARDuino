@@ -31,12 +31,14 @@ void print_help() {
     fprintf(
         stdout,
         "    --loop         Let the runtime loop infinitely on exceptions\n");
+#ifdef TEST
     fprintf(stdout,
             "    --asserts      Name of file containing asserts to run against "
             "loaded module\n");
     fprintf(stdout,
             "    --watcompiler  Command to compile Wat files to Wasm "
             "binaries (default: wat2wasm)\n");
+#endif
     fprintf(stdout,
             "    --file         Wasm file (module) to load and execute\n");
 }
@@ -90,8 +92,10 @@ int main(int argc, const char *argv[]) {
     bool run_tests = false;
     const char *file_name = nullptr;
 
+#ifdef TEST
     const char *asserts_file = nullptr;
     const char *watcompiler = "wat2wasm";
+#endif
 
     // Parse options
     while (argc > 0) {
@@ -108,11 +112,13 @@ int main(int argc, const char *argv[]) {
             return_exception = false;
         } else if (!strcmp("--file", arg)) {
             ARGV_GET(file_name);
+#ifdef TEST
         } else if (!strcmp("--asserts", arg)) {
             run_tests = true;
             ARGV_GET(asserts_file);
         } else if (!strcmp("--watcompiler", arg)) {
             ARGV_GET(watcompiler);
+#endif
         }
     }
 
@@ -122,10 +128,12 @@ int main(int argc, const char *argv[]) {
     }
 
     if (argc == 0 && file_name != nullptr) {
+#ifdef TEST
         if (run_tests) {
             run_wasm_test(wac, file_name, asserts_file, watcompiler);
             return 0;
         }
+#endif
         m = load(wac, file_name,
                  {.disable_memory_bounds = false,
                   .mangle_table_index = false,
