@@ -30,15 +30,17 @@ void end();
         if (!(exp)) {                                              \
             printf("Assert Failed (%s:%d): ", __FILE__, __LINE__); \
             printf(__VA_ARGS__);                                   \
-            exit(-1);                                              \
+            printf("\n\n\nlooping...\n");                          \
+            end();                                                 \
         }                                                          \
     }
 
-#define FATAL(...)                                      \
-    {                                                   \
-        printf("Error(%s:%d): \n", __FILE__, __LINE__); \
-        printf(__VA_ARGS__);                            \
-        end();                                          \
+#define FATAL(...)                                    \
+    {                                                 \
+        printf("Error(%s:%d): ", __FILE__, __LINE__); \
+        printf(__VA_ARGS__);                          \
+        printf("\n");                                 \
+        end();                                        \
     }
 
 #else
