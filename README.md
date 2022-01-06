@@ -1,5 +1,8 @@
 # WARDuino
 
+[![compile](https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg)](https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml)
+[![test](https://github.com/TOPLLab/WARDuino/actions/workflows/test.yaml/badge.svg)](https://github.com/TOPLLab/WARDuino/actions/workflows/test.yaml)
+
 Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 under the arduino toolchain.
 
 # ToolChain Installation
