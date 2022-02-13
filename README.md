@@ -3,7 +3,7 @@
 [![compile](https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg)](https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml)
 [![test](https://github.com/TOPLLab/WARDuino/actions/workflows/test.yaml/badge.svg)](https://github.com/TOPLLab/WARDuino/actions/workflows/test.yaml)
 
-Warduino is a port of the Web assembly virtual machine for the ESP32/ESP8266 under the arduino toolchain.
+WARDuino is a port of the WebAssembly virtual machine for the ESP32/ESP8266 under the Arduino toolchain.
 
 # ToolChain Installation
 
@@ -51,7 +51,7 @@ Follow these steps to execute the blink program on WARduino on an ESP8266 or ESP
 - cd build_test 
 - cmake ../ 
 - make TestWARDuino 
-- ./TestWarDuino <path-to-test-files>
+- ./TestWARDuino <path-to-test-files>
 
 # LICENCE
 
