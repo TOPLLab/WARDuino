@@ -24,7 +24,7 @@ jobs:
         runs-on: ubuntu-latest
         env:
             SKETCHES_REPORTS_PATH: sketches-reports
-            SKETCHES_REPORTS_ARTIFACT_NAME: sketches-artifacts
+            SKETCHES_REPORTS_ARTIFACT_NAME: sketches-reports
             LIBRARIES: |
                 - source-path: ./
                 - name: WiFi
@@ -76,7 +76,7 @@ jobs:
                 path: ${{ env.SKETCHES_REPORTS_PATH }}
             - uses: arduino/report-size-deltas@v1
               with:
-                sketches-reports-source: ${{ env.SKETCHES_REPORTS_PATH }}
+                sketches-reports-source: /github/workspace/sketches-reports # ${{ env.SKETCHES_REPORTS_PATH }}
     formatting-check:
         name: Formatting Check
         runs-on: ubuntu-latest
