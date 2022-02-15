@@ -41,8 +41,8 @@ sizes() {
 }
 
 echo "name,espruino,warduino,native,espruinoSize,warduinoSize" >$file.csv
-sort $tmpdir/espruino
-join -j 1 -t',' - <(sort $tmpdir/warduino) |
+sort $tmpdir/espruino |
+  join -j 1 -t',' - <(sort $tmpdir/warduino) |
   join -j 1 -t',' - <(sort $tmpdir/native) |
   join -j 1 -t',' - <(sizes js) |
   join -j 1 -t',' - <(sizes wasm) >>$file.csv
