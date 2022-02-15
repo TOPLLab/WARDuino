@@ -919,6 +919,7 @@ int WARDuino::run_module(Module *m) {
     if (fidx == UNDEF) fidx = this->get_export_fidx(m, "Main");
     if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
     if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "bench");
     ASSERT(fidx != UNDEF, "Main not found");
     this->invoke(m, fidx);
 
