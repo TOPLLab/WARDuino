@@ -23,11 +23,12 @@ all: $(addsuffix /wast/arduino/arduino.ino,$(TASKS)) $(addsuffix /wast/impl.wast
 %/wast/impl.wasm:  %/wast/impl.c
 	clang $< \
 		--target=wasm32 \
-		-O3 \
+		-Oz \
 		-flto \
 		-nostdlib \
 		-Wl,--export-all \
 		-Wl,--no-entry \
+		-Wl,--strip-all \
 		-Wl,--lto-O3 \
 		-o $@
 	cat $@ > /dev/null
