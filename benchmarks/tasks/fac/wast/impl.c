@@ -8,7 +8,7 @@ unsigned long __attribute__((noinline)) fac(int x) {
 
 int bench() {
     int sum = 0;
-#pragma nounroll
+#pragma clang loop unroll(disable)
     for (int i = 0; i < 10000; i++) {
         sum += fac(i % 12);
         sum %= 97;

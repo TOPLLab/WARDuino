@@ -14,7 +14,7 @@ long __attribute__((noinline)) fib(int n) {
 
 int bench() {
     int sum = 0;
-#pragma nounroll
+#pragma clang loop unroll(disable)
     for (int i = 1000; i < 1050; i++) {
         sum += fib(i);
         sum %= 97;
