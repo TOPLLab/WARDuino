@@ -23,7 +23,7 @@ int bench() {
     // printf("%lu!!",catalan(17) );
     int sum = 0;
 
-#pragma nounroll
+#pragma clang loop unroll(disable)
     for (int i = 0; i < 10000; ++i) {
         sum += catalan((i + sum) % 18) % 100;
     }
