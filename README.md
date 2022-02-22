@@ -1,17 +1,24 @@
-# WARDuino
-
 [![compile](https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg)](https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml)
 [![test](https://github.com/TOPLLab/WARDuino/actions/workflows/test.yaml/badge.svg)](https://github.com/TOPLLab/WARDuino/actions/workflows/test.yaml)
 
+# WARDuino
+
+[Build for Arduino](./README.md#toolchain-installation) | [Build CLI](./README.md#warduino-command-line-interface) | [Run Benchmarks](./README.md#run-the-benchmarks) | [Run Specification tests](./README.md#run-the-tests)
+
 WARDuino is a port of the WebAssembly virtual machine for the ESP32/ESP8266 under the Arduino toolchain.
 
-# ToolChain Installation
+## ToolChain Installation
 
-Follow these steps to execute the blink program on WARduino on an ESP8266 or ESP32.
+Follow these steps to execute the blink program on WARDuino on an ESP8266 or ESP32.
 
 - Download [Arduino](https://www.arduino.cc/) and install it.
 
 - Clone this repository under `$(HOME)/Arduino/libraries`.
+
+```shell
+git clone --recurse-submodules git@github.com:TOPLLab/WARDuino.git
+cd WARDuino
+```
 
 - Add the `esp8266` or `esp32` driver depending on your board:
 
@@ -23,35 +30,99 @@ Follow these steps to execute the blink program on WARduino on an ESP8266 or ESP
       http://arduino.esp8266.com/stable/package_esp8266com_index.json,https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
       ```
 
-    - Or follow the steps at https://github.com/esp8266/Arduino#installing-with-boards-manager for esp8266 or https://github.com/espressif/arduino-esp32/blob/master/docs/arduino-ide/boards_manager.md for esp32
+    - Or follow [these steps](https://github.com/esp8266/Arduino#installing-with-boards-manager) for esp8266 or [these instructions](https://github.com/espressif/arduino-esp32/blob/master/docs/arduino-ide/boards_manager.md) for esp32
 
-  - Go to Tools->Boards->Boards Manager
+  - In the Arduino IDE, go to Tools -> Boards -> Boards Manager
 
     - Search for `esp8266` and install it (version 2.5.0)
     - Or search for `esp32` and install it (version 1.0.4)
 
 - Restart Arduino.
 
-- Go to the `demo/run_wa` folder.
+- Install wat2wasm from the [`wabt`](https://github.com/WebAssembly/wabt) package
 
-- Execute `make -C wa_sources/ all`.
+- Built the demo files.
 
-- Execute `make up` or use the Arduino IDE to compile and upload the `.ino` file.
+```shell
+cd demo/run_wa
+make -C wa_sources/ all
+make
+```
+
+- Upload the demo code to the board with the IDE (select the correct board, e.g. DOIT ESP32 DEVKIT V1), or from the command line:
+
+```shell
+BOARD=ESP32WROVER
+../../scripts/upload $BOARD hello_world.ino
+```
 
   - Use board `DOIT ESP32 DEVKIT V1`
 
-## Run WARDuino on host machine
+## WARDuino Command-line Interface
+
+- Clone the repository.
+
+```shell
+git clone --recurse-submodules git@github.com:TOPLLab/WARDuino.git
+cd WARDuino
+```
+
+- Run cmake.
+
+```shell
+mkdir build
+cd build
+cmake ..
+```
+
+- Built the CLI
+
+```shell
+make warduino
+```
+
+## Run the benchmarks
+
+- Install clang (version 13.0 or higher)
 
 - Install wat2wasm from the [`wabt`](https://github.com/WebAssembly/wabt) package
 
+- Clone the repository.
+
+```shell
+git clone --recurse-submodules git@github.com:TOPLLab/WARDuino.git
+cd WARDuino
+```
+
+- Built the demo files.
+
+```shell
+cd demo/run_wa
+make -C wa_sources/ all
+make
+cd ../../
+```
+
+- Run cmake.
+
+```shell
+mkdir build
+cd build
+cmake ..
+```
+
+- Built the benchmarks
+
+```shell
+make WARDuinoBench
+```
 
 ## Run the tests 
 
-- mkdir build_test 
-- cd build_test 
-- cmake ../ 
-- make TestWARDuino 
-- ./TestWARDuino <path-to-test-files>
+```shell
+pip install -r requirements.txt
+./tests/integration/run_spec_tests.py --interpreter "build/warduino" --compiler "wat2wasm"
+```
 
 # LICENCE
 
