@@ -1,8 +1,13 @@
-name: Test
+name: WebAssembly specification tests
 on: [push, pull_request]
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true  # Cancel in-flight jobs for the same branch or PR
+
 jobs:
     test:
-        name: Wasm specification tests
+        name: Run official testsuite
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2

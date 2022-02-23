@@ -1,11 +1,48 @@
-name: Compile
+name: Compilation checks
 on: [push, pull_request]
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true  # Cancel in-flight jobs for the same branch or PR
+
+env:
+    BENCHMARKS_CACHE: "build-benchmarks"
+
 jobs:
-    compile-benchmarks:
-        name: Check if benchmarks work
+    formatting-check:
+        name: Formatting Check
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
+            - name: Run clang-format style check for C/C++ programs.
+              uses: jidicula/clang-format-action@v3.5.1
+              with:
+                clang-format-version: '11'
+                check-path: '.'
+                fallback-style: 'Google'
+
+    compile-benchmarks:
+        name: Compile on ${{matrix.os}}
+        needs: formatting-check
+        runs-on: ${{matrix.os}}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-18.04, ubuntu-20.04]
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Cache benchmark binary
+              id: cache_bench
+              if: ${{ matrix.os == 'ubuntu-20.04' }}
+              uses: actions/cache@v2
+              with:
+                path: |
+                    ./benchmarks/bin
+                    ./benchmarks/tasks
+                key: ${{ matrix.os }}-${{ env.BENCHMARKS_CACHE }}
+
             # Install with brew to have wasm-ld
             - name: Install Brew
               run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -17,10 +54,35 @@ jobs:
               run: clang --version
             - name: Compile benchmarks
               run: make -C benchmarks/ clean all
-            - name: Run benchmarks
-              run: cd benchmarks/ && ./bin/warduino_benchmark
+
+    run-benchmarks:
+        runs-on: ubuntu-20.04
+        needs: compile-benchmarks
+        name: Check benchmarks
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Get benchmark binary
+              id: cache_bench
+              uses: actions/cache@v2
+              with:
+                path: |
+                    ./benchmarks/bin
+                    ./benchmarks/tasks
+                key: ubuntu-20.04-${{ env.BENCHMARKS_CACHE }}
+
+            - name: Quit on cache miss
+              if: ${{ steps.cache_bench.outputs.cache-hit != 'true' }}
+              run: echo "::error::can not get prebuilt benchmark binary" && exit 1
+
+            - name: Execute benchmarks
+              run: ./bin/warduino_benchmark
+              working-directory: benchmarks
+
     test-compile-on-mcus:
-        name: Test compile on ${{matrix.board.platform-name }}
+        name: Compile on ${{matrix.board.platform-name }}
+        needs: formatting-check
         runs-on: ubuntu-latest
         env:
             SKETCHES_REPORTS_PATH: sketches-reports
@@ -63,6 +125,7 @@ jobs:
               with:
                 name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
                 path: ${{ env.SKETCHES_REPORTS_PATH }}
+
     report:
         name: Report memory usage of the Arduino sketches
         needs: test-compile-on-mcus
@@ -77,14 +140,3 @@ jobs:
             - uses: arduino/report-size-deltas@v1
               with:
                 sketches-reports-source: /github/workspace/sketches-reports # ${{ env.SKETCHES_REPORTS_PATH }}
-    formatting-check:
-        name: Formatting Check
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - name: Run clang-format style check for C/C++ programs.
-              uses: jidicula/clang-format-action@v3.5.1
-              with:
-                clang-format-version: '11'
-                check-path: '.'
-                fallback-style: 'Google'
