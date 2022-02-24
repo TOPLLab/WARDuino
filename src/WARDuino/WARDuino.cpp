@@ -54,9 +54,9 @@ bool resolvesym(char *filename, char *symbol, uint8_t external_kind, void **val,
 // char  exception[4096];
 
 // Static definition of block_types
-uint32_t block_type_results[4][1] = {{I32}, {I64}, {F32}, {F64}};
+uint32_t block_type_results[5][1] = {{I32}, {I64}, {F32}, {F64}, {V128}};
 
-Type block_types[5];
+Type block_types[6];
 
 void initTypes() {
     block_types[0].form = BLOCK;
@@ -73,6 +73,9 @@ void initTypes() {
     block_types[4].form = BLOCK;
     block_types[4].result_count = 1;
     block_types[4].results = block_type_results[3];
+    block_types[5].form = BLOCK;
+    block_types[5].result_count = 1;
+    block_types[5].results = block_type_results[4];
 }
 
 Type *get_block_type(uint8_t value_type) {
@@ -87,6 +90,8 @@ Type *get_block_type(uint8_t value_type) {
             return &block_types[3];
         case F64:
             return &block_types[4];
+        case V128:
+            return &block_types[5];
         default:
             FATAL("invalid block_type value_type: %d\n", value_type);
             return nullptr;
