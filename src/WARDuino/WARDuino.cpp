@@ -78,7 +78,7 @@ void initTypes() {
     block_types[5].results = block_type_results[4];
 }
 
-Type *get_block_type(uint8_t value_type) {
+Type *get_block_type(Module *m, uint8_t value_type) {
     switch (value_type) {
         case 0x40:
             return &block_types[0];
@@ -93,8 +93,12 @@ Type *get_block_type(uint8_t value_type) {
         case V128:
             return &block_types[5];
         default:
-            FATAL("invalid block_type value_type: %d\n", value_type);
-            return nullptr;
+            if (value_type < m->type_count) {
+                return &(m->types[value_type]);
+            } else {
+                FATAL("invalid block_type value_type: %d\n", value_type);
+                return nullptr;
+            }
     }
 }
 
@@ -221,7 +225,7 @@ void find_blocks(Module *m) {
                 case 0x04:     // if
                     block = (Block *)acalloc(1, sizeof(Block), "Block");
                     block->block_type = opcode;
-                    block->type = get_block_type(*(pos + 1));
+                    block->type = get_block_type(m, *(pos + 1));
                     block->start_ptr = pos;
                     blockstack[++top] = block;
                     m->block_lookup[pos] = block;
@@ -265,7 +269,7 @@ void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     // Run the init_expr
     Block block;
     block.block_type = 0x01;
-    block.type = get_block_type(type);
+    block.type = get_block_type(m, type);
     block.start_ptr = *pc;
 
     m->pc_ptr = *pc;
