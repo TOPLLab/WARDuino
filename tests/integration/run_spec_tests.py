@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 
+from glob import glob
 from git import Repo, exc
 
 SUPPORTED_ASSERTS = ["assert_return", "assert_exhaustion", "assert_trap"]
@@ -38,9 +39,10 @@ def sanitise_repo():
     if args.ignore is not None:
         with open(args.ignore, "r") as ignore:
             for line in ignore:
-                filename = args.testsuite + line.strip()
-                if os.path.exists(filename):
-                    os.remove(filename)
+                pattern = args.testsuite + line.strip()
+                files = glob(pattern)
+                for file in files:
+                    os.remove(file)
 
     tests = [os.path.join(args.testsuite, filename) for filename in os.listdir(args.testsuite) if
              filename.endswith(".wast")]
@@ -85,7 +87,7 @@ def main():
     tests = [os.path.join(args.testsuite, filename) for filename in sorted(os.listdir(args.testsuite)) if
              filename.endswith(".asserts.wast")]
     for filename in tests:
-        module_file = "".join(os.path.basename(filename).split(".")[:-2]) + ".wast"
+        module_file = "core/" + "".join(os.path.basename(filename).split(".")[:-2]) + ".wast"
         status = subprocess.run(
             [args.interpreter, "--file", module_file, "--asserts", filename, "--watcompiler", args.compiler],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
