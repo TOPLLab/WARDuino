@@ -143,6 +143,13 @@ bool assertResult(Result *result, Module *m) {
     switch (result->type) {
         case VAL:
             return assertValue(result->value, m);
+        case VOID:
+            if (m->sp < 0) {  // is stack empty
+                printf("result :: None OK\n");
+            } else {
+                printf("result :: %lu FAIL\n", m->stack->value.uint64);
+            }
+            return m->sp < 0;
         default:
             FATAL("Error unsupported result");
     }
@@ -184,6 +191,10 @@ bool runAssertion(Assertion *assertion, Module *m) {
 }
 
 Result *parseResultNode(SNode *node) {
+    if (node == nullptr) {
+        return makeEmptyResult();
+    }
+
     Value *value = nullptr;
 
     if (strcmp(node->list->value, "i64.const") == 0) {

@@ -71,6 +71,7 @@ typedef struct {
 typedef enum {
     NAN_R,
     VAL,
+    VOID,
 } ResultType;
 
 typedef struct {
@@ -105,6 +106,8 @@ Assertion *makeAssertionReturn(Action *action, Result *result);
 Assertion *makeAssertionTrap(Action *action, char *result);
 
 Assertion *makeAssertionExhaustion(Action *action);
+
+Result *makeEmptyResult();
 
 Result *makeValueResult(Value *val);
 

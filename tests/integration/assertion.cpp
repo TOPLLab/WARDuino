@@ -2,6 +2,13 @@
 
 #include <cstdlib>
 
+Result *makeEmptyResult() {
+    auto *result = (Result *)malloc(sizeof(Result));
+    result->type = VOID;
+    result->value = nullptr;
+    return result;
+}
+
 Result *makeValueResult(Value *val) {
     auto *result = (Result *)malloc(sizeof(Result));
     result->type = VAL;
