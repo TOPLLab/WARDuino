@@ -96,7 +96,7 @@ Type *get_block_type(Module *m, uint8_t value_type) {
             if (value_type < m->type_count) {
                 return &(m->types[value_type]);
             } else {
-                FATAL("invalid block_type value_type: %d\n", value_type);
+                FATAL("invalid block_type type_index out of range (%d): %d\n", m->type_count, value_type);
                 return nullptr;
             }
     }
@@ -568,6 +568,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                                 case F64:
                                     memcpy(&glob->value.f64, val, 8);
                                     break;
+                                // TODO add case V128
                             }
                             debug(
                                 "    setting global %d (content_type %d) to "

@@ -226,6 +226,7 @@ char *value_repr(StackValue *v) {
         case F64:
             snprintf(_value_str, 255, "%.7g:f64", v->value.f64);
             break;
+        // TODO add V128 case
         default:
             snprintf(_value_str, 255, "BAD ENCODING %" PRIx64 ":%02x",
                      v->value.uint64, -v->value_type);

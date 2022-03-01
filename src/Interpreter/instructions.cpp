@@ -432,7 +432,7 @@ bool i_instr_call_indirect(Module *m) {
 
 /**
  * 0x1a drop
- * remvove a value from the stack
+ * remove a value from the stack
  */
 bool i_instr_drop(Module *m) {
     m->sp--;
@@ -1270,6 +1270,46 @@ bool i_instr_binary_f64(Module *m, uint8_t opcode) {
     return true;
 }
 
+bool i_instr_v128(Module *m, uint8_t opcode) {
+    switch (opcode) {
+        // memory instructions
+        case 0x00 ... 0x0a: // v128.loadXX
+            break;
+        case 0x0b: // v128.store
+            break;
+        // basic operations
+        case 0x0c: // v128.const
+            break;
+        case 0x0d: // i8x16.shuffle
+            break;
+        case 0x0e: // i8x16.swizzle
+            break;
+        case 0x0f ... 0x14: // splat operators
+            break;
+        case 0x15 ... 0x22: // lane operators
+            break;
+        case 0x37 ... 0x40: // i8x16 compare
+            break;
+        case 0x47 ... 0x4c: // f32x4 compare
+            break;
+        case 0x4d ... 0x53: // v128 operators
+            break;
+        case 0x54 ... 0x5d: // load lane operators
+            break;
+        case 0x5e ... 0x5f: // float conversion
+            break;
+        case 0x60 ... 0x7f: // i8x16 operators
+            break;
+        case 0xe0 ... 0xeb: // f32x4 operators
+            break;
+        case 0xf8 ... 0xff: // conversion operators
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
 /**
  * 0x0d XXX
  */
@@ -1607,7 +1647,7 @@ bool interpret(Module *m) {
                 //
                 // Constants
                 //
-            case 0x41 ... 0x44:  // i32.const
+            case 0x41 ... 0x44:  // i32.const i64.const f32.const f64.const
                 success &= i_instr_const(m, opcode);
                 continue;
 
@@ -1683,6 +1723,13 @@ bool interpret(Module *m) {
             case 0xe0 ... 0xe3:
                 success &= i_instr_callback(m, opcode);
                 continue;
+
+                // v128 instructions
+            case 0xfd:
+                opcode = *m->pc_ptr;
+                success &= i_instr_v128(m, opcode);
+                continue;
+
             default:
                 sprintf(exception, "unrecognized opcode 0x%x", opcode);
                 if (m->options.return_exception) {
