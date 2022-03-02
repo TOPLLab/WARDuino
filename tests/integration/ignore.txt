@@ -24,7 +24,6 @@ memory_trap.wast
 ref_is_null.wast
 ref_null.wast
 select.wast
-simd*.wast
 skip-stack-guard-page.wast
 start.wast
 table_fill.wast
