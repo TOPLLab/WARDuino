@@ -753,6 +753,9 @@ bool i_instr_const(Module *m, uint8_t opcode) {
             memcpy(&target->value.uint64, m->pc_ptr, 8);
             m->pc_ptr += 8;
             break;
+        case 0x0c:  // v128.const
+            // TODO
+            break;
         default:
             return false;
     }
@@ -1040,6 +1043,11 @@ bool i_instr_unairy_floating(Module *m, uint8_t opcode) {
     return true;
 }
 
+bool i_instr_unary_f32x4(Module *m, uint8_t opcode) {
+    // TODO
+    return true;
+}
+
 /**
  * 0x0d binary_i32
  */
@@ -1270,43 +1278,8 @@ bool i_instr_binary_f64(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool i_instr_v128(Module *m, uint8_t opcode) {
-    switch (opcode) {
-        // memory instructions
-        case 0x00 ... 0x0a: // v128.loadXX
-            break;
-        case 0x0b: // v128.store
-            break;
-        // basic operations
-        case 0x0c: // v128.const
-            break;
-        case 0x0d: // i8x16.shuffle
-            break;
-        case 0x0e: // i8x16.swizzle
-            break;
-        case 0x0f ... 0x14: // splat operators
-            break;
-        case 0x15 ... 0x22: // lane operators
-            break;
-        case 0x37 ... 0x40: // i8x16 compare
-            break;
-        case 0x47 ... 0x4c: // f32x4 compare
-            break;
-        case 0x4d ... 0x53: // v128 operators
-            break;
-        case 0x54 ... 0x5d: // load lane operators
-            break;
-        case 0x5e ... 0x5f: // float conversion
-            break;
-        case 0x60 ... 0x7f: // i8x16 operators
-            break;
-        case 0xe0 ... 0xeb: // f32x4 operators
-            break;
-        case 0xf8 ... 0xff: // conversion operators
-            break;
-        default:
-            return false;
-    }
+bool i_instr_binary_f32x4(Module *m, uint8_t opcode) {
+    // TODO
     return true;
 }
 
@@ -1479,10 +1452,70 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
         case 0xbf:
             m->stack[m->sp].value_type = F64;
             break;  // f64.reinterpret/i64
+        case 0xf8 ... 0xff:
+            // TODO v128 conversion ops
+            break;
         default:
             return false;
     }
 
+    return true;
+}
+
+bool i_instr_v128(Module *m, uint8_t opcode) {
+    switch (opcode) {
+        // memory instructions
+        case 0x00 ... 0x0a:  // v128.loadXX
+            break;
+        case 0x0b:  // v128.store
+            break;
+        // basic operations
+        case 0x0c:  // v128.const
+            return i_instr_const(m, opcode);
+        case 0x0d:  // i8x16.shuffle
+            break;
+        case 0x0e:  // i8x16.swizzle
+            break;
+        case 0x0f ... 0x14:  // splat operators
+            break;
+        case 0x15 ... 0x22:  // lane operators
+            break;
+        case 0x23 ... 0x2c:  // i8x16 compare
+            break;
+        case 0x2d ... 0x36:  // i16x8 compare
+            break;
+        case 0x37 ... 0x40:  // i32x4 compare
+            break;
+        case 0x41 ... 0x46:  // f32x4 compare
+            break;
+        case 0x47 ... 0x4c:  // f64x2 compare
+            break;
+        case 0x4d ... 0x53:  // v128 operators
+            break;
+        case 0x54 ... 0x5d:  // load lane operators
+            break;
+        case 0x5e ... 0x5f:  // float conversion
+            break;
+        case 0x60 ... 0x7f:  // i8x16 operators
+            break;
+        case 0x80 ... 0x9f:  // i16x8 operators
+            break;
+        case 0xa0 ... 0xbf:  // i32x4 operators
+            break;
+        case 0xc0 ... 0xdf:  // i64x2 operators
+            break;
+        case 0xe0 ... 0xc3:  // f32x4 unary operators
+            i_instr_unary_f32x4(m, opcode);
+        case 0xe4 ... 0xeb:  // f32x4 binary operators
+            i_instr_binary_f32x4(m, opcode);
+            break;
+        case 0xec ... 0xf7:  // f64x2 operators
+            break;
+        case 0xf8 ... 0xff:  // conversion operators
+            return i_instr_conversion(m, opcode);
+        default:
+            return false;
+    }
     return true;
 }
 
