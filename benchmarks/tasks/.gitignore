@@ -1,4 +1,5 @@
-*/wast/arduino/
+*/wast/warduino/
+*/wast/wasm3/
 */wast/*.wasm
 */wast/*.wast
 */wast/*.html

@@ -1,15 +1,21 @@
 TASKS=$(patsubst %/.,%,$(wildcard */.))
 
-all: $(addsuffix /wast/arduino/arduino.ino,$(TASKS)) $(addsuffix /wast/impl.wast,$(TASKS)) $(addsuffix /wast/impl.wasm,$(TASKS)) $(addsuffix /c/arduino.ino,$(TASKS))
+all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/wasm3.ino,$(TASKS)) $(addsuffix /wast/impl.wast,$(TASKS)) $(addsuffix /wast/impl.wasm,$(TASKS)) $(addsuffix /c/arduino.ino,$(TASKS))
 
 	echo $(TASKS)
 
 
-%/wast/arduino/arduino.ino: %/wast/impl.wasm
+%/wast/warduino/warduino.ino: %/wast/impl.wasm
 	-mkdir $(@D)
 	xxd -i $< $@
 	sed -i 's/[^ ]*_impl_wasm/impl_wasm/'  $@
-	cat ../arduino.ino.template >> $@
+	cat ../warduino.ino.template >> $@
+
+%/wast/wasm3/wasm3.ino: %/wast/impl.wasm
+	-mkdir $(@D)
+	xxd -i $< $@
+	sed -i 's/[^ ]*_impl_wasm/impl_wasm/'  $@
+	cat ../wasm3.ino.template >> $@
 
 %/c/arduino.ino: %/wast/impl.c ../c.ino.template
 	-mkdir $(@D)
@@ -37,5 +43,5 @@ all: $(addsuffix /wast/arduino/arduino.ino,$(TASKS)) $(addsuffix /wast/impl.wast
 	wasm2wat -f $< > $@
 
 clean:
-	-find -iname "impl.wast" -o -iname "impl.wasm" -o -iname "arduino.ino" | xargs rm
+	-find -iname "impl.wast" -o -iname "impl.wasm" -o -iname "arduino.ino" -o -iname "warduino.ino" -o -iname "wasm3.ino" | xargs rm
 
