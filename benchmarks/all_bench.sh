@@ -9,6 +9,7 @@ trap "rm -rf '$tmpdir'" EXIT
 
 echo -e "tip:\ntail -f $tmpdir/*"
 
+echo "Not started yet" >$tmpdir/wasm3
 echo "Not started yet" >$tmpdir/espruino
 echo "Not started yet" >$tmpdir/warduino
 echo "Not started yet" >$tmpdir/native
@@ -26,6 +27,10 @@ sleep 5
 to_csv $tmpdir/warduino
 
 sleep 5
+./wasm3_bench.sh $tmpdir/wasm3
+to_csv $tmpdir/wasm3
+
+sleep 5
 ./native_bench.sh $tmpdir/native
 to_csv $tmpdir/native
 
@@ -33,6 +38,8 @@ echo "# Espruino"
 cat $tmpdir/espruino
 echo "# Warduino"
 cat $tmpdir/warduino
+echo "# Wasm3"
+cat $tmpdir/wasm3
 echo "# Native"
 cat $tmpdir/native
 
@@ -40,9 +47,10 @@ sizes() {
   find tasks -iname "*.$1" -exec du -b '{}' \+ | sed 's:\s*tasks/:,:;s:/.*::;s:\(.*\),\(.*\):\2,\1:' | sort
 }
 
-echo "name,espruino,warduino,native,espruinoSize,warduinoSize" >$file.csv
+echo "name,espruino,warduino,wasm3,native,espruinoSize,warduinoSize" >$file.csv
 sort $tmpdir/espruino |
   join -j 1 -t',' - <(sort $tmpdir/warduino) |
+  join -j 1 -t',' - <(sort $tmpdir/wasm3) |
   join -j 1 -t',' - <(sort $tmpdir/native) |
   join -j 1 -t',' - <(sizes js) |
   join -j 1 -t',' - <(sizes wasm) >>$file.csv
