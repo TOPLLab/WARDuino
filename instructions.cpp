@@ -105,12 +105,12 @@ void setup_call(Module *m, uint32_t fidx) {
  * The given module `m` is the currently executing module
  *
  * Returning false breaks this loop and marks the
- * execution as crashed. The exception varaible can
- * be filled with an explaination.
+ * execution as crashed. The exception variable can
+ * be filled with an explanation.
  *
  * Returning true continues the loop with the
  * notable exception of end wich can terminate
- * the progran successfully by setting program_done
+ * the program successfully by setting program_done
  *
  */
 
