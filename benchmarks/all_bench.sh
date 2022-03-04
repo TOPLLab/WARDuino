@@ -9,9 +9,9 @@ trap "rm -rf '$tmpdir'" EXIT
 
 echo -e "tip:\ntail -f $tmpdir/*"
 
-echo "Not started yet" >$tmpdir/wasm3
 echo "Not started yet" >$tmpdir/espruino
 echo "Not started yet" >$tmpdir/warduino
+echo "Not started yet" >$tmpdir/wasm3
 echo "Not started yet" >$tmpdir/native
 
 to_csv() {

@@ -1,11 +1,11 @@
-# Benchmaks
+# Benchmarks
 
-This folder includes benchmaks of WARDuino.
+This folder includes benchmarks of WARDuino.
 
 The various benchmark tests are listed in the [tasks](tasks) folder. In there, each task has a folder and three subfolders:
 
 - `espruino` containing a `impl.js` that can be sent over to Espruino
-- `wast` containing a `impl.c` implementation of the task that will be compiled to web assembly by the makefile
+- `wast` containing a `impl.c` implementation of the task that will be compiled to WebAssembly by the makefile
 - `c` containing a `arduino.ino` implementation of the task **generated automaticly** from the `wast` dirctory
 
 ## Local run
@@ -39,13 +39,14 @@ The `clean` can be removed if the debugginf flags are not changed
 
 ## Runnig on a board
 
-Currently, the ESPruinio tests only work for the `esp32`.
+Currently, the benchmarks only work for the `esp32`.
 
-Place a list of benchmarks you wich to execute in `bench.list` then run:
+Place a list of benchmarks you which to execute in `bench.list` then run:
 
-- For WARDuino: `./warduino_bench.sh {OUTPUFILE}` (this will flash an ino file on the board that runs the webassembly bytecode generated from the `C` implementaion with `emcc`)
+- For WARDuino: `./warduino_bench.sh {OUTPUTFILE}` (this will flash an ino file on the board that runs the WebAssembly bytecode with WARDuino generated from the `C` implementation with `clang`)
    - Add the env variable `BOARD=ESP8266` for that board
-- For Espruino: `./espruino_bench.sh {OUTPUFILE}` (this will flash the board with Espruino and execute all the tasks)
-- For Espruino: `./native_bench.sh {OUTPUFILE}` (this will flash the board with each of the C files and time execution)
+- For Espruino: `./espruino_bench.sh {OUTPUTFILE}` (this will flash the board with Espruino and execute all the tasks)
+- For Wasm3: `./wasm3_bench.sh {OUTPUTFILE}` (this will flash an ino file on the board that runs the WebAssembly bytecode with Wasm3 generated from the `C` implementation with `clang`)
+- For native: `./native_bench.sh {OUTPUTFILE}` (this will flash the board with each of the C files and time execution)
 - Or `./all_bench.sh {out_file}` to do then all
 
