@@ -9,8 +9,10 @@ import time
 import sys
 
 
-def await_output(s: serial.Serial, target: str):
+def await_output(s: serial.Serial, target: str, failure=None):
     target = target.encode('utf-8')
+    if failure:
+        failure = failure.encode('utf-8')
     curpos: int = 0
     while True:
         x = s.read()
@@ -18,11 +20,16 @@ def await_output(s: serial.Serial, target: str):
         x = x[0]
         if x == b'\r'[0]:
             continue
-        if x == target[curpos]:
+        if curpos < len(target) and x == target[curpos]:
             curpos += 1
             if curpos == len(target):
                 curpos = 0
-                return
+                return True
+        elif failure and x == failure[curpos]:
+            curpos += 1
+            if curpos == len(failure):
+                curpos = 0
+                return False
         else:
             curpos = 0
 
@@ -52,6 +59,9 @@ if __name__ == "__main__":
         await_output(serial, "START\n")
         startTime = time.monotonic()
         print("START found, waiting for DONE", file=sys.stderr)
-        await_output(serial, "DONE\n")
-        endTime = time.monotonic()
-        print(endTime - startTime)
+        success = await_output(serial, "DONE\n", failure="Guru Meditation Error")
+        if success:
+            endTime = time.monotonic()
+            print(endTime - startTime)
+        else:
+            print("\nnan")
