@@ -5,3 +5,9 @@ cmake-build-release/
 *.bin
 *.ipch
 *.o
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
