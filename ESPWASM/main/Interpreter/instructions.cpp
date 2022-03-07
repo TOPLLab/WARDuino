@@ -178,7 +178,6 @@ bool i_instr_loop(Module *m, uint8_t *block_ptr) {
  * 0x04 if
  */
 bool i_instr_if(Module *m, uint8_t *block_ptr) {
-    
     read_LEB_32(&m->pc_ptr);  // ignore block type
     Block *block = m->block_lookup[block_ptr];
 
@@ -1475,7 +1474,7 @@ bool interpret(Module *m) {
 
         while (check_interrupts(m, &program_state)) {
         };
-								fflush(stdout);
+        fflush(stdout);
         reset_wdt();
 
         if (program_state == WARDUINOpause) {

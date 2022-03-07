@@ -14,8 +14,8 @@
 #include <cstring>
 
 #include "../Debug/debug.h"
-#include "../Utils/glue.h"
 #include "../Memory/mem.h"
+#include "../Utils/glue.h"
 
 #ifdef ARDUINO
 #include <HTTPClient.h>

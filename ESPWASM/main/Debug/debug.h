@@ -81,8 +81,11 @@ void end();
 #endif
 
 #if TRACE
-#define dbg_trace(...) \
-    { printf(__VA_ARGS__); fflush(stdout); }
+#define dbg_trace(...)       \
+    {                        \
+        printf(__VA_ARGS__); \
+        fflush(stdout);      \
+    }
 #else
 #define dbg_trace(...) ;
 #endif

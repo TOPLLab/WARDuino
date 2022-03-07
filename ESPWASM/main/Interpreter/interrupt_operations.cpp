@@ -4,8 +4,8 @@
 
 #include "../Debug/debug.h"
 #include "../Memory/mem.h"
-#include "string.h"
 #include "../Utils//util.h"
+#include "string.h"
 
 /**
  * Validate if there are interrupts and execute them
@@ -329,9 +329,9 @@ bool check_interrupts(Module *m, RunningState *program_state) {
                 free(interruptData);
                 break;
         }
-				    fflush(stdout);
+        fflush(stdout);
         return true;
     }
-				fflush(stdout);
+    fflush(stdout);
     return false;
 }

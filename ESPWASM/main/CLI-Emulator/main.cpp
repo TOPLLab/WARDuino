@@ -1,17 +1,18 @@
 //
 // WARDuino - WebAssembly interpreter for embedded devices.
 //
+#include <netinet/in.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 #include <cstdio>
 #include <cstring>
-#include <sys/socket.h>
-#include <stdlib.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <string.h>
-#include <pthread.h>
 
-#include "../WARDuino/WARDuino.h"
 #include "../Interpreter/interrupt_operations.h"
+#include "../WARDuino/WARDuino.h"
 
 // Constants
 #define MAX_MODULE_SIZE (64 * 1024 * 1024)
@@ -34,13 +35,16 @@ void print_help() {
     fprintf(stdout, "Usage:\n");
     fprintf(stdout, "    warduino [options] <file>\n");
     fprintf(stdout, "Options:\n");
-    fprintf(stdout, "    --loop         Let the runtime loop infinitely on exceptions\n");
-    fprintf(stdout, "    --file         Wasm file (module) to load and execute\n");
+    fprintf(
+        stdout,
+        "    --loop         Let the runtime loop infinitely on exceptions\n");
+    fprintf(stdout,
+            "    --file         Wasm file (module) to load and execute\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
     uint8_t *wasm;
-    unsigned int  file_size;
+    unsigned int file_size;
 
     FILE *file = fopen(file_name, "rb");
     if (!file) {
@@ -78,96 +82,96 @@ error:
     return nullptr;
 }
 
-
-// Socket Debugger Interface 
+// Socket Debugger Interface
 void setFileDescriptorOptions(int socket_fd) {
-				int opt = 1;
-				if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
-								perror("Failed to set socket file descriptor options");
-								exit(EXIT_FAILURE);
-				}
+    int opt = 1;
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
+        perror("Failed to set socket file descriptor options");
+        exit(EXIT_FAILURE);
+    }
 }
 
 int createSocketFileDescriptor() {
-				int socket_fd; 
+    int socket_fd;
     if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("Failed to make a new socket file descriptor");
         exit(EXIT_FAILURE);
     }
-				setFileDescriptorOptions(socket_fd);
-				return socket_fd;
+    setFileDescriptorOptions(socket_fd);
+    return socket_fd;
 }
 
 void bindSocketToAddress(int socket_fd, struct sockaddr_in address) {
-			 if (bind(socket_fd, (struct sockaddr *)&address, sizeof(address))<0) {
+    if (bind(socket_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         perror("Binding socket to address failed");
         exit(EXIT_FAILURE);
     }
 }
 
 struct sockaddr_in createAddress(int port) {
-				struct sockaddr_in address;
-    address.sin_family      = AF_INET;
+    struct sockaddr_in address;
+    address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port        = htons(port);
-				return address; 
+    address.sin_port = htons(port);
+    return address;
 }
 
 void startListening(int socket_fd) {
-				if (listen(socket_fd, 1) < 0) {
+    if (listen(socket_fd, 1) < 0) {
         perror("listen");
         exit(EXIT_FAILURE);
     }
 }
 
 int listenForIncommingConnection(int socket_fd, struct sockaddr_in address) {
-				int new_socket;
-				int size = sizeof(address);
-				if ((new_socket = accept(socket_fd, (struct sockaddr *)&address,(socklen_t*) &size))<0) {
+    int new_socket;
+    int size = sizeof(address);
+    if ((new_socket = accept(socket_fd, (struct sockaddr *)&address,
+                             (socklen_t *)&size)) < 0) {
         perror("Failed to listen for incomming connections");
         exit(EXIT_FAILURE);
     }
-				return new_socket;
+    return new_socket;
 }
 
-void startDebugger(WARDuino* wac,Module* m) {
+void startDebugger(WARDuino *wac, Module *m) {
     int socket_fd = createSocketFileDescriptor();
-    struct sockaddr_in address = createAddress(8192); 
-				bindSocketToAddress(socket_fd,address);
-				startListening(socket_fd);
+    struct sockaddr_in address = createAddress(8192);
+    bindSocketToAddress(socket_fd, address);
+    startListening(socket_fd);
 
-				int valread;
+    int valread;
     uint8_t buffer[1024] = {0};
-				while(true) {
-								int socket = listenForIncommingConnection(socket_fd, address);
-					   while((valread = read(socket, buffer, 1024)) != -1) {
-												printf("GOT A MESSAGE ... \n");
-												wac->handleInterrupt(valread-1, buffer);
-												//RunningState program_state = WARDUINOrun;
-												for(int i = 0; i< valread;i++) {
-																printf("%c",buffer[i]);
-												}
-												//while (check_interrupts(m, &program_state)) {
-												//				printf("check_interrupts \n");
-												//};
-												//fflush(stdout);
-								}
-				}
+    while (true) {
+        int socket = listenForIncommingConnection(socket_fd, address);
+        while ((valread = read(socket, buffer, 1024)) != -1) {
+            printf("GOT A MESSAGE ... \n");
+            wac->handleInterrupt(valread - 1, buffer);
+            // RunningState program_state = WARDUINOrun;
+            for (int i = 0; i < valread; i++) {
+                printf("%c", buffer[i]);
+            }
+            // while (check_interrupts(m, &program_state)) {
+            //				printf("check_interrupts \n");
+            //};
+            // fflush(stdout);
+        }
+    }
 }
 
 WARDuino wac;
 Module *m;
- 
-void* runWAC(void* p){
-				// Print value received as argument:
-				printf("STARTED WARDUINO In seperate thread");
-				wac.run_module(m);
-				wac.unload_module(m);
+
+void *runWAC(void *p) {
+    // Print value received as argument:
+    printf("STARTED WARDUINO In seperate thread");
+    wac.run_module(m);
+    wac.unload_module(m);
 }
 
 int main(int argc, const char *argv[]) {
     ARGV_SHIFT();  // Skip command name
-				printf("testing to print something\n");
+    printf("testing to print something\n");
 
     bool return_exception = true;
     bool run_tests = false;
@@ -226,15 +230,15 @@ int main(int argc, const char *argv[]) {
     }
 
     if (m) {
-								pthread_t id;
-								uint8_t command[] = {'0','3','\n'};
-								wac.handleInterrupt(3,command);
-				    m->warduino =  &wac;
-								pthread_create(&id, NULL, runWAC, NULL);
-								startDebugger(&wac,m);
-								int* ptr;
-								pthread_join(id, (void**)&ptr);
-				}
+        pthread_t id;
+        uint8_t command[] = {'0', '3', '\n'};
+        wac.handleInterrupt(3, command);
+        m->warduino = &wac;
+        pthread_create(&id, NULL, runWAC, NULL);
+        startDebugger(&wac, m);
+        int *ptr;
+        pthread_join(id, (void **)&ptr);
+    }
 
     return 0;
 }
