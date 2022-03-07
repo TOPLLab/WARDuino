@@ -17,12 +17,8 @@
 char exception[512];
 
 // UTIL
-bool resolvesym(char *filename,   
-                char *symbol, 
-                uint8_t external_kind, 
-                void **val,
+bool resolvesym(char *filename, char *symbol, uint8_t external_kind, void **val,
                 char **err) {
-
     if (nullptr != filename && !strcmp(filename, "env")) {
         switch (external_kind) {
             case 0x00:  // Function
@@ -297,8 +293,8 @@ uint32_t WARDuino::get_export_fidx(Module *m, const char *name) {
     return static_cast<uint32_t>(-1);
 }
 
-Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count, Options options) {
-
+Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
+                              Options options) {
     debug("Loading module of size %d \n", byte_count);
     uint8_t valueType;
     uint32_t word;
@@ -311,7 +307,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count, Options optio
     // Allocate stacks
     m->stack = (StackValue *)acalloc(STACK_SIZE, sizeof(StackValue), "Stack");
     m->callstack = (Frame *)acalloc(CALLSTACK_SIZE, sizeof(Frame), "Callstack");
-    m->br_table = (uint32_t *)acalloc(BR_TABLE_SIZE, sizeof(uint32_t), "Branch table");
+    m->br_table =
+        (uint32_t *)acalloc(BR_TABLE_SIZE, sizeof(uint32_t), "Branch table");
 
     // Empty stacks
     m->sp = -1;
@@ -333,7 +330,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count, Options optio
     ASSERT(word == WA_VERSION, "Wrong module version 0x%x\n", word);
     // Read the sections
     uint8_t *bytes_end = bytes + byte_count;
- 
+
     while (pos < bytes_end) {
         uint32_t id = read_LEB(&pos, 7);
         uint32_t section_len = read_LEB_32(&pos);
