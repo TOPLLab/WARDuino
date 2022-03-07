@@ -1,52 +1,49 @@
-# Hello World Example
+# WARDuino: Build and Development Instructions
 
-Starts a FreeRTOS task to print "Hello World".
+The project uses CMake. Quick install looks like this:
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
-
-## How to use example
-
-Follow detailed instructions provided specifically for this example. 
-
-Select the instructions depending on Espressif chip installed on your development board:
-
-- [ESP32 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html)
-- [ESP32-S2 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/get-started/index.html)
-
-
-## Example folder contents
-
-The project **hello_world** contains one source file in C language [hello_world_main.c](main/hello_world_main.c). The file is located in folder [main](main).
-
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt` files that provide set of directives and instructions describing the project's source files and targets (executable, library, or both). 
-
-Below is short explanation of remaining files in the project folder.
-
-```
-├── CMakeLists.txt
-├── example_test.py            Python script used for automated example testing
-├── main
-│   ├── CMakeLists.txt
-│   ├── component.mk           Component make file
-│   └── hello_world_main.c
-├── Makefile                   Makefile used by legacy GNU Make
-└── README.md                  This is the file you are currently reading
+```bash
+git clone git@github.com:TOPLLab/WARDuino.git
+cd WARDuino/ESPWASM
+mkdir build
+cd build
+cmake ..
+make
 ```
 
-For more information on structure and contents of ESP-IDF projects, please refer to Section [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html) of the ESP-IDF Programming Guide.
+This will build the command-line tool (EMULATOR) by default.
 
-## Troubleshooting
+## Build for ESP-IDF
 
-* Program upload failure
+To install the WARDuino with the ESP-IDF toolchain perform the following steps starting from the project root folder:
 
-    * Hardware connection is not correct: run `idf.py -p PORT monitor`, and reboot your board to see if there are any output logs.
-    * The baud rate for downloading is too high: lower your baud rate in the `menuconfig` menu, and try again.
+## Build for Arduino
+
+To install the WARDuino with the Arduino toolchain perform the following steps starting from the project root folder:
+
+## Build for Emulator
+
+WARDuino can also be build as a command-line tool for a desktop environment.
+The purpose of this CLI is to allow developers to test WARDuino applications without the need to buy a microcontroller.
+The CLI is also used to run the various unit and specification tests for WARDuino.
+
+To install the CLI perform the following steps starting from the project root folder:
+
+```bash
+cd ESPWASM
+mkdir build
+cd build
+cmake ..
+make
+```
+
+## Unit testing
+
+
+## WebAssembly Specification tests
+
 
 ## Technical support and feedback
 
-Please use the following feedback channels:
+For a feature request or bug report, create a [GitHub issue](https://github.com/TOPLLab/WARDuino/issues).
 
-* For technical queries, go to the [esp32.com](https://esp32.com/) forum
-* For a feature request or bug report, create a [GitHub issue](https://github.com/espressif/esp-idf/issues)
-
-We will get back to you as soon as possible.
