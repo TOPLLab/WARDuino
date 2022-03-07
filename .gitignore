@@ -1,10 +1,14 @@
 .idea/
-cmake-build-debug/
-cmake-build-release/
+.vscode/
 
 *.bin
 *.ipch
 *.o
+
+# Build folders
+build/
+cmake-build-debug/
+cmake-build-release/
 
 # MacOS
 .DS_Store
