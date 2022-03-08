@@ -1,0 +1,16 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "WARDuinoDBG",
+            "request": "launch",
+            "name": "Debug WARDuino",
+            "program": "${workspaceFolder}/fac_ok.wast",
+            "stopOnEntry": true,
+            "trace": false
+        }
+    ]
+}
