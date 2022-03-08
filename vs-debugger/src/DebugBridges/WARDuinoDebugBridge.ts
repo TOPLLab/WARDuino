@@ -56,8 +56,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     }
 
     private startEmulator() {
-        let command = WARDuinoDebugBridgeEmulator.startEmulatorCommand();
-        this.cp = spawn('/home/tolauwae/Arduino/libraries/WARDuino/vs-debugger/wdcli', ['--file', '/tmp/warduino/upload.wasm']);
+        this.cp = WARDuinoDebugBridgeEmulator.spawnEmulatorProcess();
 
         this.listener.notifyProgress('Started Emulator');
         while (this.cp.stdout === null) {
@@ -100,8 +99,9 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         this.client?.destroy();
     }
 
-    private static startEmulatorCommand() {
-        return `/home/tolauwae/Arduino/libraries/WARDuino/vs-debugger/wdcli --file /tmp/warduino/upload.wasm`;
+    private static spawnEmulatorProcess(): ChildProcess {
+        // TODO no absolute path. package extension with upload.wasm and compile warduino during installation.
+        return spawn('/home/tolauwae/Arduino/libraries/WARDuino/vs-debugger/wdcli', ['--file', '/tmp/warduino/upload.wasm']);
     }
 
 }

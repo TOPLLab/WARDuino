@@ -1,6 +1,7 @@
 import {getFileExtension} from "../Parsers/ParseUtils";
 import {CompileBridge} from "./CompileBridge";
 import {WASMCompilerBridge} from "./WASMCompilerBridge";
+import {AssemblyScriptCompilerBridge} from "./AssemblyScriptCompilerBridge";
 
 export class CompileBridgeFactory {
     static makeCompileBridge(file: string): CompileBridge {
@@ -8,7 +9,8 @@ export class CompileBridgeFactory {
         switch (fileType) {
             case "wast" :
                 return new WASMCompilerBridge(file);
-            // TODO add Rust
+            case "ts" :
+                return new AssemblyScriptCompilerBridge(file);
         }
         throw new Error("Unsupported file type");
     }
