@@ -7,8 +7,7 @@
 
 # Build folders
 build/
-cmake-build-debug/
-cmake-build-release/
+cmake-build-*
 
 # MacOS
 .DS_Store

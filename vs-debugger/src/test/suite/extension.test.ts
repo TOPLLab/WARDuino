@@ -8,7 +8,7 @@ suite('Extension Test Suite', () => {
 
 	test('TestCompileBridge', () => {
 		let compilerBridge = new WASMCompilerBridge("","");
-		compilerBridge.CompileWast();
+		compilerBridge.compile();
 	});
 
 
