@@ -57,12 +57,12 @@ export class WASMCompilerBridge implements CompileBridge {
 
     async compile() {
         let compileCommand: string = this.compileToWasmCommand();
-        return await this.executeCommand(compileCommand);
+        return await this.executeCompileCommand(compileCommand);
     }
 
     async compileHeader() {
         let compileCHeader: string = WASMCompilerBridge.compileCHeaderFileCommand();
-        return await this.executeCommand(compileCHeader);
+        return await this.executeCompileCommand(compileCHeader);
     }
 
     private checkErrorMessage(errorString: string) {
@@ -86,7 +86,7 @@ export class WASMCompilerBridge implements CompileBridge {
         }
     }
 
-    private executeCommand(command: string): Promise<LineInfoPairs[]> {
+    private executeCompileCommand(command: string): Promise<LineInfoPairs[]> {
         return new Promise((resolve, reject) => {
             let sourceMap: LineInfoPairs[];
             let that = this;
