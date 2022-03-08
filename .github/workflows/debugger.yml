@@ -1,0 +1,48 @@
+name: Debugger Plugin CI
+on: [push, pull_request]
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true  # Cancel in-flight jobs for the same branch or PR
+
+defaults:
+    run:
+        working-directory: vs-debugger
+
+jobs:
+    formatting-check:
+        name: ESLint
+        runs-on: ubuntu-latest
+        
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+            
+            - name: Set up Node.js
+              uses: actions/setup-node@v1
+
+            - name: Install Node.js dependencies
+              run: npm ci
+
+            - name: Run ESLint
+              uses: wearerequired/lint-action@v1
+              with:
+                  eslint: true
+
+    test:
+        name: Mocha Test Suites
+        runs-on: ubuntu-latest
+    
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v1
+
+            - name: Install Node.js dependencies
+              run: npm ci
+
+            - name: Run tests
+              run: npm run unit-test
+
