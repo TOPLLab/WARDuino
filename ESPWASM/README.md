@@ -17,6 +17,14 @@ This will build the command-line tool (EMULATOR) by default.
 
 To install the WARDuino with the ESP-IDF toolchain perform the following steps starting from the project root folder:
 
+```bash
+cd ESPWASM
+mkdir build-esp
+cd build-esp
+cmake ..
+make flash
+```
+
 ## Build for Arduino
 
 To install the WARDuino with the Arduino toolchain perform the following steps starting from the project root folder:

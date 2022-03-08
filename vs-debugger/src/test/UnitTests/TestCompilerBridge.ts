@@ -11,7 +11,7 @@ suite('WARDuinoCompilerBridge Test Suite', () => {
       
     test('TestCompileOK', async () => {
             let compilerBridge = new WASMCompilerBridge(toolChainPath,`${wasmDirectoryPath}/fac_ok.wast`);
-            let result = await compilerBridge.CompileWast().catch( (reason) => {
+            let result = await compilerBridge.compile().catch( (reason) => {
                 expect.fail(`Unexpected exception ${reason}`);
               }
             );
@@ -21,7 +21,7 @@ suite('WARDuinoCompilerBridge Test Suite', () => {
 
     test('TestCompileBridgeSyntaxError', async () => {
         let compilerBridge = new WASMCompilerBridge(toolChainPath,`${wasmDirectoryPath}/fac_syntax_error.wast`);
-        let result = await compilerBridge.CompileWast().catch( (reason) => {
+        let result = await compilerBridge.compile().catch( (reason) => {
                 expect(reason.line).to.equal(1);
                 expect(reason.column).to.equal(2);
                 expect(reason.message).to.contain('error: unexpected token "modul"');

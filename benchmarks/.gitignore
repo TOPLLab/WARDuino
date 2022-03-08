@@ -1,2 +1,5 @@
 *.o
 bin/
+
+output
+*.csv
