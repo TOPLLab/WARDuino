@@ -1,11 +1,10 @@
-
 import 'mocha';
 import { WASMCompilerBridge } from '../../CompilerBridges/WASMCompilerBridge';
-import { WARDuinoDebugBridgeEmulator } from '../../DebugBridges/WARDuinoDebugBridge';
+import { WARDuinoDebugBridgeEmulator } from '../../DebugBridges/WARDuinoDebugBridgeEmulator';
 
-let runPath = process.cwd()
-let toolChainPath      = ""
-let wasmDirectoryPath  = `${runPath}/src/test/UnitTests/TestSource/fac_ok.wasm`
+let runPath = process.cwd();
+let toolChainPath      = "";
+let wasmDirectoryPath  = `${runPath}/src/test/UnitTests/TestSource/fac_ok.wasm`;
 
 suite('WARDuinoDebuggerBridge Test Suite', () => {
       
@@ -30,6 +29,4 @@ suite('WARDuinoDebuggerBridge Test Suite', () => {
 
     });*/
 
-
-
-})
+});

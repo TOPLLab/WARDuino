@@ -1,4 +1,4 @@
-export enum InteruptTypes {
+export enum InterruptTypes {
     interruptRUN = '01',
     interruptHALT = '02',
     interruptPAUSE = '03',

@@ -1,5 +1,4 @@
-
 export enum RunTimeTarget {
-    Emulator,
-    Embedded
+    emulator,
+    embedded
 }
