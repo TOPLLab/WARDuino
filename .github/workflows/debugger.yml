@@ -5,6 +5,10 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true  # Cancel in-flight jobs for the same branch or PR
 
+env:
+    WABT_CACHE: "build-wabt"
+    WORKING_DIRECTORY: "vs-debugger"
+
 defaults:
     run:
         working-directory: vs-debugger
@@ -24,15 +28,50 @@ jobs:
                 node-version: 14
 
             - name: Install Node.js dependencies
-              run: npm ci
+              run: npm ci  # TODO should install ESLint
 
             - name: Run ESLint
-              uses: wearerequired/lint-action@v1
-              with:
-                  eslint: true
+              run: npm run lint
+
+              #            - name: Run ESLint
+              #              uses: wearerequired/lint-action@v1
+              #              with:
+              #                  eslint: true
+
+                  #    build-wabt:
+                  #        name: Build custom WABT
+                  #        runs-on: ubuntu-latest
+                  #        
+                  #        steps:
+                  #            - name: Checkout
+                  #              uses: actions/checkout@v2
+                  #
+                  #            - name: Build from source
+                  #              run: |
+                  #                git clone --recursive https://github.com/TOPLLab/wabt
+                  #                cd wabt
+                  #                git submodule update --init
+                  #                mkdir build; cd build
+                  #                cmake ..
+                  #                cmake --build .
+                  #            
+                  #            - name: Update $PATH
+                  #              run: echo "${GITHUB_WORKSPACE}/wabt/build" >> $GITHUB_PATH
+                  #            
+                  #            - name: Echo $PATH
+                  #              run: echo $PATH
+                  #
+                  #            - name: Cache build files
+                  #              id: cache_wabt
+                  #              uses: actions/cache@v2
+                  #              with:
+                  #                path: |
+                  #                    ./wabt/build
+                  #                key: ${{ env.WABT_CACHE }}
 
     test:
         name: Mocha Test Suites
+        #        needs: build-wabt
         runs-on: ubuntu-latest
     
         steps:
@@ -46,6 +85,32 @@ jobs:
 
             - name: Install Node.js dependencies
               run: npm ci
+
+              #            - name: Get WABT cache
+              #              id: cache_wabt
+              #              uses: actions/cache@v2
+              #              with:
+              #                path: |
+              #                    ./wabt/build
+              #                key: ${{ env.WABT_CACHE }}
+
+            - name: Build from source
+              run: |
+                git clone --recursive https://github.com/TOPLLab/wabt
+                cd wabt
+                git submodule update --init
+                mkdir build; cd build
+                cmake ..
+                cmake --build .
+            
+            - name: Update $PATH
+              run: echo "${GITHUB_WORKSPACE}/${WORKING_DIRECTORY}/wabt/build" >> $GITHUB_PATH
+
+            - name: Echo $PATH
+              run: echo $PATH
+
+            - name: Check wat2wasm
+              run: ls ./wabt/build/
 
             - name: Run tests
               run: npm run unit-test
