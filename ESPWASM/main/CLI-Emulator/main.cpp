@@ -150,9 +150,6 @@ void startDebugger(WARDuino *wac, Module *m) {
             wac->handleInterrupt(valread - 1, buffer);
             // RunningState program_state = WARDUINOrun;
             write(socket, buffer, valread);
-//            for (int i = 0; i < valread; i++) {
-//                printf("%c", buffer[i]);
-//            }
             // while (checkDebugMessages(m, &program_state)) {
             //				printf("checkDebugMessages \n");
             //};

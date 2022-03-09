@@ -931,50 +931,6 @@ int WARDuino::run_module(Module *m) {
 // Don't use print in interrupt handlers
 void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
     this->debugger->addDebugMessage(len, buff);
-//    for (size_t i = 0; i < len; i++) {
-//        bool success = true;
-//        int r = -1 /*undef*/;
-//
-//        // TODO replace by real binary
-//        switch (buff[i]) {
-//            case '0' ... '9':
-//                r = buff[i] - '0';
-//                break;
-//            case 'A' ... 'F':
-//                r = buff[i] - 'A' + 10;
-//                break;
-//            default:
-//                success = false;
-//        }
-//
-//        if (!success) {
-//            if (this->interruptEven) {
-//                if (!this->interruptBuffer.empty()) {
-//                    // done, send to process
-//                    auto *data = (uint8_t *)acalloc(
-//                        sizeof(uint8_t), this->interruptBuffer.size(),
-//                        "interrupt buffer");
-//                    memcpy(data, this->interruptBuffer.data(),
-//                           this->interruptBuffer.size() * sizeof(uint8_t));
-//                    this->parsedInterrups.push_back(data);
-//                    this->interruptBuffer.clear();
-//                }
-//            } else {
-//                this->interruptBuffer.clear();
-//                this->interruptEven = true;
-//                dbg_warn("Dropped interrupt: could not process");
-//            }
-//        } else {  // good parse
-//            if (!this->interruptEven) {
-//                this->interruptLastChar =
-//                    (this->interruptLastChar << 4u) + (uint8_t)r;
-//                this->interruptBuffer.push_back(this->interruptLastChar);
-//            } else {
-//                this->interruptLastChar = (uint8_t)r;
-//            }
-//            this->interruptEven = !this->interruptEven;
-//        }
-//    }
 }
 
 // CallbackHandler class
