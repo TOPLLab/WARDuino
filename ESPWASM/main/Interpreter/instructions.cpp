@@ -1472,7 +1472,7 @@ bool interpret(Module *m) {
             program_state = WARDUINOpause;
         }
 
-        while (check_interrupts(m, &program_state)) {
+        while (m->warduino->debugger->checkDebugMessages(m, &program_state)) {
         };
         fflush(stdout);
         reset_wdt();
@@ -1490,13 +1490,13 @@ bool interpret(Module *m) {
         //        }
 
         // if BP and not the one we just unpaused
-        if (m->warduino->isBreakpoint(m->pc_ptr) &&
-            m->warduino->skipBreakpoint != m->pc_ptr) {
+        if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
+            m->warduino->debugger->skipBreakpoint != m->pc_ptr) {
             program_state = WARDUINOpause;
             printf("AT %p!\n", (void *)m->pc_ptr);
             continue;
         }
-        m->warduino->skipBreakpoint = nullptr;
+        m->warduino->debugger->skipBreakpoint = nullptr;
 
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
