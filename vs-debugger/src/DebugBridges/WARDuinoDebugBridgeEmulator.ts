@@ -28,7 +28,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     }
 
     private initClient() {
-        if (this.client === null) {
+        if (this.client === undefined) {
             this.client = new net.Socket();
             this.client.connect({port: 8192, host: '127.0.0.1'});
             this.listener.notifyProgress('Connected socket');
@@ -59,7 +59,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         this.cp = WARDuinoDebugBridgeEmulator.spawnEmulatorProcess();
 
         this.listener.notifyProgress('Started Emulator');
-        while (this.cp.stdout === null) {
+        while (this.cp.stdout === undefined) {
         }
 
         this.cp.stdout?.on('data', (data) => {
