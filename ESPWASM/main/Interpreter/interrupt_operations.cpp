@@ -7,6 +7,90 @@
 #include "../Utils//util.h"
 #include "string.h"
 
+enum InterruptTypes {
+    interruptRUN = 0x01,
+    interruptHALT = 0x02,
+    interruptPAUSE = 0x03,
+    interruptSTEP = 0x04,
+    interruptBPAdd = 0x06,
+    interruptBPRem = 0x07,
+    interruptDUMP = 0x10,
+    interruptDUMPLocals = 0x11,
+    interruptUPDATEFun = 0x20,
+    interruptUPDATELocal = 0x21
+};
+
+// Debugger
+
+Debugger::Debugger(int socket) { this->socket = socket; }
+
+// Public methods
+
+void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
+    for (size_t i = 0; i < len; i++) {
+        bool success = true;
+        int r = -1 /*undef*/;
+
+        // TODO replace by real binary
+        switch (buff[i]) {
+            case '0' ... '9':
+                r = buff[i] - '0';
+                break;
+            case 'A' ... 'F':
+                r = buff[i] - 'A' + 10;
+                break;
+            default:
+                success = false;
+        }
+
+        if (!success) {
+            if (this->interruptEven) {
+                if (!this->interruptBuffer.empty()) {
+                    // done, send to process
+                    auto *data = (uint8_t *)acalloc(
+                        sizeof(uint8_t), this->interruptBuffer.size(),
+                        "interrupt buffer");
+                    memcpy(data, this->interruptBuffer.data(),
+                           this->interruptBuffer.size() * sizeof(uint8_t));
+                    this->debugMessages.push_back(data);
+                    this->interruptBuffer.clear();
+                }
+            } else {
+                this->interruptBuffer.clear();
+                this->interruptEven = true;
+                dbg_warn("Dropped interrupt: could not process");
+            }
+        } else {  // good parse
+            if (!this->interruptEven) {
+                this->interruptLastChar =
+                    (this->interruptLastChar << 4u) + (uint8_t)r;
+                this->interruptBuffer.push_back(this->interruptLastChar);
+            } else {
+                this->interruptLastChar = (uint8_t)r;
+            }
+            this->interruptEven = !this->interruptEven;
+        }
+    }
+}
+
+uint8_t *Debugger::getDebugMessage() {
+    if (!this->debugMessages.empty()) {
+        uint8_t *ret = this->debugMessages.front();
+        this->debugMessages.pop_front();
+        return ret;
+    } else {
+        return nullptr;
+    }
+}
+
+void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
+
+void Debugger::delBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
+
+bool Debugger::isBreakpoint(uint8_t *loc) {
+    return this->breakpoints.find(loc) != this->breakpoints.end();
+}
+
 /**
  * Validate if there are interrupts and execute them
  *
@@ -26,23 +110,98 @@
  * - `0x20` : Replace the content body of a function by a new function given
  *            as payload (immediately following `0x10`), see #readChange
  */
+bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
+    uint8_t *interruptData = nullptr;
+    interruptData = this->getDebugMessage();
+    if (interruptData) {
+        printf("Interupt: %x\n", *interruptData);
+        switch (*interruptData) {
+            case interruptRUN:
+                printf("GO!\n");
+                if (*program_state == WARDUINOpause &&
+                    this->isBreakpoint(m->pc_ptr)) {
+                    this->skipBreakpoint = m->pc_ptr;
+                }
+                *program_state = WARDUINOrun;
+                free(interruptData);
+                break;
+            case interruptHALT:
+                printf("STOP!\n");
+                free(interruptData);
+                exit(0);
+                break;
+            case interruptPAUSE:
+                *program_state = WARDUINOpause;
+                printf("PAUSE!\n");
+                free(interruptData);
+                break;
+            case interruptSTEP:
+                printf("STEP!\n");
+                *program_state = WARDUINOstep;
+                free(interruptData);
+                break;
+            case interruptBPAdd:  // Breakpoint
+            case interruptBPRem:  // Breakpoint remove
+            {
+                // TODO: segfault may happen here!
+                uint8_t len = interruptData[1];
+                uintptr_t bp = 0x0;
+                for (size_t i = 0; i < len; i++) {
+                    bp <<= sizeof(uint8_t) * 8;
+                    bp |= interruptData[i + 2];
+                }
+                auto *bpt = (uint8_t *)bp;
+                printf("BP %p!\n", static_cast<void *>(bpt));
 
-enum InterruptTypes {
-    interruptRUN = 0x01,
-    interruptHALT = 0x02,
-    interruptPAUSE = 0x03,
-    interruptSTEP = 0x04,
-    interruptBPAdd = 0x06,
-    interruptBPRem = 0x07,
-    interruptDUMP = 0x10,
-    interruptDUMPLocals = 0x11,
-    interruptUPDATEFun = 0x20,
-    interruptUPDATELocal = 0x21
-};
+                if (*interruptData == 0x06) {
+                    this->addBreakpoint(bpt);
+                } else {
+                    this->delBreakpoint(bpt);
+                }
 
-void doDumpLocals(Module *m);
+                free(interruptData);
 
-void doDump(Module *m) {
+                break;
+            }
+
+            case interruptDUMP:
+                *program_state = WARDUINOpause;
+                free(interruptData);
+                this->doDump(m);
+                break;
+            case interruptDUMPLocals:
+                *program_state = WARDUINOpause;
+                free(interruptData);
+                this->doDumpLocals(m);
+                break;
+            case interruptUPDATEFun:
+                printf("CHANGE local!\n");
+                this->readChange(m, interruptData);
+                //  do not free(interruptData);
+                // we need it to run that code
+                // TODO: free double replacements
+                break;
+            case interruptUPDATELocal:
+                printf("CHANGE local!\n");
+                this->readChangeLocal(m, interruptData);
+                free(interruptData);
+                break;
+            default:
+                // handle later
+                printf("COULD not parse interrupt data!\n");
+                free(interruptData);
+                break;
+        }
+        fflush(stdout);
+        return true;
+    }
+    fflush(stdout);
+    return false;
+}
+
+// Private methods
+
+void Debugger::doDump(Module *m) {
     printf("DUMP!\n");
     printf("{");
 
@@ -56,9 +215,9 @@ void doDump(Module *m) {
 
     {
         size_t i = 0;
-        for (auto bp : m->warduino->breakpoints) {
+        for (auto bp : this->breakpoints) {
             printf(R"("%p"%s)", bp,
-                   (++i < m->warduino->breakpoints.size()) ? "," : "");
+                   (++i < this->breakpoints.size()) ? "," : "");
         }
     }
     printf("],");
@@ -89,7 +248,7 @@ void doDump(Module *m) {
     fflush(stdout);
 }
 
-void doDumpLocals(Module *m) {
+void Debugger::doDumpLocals(Module *m) {
     fflush(stdout);
     printf("DUMP LOCALS!\n\n");
     fflush(stdout);
@@ -143,7 +302,7 @@ void doDumpLocals(Module *m) {
  * [0x10, index, ... new function body 0x0b]
  * Where index is the index without imports
  */
-bool readChange(Module *m, uint8_t *bytes) {
+bool Debugger::readChange(Module *m, uint8_t *bytes) {
     // Check if this was a change request
     if (*bytes != interruptUPDATEFun) return false;
 
@@ -202,7 +361,7 @@ bool readChange(Module *m, uint8_t *bytes) {
  * @param bytes
  * @return
  */
-bool readChangeLocal(Module *m, uint8_t *bytes) {
+bool Debugger::readChangeLocal(Module *m, uint8_t *bytes) {
     if (*bytes != interruptUPDATELocal) return false;
     uint8_t *pos = bytes + 1;
     printf("Local updates: %x\n", *pos);
@@ -226,112 +385,4 @@ bool readChangeLocal(Module *m, uint8_t *bytes) {
     }
     printf("Local %u changed to %u\n", localId, v->value.uint32);
     return true;
-}
-
-/**
- * Validate if there are interrupts and execute them
- *
-
- *
- * - `0x01` : Continue running
- * - `0x02` : Halt the execution
- * - `0x03` : Pause execution
- * - `0x04` : Execute one operation and then pause
- * - `0x06` : Add a breakpoint, the address is specified as a pointer.
- *            The pointer should be specified as: 06[length][pointer]
- *            eg: 06 06 55a5994fa3d6
- * - `0x07` : Remove the breakpoint at the address specified as a pointer if it
- *            exists (see `0x06`)
- * - `0x10` : Dump information about the program
- * - `0x11` :                  show locals
- * - `0x20` : Replace the content body of a function by a new function given
- *            as payload (immediately following `0x10`), see #readChange
- */
-bool check_interrupts(Module *m, RunningState *program_state) {
-    uint8_t *interruptData = nullptr;
-    interruptData = m->warduino->getInterrupt();
-    if (interruptData) {
-        printf("Interupt: %x\n", *interruptData);
-        switch (*interruptData) {
-            case interruptRUN:
-                printf("GO!\n");
-                if (*program_state == WARDUINOpause &&
-                    m->warduino->isBreakpoint(m->pc_ptr)) {
-                    m->warduino->skipBreakpoint = m->pc_ptr;
-                }
-                *program_state = WARDUINOrun;
-                free(interruptData);
-                break;
-            case interruptHALT:
-                printf("STOP!\n");
-                free(interruptData);
-                exit(0);
-                break;
-            case interruptPAUSE:
-                *program_state = WARDUINOpause;
-                printf("PAUSE!\n");
-                free(interruptData);
-                break;
-            case interruptSTEP:
-                printf("STEP!\n");
-                *program_state = WARDUINOstep;
-                free(interruptData);
-                break;
-            case interruptBPAdd:  // Breakpoint
-            case interruptBPRem:  // Breakpoint remove
-            {
-                // TODO: segfault may happen here!
-                uint8_t len = interruptData[1];
-                uintptr_t bp = 0x0;
-                for (size_t i = 0; i < len; i++) {
-                    bp <<= sizeof(uint8_t) * 8;
-                    bp |= interruptData[i + 2];
-                }
-                auto *bpt = (uint8_t *)bp;
-                printf("BP %p!\n", static_cast<void *>(bpt));
-
-                if (*interruptData == 0x06) {
-                    m->warduino->addBreakpoint(bpt);
-                } else {
-                    m->warduino->delBreakpoint(bpt);
-                }
-
-                free(interruptData);
-
-                break;
-            }
-
-            case interruptDUMP:
-                *program_state = WARDUINOpause;
-                free(interruptData);
-                doDump(m);
-                break;
-            case interruptDUMPLocals:
-                *program_state = WARDUINOpause;
-                free(interruptData);
-                doDumpLocals(m);
-                break;
-            case interruptUPDATEFun:
-                printf("CHANGE local!\n");
-                readChange(m, interruptData);
-                //  do not free(interruptData);
-                // we need it to run that code
-                // TODO: free double replacements
-                break;
-            case interruptUPDATELocal:
-                printf("CHANGE local!\n");
-                readChangeLocal(m, interruptData);
-                free(interruptData);
-                break;
-            default:
-                // handle later
-                printf("COULD not parse interrupt data!\n");
-                free(interruptData);
-                break;
-        }
-        fflush(stdout);
-        return true;
-    }
-    fflush(stdout);
-    return false;
 }

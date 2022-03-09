@@ -892,6 +892,7 @@ void WARDuino::unload_module(Module *m) {
 }
 
 WARDuino::WARDuino() {
+    this->debugger = new Debugger(0);
     install_primitives();
     initTypes();
 }
@@ -929,68 +930,51 @@ int WARDuino::run_module(Module *m) {
 // parse numer per 2 chars (HEX) (stop if non-hex)
 // Don't use print in interrupt handlers
 void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
-    for (size_t i = 0; i < len; i++) {
-        bool success = true;
-        int r = -1 /*undef*/;
-
-        // TODO replace by real binary
-        switch (buff[i]) {
-            case '0' ... '9':
-                r = buff[i] - '0';
-                break;
-            case 'A' ... 'F':
-                r = buff[i] - 'A' + 10;
-                break;
-            default:
-                success = false;
-        }
-
-        if (!success) {
-            if (this->interruptEven) {
-                if (!this->interruptBuffer.empty()) {
-                    // done, send to process
-                    auto *data = (uint8_t *)acalloc(
-                        sizeof(uint8_t), this->interruptBuffer.size(),
-                        "interrupt buffer");
-                    memcpy(data, this->interruptBuffer.data(),
-                           this->interruptBuffer.size() * sizeof(uint8_t));
-                    this->parsedInterrups.push_back(data);
-                    this->interruptBuffer.clear();
-                }
-            } else {
-                this->interruptBuffer.clear();
-                this->interruptEven = true;
-                dbg_warn("Dropped interrupt: could not process");
-            }
-        } else {  // good parse
-            if (!this->interruptEven) {
-                this->interruptLastChar =
-                    (this->interruptLastChar << 4u) + (uint8_t)r;
-                this->interruptBuffer.push_back(this->interruptLastChar);
-            } else {
-                this->interruptLastChar = (uint8_t)r;
-            }
-            this->interruptEven = !this->interruptEven;
-        }
-    }
-}
-
-uint8_t *WARDuino::getInterrupt() {
-    if (!this->parsedInterrups.empty()) {
-        uint8_t *ret = this->parsedInterrups.front();
-        this->parsedInterrups.pop_front();
-        return ret;
-    } else {
-        return nullptr;
-    }
-}
-
-void WARDuino::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
-
-void WARDuino::delBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
-
-bool WARDuino::isBreakpoint(uint8_t *loc) {
-    return this->breakpoints.find(loc) != this->breakpoints.end();
+    this->debugger->addDebugMessage(len, buff);
+//    for (size_t i = 0; i < len; i++) {
+//        bool success = true;
+//        int r = -1 /*undef*/;
+//
+//        // TODO replace by real binary
+//        switch (buff[i]) {
+//            case '0' ... '9':
+//                r = buff[i] - '0';
+//                break;
+//            case 'A' ... 'F':
+//                r = buff[i] - 'A' + 10;
+//                break;
+//            default:
+//                success = false;
+//        }
+//
+//        if (!success) {
+//            if (this->interruptEven) {
+//                if (!this->interruptBuffer.empty()) {
+//                    // done, send to process
+//                    auto *data = (uint8_t *)acalloc(
+//                        sizeof(uint8_t), this->interruptBuffer.size(),
+//                        "interrupt buffer");
+//                    memcpy(data, this->interruptBuffer.data(),
+//                           this->interruptBuffer.size() * sizeof(uint8_t));
+//                    this->parsedInterrups.push_back(data);
+//                    this->interruptBuffer.clear();
+//                }
+//            } else {
+//                this->interruptBuffer.clear();
+//                this->interruptEven = true;
+//                dbg_warn("Dropped interrupt: could not process");
+//            }
+//        } else {  // good parse
+//            if (!this->interruptEven) {
+//                this->interruptLastChar =
+//                    (this->interruptLastChar << 4u) + (uint8_t)r;
+//                this->interruptBuffer.push_back(this->interruptLastChar);
+//            } else {
+//                this->interruptLastChar = (uint8_t)r;
+//            }
+//            this->interruptEven = !this->interruptEven;
+//        }
+//    }
 }
 
 // CallbackHandler class

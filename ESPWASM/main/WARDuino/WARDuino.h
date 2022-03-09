@@ -6,11 +6,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <map>
-#include <queue>  // std::queue
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "../Interpreter/interrupt_operations.h"
 
 // Constants
 #define WA_MAGIC 0x6d736100
@@ -176,8 +176,6 @@ typedef struct PrimitiveEntry {
     Type t;
 } PrimitiveEntry;
 
-enum RunningState { WARDUINOrun, WARDUINOpause, WARDUINOstep };
-
 class Event {
    public:
     std::string topic;
@@ -219,23 +217,9 @@ class CallbackHandler {
 class WARDuino {
    private:
     std::vector<Module *> modules = {};
-    std::deque<uint8_t *> parsedInterrups = {};
-
-    // factually volatile
-
-    volatile bool interruptWrite;
-    volatile bool interruptRead;
-    bool interruptEven = true;
-    uint8_t interruptLastChar;
-    std::vector<uint8_t> interruptBuffer;
-    long interruptSize;
 
    public:
-    // vector, we expect few breakpoints
-    std::set<uint8_t *> breakpoints = {};
-
-    // Breakpoint to skip in the next interpretation step
-    uint8_t *skipBreakpoint = nullptr;
+    Debugger *debugger;
 
     WARDuino();
 
@@ -250,16 +234,6 @@ class WARDuino {
     uint32_t get_export_fidx(Module *m, const char *name);
 
     void handleInterrupt(size_t len, uint8_t *buff);
-
-    // breakpoints
-    void addBreakpoint(uint8_t *loc);
-
-    void delBreakpoint(uint8_t *loc);
-
-    bool isBreakpoint(uint8_t *loc);
-
-    // Get interrupt or NULL if none
-    uint8_t *getInterrupt();
 };
 
 #endif

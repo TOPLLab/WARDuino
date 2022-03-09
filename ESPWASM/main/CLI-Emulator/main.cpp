@@ -152,8 +152,8 @@ void startDebugger(WARDuino *wac, Module *m) {
             for (int i = 0; i < valread; i++) {
                 printf("%c", buffer[i]);
             }
-            // while (check_interrupts(m, &program_state)) {
-            //				printf("check_interrupts \n");
+            // while (checkDebugMessages(m, &program_state)) {
+            //				printf("checkDebugMessages \n");
             //};
             // fflush(stdout);
         }
