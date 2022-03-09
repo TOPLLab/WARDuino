@@ -32,9 +32,16 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
             this.client = new net.Socket();
             this.client.connect({port: 8192, host: '127.0.0.1'});  // TODO config
             this.listener.notifyProgress('Connected socket');
+
             this.client.on('error', err => {
                     this.listener.notifyError('Lost connection to the board');
                     console.log(err);
+                }
+            );
+
+            this.client.on('data', data => {
+                    console.log(`data: ${data}`);
+                    this.parse(data.toString());
                 }
             );
         }
@@ -62,11 +69,12 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         while (this.cp.stdout === undefined) {
         }
 
-        this.cp.stdout?.on('data', (data) => {
-            this.initClient();
-            console.log(`stdout: ${data}`);
-            this.parse(data.toString());
-        });
+        this.initClient();
+
+       this.cp.stdout?.on('data', (data) => {  // TODO socket instead of stdout
+           console.log(`stdout: ${data}`);
+           // this.parse(data.toString());  // TODO move parse
+       });
 
         this.cp.stderr?.on('data', (data) => {
             console.error(`stderr: ${data}`);
