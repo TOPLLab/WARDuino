@@ -23,9 +23,9 @@ class Debugger {
 
     // Private methods
 
-    void doDumpLocals(Module *m) const;
+    void dumpLocals(Module *m) const;
 
-    void doDump(Module *m);
+    void dumpStack(Module *m);
 
     bool readChange(Module *m, uint8_t *bytes);
 

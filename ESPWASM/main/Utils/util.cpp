@@ -1,12 +1,12 @@
 #include "util.h"
 
 #include <cmath>
-#include <cstdint>
 #include <cstring>
 
-#include "../Debug/debug.h"
+#include "macros.h"
 
-// Little endian base
+// Little endian base (LED128)
+
 uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
     uint64_t result = 0;
     uint32_t shift = 0;
@@ -51,6 +51,8 @@ uint32_t read_uint32(uint8_t **pos) {
     return ((uint32_t *)(*pos - 4))[0];
 }
 
+// Strings
+
 // Reads a string from the bytes array at pos that starts with a LEB length
 // if result_len is not NULL, then it will be set to the string length
 char *read_string(uint8_t **pos, uint32_t *result_len) {
@@ -61,6 +63,17 @@ char *read_string(uint8_t **pos, uint32_t *result_len) {
     *pos += str_len;
     if (result_len) {
         *result_len = str_len;
+    }
+    return str;
+}
+
+std::string parse_utf8_string(const uint8_t *buffer, uint32_t size,
+                              uint32_t offset) {
+    std::string str;
+    size += offset;
+    while (offset < size) {
+        str += buffer[offset];
+        offset++;
     }
     return str;
 }

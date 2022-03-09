@@ -1,14 +1,14 @@
 #include "debugger.h"
 
-#include <cinttypes>
 #include <unistd.h>
 
+#include <cinttypes>
+#include <cstring>
 #include <sstream>
 
-#include "debug.h"
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
-#include <cstring>
+#include "../Utils/macros.h"
 
 enum InterruptTypes {
     interruptRUN = 0x01,
@@ -172,12 +172,12 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             case interruptDUMP:
                 *program_state = WARDUINOpause;
                 free(interruptData);
-                this->doDump(m);
+                this->dumpStack(m);
                 break;
             case interruptDUMPLocals:
                 *program_state = WARDUINOpause;
                 free(interruptData);
-                this->doDumpLocals(m);
+                this->dumpLocals(m);
                 break;
             case interruptUPDATEFun:
                 output << "CHANGE local!\n";
@@ -206,7 +206,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
 
 // Private methods
 
-void Debugger::doDump(Module *m) {
+void Debugger::dumpStack(Module *m) {
     write(this->socket, "DUMP!\n", 6);
     std::ostringstream output;
 
@@ -256,7 +256,7 @@ void Debugger::doDump(Module *m) {
     write(this->socket, output.str().c_str(), output.str().length());
 }
 
-void Debugger::doDumpLocals(Module *m) const {
+void Debugger::dumpLocals(Module *m) const {
     write(this->socket, "DUMP LOCALS!\n\n", 14);
 
     int firstFunFramePtr = m->csp;

@@ -4,6 +4,7 @@
 #include <climits>
 #include <cstdint>
 #include <cstdlib>
+#include <string>
 
 /**
  * Read a Little endian base value of 32 bits
@@ -35,7 +36,14 @@ uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits);
 
 uint32_t read_uint32(uint8_t **pos);
 
+// Parse strings
+
 char *read_string(uint8_t **pos, uint32_t *result_len);
+
+std::string parse_utf8_string(const uint8_t *buffer, uint32_t size,
+                              uint32_t offset);
+
+// Byte operations
 
 void sext_8_32(uint32_t *val);
 

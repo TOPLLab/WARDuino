@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "../Debug/debug.h"
+#include "../Utils/macros.h"
 
 #ifdef ARDUINO
 #include "Arduino.h"
