@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../Interpreter/interrupt_operations.h"
+#include "../Debug/debugger.h"
 
 // Constants
 #define WA_MAGIC 0x6d736100

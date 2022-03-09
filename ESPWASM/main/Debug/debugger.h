@@ -14,22 +14,22 @@ class Debugger {
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
-    volatile bool interruptWrite;
-    volatile bool interruptRead;
+    volatile bool interruptWrite{};
+    volatile bool interruptRead{};
     bool interruptEven = true;
-    uint8_t interruptLastChar;
+    uint8_t interruptLastChar{};
     std::vector<uint8_t> interruptBuffer;
-    long interruptSize;
+    long interruptSize{};
 
     // Private methods
 
-    void doDumpLocals(Module *m);
+    void doDumpLocals(Module *m) const;
 
     void doDump(Module *m);
 
     bool readChange(Module *m, uint8_t *bytes);
 
-    bool readChangeLocal(Module *m, uint8_t *bytes);
+    bool readChangeLocal(Module *m, uint8_t *bytes) const;
 
    public:
     int socket;

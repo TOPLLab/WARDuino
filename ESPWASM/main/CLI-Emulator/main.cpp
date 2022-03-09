@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "../Interpreter/interrupt_operations.h"
+#include "../Debug/debugger.h"
 #include "../WARDuino/WARDuino.h"
 
 // Constants

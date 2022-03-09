@@ -4,7 +4,7 @@
 #include <cstring>
 
 #include "../Debug/debug.h"
-#include "../Interpreter/interrupt_operations.h"
+#include "../Debug/debugger.h"
 #include "../Memory/mem.h"
 #include "../Utils/util.h"
 #include "../Utils/util_arduino.h"
