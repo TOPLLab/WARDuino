@@ -71,10 +71,9 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
         this.initClient();
 
-       this.cp.stdout?.on('data', (data) => {  // TODO socket instead of stdout
-           console.log(`stdout: ${data}`);
-           // this.parse(data.toString());  // TODO move parse
-       });
+        this.cp.stdout?.on('data', (data) => {  // Print debug and trace information
+            console.log(`stdout: ${data}`);
+        });
 
         this.cp.stderr?.on('data', (data) => {
             console.error(`stderr: ${data}`);

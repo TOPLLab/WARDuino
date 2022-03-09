@@ -246,10 +246,10 @@ void Debugger::doDump(Module *m) {
          * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
          * */
         Frame *f = &m->callstack[i];
-        output << R"({"type":)" <<  std::to_string(f->block->block_type)
-               << R"(,"fidx":"0x)" << std::hex << f->block->fidx << R"(","sp":)" << std::to_string(f->sp)
-               << R"(,"fp":)" << std::to_string(f->fp) << R"(,"ra":")"
-               << static_cast<void *>(f->ra_ptr) << R"("})"
+        output << R"({"type":)" << std::to_string(f->block->block_type)
+               << R"(,"fidx":"0x)" << std::hex << f->block->fidx << R"(","sp":)"
+               << std::to_string(f->sp) << R"(,"fp":)" << std::to_string(f->fp)
+               << R"(,"ra":")" << static_cast<void *>(f->ra_ptr) << R"("})"
                << ((i < m->csp) ? "," : "]}\n");
     }
 
@@ -393,7 +393,8 @@ bool Debugger::readChangeLocal(Module *m, uint8_t *bytes) {
             memcpy(&v->value.uint64, pos, 8);
             break;
     }
-    output << "Local " << std::to_string(localId) << " changed to " << std::to_string(v->value.uint32) << "\n";
+    output << "Local " << std::to_string(localId) << " changed to "
+           << std::to_string(v->value.uint32) << "\n";
 
     write(this->socket, output.str().c_str(), output.str().length());
     return true;
