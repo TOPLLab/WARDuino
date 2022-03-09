@@ -1,6 +1,9 @@
 #include "interrupt_operations.h"
 
 #include <inttypes.h>
+#include <unistd.h>
+
+#include <sstream>
 
 #include "../Debug/debug.h"
 #include "../Memory/mem.h"
@@ -111,13 +114,15 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
  *            as payload (immediately following `0x10`), see #readChange
  */
 bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
-    uint8_t *interruptData = nullptr;
-    interruptData = this->getDebugMessage();
+    std::ostringstream output;
+    uint8_t *interruptData = this->getDebugMessage();
+
     if (interruptData) {
-        printf("Interupt: %x\n", *interruptData);
+        output << "Interupt: " << std::hex << std::to_string(*interruptData)
+               << "\n";
         switch (*interruptData) {
             case interruptRUN:
-                printf("GO!\n");
+                output << "GO!\n";
                 if (*program_state == WARDUINOpause &&
                     this->isBreakpoint(m->pc_ptr)) {
                     this->skipBreakpoint = m->pc_ptr;
@@ -126,17 +131,17 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 free(interruptData);
                 break;
             case interruptHALT:
-                printf("STOP!\n");
+                output << "STOP!\n";
                 free(interruptData);
                 exit(0);
                 break;
             case interruptPAUSE:
                 *program_state = WARDUINOpause;
-                printf("PAUSE!\n");
+                output << "PAUSE!\n";
                 free(interruptData);
                 break;
             case interruptSTEP:
-                printf("STEP!\n");
+                output << "STEP!\n";
                 *program_state = WARDUINOstep;
                 free(interruptData);
                 break;
@@ -151,7 +156,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                     bp |= interruptData[i + 2];
                 }
                 auto *bpt = (uint8_t *)bp;
-                printf("BP %p!\n", static_cast<void *>(bpt));
+                output << "BP " << static_cast<void *>(bpt) << "!\n";
 
                 if (*interruptData == 0x06) {
                     this->addBreakpoint(bpt);
@@ -175,83 +180,85 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 this->doDumpLocals(m);
                 break;
             case interruptUPDATEFun:
-                printf("CHANGE local!\n");
+                output << "CHANGE local!\n";
                 this->readChange(m, interruptData);
                 //  do not free(interruptData);
                 // we need it to run that code
                 // TODO: free double replacements
                 break;
             case interruptUPDATELocal:
-                printf("CHANGE local!\n");
+                output << "CHANGE local!\n";
                 this->readChangeLocal(m, interruptData);
                 free(interruptData);
                 break;
             default:
                 // handle later
-                printf("COULD not parse interrupt data!\n");
+                output << "COULD not parse interrupt data!\n";
                 free(interruptData);
                 break;
         }
-        fflush(stdout);
+        write(this->socket, output.str().c_str(), output.str().length());
         return true;
     }
-    fflush(stdout);
+    write(this->socket, output.str().c_str(), output.str().length());
     return false;
 }
 
 // Private methods
 
 void Debugger::doDump(Module *m) {
-    printf("DUMP!\n");
-    printf("{");
+    write(this->socket, "DUMP!\n", 6);
+    std::ostringstream output;
 
     // current PC
-    printf(R"("pc":"%p",)", (void *)m->pc_ptr);
+    output << R"({"pc":")" << (void *)m->pc_ptr << R"(",)";
 
     // start of bytes
-    printf(R"("start":["%p"],)", (void *)m->bytes);
+    output << R"("start":[")" << (void *)m->bytes << R"("],)";
 
-    printf("\"breakpoints\":[");
+    output << "\"breakpoints\":[";
 
     {
         size_t i = 0;
         for (auto bp : this->breakpoints) {
-            printf(R"("%p"%s)", bp,
-                   (++i < this->breakpoints.size()) ? "," : "");
+            output << R"(")" << bp << R"(")"
+                   << ((++i < this->breakpoints.size()) ? "," : "");
         }
     }
-    printf("],");
+    output << "],";
     // Functions
 
-    printf("\"functions\":[");
+    output << R"("functions":[)";
 
     for (size_t i = m->import_count; i < m->function_count; i++) {
-        printf(R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
-               m->functions[i].fidx,
-               static_cast<void *>(m->functions[i].start_ptr),
-               static_cast<void *>(m->functions[i].end_ptr),
-               (i < m->function_count - 1) ? "," : "],");
+        output << R"({"fidx":"0x)" << std::hex << m->functions[i].fidx
+               << R"(","from":")"
+               << static_cast<void *>(m->functions[i].start_ptr)
+               << R"(","to":")" << static_cast<void *>(m->functions[i].end_ptr)
+               << R"("})" << ((i < m->function_count - 1) ? "," : "],");
     }
 
     // Callstack
 
-    printf("\"callstack\":[");
+    output << R"("callstack":[)";
     for (int i = 0; i <= m->csp; i++) {
         /*
          * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
          * */
         Frame *f = &m->callstack[i];
-        printf(R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s)",
-               f->block->block_type, f->block->fidx, f->sp, f->fp,
-               static_cast<void *>(f->ra_ptr), (i < m->csp) ? "," : "]}\n");
+        output << R"({"type":)" <<  std::to_string(f->block->block_type)
+               << R"(,"fidx":"0x)" << std::hex << f->block->fidx << R"(","sp":)" << std::to_string(f->sp)
+               << R"(,"fp":)" << std::to_string(f->fp) << R"(,"ra":")"
+               << static_cast<void *>(f->ra_ptr) << R"("})"
+               << ((i < m->csp) ? "," : "]}\n");
     }
-    fflush(stdout);
+
+    write(this->socket, output.str().c_str(), output.str().length());
 }
 
 void Debugger::doDumpLocals(Module *m) {
-    fflush(stdout);
-    printf("DUMP LOCALS!\n\n");
-    fflush(stdout);
+    write(this->socket, "DUMP LOCALS!\n\n", 14);
+
     int firstFunFramePtr = m->csp;
     while (m->callstack[firstFunFramePtr].block->block_type != 0) {
         firstFunFramePtr--;
@@ -260,9 +267,11 @@ void Debugger::doDumpLocals(Module *m) {
         }
     }
     Frame *f = &m->callstack[firstFunFramePtr];
-    printf(R"({"count":%u,"locals":[)", 0);
-    fflush(stdout);  // FIXME: this is needed for ESP to propery print
+    write(this->socket, R"({"count":0,"locals":[)", 21);
+    //    fflush(stdout);  // FIXME: this is needed for ESP to properly print
+
     char _value_str[256];
+    std::ostringstream output;
     for (size_t i = 0; i < f->block->local_count; i++) {
         auto v = &m->stack[m->fp + i];
         switch (v->value_type) {
@@ -288,11 +297,11 @@ void Debugger::doDumpLocals(Module *m) {
                          v->value_type, v->value.uint64);
         }
 
-        printf("{%s}%s", _value_str,
-               (i + 1 < f->block->local_count) ? "," : "");
+        output << "{" << _value_str << "}"
+               << ((i + 1 < f->block->local_count) ? "," : "");
     }
-    printf("]}\n\n");
-    fflush(stdout);
+    output << "]}\n\n";
+    write(this->socket, output.str().c_str(), output.str().length());
 }
 
 /**
@@ -363,11 +372,12 @@ bool Debugger::readChange(Module *m, uint8_t *bytes) {
  */
 bool Debugger::readChangeLocal(Module *m, uint8_t *bytes) {
     if (*bytes != interruptUPDATELocal) return false;
+    std::ostringstream output;
     uint8_t *pos = bytes + 1;
-    printf("Local updates: %x\n", *pos);
+    output << "Local updates: " << std::hex << std::to_string(*pos) << "\n";
     uint32_t localId = read_LEB_32(&pos);
 
-    printf("Local %u being cahnged\n", localId);
+    output << "Local " << std::to_string(localId) << " being changed\n";
     auto v = &m->stack[m->fp + localId];
     switch (v->value_type) {
         case I32:
@@ -383,6 +393,8 @@ bool Debugger::readChangeLocal(Module *m, uint8_t *bytes) {
             memcpy(&v->value.uint64, pos, 8);
             break;
     }
-    printf("Local %u changed to %u\n", localId, v->value.uint32);
+    output << "Local " << std::to_string(localId) << " changed to " << std::to_string(v->value.uint32) << "\n";
+
+    write(this->socket, output.str().c_str(), output.str().length());
     return true;
 }
