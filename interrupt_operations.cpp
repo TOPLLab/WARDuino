@@ -27,7 +27,7 @@
  *            as payload (immediately following `0x10`), see #readChange
  */
 
-enum InteruptTypes {
+enum InterruptTypes {
     interruptRUN = 0x01,
     interruptHALT = 0x02,
     interruptPAUSE = 0x03,

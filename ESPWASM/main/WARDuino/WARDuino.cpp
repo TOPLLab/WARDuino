@@ -925,9 +925,9 @@ int WARDuino::run_module(Module *m) {
     return m->stack->value.uint32;
 }
 
-// Called when an interrupt comes in (not concurently the same function)
+// Called when an interrupt comes in (not concurrently the same function)
 // parse numer per 2 chars (HEX) (stop if non-hex)
-// Don't use print in interup handlers
+// Don't use print in interrupt handlers
 void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
     for (size_t i = 0; i < len; i++) {
         bool success = true;

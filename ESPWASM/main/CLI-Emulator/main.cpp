@@ -123,12 +123,12 @@ void startListening(int socket_fd) {
     }
 }
 
-int listenForIncommingConnection(int socket_fd, struct sockaddr_in address) {
+int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     int new_socket;
     int size = sizeof(address);
     if ((new_socket = accept(socket_fd, (struct sockaddr *)&address,
                              (socklen_t *)&size)) < 0) {
-        perror("Failed to listen for incomming connections");
+        perror("Failed to listen for incoming connections");
         exit(EXIT_FAILURE);
     }
     return new_socket;
@@ -143,7 +143,7 @@ void startDebugger(WARDuino *wac, Module *m) {
     int valread;
     uint8_t buffer[1024] = {0};
     while (true) {
-        int socket = listenForIncommingConnection(socket_fd, address);
+        int socket = listenForIncomingConnection(socket_fd, address);
         while ((valread = read(socket, buffer, 1024)) != -1) {
             printf("GOT A MESSAGE ... \n");
             wac->handleInterrupt(valread - 1, buffer);
@@ -164,14 +164,13 @@ Module *m;
 
 void *runWAC(void *p) {
     // Print value received as argument:
-    printf("STARTED WARDUINO In seperate thread");
+    printf("\n=== STARTED INTERPRETATION (in separate thread) ===\n");
     wac.run_module(m);
     wac.unload_module(m);
 }
 
 int main(int argc, const char *argv[]) {
     ARGV_SHIFT();  // Skip command name
-    printf("testing to print something\n");
 
     bool return_exception = true;
     bool run_tests = false;
@@ -219,6 +218,7 @@ int main(int argc, const char *argv[]) {
             return 0;
         }
 #endif
+        printf("=== LOAD MODULE INTO WARDUINO ===\n");
         m = load(wac, file_name,
                  {.disable_memory_bounds = false,
                   .mangle_table_index = false,
@@ -234,7 +234,7 @@ int main(int argc, const char *argv[]) {
         uint8_t command[] = {'0', '3', '\n'};
         wac.handleInterrupt(3, command);
         m->warduino = &wac;
-        pthread_create(&id, NULL, runWAC, NULL);
+        pthread_create(&id, nullptr, runWAC, nullptr);
         startDebugger(&wac, m);
         int *ptr;
         pthread_join(id, (void **)&ptr);

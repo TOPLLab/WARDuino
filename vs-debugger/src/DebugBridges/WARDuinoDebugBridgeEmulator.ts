@@ -30,7 +30,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private initClient() {
         if (this.client === undefined) {
             this.client = new net.Socket();
-            this.client.connect({port: 8192, host: '127.0.0.1'});
+            this.client.connect({port: 8192, host: '127.0.0.1'});  // TODO config
             this.listener.notifyProgress('Connected socket');
             this.client.on('error', err => {
                     this.listener.notifyError('Lost connection to the board');
