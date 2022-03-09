@@ -1,14 +1,14 @@
-#include "interrupt_operations.h"
+#include "debugger.h"
 
-#include <inttypes.h>
+#include <cinttypes>
 #include <unistd.h>
 
 #include <sstream>
 
-#include "../Debug/debug.h"
+#include "debug.h"
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
-#include "string.h"
+#include <cstring>
 
 enum InterruptTypes {
     interruptRUN = 0x01,
@@ -244,7 +244,7 @@ void Debugger::doDump(Module *m) {
     for (int i = 0; i <= m->csp; i++) {
         /*
          * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
-         * */
+         */
         Frame *f = &m->callstack[i];
         output << R"({"type":)" << std::to_string(f->block->block_type)
                << R"(,"fidx":"0x)" << std::hex << f->block->fidx << R"(","sp":)"
@@ -256,7 +256,7 @@ void Debugger::doDump(Module *m) {
     write(this->socket, output.str().c_str(), output.str().length());
 }
 
-void Debugger::doDumpLocals(Module *m) {
+void Debugger::doDumpLocals(Module *m) const {
     write(this->socket, "DUMP LOCALS!\n\n", 14);
 
     int firstFunFramePtr = m->csp;
@@ -370,7 +370,7 @@ bool Debugger::readChange(Module *m, uint8_t *bytes) {
  * @param bytes
  * @return
  */
-bool Debugger::readChangeLocal(Module *m, uint8_t *bytes) {
+bool Debugger::readChangeLocal(Module *m, uint8_t *bytes) const {
     if (*bytes != interruptUPDATELocal) return false;
     std::ostringstream output;
     uint8_t *pos = bytes + 1;

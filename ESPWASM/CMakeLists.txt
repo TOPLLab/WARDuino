@@ -18,7 +18,7 @@ if (BUILD_EMULATOR)
             main/Memory/mem.cpp
             main/Utils/util.cpp
             main/Utils/util_arduino.cpp
-            main/Interpreter/interrupt_operations.cpp
+            main/Debug/debugger.cpp
             main/Debug/debug.cpp
             main/WARDuino/WARDuino.cpp
             main/Primitives/primitives.cpp

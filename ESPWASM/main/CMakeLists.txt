@@ -1,4 +1,4 @@
-set(SOURCE_FILES Memory/mem.cpp Utils/util.cpp Utils/util_arduino.cpp Interpreter/interrupt_operations.cpp Debug/debug.cpp WARDuino/WARDuino.cpp Primitives/primitives.cpp Interpreter/instructions.cpp Utils/glue.cpp Utils/glue.h)
+set(SOURCE_FILES Memory/mem.cpp Utils/util.cpp Utils/util_arduino.cpp Debug/debugger.cpp Debug/debug.cpp WARDuino/WARDuino.cpp Primitives/primitives.cpp Interpreter/instructions.cpp Utils/glue.cpp Utils/glue.h)
 
 idf_component_register(SRCS "CLI/main.cpp" ${SOURCE_FILES} INCLUDE_DIRS "")
 
