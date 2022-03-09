@@ -3,9 +3,9 @@
 #include <cmath>
 #include <cstring>
 
-#include "../Debug/debug.h"
 #include "../Debug/debugger.h"
 #include "../Memory/mem.h"
+#include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../Utils/util_arduino.h"
 

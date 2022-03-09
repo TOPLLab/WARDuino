@@ -19,12 +19,11 @@ if (BUILD_EMULATOR)
             main/Utils/util.cpp
             main/Utils/util_arduino.cpp
             main/Debug/debugger.cpp
-            main/Debug/debug.cpp
+            main/Utils/macros.cpp
             main/WARDuino/WARDuino.cpp
             main/Primitives/primitives.cpp
             main/Interpreter/instructions.cpp
-            main/Utils/glue.cpp
-            main/Utils/glue.h)
+            )
 
     add_compile_options(-g -v -std=c++11 -Wall -Wextra -Wunused)
     add_executable(wdcli main/CLI-Emulator/main.cpp ${SOURCE_FILES})

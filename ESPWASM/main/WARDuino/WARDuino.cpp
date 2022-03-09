@@ -5,10 +5,10 @@
 #include <cstring>
 #include <utility>
 
-#include "../Debug/debug.h"
 #include "../Interpreter/instructions.h"
 #include "../Memory/mem.h"
 #include "../Primitives/primitives.h"
+#include "../Utils/macros.h"
 #include "../Utils/util.h"
 
 #define UNDEF (uint32_t)(-1)
