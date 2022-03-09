@@ -28,5 +28,6 @@ suite('WARDuinoCompilerBridge Test Suite', () => {
         expect(result).to.be.undefined;
     });
 
+    // TODO catch wat2wasm not in $PATH
 
 });

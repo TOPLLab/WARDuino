@@ -10,16 +10,16 @@
 /**
  * Validate if there are interrupts and execute them
  *
- * The various kinds of interrups are preceded by an identifier:
+ * The various kinds of interrupts are preceded by an identifier:
  *
  * - `0x01` : Continue running
  * - `0x02` : Halt the execution
  * - `0x03` : Pause execution
- * - `0x04` : Execute one operaion and then pause
- * - `0x06` : Add a breakpoint, the adress is specified as a pointer.
+ * - `0x04` : Execute one operation and then pause
+ * - `0x06` : Add a breakpoint, the address is specified as a pointer.
  *            The pointer should be specified as: 06[length][pointer]
  *            eg: 06 06 55a5994fa3d6
- * - `0x07` : Remove the breakpoint at the adress specified as a pointer if it
+ * - `0x07` : Remove the breakpoint at the address specified as a pointer if it
  *            exists (see `0x06`)
  * - `0x10` : Dump information about the program
  * - `0x11` :                  show locals
@@ -27,7 +27,7 @@
  *            as payload (immediately following `0x10`), see #readChange
  */
 
-enum InteruptTypes {
+enum InterruptTypes {
     interruptRUN = 0x01,
     interruptHALT = 0x02,
     interruptPAUSE = 0x03,
@@ -231,16 +231,16 @@ bool readChangeLocal(Module *m, uint8_t *bytes) {
 /**
  * Validate if there are interrupts and execute them
  *
- * The various kinds of interrups are preceded by an identifier:
+
  *
  * - `0x01` : Continue running
  * - `0x02` : Halt the execution
  * - `0x03` : Pause execution
- * - `0x04` : Execute one operaion and then pause
- * - `0x06` : Add a breakpoint, the adress is specified as a pointer.
+ * - `0x04` : Execute one operation and then pause
+ * - `0x06` : Add a breakpoint, the address is specified as a pointer.
  *            The pointer should be specified as: 06[length][pointer]
  *            eg: 06 06 55a5994fa3d6
- * - `0x07` : Remove the breakpoint at the adress specified as a pointer if it
+ * - `0x07` : Remove the breakpoint at the address specified as a pointer if it
  *            exists (see `0x06`)
  * - `0x10` : Dump information about the program
  * - `0x11` :                  show locals
