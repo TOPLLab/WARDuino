@@ -144,14 +144,15 @@ void startDebugger(WARDuino *wac, Module *m) {
     uint8_t buffer[1024] = {0};
     while (true) {
         int socket = listenForIncomingConnection(socket_fd, address);
+        wac->debugger->socket = socket;
         while ((valread = read(socket, buffer, 1024)) != -1) {
             write(socket, "GOT A MESSAGE ... \n", 19);
             wac->handleInterrupt(valread - 1, buffer);
             // RunningState program_state = WARDUINOrun;
             write(socket, buffer, valread);
-            for (int i = 0; i < valread; i++) {
-                printf("%c", buffer[i]);
-            }
+//            for (int i = 0; i < valread; i++) {
+//                printf("%c", buffer[i]);
+//            }
             // while (checkDebugMessages(m, &program_state)) {
             //				printf("checkDebugMessages \n");
             //};
