@@ -8,19 +8,6 @@
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 
-enum InterruptTypes {
-    interruptRUN = 0x01,
-    interruptHALT = 0x02,
-    interruptPAUSE = 0x03,
-    interruptSTEP = 0x04,
-    interruptBPAdd = 0x06,
-    interruptBPRem = 0x07,
-    interruptDUMP = 0x10,
-    interruptDUMPLocals = 0x11,
-    interruptUPDATEFun = 0x20,
-    interruptUPDATELocal = 0x21
-};
-
 // Debugger
 
 Debugger::Debugger(int socket) { this->socket = socket; }
@@ -28,6 +15,13 @@ Debugger::Debugger(int socket) { this->socket = socket; }
 // Public methods
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
+    uint8_t *data = this->parseDebugBuffer(len, buff);
+    if (data != nullptr) {
+        this->debugMessages.push_back(data);
+    }
+}
+
+uint8_t *Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
     for (size_t i = 0; i < len; i++) {
         bool success = true;
         int r = -1 /*undef*/;
@@ -53,13 +47,14 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
                         "interrupt buffer");
                     memcpy(data, this->interruptBuffer.data(),
                            this->interruptBuffer.size() * sizeof(uint8_t));
-                    this->debugMessages.push_back(data);
                     this->interruptBuffer.clear();
+                    return data;
                 }
             } else {
                 this->interruptBuffer.clear();
                 this->interruptEven = true;
                 dbg_warn("Dropped interrupt: could not process");
+                return nullptr;
             }
         } else {  // good parse
             if (!this->interruptEven) {
@@ -86,7 +81,7 @@ uint8_t *Debugger::getDebugMessage() {
 
 void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
 
-void Debugger::delBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
+void Debugger::deleteBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
 
 bool Debugger::isBreakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end();
@@ -112,97 +107,100 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
  *            as payload (immediately following `0x10`), see #readChange
  */
 bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
-    uint8_t *interruptData = nullptr;
-    interruptData = this->getDebugMessage();
-    if (interruptData) {
-        dprintf(this->socket, "Interupt: %x\n", *interruptData);
-        switch (*interruptData) {
-            case interruptRUN:
-                dprintf(this->socket, "GO!\n");
-                if (*program_state == WARDUINOpause &&
-                    this->isBreakpoint(m->pc_ptr)) {
-                    this->skipBreakpoint = m->pc_ptr;
-                }
-                *program_state = WARDUINOrun;
-                free(interruptData);
-                break;
-            case interruptHALT:
-                dprintf(this->socket, "STOP!\n");
-                free(interruptData);
-                exit(0);
-                break;
-            case interruptPAUSE:
-                *program_state = WARDUINOpause;
-                dprintf(this->socket, "PAUSE!\n");
-                free(interruptData);
-                break;
-            case interruptSTEP:
-                dprintf(this->socket, "STEP!\n");
-                *program_state = WARDUINOstep;
-                free(interruptData);
-                break;
-            case interruptBPAdd:  // Breakpoint
-            case interruptBPRem:  // Breakpoint remove
-            {
-                // TODO: segfault may happen here!
-                uint8_t len = interruptData[1];
-                uintptr_t bp = 0x0;
-                for (size_t i = 0; i < len; i++) {
-                    bp <<= sizeof(uint8_t) * 8;
-                    bp |= interruptData[i + 2];
-                }
-                auto *bpt = (uint8_t *)bp;
-                dprintf(this->socket, "BP %p!\n", static_cast<void *>(bpt));
-
-                if (*interruptData == 0x06) {
-                    this->addBreakpoint(bpt);
-                } else {
-                    this->delBreakpoint(bpt);
-                }
-
-                free(interruptData);
-
-                break;
-            }
-
-            case interruptDUMP:
-                *program_state = WARDUINOpause;
-                free(interruptData);
-                this->dumpStack(m);
-                break;
-            case interruptDUMPLocals:
-                *program_state = WARDUINOpause;
-                free(interruptData);
-                this->dumpLocals(m);
-                break;
-            case interruptUPDATEFun:
-                dprintf(this->socket, "CHANGE local!\n");
-                this->readChange(m, interruptData);
-                //  do not free(interruptData);
-                // we need it to run that code
-                // TODO: free double replacements
-                break;
-            case interruptUPDATELocal:
-                dprintf(this->socket, "CHANGE local!\n");
-                this->readChangeLocal(m, interruptData);
-                free(interruptData);
-                break;
-            default:
-                // handle later
-                dprintf(this->socket, "COULD not parse interrupt data!\n");
-                free(interruptData);
-                break;
-        }
+    uint8_t *interruptData = this->getDebugMessage();
+    if (interruptData == nullptr) {
         fflush(stdout);
-        return true;
+        return false;
+    }
+
+    dprintf(this->socket, "Interupt: %x\n", *interruptData);
+    switch (*interruptData) {
+        case interruptRUN:
+            this->handleInterruptRUN(m, program_state);
+            free(interruptData);
+            break;
+        case interruptHALT:
+            dprintf(this->socket, "STOP!\n");
+            free(interruptData);
+            exit(0);
+        case interruptPAUSE:
+            *program_state = WARDUINOpause;
+            dprintf(this->socket, "PAUSE!\n");
+            free(interruptData);
+            break;
+        case interruptSTEP:
+            dprintf(this->socket, "STEP!\n");
+            *program_state = WARDUINOstep;
+            free(interruptData);
+            break;
+        case interruptBPAdd:  // Breakpoint
+        case interruptBPRem:  // Breakpoint remove
+        {
+            this->handleInterruptBP(interruptData);
+            free(interruptData);
+            break;
+        }
+        case interruptDUMP:
+            *program_state = WARDUINOpause;
+            this->fullDump(m);
+            free(interruptData);
+            break;
+        case interruptDUMPLocals:
+            *program_state = WARDUINOpause;
+            this->dumpLocals(m);
+            free(interruptData);
+            break;
+        case interruptUPDATEFun:
+            dprintf(this->socket, "CHANGE function!\n");
+            this->handleChangedFunction(m, interruptData);
+            //  do not free(interruptData);
+            // we need it to run that code
+            // TODO: free double replacements
+            break;
+        case interruptUPDATELocal:
+            dprintf(this->socket, "CHANGE local!\n");
+            this->handleChangedLocal(m, interruptData);
+            free(interruptData);
+            break;
+        default:
+            // handle later
+            dprintf(this->socket, "COULD not parse interrupt data!\n");
+            free(interruptData);
+            break;
     }
     fflush(stdout);
-    return false;
+    return true;
 }
 
 // Private methods
 
-void Debugger::dumpStack(Module *m) {
+void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
+    dprintf(this->socket, "GO!\n");
+    if (*program_state == WARDUINOpause && this->isBreakpoint(m->pc_ptr)) {
+        this->skipBreakpoint = m->pc_ptr;
+    }
+    *program_state = WARDUINOrun;
+}
+
+void Debugger::handleInterruptBP(uint8_t *interruptData) {
+    // TODO: segfault may happen here!
+    uint8_t len = interruptData[1];
+    uintptr_t bp = 0x0;
+    for (size_t i = 0; i < len; i++) {
+        bp <<= sizeof(uint8_t) * 8;
+        bp |= interruptData[i + 2];
+    }
+    auto *bpt = (uint8_t *)bp;
+    dprintf(this->socket, "BP %p!\n", static_cast<void *>(bpt));
+
+    if (*interruptData == 0x06) {
+        this->addBreakpoint(bpt);
+    } else {
+        this->deleteBreakpoint(bpt);
+    }
+}
+
+void Debugger::fullDump(Module *m) const {
     dprintf(this->socket, "DUMP!\n");
     dprintf(this->socket, "{");
 
@@ -212,8 +210,17 @@ void Debugger::dumpStack(Module *m) {
     // start of bytes
     dprintf(this->socket, R"("start":["%p"],)", (void *)m->bytes);
 
-    dprintf(this->socket, "\"breakpoints\":[");
+    this->dumpBreakpoints(m);
 
+    this->dumpFunctions(m);
+
+    this->dumpCallstack(m);
+
+    fflush(stdout);
+}
+
+void Debugger::dumpBreakpoints(Module *m) const {
+    dprintf(this->socket, "\"breakpoints\":[");
     {
         size_t i = 0;
         for (auto bp : this->breakpoints) {
@@ -222,8 +229,9 @@ void Debugger::dumpStack(Module *m) {
         }
     }
     dprintf(this->socket, "],");
-    // Functions
+}
 
+void Debugger::dumpFunctions(Module *m) const {
     dprintf(this->socket, "\"functions\":[");
 
     for (size_t i = m->import_count; i < m->function_count; i++) {
@@ -233,21 +241,20 @@ void Debugger::dumpStack(Module *m) {
                 static_cast<void *>(m->functions[i].end_ptr),
                 (i < m->function_count - 1) ? "," : "],");
     }
+}
 
-    // Callstack
-
+/*
+ * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
+ */
+void Debugger::dumpCallstack(Module *m) const {
     dprintf(this->socket, "\"callstack\":[");
     for (int i = 0; i <= m->csp; i++) {
-        /*
-         * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
-         */
         Frame *f = &m->callstack[i];
         dprintf(this->socket,
                 R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s)",
                 f->block->block_type, f->block->fidx, f->sp, f->fp,
                 static_cast<void *>(f->ra_ptr), (i < m->csp) ? "," : "]}\n");
     }
-    fflush(stdout);
 }
 
 void Debugger::dumpLocals(Module *m) const {
@@ -269,25 +276,25 @@ void Debugger::dumpLocals(Module *m) const {
         auto v = &m->stack[m->fp + i];
         switch (v->value_type) {
             case I32:
-                snprintf(_value_str, 255,
-                          R"("type":"i32","value":%)" PRIi32, v->value.uint32);
+                snprintf(_value_str, 255, R"("type":"i32","value":%)" PRIi32,
+                         v->value.uint32);
                 break;
             case I64:
-                snprintf(_value_str, 255,
-                          R"("type":"i64","value":%)" PRIi64, v->value.uint64);
+                snprintf(_value_str, 255, R"("type":"i64","value":%)" PRIi64,
+                         v->value.uint64);
                 break;
             case F32:
-                snprintf(_value_str, 255,
-                          R"("type":"i64","value":%.7f)", v->value.f32);
+                snprintf(_value_str, 255, R"("type":"i64","value":%.7f)",
+                         v->value.f32);
                 break;
             case F64:
-                snprintf(_value_str, 255,
-                          R"("type":"i64","value":%.7f)", v->value.f64);
+                snprintf(_value_str, 255, R"("type":"i64","value":%.7f)",
+                         v->value.f64);
                 break;
             default:
                 snprintf(_value_str, 255,
-                          R"("type":"%02x","value":"%)" PRIx64 "\"",
-                          v->value_type, v->value.uint64);
+                         R"("type":"%02x","value":"%)" PRIx64 "\"",
+                         v->value_type, v->value.uint64);
         }
 
         dprintf(this->socket, "{%s}%s", _value_str,
@@ -304,7 +311,7 @@ void Debugger::dumpLocals(Module *m) const {
  * [0x10, index, ... new function body 0x0b]
  * Where index is the index without imports
  */
-bool Debugger::readChange(Module *m, uint8_t *bytes) {
+bool Debugger::handleChangedFunction(Module *m, uint8_t *bytes) {
     // Check if this was a change request
     if (*bytes != interruptUPDATEFun) return false;
 
@@ -363,7 +370,7 @@ bool Debugger::readChange(Module *m, uint8_t *bytes) {
  * @param bytes
  * @return
  */
-bool Debugger::readChangeLocal(Module *m, uint8_t *bytes) const {
+bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
     if (*bytes != interruptUPDATELocal) return false;
     uint8_t *pos = bytes + 1;
     dprintf(this->socket, "Local updates: %x\n", *pos);
