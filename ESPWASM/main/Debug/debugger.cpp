@@ -250,10 +250,12 @@ void Debugger::dumpCallstack(Module *m) const {
     dprintf(this->socket, "\"callstack\":[");
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
-        dprintf(this->socket,
-                R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s)",
-                f->block->block_type, f->block->fidx, f->sp, f->fp,
-                static_cast<void *>(f->ra_ptr), (i < m->csp) ? "," : "]}\n");
+        dprintf(
+            this->socket,
+            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"start":"%p","ra":"%p"}%s)",
+            f->block->block_type, f->block->fidx, f->sp, f->fp,
+            f->block->start_ptr, static_cast<void *>(f->ra_ptr),
+            (i < m->csp) ? "," : "]}\n");
     }
 }
 
