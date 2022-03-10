@@ -9,6 +9,19 @@ class Module;
 
 enum RunningState { WARDUINOrun, WARDUINOpause, WARDUINOstep };
 
+enum InterruptTypes {
+    interruptRUN = 0x01,
+    interruptHALT = 0x02,
+    interruptPAUSE = 0x03,
+    interruptSTEP = 0x04,
+    interruptBPAdd = 0x06,
+    interruptBPRem = 0x07,
+    interruptDUMP = 0x10,
+    interruptDUMPLocals = 0x11,
+    interruptUPDATEFun = 0x20,
+    interruptUPDATELocal = 0x21
+};
+
 class Debugger {
    private:
     std::deque<uint8_t *> debugMessages = {};
@@ -23,13 +36,32 @@ class Debugger {
 
     // Private methods
 
+    // TODO Move parsing to WARDuino class?
+    uint8_t *parseDebugBuffer(size_t len, const uint8_t *buff);
+
+    //// Handle Interrupt Types
+
+    void handleInterruptRUN(Module *m, RunningState *program_state);
+
+    void handleInterruptBP(uint8_t *interruptData);
+
+    //// Information dumps
+
+    void fullDump(Module *m) const;
+
     void dumpLocals(Module *m) const;
 
-    void dumpStack(Module *m);
+    void dumpBreakpoints(Module *m) const;
 
-    bool readChange(Module *m, uint8_t *bytes);
+    void dumpFunctions(Module *m) const;
 
-    bool readChangeLocal(Module *m, uint8_t *bytes) const;
+    void dumpCallstack(Module *m) const;
+
+    //// Handle live code update
+
+    bool handleChangedFunction(Module *m, uint8_t *bytes);
+
+    bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
    public:
     int socket;
@@ -42,8 +74,7 @@ class Debugger {
 
     // Interrupts
 
-    void addDebugMessage(
-        size_t len, const uint8_t *buff);  // TODO Move parsing to WARDuino?
+    void addDebugMessage(size_t len, const uint8_t *buff);
 
     uint8_t *getDebugMessage();
 
@@ -53,7 +84,7 @@ class Debugger {
 
     void addBreakpoint(uint8_t *loc);
 
-    void delBreakpoint(uint8_t *loc);
+    void deleteBreakpoint(uint8_t *loc);
 
     bool isBreakpoint(uint8_t *loc);
 };
