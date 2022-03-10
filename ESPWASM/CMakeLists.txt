@@ -21,6 +21,7 @@ if (BUILD_EMULATOR)
             main/Debug/debugger.cpp
             main/Utils/macros.cpp
             main/WARDuino/WARDuino.cpp
+            main/WARDuino/CallbackHandler.cpp
             main/Primitives/primitives.cpp
             main/Interpreter/instructions.cpp
             )
