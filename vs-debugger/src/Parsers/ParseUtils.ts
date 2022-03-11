@@ -50,11 +50,12 @@ function extractFunctionInfo(line: String): FunctionInfo {
 function fillInLocalInfos(functionInfos: FunctionInfo[], lines: String[]): FunctionInfo[] {
     lines = lines.filter((line) => line.includes("local"));
     for (let i = 0; i < lines.length; i++) {
-        let components = lines[i].split(/[\[\]<>]+/);
-        if (components.length >= 6) {
-            functionInfos[+components[1]].locals.push({
+        let fidx = lines[i].match(/\[([0-9]+)]/);
+        if (fidx !== null) {
+            let name = lines[i].match(/<([a-zA-Z0-9 ]+)>/);
+            functionInfos[+fidx[1]].locals.push({
                 index: i,
-                name: components[5],
+                name: ((name === null) ? `${i}` : `$${name[1]}`),
                 type: "undefined",
                 mutable: true,
                 value: ""
@@ -75,7 +76,7 @@ function extractGlobalInfo(line: String): VariableInfo {
     match = line.match(/ ([if][0-9][0-9]) /);
     global.type = (match === null) ? "undefined" : match[1];
     match = line.match(/<([a-zA-Z0-9 ]+)>/);
-    global.name = (match === null) ? `${global.index} (${global.type})` : match[1];
+    global.name = ((match === null) ? `${global.index}` : `$${match[1]}`) + ` (${global.type})`;
     match = line.match(/mutable=([0-9])/);
     global.mutable = match !== null && +match[1] === 1;
     match = line.match(/init.*=(.*)/);
