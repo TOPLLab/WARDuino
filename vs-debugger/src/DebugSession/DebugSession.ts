@@ -3,13 +3,14 @@ import {basename} from 'path-browserify';
 import * as vscode from 'vscode';
 
 import {
+    Handles,
     InitializedEvent,
-    LoggingDebugSession,
+    LoggingDebugSession, Scope,
     Source,
     StackFrame,
     StoppedEvent,
     TerminatedEvent,
-    Thread
+    Thread, Variable
 } from 'vscode-debugadapter';
 import {CompileTimeError} from "../CompilerBridges/CompileTimeError";
 import {ErrorReporter} from "./ErrorReporter";
@@ -30,6 +31,8 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
     private debugBridge?: DebugBridge;
     private notifier: vscode.StatusBarItem;
     private reporter: ErrorReporter;
+
+    private variableHandles = new Handles<'locals' | 'globals'>();
 
     public constructor(notifier: vscode.StatusBarItem, reporter: ErrorReporter) {
         super("debug_log.txt");
@@ -169,6 +172,35 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
                 this.testCurrentLine = info.lineInfo.line - 1;
             }
         });
+    }
+
+    protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
+        response.body = {
+            scopes: [
+                new Scope("Locals", this.variableHandles.create('locals'), false),
+                new Scope("Globals", this.variableHandles.create('globals'), true)
+            ]
+        };
+        this.sendResponse(response);
+    }
+
+    protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request) {
+        if (this.sourceMap === undefined) {
+            return;
+        }
+
+        const v = this.variableHandles.get(args.variablesReference);
+        if (v === "locals") {
+            this.sendResponse(response);
+        } else {
+            response.body = {
+                variables: Array.from(this.sourceMap.globalInfos, (info) => {
+                    return {name: info.name, value: info.value, variablesReference: 0};
+                })
+            };
+            console.log(response.body);
+            this.sendResponse(response);
+        }
     }
 
     protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
