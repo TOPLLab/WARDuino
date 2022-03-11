@@ -3,4 +3,5 @@ export interface VariableInfo {
     name: string;
     type: string;
     mutable: boolean;
+    value: string;
 }

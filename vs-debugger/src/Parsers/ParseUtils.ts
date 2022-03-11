@@ -56,7 +56,8 @@ function fillInLocalInfos(functionInfos: FunctionInfo[], lines: String[]): Funct
                 index: i,
                 name: components[5],
                 type: "undefined",
-                mutable: true
+                mutable: true,
+                value: ""
             });  // TODO get type from disassembly
         }
     }
@@ -71,12 +72,14 @@ function extractGlobalInfo(line: String): VariableInfo {
     let global = {} as VariableInfo;
     let match = line.match(/\[([0-9]+)]/);
     global.index = (match === null) ? NaN : +match[1];
-    match = line.match(/<([a-zA-Z0-9 ]+)>/);
-    global.name = (match === null) ? `global ${global.index}` : match[1];
     match = line.match(/ ([if][0-9][0-9]) /);
     global.type = (match === null) ? "undefined" : match[1];
+    match = line.match(/<([a-zA-Z0-9 ]+)>/);
+    global.name = (match === null) ? `${global.index} (${global.type})` : match[1];
     match = line.match(/mutable=([0-9])/);
     global.mutable = match !== null && +match[1] === 1;
+    match = line.match(/init.*=(.*)/);
+    global.value = (match === null) ? "" : match[1];
     return global;
 }
 
