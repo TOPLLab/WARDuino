@@ -1,11 +1,15 @@
 # The following lines of boilerplate have to be in your project's
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.5)
-option(BUILD_ESP "Build for esp" OFF)
-option(BUILD_EMULATOR "Build for emulator" ON)
+option(BUILD_ESP "Build for esp" ON)
+option(BUILD_EMULATOR "Build for emulator" OFF)
 
 # Build WARDuino with the ESP-IDF toolchain
 if (BUILD_ESP)
+    if (NOT EXISTS $ENV{IDF_PATH}/tools/cmake/project.cmake)
+        message(FATAL_ERROR "Can't find $IDF_PATH/tools/cmake/project.cmake. Make sure ESP-IDF is installed and $IDF_PATH is set.")
+    endif ()
+
     include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 endif (BUILD_ESP)
 
