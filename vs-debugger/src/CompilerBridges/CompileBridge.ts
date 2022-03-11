@@ -1,5 +1,5 @@
-import {LineInfoPairs} from "./LineInfoPairs";
+import {SourceMap} from "./SourceMap";
 
 export interface CompileBridge {
-    compile(): Promise<LineInfoPairs[]>;
+    compile(): Promise<SourceMap>;
 }

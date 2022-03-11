@@ -1,6 +1,7 @@
 import {CompileBridge} from "./CompileBridge";
 import {exec, ExecException} from "child_process";
 import {LineInfoPairs} from "./LineInfoPairs";
+import {SourceMap} from "./SourceMap";
 
 export class AssemblyScriptCompilerBridge implements CompileBridge {
     sourceFilePath: String;
@@ -13,9 +14,9 @@ export class AssemblyScriptCompilerBridge implements CompileBridge {
         return await this.executeCompileCommand(this.compileCommand());
     }
 
-    private executeCompileCommand(command: string): Promise<LineInfoPairs[]> {
+    private executeCompileCommand(command: string): Promise<SourceMap> {
         return new Promise((resolve, reject) => {
-            let sourceMap: LineInfoPairs[];
+            let sourceMap: SourceMap;
 
             function handleCompilerStreams(error: ExecException | null, stdout: String, stderr: any) {
                 // TODO handle errors
@@ -36,8 +37,8 @@ export class AssemblyScriptCompilerBridge implements CompileBridge {
         return "asc --sourceMap --converge --target debug --use abort= --binaryFile=\"/tmp/warduino/upload.wasm\"" + this.sourceFilePath;  // TODO
     }
 
-    private static makeSourceMap(sourceMapFile: String): LineInfoPairs[] {
+    private static makeSourceMap(sourceMapFile: String): SourceMap {
         // TODO
-        return [];
+        return {lineInfoPairs: [], functionInfos: [], globalInfos: []};
     }
 }

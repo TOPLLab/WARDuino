@@ -11,7 +11,6 @@ import {
     TerminatedEvent,
     Thread
 } from 'vscode-debugadapter';
-import {LineInfoPairs} from "../CompilerBridges/LineInfoPairs";
 import {CompileTimeError} from "../CompilerBridges/CompileTimeError";
 import {ErrorReporter} from "./ErrorReporter";
 import {DebugBridge} from '../DebugBridges/DebugBridge';
@@ -19,10 +18,11 @@ import {DebugBridgeFactory} from '../DebugBridges/DebugBridgeFactory';
 import {RunTimeTarget} from "../DebugBridges/RunTimeTarget";
 import {CompileBridgeFactory} from "../CompilerBridges/CompileBridgeFactory";
 import {CompileBridge} from "../CompilerBridges/CompileBridge";
+import {SourceMap} from "../CompilerBridges/SourceMap";
 
 // Interface between the debugger and the VS runtime 
 export class WARDuinoDebugSession extends LoggingDebugSession {
-    private sourceMap?: LineInfoPairs[] = [];
+    private sourceMap?: SourceMap = undefined;
     private program: string = "";
     private THREAD_ID: number = 42;
     private testCurrentLine = 0;
@@ -163,7 +163,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
     }
 
     private setLineNumberFromPC(pc: number) {
-        this.sourceMap?.forEach((info) => {
+        this.sourceMap?.lineInfoPairs.forEach((info) => {
             const address = parseInt("0x" + info.lineAddress);
             if (Math.abs(pc - address) === 0) {
                 this.testCurrentLine = info.lineInfo.line - 1;
