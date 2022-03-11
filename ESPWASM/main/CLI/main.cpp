@@ -4,17 +4,19 @@
 //
 //#include <cstdio>
 
-#include "../WARDuino/WARDuino.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/gpio.h"
-#include "sdkconfig.h"
 #include <stdio.h>
 
-#include "esp_err.h"
-#include "esp_vfs_dev.h"
+#include "../WARDuino/WARDuino.h"
+#include "driver/gpio.h"
 #include "driver/uart.h"
+#include "esp_err.h"
 #include "esp_task_wdt.h"
+#include "esp_vfs_dev.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "sdkconfig.h"
+
+volatile bool handelingInterrupt = false;
 
 unsigned char wasm[] = {
   0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0e, 0x03, 0x60,
@@ -44,16 +46,15 @@ extern "C" {
 extern void app_main(void);
 }
 
-
 WARDuino wac;
 Module* m;
 
-void startDebuggerStd(void *pvParameter) {
-				int valread;
+void startDebuggerStd(void* pvParameter) {
+    int valread;
     uint8_t buffer[1024] = {0};
-				wac.debugger->socket = fileno(stdout);
+    wac.debugger->socket = fileno(stdout);
     while (true) {
-								taskYIELD();
+        taskYIELD();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
         while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
@@ -65,7 +66,6 @@ void startDebuggerStd(void *pvParameter) {
     }
 }
 
-
 void app_main(void) {
     m = wac.load_module(wasm, wasm_len, {});
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
@@ -75,12 +75,11 @@ void app_main(void) {
     wac.unload_module(m);
 }
 
-
 /*void app_main(void) {
     m = wac.load_module(wasm, wasm_len, {});
     printf("START\n\n");
     //wac.run_module(m);
     //printf("END\n\n");
     //wac.unload_module(m);
-				 while(true);
+                                 while(true);
 }*/
