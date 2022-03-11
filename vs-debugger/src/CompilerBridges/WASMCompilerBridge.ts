@@ -7,6 +7,7 @@ import {CompileBridge} from "./CompileBridge";
 import {SourceMap} from "./SourceMap";
 import {FunctionInfo} from "./FunctionInfo";
 import {VariableInfo} from "./VariableInfo";
+import {getFunctionInfos, getGlobalInfos} from "../Parsers/ParseUtils";
 
 function checkCompileTimeError(errorMessage: string) {
     let regexpr = /:(?<line>(\d+)):(?<column>(\d+)): error: (?<message>(.*))/;
@@ -50,16 +51,6 @@ function createLineInfoPairs(lines: string[]): LineInfoPairs[] { // TODO update
         }
     }
     return result;
-}
-
-function makeFunctionInfos(sourceMapInput: String): FunctionInfo[] {
-    // TODO
-    return [];
-}
-
-function makeGlobalInfos(sourceMapInput: String): FunctionInfo[] {
-    // TODO
-    return [];
 }
 
 function makeLineInfoPairs(sourceMapInput: String): LineInfoPairs[] {
@@ -134,8 +125,8 @@ export class WASMCompilerBridge implements CompileBridge {
                 function handleObjDumpStreams(error: ExecException | null, stdout: String, stderr: any) {
                     that.handleStdError(stderr, reject);
                     that.handleError(error, reject);
-                    functionInfos = makeFunctionInfos(stdout);
-                    globalInfos = makeGlobalInfos(stdout);
+                    functionInfos = parseUtils.getFunctionInfos(stdout);
+                    globalInfos = parseUtils.getGlobalInfos(stdout);
                 }
 
                 let objDump = exec(objDumpCommand, handleObjDumpStreams);
