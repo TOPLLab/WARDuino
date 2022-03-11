@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+
 #include <cstdio>
 #include <cstring>
 
@@ -134,7 +135,24 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     return new_socket;
 }
 
-void startDebugger(WARDuino *wac, Module *m) {
+
+
+void startDebuggerStd(WARDuino *wac, Module *m) {
+				int valread;
+    uint8_t buffer[1024] = {0};
+				wac->debugger->socket = fileno(stdout);
+    while (true) {
+								printf("waiting for debug command\n");
+        while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
+            write(fileno(stdout), "got a message ... \n", 19);
+            wac->handleInterrupt(valread - 1, buffer);
+            write(fileno(stdout), buffer, valread);
+            fflush(stdout);
+        }
+    }
+}
+
+void startDebuggerSocket(WARDuino *wac, Module *m) {
     int socket_fd = createSocketFileDescriptor();
     struct sockaddr_in address = createAddress(8192);
     bindSocketToAddress(socket_fd, address);
@@ -145,14 +163,14 @@ void startDebugger(WARDuino *wac, Module *m) {
     while (true) {
         int socket = listenForIncomingConnection(socket_fd, address);
         wac->debugger->socket = socket;
-        //        wac->debugger->socket = fileno(stdout); // TODO remove
+        //        wac->debugger->socket = fileno(stdout); // todo remove
         while ((valread = read(socket, buffer, 1024)) != -1) {
-            write(socket, "GOT A MESSAGE ... \n", 19);
+            write(socket, "got a message ... \n", 19);
             wac->handleInterrupt(valread - 1, buffer);
-            // RunningState program_state = WARDUINOrun;
+            // runningstate program_state = warduinorun;
             write(socket, buffer, valread);
-            // while (checkDebugMessages(m, &program_state)) {
-            //				printf("checkDebugMessages \n");
+            // while (checkdebugmessages(m, &program_state)) {
+            //				printf("checkdebugmessages \n");
             //};
             // fflush(stdout);
         }
@@ -174,6 +192,7 @@ int main(int argc, const char *argv[]) {
 
     bool return_exception = true;
     bool run_tests = false;
+				bool no_socket = false;
     const char *file_name = nullptr;
 
 #ifdef TEST
@@ -203,7 +222,9 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp("--watcompiler", arg)) {
             ARGV_GET(watcompiler);
 #endif
-        }
+        } else if (!strcmp("--no-socket", arg)) {
+            no_socket = true ;
+								}
     }
 
     if (argc == 1) {
@@ -235,7 +256,11 @@ int main(int argc, const char *argv[]) {
         wac.handleInterrupt(3, command);
         m->warduino = &wac;
         pthread_create(&id, nullptr, runWAC, nullptr);
-        startDebugger(&wac, m);
+								if(no_socket) {
+        			 startDebuggerStd(&wac, m);
+								} else {
+												startDebuggerSocket(&wac,m);
+								}
         int *ptr;
         pthread_join(id, (void **)&ptr);
     }
