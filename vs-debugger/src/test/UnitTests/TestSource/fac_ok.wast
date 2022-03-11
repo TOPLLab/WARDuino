@@ -56,12 +56,12 @@
 
    (;main func loops forever;)
  (func $fac5 (type $v2v)
-       (local $int_32 i32)
-       (local.set $int_32 (i32.const 6))
+       (local $foo i32)
+       (local.set $foo (i32.const 6))
     (loop 
 
       (i64.const 13)
-      (get_local $int_32)
+      (get_local $foo)
       (call $fac)
 
       (call $dummy) 
