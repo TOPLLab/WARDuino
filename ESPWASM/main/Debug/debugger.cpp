@@ -67,6 +67,7 @@ uint8_t *Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
             this->interruptEven = !this->interruptEven;
         }
     }
+				return nullptr;
 }
 
 uint8_t *Debugger::getDebugMessage() {
