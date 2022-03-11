@@ -4,6 +4,9 @@ import {CompileTimeError} from "./CompileTimeError";
 import {LineInfo} from "./LineInfo";
 import {LineInfoPairs} from "./LineInfoPairs";
 import {CompileBridge} from "./CompileBridge";
+import {SourceMap} from "./SourceMap";
+import {FunctionInfo} from "./FunctionInfo";
+import {VariableInfo} from "./VariableInfo";
 
 function checkCompileTimeError(errorMessage: string) {
     let regexpr = /:(?<line>(\d+)):(?<column>(\d+)): error: (?<message>(.*))/;
@@ -25,12 +28,18 @@ function checkErrorWat2Wasm(errorMessage: string) {
     }
 }
 
+function checkErrorObjDump(errorMessage: string) {
+    if (errorMessage.match('wasm-objdump')) {
+        throw new Error('Could not find wasm-objdump in the path');
+    }
+}
+
 function extractLineInfo(lineString: string): LineInfo {
     lineString = lineString.substring(1);
     return parseUtils.jsonParse(lineString);
 }
 
-function createLineInfoPairs(lines: string[]): LineInfoPairs[] {
+function createLineInfoPairs(lines: string[]): LineInfoPairs[] { // TODO update
     let result = [];
     for (let i = 0; i < lines.length; i++) {
         if (lines[i].match(/@/)) {
@@ -43,7 +52,17 @@ function createLineInfoPairs(lines: string[]): LineInfoPairs[] {
     return result;
 }
 
-function makeSourceMap(sourceMapInput: String): LineInfoPairs[] {
+function makeFunctionInfos(sourceMapInput: String): FunctionInfo[] {
+    // TODO
+    return [];
+}
+
+function makeGlobalInfos(sourceMapInput: String): FunctionInfo[] {
+    // TODO
+    return [];
+}
+
+function makeLineInfoPairs(sourceMapInput: String): LineInfoPairs[] {
     let lines = sourceMapInput.split('\n');
     return createLineInfoPairs(lines);
 }
@@ -56,8 +75,7 @@ export class WASMCompilerBridge implements CompileBridge {
     }
 
     async compile() {
-        let compileCommand: string = this.compileToWasmCommand();
-        return await this.executeCompileCommand(compileCommand);
+        return await this.compileAndDump(this.compileToWasmCommand(), WASMCompilerBridge.getNameDumpCommand());
     }
 
     async compileHeader() {
@@ -67,6 +85,7 @@ export class WASMCompilerBridge implements CompileBridge {
 
     private checkErrorMessage(errorString: string) {
         checkErrorWat2Wasm(errorString);
+        checkErrorObjDump(errorString);
         checkCompileTimeError(errorString);
     }
 
@@ -86,6 +105,55 @@ export class WASMCompilerBridge implements CompileBridge {
         }
     }
 
+    private compileAndDump(compileCommand: string, objDumpCommand: string): Promise<SourceMap> {
+        return new Promise<LineInfoPairs[]>((resolve, reject) => {
+            let lineInfoPairs: LineInfoPairs[];
+            let that = this;
+
+            function handleCompilerStreams(error: ExecException | null, stdout: String, stderr: any) {
+                that.handleStdError(stderr, reject);
+                that.handleError(error, reject);
+                lineInfoPairs = makeLineInfoPairs(stdout);
+            }
+
+            let compile = exec(compileCommand, handleCompilerStreams);
+
+            compile.on('close', (code) => {
+                if (lineInfoPairs) {
+                    resolve(lineInfoPairs);
+                }
+            });
+
+        }).then((result) => {
+            return new Promise((resolve, reject) => {
+                let functionInfos: FunctionInfo[];
+                let globalInfos: VariableInfo[];
+                let sourceMap: SourceMap;
+                let that = this;
+
+                function handleObjDumpStreams(error: ExecException | null, stdout: String, stderr: any) {
+                    that.handleStdError(stderr, reject);
+                    that.handleError(error, reject);
+                    functionInfos = makeFunctionInfos(stdout);
+                    globalInfos = makeGlobalInfos(stdout);
+                }
+
+                let objDump = exec(objDumpCommand, handleObjDumpStreams);
+
+                if (result) {
+                    sourceMap = {lineInfoPairs: result, functionInfos: [], globalInfos: []};
+                    objDump.on('close', (code) => {
+                        if (functionInfos && globalInfos) {
+                            sourceMap.functionInfos = functionInfos;
+                            sourceMap.globalInfos = globalInfos;
+                            resolve(sourceMap);
+                        }
+                    });
+                }
+            });
+        });
+    }
+
     private executeCompileCommand(command: string): Promise<LineInfoPairs[]> {
         return new Promise((resolve, reject) => {
             let sourceMap: LineInfoPairs[];
@@ -94,7 +162,7 @@ export class WASMCompilerBridge implements CompileBridge {
             function handleCompilerStreams(error: ExecException | null, stdout: String, stderr: any) {
                 that.handleStdError(stderr, reject);
                 that.handleError(error, reject);
-                sourceMap = makeSourceMap(stdout);
+                sourceMap = makeLineInfoPairs(stdout);
             }
 
             let cp = exec(command, handleCompilerStreams);
@@ -108,7 +176,11 @@ export class WASMCompilerBridge implements CompileBridge {
     }
 
     private compileToWasmCommand(): string {
-        return `wat2wasm -v -o /tmp/warduino/upload.wasm ` + this.wasmFilePath;
+        return `wat2wasm --debug-names -v -o /tmp/warduino/upload.wasm ` + this.wasmFilePath;
+    }
+
+    private static getNameDumpCommand(): string {
+        return "wasm-objdump -x /tmp/warduino/upload.wasm";
     }
 
     private static compileCHeaderFileCommand(): string {

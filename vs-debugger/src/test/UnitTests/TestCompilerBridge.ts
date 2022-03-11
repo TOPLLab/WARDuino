@@ -13,8 +13,8 @@ suite('WARDuinoCompilerBridge Test Suite', () => {
                 expect.fail(`Unexpected exception ${reason}`);
             }
         );
-        expect(result[0].lineAddress).to.equal('000002e');
-        expect(result[0].lineInfo.line).to.equal(13);
+        expect(result.lineInfoPairs[0].lineAddress).to.equal('000002e');
+        expect(result.lineInfoPairs[0].lineInfo.line).to.equal(13);
     });
 
     test('TestCompileBridgeSyntaxError', async () => {
