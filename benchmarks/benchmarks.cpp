@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-#include "../WARDuino.h"
 #include "../debug.h"
+#include "../src/WARDuino.h"
 #include "timer.h"
 
 #define MAIN "bench"
