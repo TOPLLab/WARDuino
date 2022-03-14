@@ -104,6 +104,7 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
  *            exists (see `0x06`)
  * - `0x10` : Dump information about the program
  * - `0x11` :                  show locals
+ * - `0x12` : Dump full information
  * - `0x20` : Replace the content body of a function by a new function given
  *            as payload (immediately following `0x10`), see #readChange
  */
@@ -143,12 +144,17 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         }
         case interruptDUMP:
             *program_state = WARDUINOpause;
-            this->fullDump(m);
+            this->dump(m);
             free(interruptData);
             break;
         case interruptDUMPLocals:
             *program_state = WARDUINOpause;
             this->dumpLocals(m);
+            free(interruptData);
+            break;
+        case interruptDUMPFull:
+            *program_state = WARDUINOpause;
+            this->dump(m, true);
             free(interruptData);
             break;
         case interruptUPDATEFun:
@@ -201,8 +207,7 @@ void Debugger::handleInterruptBP(uint8_t *interruptData) {
     }
 }
 
-void Debugger::fullDump(Module *m) const {
-    dprintf(this->socket, "DUMP!\n");
+void Debugger::dump(Module *m, bool full) const {
     dprintf(this->socket, "{");
 
     // current PC
@@ -217,6 +222,12 @@ void Debugger::fullDump(Module *m) const {
 
     this->dumpCallstack(m);
 
+    if (full) {
+        dprintf(this->socket, R"(, "locals": )");
+        this->dumpLocals(m);
+    }
+
+    dprintf(this->socket, "}\n\n");
     fflush(stdout);
 }
 
@@ -256,13 +267,11 @@ void Debugger::dumpCallstack(Module *m) const {
             R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"start":"%p","ra":"%p"}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp,
             f->block->start_ptr, static_cast<void *>(f->ra_ptr),
-            (i < m->csp) ? "," : "]}\n");
+            (i < m->csp) ? "," : "]");
     }
 }
 
 void Debugger::dumpLocals(Module *m) const {
-    fflush(stdout);
-    dprintf(this->socket, "DUMP LOCALS!\n\n");
     fflush(stdout);
     int firstFunFramePtr = m->csp;
     while (m->callstack[firstFunFramePtr].block->block_type != 0) {
@@ -303,7 +312,7 @@ void Debugger::dumpLocals(Module *m) const {
         dprintf(this->socket, "{%s}%s", _value_str,
                 (i + 1 < f->block->local_count) ? "," : "");
     }
-    dprintf(this->socket, "]}\n\n");
+    dprintf(this->socket, "]}");
     fflush(stdout);
 }
 

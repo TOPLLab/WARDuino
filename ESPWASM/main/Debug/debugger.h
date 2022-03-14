@@ -18,6 +18,7 @@ enum InterruptTypes {
     interruptBPRem = 0x07,
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
+    interruptDUMPFull = 0x12,
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21
 };
@@ -47,7 +48,7 @@ class Debugger {
 
     //// Information dumps
 
-    void fullDump(Module *m) const;
+    void dump(Module *m, bool full=false) const;
 
     void dumpLocals(Module *m) const;
 
