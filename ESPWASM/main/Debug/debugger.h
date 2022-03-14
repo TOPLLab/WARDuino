@@ -48,7 +48,7 @@ class Debugger {
 
     //// Information dumps
 
-    void dump(Module *m, bool full=false) const;
+    void dump(Module *m, bool full = false) const;
 
     void dumpLocals(Module *m) const;
 
