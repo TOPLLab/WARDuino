@@ -8,7 +8,7 @@ extern "C" {
 #include "./sexpr-parser/src/sexpr.h"
 }
 
-#include "../../WARDuino.h"
+#include "../../src/WARDuino.h"
 
 struct Test {
     SNode *asserts;
