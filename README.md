@@ -3,15 +3,15 @@
 
 # WARDuino
 
-## WARDuino: Build and Development Instructions
+## Build and Development Instructions
 
 The project uses CMake. Quick install looks like this:
 
 ```bash
 git clone git@github.com:TOPLLab/WARDuino.git
-cd WARDuino/ESPWASM
-mkdir build
-cd build
+cd WARDuino
+mkdir build-emu
+cd build-emu
 cmake ..
 make
 ```
@@ -23,9 +23,8 @@ This will build the command-line tool (EMULATOR) by default.
 To install the WARDuino with the ESP-IDF toolchain perform the following steps starting from the project root folder:
 
 ```bash
-cd ESPWASM
-mkdir build-esp
-cd build-esp
+mkdir build
+cd build
 cmake ..
 make flash
 ```
@@ -43,9 +42,8 @@ The CLI is also used to run the various unit and specification tests for WARDuin
 To install the CLI perform the following steps starting from the project root folder:
 
 ```bash
-cd ESPWASM
-mkdir build
-cd build
+mkdir build-emu
+cd build-emu
 cmake ..
 make
 ```
