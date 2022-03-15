@@ -1,6 +1,8 @@
 export interface DebugBridge {
-    connect(): void;
+    connect(): Promise<string>;
     getProgramCounter(): number;
+    setProgramCounter(pc: number): void;
     step(): void;
+    refresh(): void;
     disconnect(): void;
 }
