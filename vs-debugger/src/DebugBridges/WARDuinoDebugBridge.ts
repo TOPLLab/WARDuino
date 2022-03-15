@@ -3,22 +3,26 @@ import {DebugBridgeListener} from "./DebugBridgeListener";
 import {ReadlineParser, SerialPort} from 'serialport';
 import {DebugInfoParser} from "../Parsers/DebugInfoParser";
 import {InterruptTypes} from "./InterruptTypes";
+import {VariableInfo} from "../CompilerBridges/VariableInfo";
+import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
 
 
 export class WARDuinoDebugBridge implements DebugBridge {
     private listener: DebugBridgeListener;
-    private parser: DebugInfoParser;
+    private parser: DebugInfoParser = new DebugInfoParser();
     private wasmPath: string;
     private port: SerialPort | undefined;
     private pc: number = 0;
+    private locals: VariableInfo[] = [];
+    private currentFunctionIndex: number = -1;
     private portAddress: string;
 
 
     constructor(wasmPath: string, listener: DebugBridgeListener, portAddress: string) {
         this.wasmPath = wasmPath;
         this.listener = listener;
-        this.parser = new DebugInfoParser();
         this.portAddress = portAddress;
+
         this.connect().catch(reason => {
             console.log(reason);
         });
@@ -60,6 +64,22 @@ export class WARDuinoDebugBridge implements DebugBridge {
 
     private sendInterrupt(i: InterruptTypes, callback?: (error: Error | null | undefined) => void) {
         return this.port?.write(`${i} \n`, callback);
+    }
+
+    getLocals(): VariableInfo[] {
+        return this.locals;
+    }
+
+    setLocals(locals: VariableInfo[]) {
+        this.locals = locals;
+    }
+
+    getCurrentFunctionIndex(): number {
+        return this.currentFunctionIndex;
+    }
+
+    setCurrentFunctionIndex(fidx: number): void {
+        this.currentFunctionIndex = fidx;
     }
 
     step(): void {

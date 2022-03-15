@@ -115,7 +115,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         return false;
     }
 
-    dprintf(this->socket, "Interupt: %x\n", *interruptData);
+    dprintf(this->socket, "Interrupt: %x\n", *interruptData);
     switch (*interruptData) {
         case interruptRUN:
             this->handleInterruptRUN(m, program_state);
@@ -309,7 +309,7 @@ void Debugger::dumpLocals(Module *m) const {
                          v->value_type, v->value.uint64);
         }
 
-        dprintf(this->socket, "{%s}%s", _value_str,
+        dprintf(this->socket, "{%s, \"index\":%i}%s", _value_str, i + f->block->type->param_count,
                 (i + 1 < f->block->local_count) ? "," : "");
     }
     dprintf(this->socket, "]}");
