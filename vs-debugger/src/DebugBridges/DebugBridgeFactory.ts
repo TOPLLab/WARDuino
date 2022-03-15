@@ -4,6 +4,8 @@ import {RunTimeTarget} from "./RunTimeTarget";
 import {WARDuinoDebugBridgeEmulator} from "./WARDuinoDebugBridgeEmulator";
 import {getFileExtension} from '../Parsers/ParseUtils';
 import {WARDuinoDebugBridge} from "./WARDuinoDebugBridge";
+import * as vscode from "vscode";
+
 
 export class DebugBridgeFactory {
     static makeDebugBridge(file : string, target : RunTimeTarget, listener : DebugBridgeListener) : DebugBridge {
@@ -14,7 +16,11 @@ export class DebugBridgeFactory {
                     case RunTimeTarget.emulator:
                          return new WARDuinoDebugBridgeEmulator(file,listener);
                     case RunTimeTarget.embedded:
-                        return new WARDuinoDebugBridge(file,listener);
+                        let portAddress : string | undefined = vscode.workspace.getConfiguration().get("warduino.Port");
+                        if (portAddress === undefined) {
+                            throw new Error('Configuration error. No port address set.');
+                        }
+                        return new WARDuinoDebugBridge(file,listener, portAddress);
                 }
         }
         throw new Error("Unsupported file type");

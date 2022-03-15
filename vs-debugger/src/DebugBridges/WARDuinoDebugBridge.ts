@@ -1,24 +1,24 @@
 import {DebugBridge} from "./DebugBridge";
 import {DebugBridgeListener} from "./DebugBridgeListener";
 import * as net from 'net';
-import {ChildProcess} from "child_process";
+import {ChildProcess, spawn } from "child_process";
 import { SerialPort, ReadlineParser } from 'serialport';
 import { Console } from "console";
-import * as vscode from "vscode";
 
 
 
 export class WARDuinoDebugBridge implements DebugBridge {
-
     private listener: DebugBridgeListener;
     private wasmPath: string;
     private port: any;
     private pc: number = 0;
+    private portAddress : string;
 
 
-    constructor(wasmPath: string, listener: DebugBridgeListener) {
+    constructor(wasmPath: string, listener: DebugBridgeListener,portAddress : string) {
         this.wasmPath = wasmPath;
         this.listener = listener;
+        this.portAddress  = portAddress;
         this.connect();
     }
 
@@ -28,13 +28,8 @@ export class WARDuinoDebugBridge implements DebugBridge {
     }
 
     connect(): void {
-        let portAddress : string | undefined = vscode.workspace.getConfiguration().get("warduino.Port");
-        if (portAddress === undefined) {
-            throw new Error('Configuration error. No port address set.');
-        }
-
         this.listener.notifyProgress('Started Emulator');
-        this.port = new SerialPort({ path: portAddress, baudRate: 115200  },
+        this.port = new SerialPort({ path: this.portAddress, baudRate: 115200  },
         (error) => {
             if(error) {
                 console.log('fatal' + error);
