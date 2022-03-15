@@ -17,10 +17,16 @@ export class DebugBridgeFactory {
                          return new WARDuinoDebugBridgeEmulator(file,listener);
                     case RunTimeTarget.embedded:
                         let portAddress : string | undefined = vscode.workspace.getConfiguration().get("warduino.Port");
+                        let warduinoSDK : string | undefined = vscode.workspace.getConfiguration().get("warduino.WarduinoToolChainPath");
+
                         if (portAddress === undefined) {
                             throw new Error('Configuration error. No port address set.');
                         }
-                        return new WARDuinoDebugBridge(file,listener, portAddress);
+
+                        if (warduinoSDK === undefined) {
+                            throw new Error('WARDuino Tool Chain not set')
+                        }
+                        return new WARDuinoDebugBridge(file,listener, portAddress, warduinoSDK);
                 }
         }
         throw new Error("Unsupported file type");
