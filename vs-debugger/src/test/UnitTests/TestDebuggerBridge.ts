@@ -1,5 +1,4 @@
 import 'mocha';
-import {WASMCompilerBridge} from '../../CompilerBridges/WASMCompilerBridge';
 import {WARDuinoDebugBridge} from '../../DebugBridges/WARDuinoDebugBridge';
 import exp = require("constants");
 import {expect} from "chai";
@@ -25,11 +24,16 @@ suite('WARDuinoDebuggerBridge Test Suite', () => {
                 notifyProgress(message: string): void {
                     console.log(message);
                 }
-            }, '/dev/ttyUSB0'
+            }, 
+            '/dev/ttyUSB0', 
+            '/Users/xtofs/Documents/Arduino/libraries/WARDuino'
         );
-        await bridge.connect().then((data) => {
-            expect(data).to.equal('/dev/ttyUSB0');
-        });
+
+        bridge.upload();
+
+        //await bridge.connect().then((data) => {
+        //    expect(data).to.equal('/dev/ttyUSB0');
+        //});
     });
 
 });

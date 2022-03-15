@@ -5,6 +5,7 @@ import {DebugInfoParser} from "../Parsers/DebugInfoParser";
 import {InterruptTypes} from "./InterruptTypes";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
 import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
+import { spawn , exec } from "child_process";
 
 
 export class WARDuinoDebugBridge implements DebugBridge {
@@ -16,16 +17,21 @@ export class WARDuinoDebugBridge implements DebugBridge {
     private locals: VariableInfo[] = [];
     private currentFunctionIndex: number = -1;
     private portAddress: string;
+    private sdk : string
 
 
-    constructor(wasmPath: string, listener: DebugBridgeListener, portAddress: string) {
+    constructor(wasmPath: string, 
+                listener: DebugBridgeListener, 
+                portAddress: string,
+                warduinoSDK: string) {
         this.wasmPath = wasmPath;
         this.listener = listener;
         this.portAddress = portAddress;
+        this.sdk = warduinoSDK;
 
-        this.connect().catch(reason => {
-            console.log(reason);
-        });
+       // this.connect().catch(reason => {
+       //     console.log(reason);
+       // });
     }
 
     connect(): Promise<string> {
@@ -52,6 +58,11 @@ export class WARDuinoDebugBridge implements DebugBridge {
 
     disconnect(): void {
 
+    }
+
+    upload() : void  {
+        const path : string = this.sdk + '/platforms/Arduino/' 
+        exec('cp /tmp/warduino/upload.c ' + path); 
     }
 
     getProgramCounter(): number {

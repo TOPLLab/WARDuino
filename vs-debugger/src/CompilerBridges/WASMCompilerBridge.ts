@@ -66,7 +66,9 @@ export class WASMCompilerBridge implements CompileBridge {
     }
 
     async compile() {
-        return await this.compileAndDump(this.compileToWasmCommand(), WASMCompilerBridge.getNameDumpCommand());
+        let sourceMap :SourceMap = await this.compileAndDump(this.compileToWasmCommand(), WASMCompilerBridge.getNameDumpCommand());
+        await this.compileHeader();
+        return sourceMap;
     }
 
     async compileHeader() {
