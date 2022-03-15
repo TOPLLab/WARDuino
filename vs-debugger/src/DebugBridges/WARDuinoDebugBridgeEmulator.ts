@@ -4,6 +4,7 @@ import {jsonParse} from '../Parsers/ParseUtils';
 import {DebugBridge} from './DebugBridge';
 import {DebugBridgeListener} from './DebugBridgeListener';
 import {InterruptTypes} from './InterruptTypes';
+import {DebugInfoParser} from "../Parsers/DebugInfoParser";
 
 export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
@@ -11,23 +12,33 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private wasmPath: string;
     private cp?: ChildProcess;
     private listener: DebugBridgeListener;
+    private parser: DebugInfoParser;
     private pc: number = 0;
 
     constructor(wasmPath: string, listener: DebugBridgeListener) {
         this.wasmPath = wasmPath;
         this.listener = listener;
+        this.parser = new DebugInfoParser();
         this.connect();
     }
 
-    public async connect() {
-        this.startEmulator();
+    public connect(): Promise<string> {
+        return new Promise((resolve, reject) => {
+            this.startEmulator();
+            resolve("127.0.0.1:8192");
+        });
     }
 
     public getProgramCounter(): number {
         return this.pc;
     }
 
+    setProgramCounter(pc: number) {
+        this.pc = pc;
+    }
+
     private initClient() {
+        let that = this;
         if (this.client === undefined) {
             this.client = new net.Socket();
             this.client.connect({port: 8192, host: '127.0.0.1'});  // TODO config
@@ -41,7 +52,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
             this.client.on('data', data => {
                     console.log(`data: ${data}`);
-                    this.parse(data.toString());
+                    that.parser.parse(that, data.toString());
                 }
             );
         }
@@ -54,7 +65,10 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
     public step() {
         this.sendInterrupt(InterruptTypes.interruptSTEP);
-        this.sendInterrupt(InterruptTypes.interruptDUMP);
+    }
+
+    public refresh() {
+        this.sendInterrupt(InterruptTypes.interruptDUMPFull);
     }
 
     private executeCommand(command: InterruptTypes) {
@@ -88,17 +102,6 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
             this.listener.notifyProgress('Disconnected from emulator');
         });
 
-    }
-
-    private parse(data: string) {
-        let lines = data.split('\n');
-        lines.forEach((line) => {
-            if (line.startsWith('{"pc"')) {
-                let json = jsonParse(line);
-                let start = parseInt(json.start);
-                this.pc = parseInt(json.pc) - start;
-            }
-        });
     }
 
     public disconnect(): void {
