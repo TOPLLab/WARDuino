@@ -5,6 +5,8 @@ import {DebugBridge} from './DebugBridge';
 import {DebugBridgeListener} from './DebugBridgeListener';
 import {InterruptTypes} from './InterruptTypes';
 import {DebugInfoParser} from "../Parsers/DebugInfoParser";
+import {VariableInfo} from "../CompilerBridges/VariableInfo";
+import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
 
 export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
@@ -14,6 +16,8 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private listener: DebugBridgeListener;
     private parser: DebugInfoParser;
     private pc: number = 0;
+    private locals: VariableInfo[] = [];
+    private currentFunctionIndex: number = -1;
 
     constructor(wasmPath: string, listener: DebugBridgeListener) {
         this.wasmPath = wasmPath;
@@ -35,6 +39,22 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
     setProgramCounter(pc: number) {
         this.pc = pc;
+    }
+
+    getLocals(): VariableInfo[] {
+        return this.locals;
+    }
+
+    setLocals(locals: VariableInfo[]) {
+        this.locals = locals;
+    }
+
+    getCurrentFunctionIndex(): number {
+        return this.currentFunctionIndex;
+    }
+
+    setCurrentFunctionIndex(fidx: number): void {
+        this.currentFunctionIndex = fidx;
     }
 
     private initClient() {

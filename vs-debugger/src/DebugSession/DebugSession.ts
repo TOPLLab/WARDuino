@@ -20,6 +20,8 @@ import {RunTimeTarget} from "../DebugBridges/RunTimeTarget";
 import {CompileBridgeFactory} from "../CompilerBridges/CompileBridgeFactory";
 import {CompileBridge} from "../CompilerBridges/CompileBridge";
 import {SourceMap} from "../CompilerBridges/SourceMap";
+import {VariableInfo} from "../CompilerBridges/VariableInfo";
+import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
 
 // Interface between the debugger and the VS runtime 
 export class WARDuinoDebugSession extends LoggingDebugSession {
@@ -191,6 +193,18 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
 
         const v = this.variableHandles.get(args.variablesReference);
         if (v === "locals") {
+            let locals: VariableInfo[] = this.debugBridge === undefined ? [] : this.debugBridge.getLocals();
+            let fidx: number = this.debugBridge === undefined ? 0 : this.debugBridge.getCurrentFunctionIndex()
+            console.log(`FIDX: ${fidx}`);
+            response.body = {
+                variables: Array.from(locals, (local) => {
+                    return {
+                        name: (this.sourceMap === undefined ? local.index.toString() : this.sourceMap.functionInfos[fidx].locals[local.index].name),
+                        value: local.value.toString(), variablesReference: 0
+                    };
+                })
+            };
+            console.log(response.body);
             this.sendResponse(response);
         } else {
             response.body = {
