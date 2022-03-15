@@ -1,7 +1,7 @@
-up: 
+flash: 
 		arduino-cli upload -p /dev/cu.usbserial-1410  --fqbn esp32:esp32:esp32wrover Arduino.ino
 
-all: 
+compile: 
 	arduino-cli -v compile --fqbn esp32:esp32:esp32wrover Arduino.ino
 
 monitor: 
