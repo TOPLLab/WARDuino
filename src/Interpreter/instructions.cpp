@@ -9,6 +9,7 @@
 #include "../Utils/util.h"
 #include "../Utils/util_arduino.h"
 
+
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
 uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,  // loads

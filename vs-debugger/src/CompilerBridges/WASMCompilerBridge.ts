@@ -175,7 +175,7 @@ export class WASMCompilerBridge implements CompileBridge {
     }
 
     private static compileCHeaderFileCommand(): string {
-        return `xxd -i upload.wasm > /tmp/warduino/upload.c`;
+        return `xxd -i /tmp/warduino/upload.wasm > /tmp/warduino/upload.c`;
     }
 
 }
