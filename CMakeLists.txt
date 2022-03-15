@@ -10,7 +10,7 @@ if (BUILD_ESP)
         message(FATAL_ERROR "Can't find $IDF_PATH/tools/cmake/project.cmake. Make sure ESP-IDF is installed and $IDF_PATH is set.")
     endif ()
     
-    set(EXTRA_COMPONENT_DIRS "platforms")
+    set(EXTRA_COMPONENT_DIRS "platforms/ESP-IDF")
 
     include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 endif (BUILD_ESP)
