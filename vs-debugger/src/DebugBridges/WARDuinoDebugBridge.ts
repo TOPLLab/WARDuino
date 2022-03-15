@@ -6,6 +6,9 @@ import {InterruptTypes} from "./InterruptTypes";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
 import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
 import { spawn , exec } from "child_process";
+import { ThreadEvent } from "vscode-debugadapter";
+import { resolve } from "path";
+import { rejects } from "assert";
 
 
 export class WARDuinoDebugBridge implements DebugBridge {
@@ -29,15 +32,17 @@ export class WARDuinoDebugBridge implements DebugBridge {
         this.portAddress = portAddress;
         this.sdk = warduinoSDK;
 
-       // this.connect().catch(reason => {
-       //     console.log(reason);
-       // });
+        this.connect().catch(reason => {
+           console.log(reason);
+        });
     }
 
-    connect(): Promise<string> {
+    async connect(): Promise<string> {
         let that = this;
 
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
+            await this.upload();
+
             that.port = new SerialPort({path: that.portAddress, baudRate: 115200},
                 (error) => {
                     if (error) {
@@ -60,9 +65,39 @@ export class WARDuinoDebugBridge implements DebugBridge {
 
     }
 
-    upload() : void  {
-        const path : string = this.sdk + '/platforms/Arduino/' 
-        exec('cp /tmp/warduino/upload.c ' + path); 
+    private uploadArduino(path:string,resolver : (value: boolean) => void): void {
+        const upload = exec('make flash',{ cwd: path },  (err, stdout, stderr) => {
+            console.log(err); 
+            } 
+        );
+
+        upload.on('data', (data) => {
+            console.log(`stdout: ${data}`);
+        });
+
+        upload.on('close', (code ) => {
+            resolver(true);
+        });
+    }
+
+    compileArduino(path: string,resolver : (value: boolean) => void): void {
+        const compile = exec('make compile', {
+            cwd: path
+        });
+
+        compile.on('close', (code) => {
+            this.uploadArduino(path,resolver);
+        });
+    }
+
+    upload() : Promise<boolean>  {
+        return new Promise<boolean>((resolve,reject) => {
+            const path : string = this.sdk + '/platforms/Arduino/' 
+            const cp = exec('cp /tmp/warduino/upload.c ' + path+'/upload.h'); 
+            cp.on('close', (code ) => {
+                this.compileArduino(path,resolve);
+            });
+        })
     }
 
     getProgramCounter(): number {
