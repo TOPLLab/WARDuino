@@ -45,7 +45,30 @@ Or simply run `idf.py flash`.
 
 ### Build for Arduino
 
-To install the WARDuino with the Arduino toolchain perform the following steps starting from the project root folder:
+First, install the [arduino-cli](https://arduino.github.io/arduino-cli/0.21/installation/).
+
+Second, create the config file:
+
+```bash
+arduino-cli config init
+```
+
+If you need additional boards, such as the esp32 boards, you can add them in the generated config file. More information [here](https://arduino.github.io/arduino-cli/0.21/getting-started/).
+
+Thirdly, make sure you install the `PubSubClient` library. (used for MQTT)
+
+```bash
+arduino-cli lib install PubSubClient
+```
+
+After this initial installation steps you can start using WARDuino with the Arduino toolchain.
+You can upload the example file as follows, starting from the project root:
+
+```bash
+cd platforms/Arduino
+make compile
+make flash
+```
 
 ### Build for Emulator
 
