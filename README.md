@@ -20,6 +20,18 @@ This will build the command-line tool (EMULATOR) by default.
 
 ### Build for ESP-IDF
 
+Before you can compile and flash with ESP-IDF, you must install and enable the toolchain.
+You also need to disable the watchdog timer:
+
+1. Go to the root folder of the WARDuino repo
+2. run `idf.py menuconfig`
+3. Under **Component config → ESP System Settings** disable the following options:
+   - Interrupt watchdog
+   - Initialize Task Watchdog Timer on startup
+4. Save and quit the menu
+
+Make sure the ESP-IDF tools are enabled, otherwise these steps will not work.
+
 To install the WARDuino with the ESP-IDF toolchain perform the following steps starting from the project root folder:
 
 ```bash
@@ -28,6 +40,8 @@ cd build
 cmake ..
 make flash
 ```
+
+Or simply run `idf.py flash`.
 
 ### Build for Arduino
 
