@@ -7,11 +7,11 @@
 #include <WARDuino.h>
 
 #include "Arduino.h"
-#include "upload.c"
+#include "upload.h"
 
 
 unsigned int  wasm_len = _tmp_warduino_upload_wasm_len;
-unsigned char wam = _tmp_warduino_upload_wasm;
+unsigned char* wasm = _tmp_warduino_upload_wasm;
 
 WARDuino wac;
 Module* m;
