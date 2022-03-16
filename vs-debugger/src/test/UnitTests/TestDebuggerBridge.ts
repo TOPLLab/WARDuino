@@ -4,7 +4,8 @@ import exp = require("constants");
 import {expect} from "chai";
 
 const runPath = process.cwd();
-const port = "/dev/ttyUSB0";
+
+const port = "/dev/cu.usbserial-0001";
 const warduinoSDK = "/Users/xtofs/Documents/Arduino/libraries/WARDuino";
 const wasmDirectoryPath = `${runPath}/src/test/UnitTests/TestSource/fac_ok.wasm`;
 
@@ -29,9 +30,33 @@ suite('Hardware-less Test Suite', () => {
             warduinoSDK
         );
 
-        bridge.upload().catch(reason => {
+        bridge.compileAndUpload().catch(reason => {
             expect(reason.to.equal(`Could not connect to serial port: ${port}`));
         });
+    });
+
+    test('TestWrongPath', async () => {
+        
+        let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge("",
+            {
+                notifyError(): void {
+
+                },
+                connected(): void {
+
+                },
+                disconnected(): void {
+
+                },
+                notifyProgress(message: string): void {
+                    console.log(message);
+                }
+            },
+            port,
+            warduinoSDK
+        );
+
+        
     });
 
     test('TestUpload', async () => {
@@ -54,10 +79,11 @@ suite('Hardware-less Test Suite', () => {
             warduinoSDK
         );
 
-        bridge.upload().then(value => {
-            expect(value).to.be.true;
-        });
+        let result = await bridge.compileAndUpload();        
+        expect(result).to.be.true;
     });
+
+
 });
 
 suite('Hardware Test Suite', () => {

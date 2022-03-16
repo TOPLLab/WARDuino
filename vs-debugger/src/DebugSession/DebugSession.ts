@@ -252,6 +252,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
             };
         }
 
+        response.body.stackFrames.unshift(sf);
         this.sendResponse(response);
     }
 
