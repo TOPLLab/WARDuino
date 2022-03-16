@@ -24,8 +24,13 @@
 #ifdef ARDUINO
 #include <HTTPClient.h>
 #include <WiFi.h>
-
 #include "Arduino.h"
+
+//NEOPIXEL 
+#include <Adafruit_NeoPixel.h>
+#define PIN 15
+#define NUMPIXELS 64
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS,PIN, NEO_GRB + NEO_KHZ800);
 
 #define delay_us(ms) delayMicroseconds(ms)
 #include <SPI.h>
@@ -57,7 +62,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES_ARDUINO 33
 #else
 #define NUM_PRIMITIVES_ARDUINO 19
 #endif
@@ -469,6 +474,35 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     write_spi_bytes_16_prim(arg1.uint32, arg0.uint32);
     pop_args(2);
     return true;
+}
+
+
+def_prim(init_pixels,NoneToNoneU32) {
+				printf("pixels !! \n");
+				pixels.begin();
+				return true;
+}
+
+def_prim(set_pixel_color, fourToOneU32) {
+    uint8_t blue  = arg0.uint32;
+    uint8_t green = arg1.uint32;
+    uint8_t red   = arg2.uint32;
+    uint8_t index = arg3.uint32;
+
+				printf("pixels index %d  r:%d g:%d b:%d \n",index,red,green,blue);
+	   pixels.setPixelColor(index, pixels.Color(red,green,blue));
+				pop_args(4);
+				return true;
+}
+
+def_prim(show_pixels,NoneToNoneU32) {
+				pixels.show();
+				return true;
+}
+
+def_prim(clear_pixels,NoneToNoneU32) {
+				pixels.clear();
+				return true;
 }
 
 // INTERRUPTS
@@ -1050,6 +1084,11 @@ void install_primitives() {
     install_primitive(mqtt_subscribe);
     install_primitive(mqtt_unsubscribe);
     install_primitive(mqtt_loop);
+
+				install_primitive(init_pixels);
+				install_primitive(set_pixel_color);
+				install_primitive(clear_pixels);
+				install_primitive(show_pixels);
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(abort);
