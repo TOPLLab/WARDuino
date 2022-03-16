@@ -4,22 +4,18 @@ import {ReadlineParser, SerialPort} from 'serialport';
 import {DebugInfoParser} from "../Parsers/DebugInfoParser";
 import {InterruptTypes} from "./InterruptTypes";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
-import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
-import {spawn, exec} from "child_process";
-import {ThreadEvent} from "vscode-debugadapter";
-import {resolve} from "path";
-import {rejects} from "assert";
+import {exec} from "child_process";
 import {Frame} from "../Parsers/Frame";
 import { start } from "repl";
 
 class Messages {
-    public static UPLOADING : string = "Uploading to board";
-    public static CONNECTING : string = "Connecting to board";
-    public static CONNECTED : string = "Connected to board";
-    public static DISCONNECTED : string = "Disconnected board";
+    public static UPLOADING: string = "Uploading to board";
+    public static CONNECTING: string = "Connecting to board";
+    public static CONNECTED: string = "Connected to board";
+    public static DISCONNECTED: string = "Disconnected board";
 
     static COMPILING: string = "Compiling the code";
-    public static COMPILED : string = "Compiled Code";
+    public static COMPILED: string = "Compiled Code";
     static RESET: string = "Press reset button";
 }
 
@@ -69,7 +65,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
     }
 
     private openSerialPort(reject: (reason?: any) => void, resolve: (value: string | PromiseLike<string>) => void) {
-        this.port = new SerialPort({ path: this.portAddress, baudRate: 115200 },
+        this.port = new SerialPort({path: this.portAddress, baudRate: 115200},
             (error) => {
                 if (error) {
                     reject(`Could not connect to serial port: ${this.portAddress}`);
@@ -110,9 +106,9 @@ export class WARDuinoDebugBridge implements DebugBridge {
             }
         );
 
-        upload.on("data", (data:string) => {
+        upload.on("data", (data: string) => {
             console.log(`stdout: ${data}`);
-            if( data.search('Uploading') ) {
+            if (data.search('Uploading')) {
                 this.listener.notifyProgress(Messages.UPLOADING);
             }
         });
@@ -132,10 +128,10 @@ export class WARDuinoDebugBridge implements DebugBridge {
         }));
 
         compile.on("close", (code) => {
-            if(code === 0){ 
+            if (code === 0) {
                 this.listener.notifyProgress(Messages.COMPILED);
                 this.uploadArduino(path, resolver);
-            } 
+            }
         });
     }
 
@@ -143,7 +139,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
         return new Promise<boolean>((resolve, reject) => {
             const path: string = this.sdk + "/platforms/Arduino/";
             const cp = exec("cp /tmp/warduino/upload.c " + path + "/upload.h");
-            
+
             cp.on("error", err => {
                 resolve(false);
             });
@@ -179,6 +175,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
 
     setCallstack(callstack: Frame[]): void {
         this.callstack = callstack;
+        this.listener.notifyStateUpdate();
     }
 
     step(): void {

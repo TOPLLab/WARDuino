@@ -24,6 +24,8 @@ suite('Hardware-less Test Suite', () => {
                 },
                 notifyProgress(message: string): void {
                     console.log(message);
+                },
+                notifyStateUpdate() {
                 }
             },
             port,
@@ -36,7 +38,7 @@ suite('Hardware-less Test Suite', () => {
     });
 
     test('TestWrongPath', async () => {
-        
+
         let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge("",
             {
                 notifyError(): void {
@@ -50,13 +52,15 @@ suite('Hardware-less Test Suite', () => {
                 },
                 notifyProgress(message: string): void {
                     console.log(message);
+                },
+                notifyStateUpdate() {
                 }
             },
             port,
             warduinoSDK
         );
 
-        
+
     });
 
     test('TestUpload', async () => {
@@ -73,13 +77,15 @@ suite('Hardware-less Test Suite', () => {
                 },
                 notifyProgress(message: string): void {
                     console.log(message);
+                },
+                notifyStateUpdate() {
                 }
             },
             port,
             warduinoSDK
         );
 
-        let result = await bridge.compileAndUpload();        
+        let result = await bridge.compileAndUpload();
         expect(result).to.be.true;
     });
 
