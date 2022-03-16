@@ -3,13 +3,13 @@ import {WARDuinoDebugBridge} from '../../DebugBridges/WARDuinoDebugBridge';
 import exp = require("constants");
 import {expect} from "chai";
 
-let runPath = process.cwd();
-let toolChainPath = "";
-let wasmDirectoryPath = `${runPath}/src/test/UnitTests/TestSource/fac_ok.wasm`;
+const runPath = process.cwd();
+const port = "/dev/ttyUSB0";
+const warduinoSDK = "/Users/xtofs/Documents/Arduino/libraries/WARDuino";
+const wasmDirectoryPath = `${runPath}/src/test/UnitTests/TestSource/fac_ok.wasm`;
 
-suite('WARDuinoDebuggerBridge Test Suite', () => {
-
-    test('TestEstablishConnection', async () => {
+suite('Hardware-less Test Suite', () => {
+    test('TestEstablishConnectionFailure', async () => {
         let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge(wasmDirectoryPath,
             {
                 notifyError(): void {
@@ -24,16 +24,41 @@ suite('WARDuinoDebuggerBridge Test Suite', () => {
                 notifyProgress(message: string): void {
                     console.log(message);
                 }
-            }, 
-            '/dev/ttyUSB0', 
-            '/Users/xtofs/Documents/Arduino/libraries/WARDuino'
+            },
+            port,
+            warduinoSDK
         );
 
-        bridge.upload();
-
-        //await bridge.connect().then((data) => {
-        //    expect(data).to.equal('/dev/ttyUSB0');
-        //});
+        bridge.upload().catch(reason => {
+            expect(reason.to.equal(`Could not connect to serial port: ${port}`));
+        });
     });
 
+    test('TestUploadBeforeConnected', async () => {
+        let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge(wasmDirectoryPath,
+            {
+                notifyError(): void {
+
+                },
+                connected(): void {
+
+                },
+                disconnected(): void {
+
+                },
+                notifyProgress(message: string): void {
+                    console.log(message);
+                }
+            },
+            port,
+            warduinoSDK
+        );
+
+        bridge.upload().catch(reason => {
+            expect(reason.to.equal("Cannot upload. Plugin is not connected to a serial port."));
+        });
+    });
+});
+
+suite('Hardware Test Suite', () => {
 });

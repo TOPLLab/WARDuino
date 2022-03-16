@@ -309,7 +309,8 @@ void Debugger::dumpLocals(Module *m) const {
                          v->value_type, v->value.uint64);
         }
 
-        dprintf(this->socket, "{%s, \"index\":%i}%s", _value_str, i + f->block->type->param_count,
+        dprintf(this->socket, "{%s, \"index\":%i}%s", _value_str,
+                i + f->block->type->param_count,
                 (i + 1 < f->block->local_count) ? "," : "");
     }
     dprintf(this->socket, "]}");
