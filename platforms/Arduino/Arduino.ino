@@ -51,7 +51,8 @@ void setup(void) {
 void loop() {
     disableCore0WDT();
     m = wac.load_module(wasm, wasm_len, {});
-    wac.handleInterrupt(3, {'0', '3', '\n'});
+    uint8_t command[] = {'0', '3', '\n'};
+    wac.handleInterrupt(3, command);
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
     wac.run_module(m);
