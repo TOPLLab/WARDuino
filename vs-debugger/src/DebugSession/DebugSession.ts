@@ -149,8 +149,20 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
     }
 
     protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, request?: DebugProtocol.Request): void {
-        console.log("setBreakPointsRequest");
+       
+        if(this.sourceMap === undefined) {
+            console.log("no source map yet");
+        } else {
+            args.lines?.forEach( ( breakpoint : number )=> { 
+                let lineInfoPair = this.sourceMap?.lineInfoPairs.find( info => info.lineInfo.line == breakpoint);
+                if(lineInfoPair) {
+                    console.log(lineInfoPair);
+                    this.debugBridge?.setBreakPoint(parseInt("0x" + lineInfoPair.lineAddress));
+                }
 
+            })            
+
+        }
     }
 
     protected setInstructionBreakpointsRequest(response: DebugProtocol.SetInstructionBreakpointsResponse, args: DebugProtocol.SetInstructionBreakpointsArguments) {

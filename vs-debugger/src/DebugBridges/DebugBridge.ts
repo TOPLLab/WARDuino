@@ -3,6 +3,7 @@ import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
 import {Frame} from "../Parsers/Frame";
 
 export interface DebugBridge {
+    setStartAddress(startAddress : number) : void;
     connect(): Promise<string>;
     getProgramCounter(): number;
     setProgramCounter(pc: number): void;
@@ -11,6 +12,8 @@ export interface DebugBridge {
     getCallstack(): Frame[];
     setCallstack(callstack: Frame[]): void;
     step(): void;
+    run(): void;
+    setBreakPoint(x:number): void;
     refresh(): void;
     disconnect(): void;
 }

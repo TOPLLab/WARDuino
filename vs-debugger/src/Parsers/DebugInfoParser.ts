@@ -17,6 +17,7 @@ export class DebugInfoParser {
             let obj = JSON.parse(line);
             this.addressBeginning = parseInt(obj.start);
             bridge.setProgramCounter((parseInt(obj.pc) - this.addressBeginning));
+            bridge.setStartAddress(this.addressBeginning);
             bridge.setLocals(DebugInfoParser.parseLocals(obj.locals.locals));
             bridge.setCallstack(this.parseCallstack(obj.callstack));
             console.log(bridge.getProgramCounter().toString(16));

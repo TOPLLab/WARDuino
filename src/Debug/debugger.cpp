@@ -99,7 +99,7 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
  * - `0x04` : Execute one operation and then pause
  * - `0x06` : Add a breakpoint, the address is specified as a pointer.
  *            The pointer should be specified as: 06[length][pointer]
- *            eg: 06 06 55a5994fa3d6
+ *            eg: 060655a5994fa3d6 (note the lack of spaces between the arguments)
  * - `0x07` : Remove the breakpoint at the address specified as a pointer if it
  *            exists (see `0x06`)
  * - `0x10` : Dump information about the program
