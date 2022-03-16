@@ -1,0 +1,1 @@
+arduino-cli upload -p $1 --fqbn esp32:esp32:esp32wrover Arduino.ino

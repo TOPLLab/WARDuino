@@ -11,6 +11,17 @@ import {resolve} from "path";
 import {rejects} from "assert";
 import {Frame} from "../Parsers/Frame";
 
+class Messages {
+    public static UPLOADING : string = "Uploading to board";
+    public static CONNECTING : string = "Connecting to board";
+    public static CONNECTED : string = "Connected to board";
+    public static DISCONNECTED : string = "Disconnected board";
+
+    static COMPILING: string = "Compiling the code";
+    public static COMPILED : string = "Compiled Code";
+    static RESET: string = "Press reset button";
+}
+
 
 export class WARDuinoDebugBridge implements DebugBridge {
     private listener: DebugBridgeListener;
@@ -39,41 +50,55 @@ export class WARDuinoDebugBridge implements DebugBridge {
     }
 
     async connect(): Promise<string> {
-        let that = this;
-
         return new Promise(async (resolve, reject) => {
-            await this.upload();
-
-            that.port = new SerialPort({path: that.portAddress, baudRate: 115200},
-                (error) => {
-                    if (error) {
-                        reject(`Could not connect to serial port: ${that.portAddress}`);
-                    } else {
-                        resolve(that.portAddress);
-                    }
-                }
-            );
-
-            const parser = new ReadlineParser();
-            that.port?.pipe(parser);
-            parser.on("data", (line: any) => {
-                that.parser.parse(that, line);
-            });
+            this.listener.notifyProgress(Messages.COMPILING);
+            await this.compileAndUpload();
+            this.listener.notifyProgress(Messages.CONNECTING);
+            this.openSerialPort(reject, resolve);
+            this.installInputStreamListener();
         });
     }
 
-    disconnect(): void {
+    private openSerialPort(reject: (reason?: any) => void, resolve: (value: string | PromiseLike<string>) => void) {
+        this.port = new SerialPort({ path: this.portAddress, baudRate: 115200 },
+            (error) => {
+                if (error) {
+                    reject(`Could not connect to serial port: ${this.portAddress}`);
+                } else {
+                    this.listener.notifyProgress(Messages.CONNECTED);
+                    resolve(this.portAddress);
+                }
+            }
+        );
+    }
 
+    private installInputStreamListener() {
+        const parser = new ReadlineParser();
+        this.port?.pipe(parser);
+        parser.on("data", (line: any) => {
+            this.parser.parse(this, line);
+        });
+    }
+
+    public disconnect(): void {
+        this.port?.close();
+        this.listener.notifyProgress(Messages.DISCONNECTED);
     }
 
     private uploadArduino(path: string, resolver: (value: boolean) => void): void {
-        const upload = exec("make flash", {cwd: path}, (err, stdout, stderr) => {
+        this.listener.notifyProgress(Messages.RESET);
+
+        const upload = exec(`sh upload ${this.portAddress}`, {cwd: path}, (err, stdout, stderr) => {
                 console.log(err);
+                console.log(stdout);
             }
         );
 
-        upload.on("data", (data) => {
+        upload.on("data", (data:string) => {
             console.log(`stdout: ${data}`);
+            if( data.search('Uploading') ) {
+                this.listener.notifyProgress(Messages.UPLOADING);
+            }
         });
 
         upload.on("close", (code) => {
@@ -81,7 +106,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
         });
     }
 
-    compileArduino(path: string, resolver: (value: boolean) => void): void {
+    public compileArduino(path: string, resolver: (value: boolean) => void): void {
         const compile = exec("make compile", {
             cwd: path
         });
@@ -91,14 +116,18 @@ export class WARDuinoDebugBridge implements DebugBridge {
         }));
 
         compile.on("close", (code) => {
-            this.uploadArduino(path, resolver);
+            if(code === 0){ 
+                this.listener.notifyProgress(Messages.COMPILED);
+                this.uploadArduino(path, resolver);
+            } 
         });
     }
 
-    upload(): Promise<boolean> {
+    public compileAndUpload(): Promise<boolean> {
         return new Promise<boolean>((resolve, reject) => {
             const path: string = this.sdk + "/platforms/Arduino/";
             const cp = exec("cp /tmp/warduino/upload.c " + path + "/upload.h");
+            
             cp.on("error", err => {
                 resolve(false);
             });
