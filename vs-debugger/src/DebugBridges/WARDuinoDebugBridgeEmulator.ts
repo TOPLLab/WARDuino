@@ -68,6 +68,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
     setCallstack(callstack: Frame[]): void {
         this.callstack = callstack;
+        this.listener.notifyStateUpdate();
     }
 
     private initClient() {

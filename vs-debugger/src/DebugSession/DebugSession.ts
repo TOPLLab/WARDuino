@@ -5,12 +5,13 @@ import * as vscode from 'vscode';
 import {
     Handles,
     InitializedEvent,
-    LoggingDebugSession, Scope,
+    LoggingDebugSession,
+    Scope,
     Source,
     StackFrame,
     StoppedEvent,
     TerminatedEvent,
-    Thread, Variable
+    Thread
 } from 'vscode-debugadapter';
 import {CompileTimeError} from "../CompilerBridges/CompileTimeError";
 import {ErrorReporter} from "./ErrorReporter";
@@ -21,7 +22,6 @@ import {CompileBridgeFactory} from "../CompilerBridges/CompileBridgeFactory";
 import {CompileBridge} from "../CompilerBridges/CompileBridge";
 import {SourceMap} from "../CompilerBridges/SourceMap";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
-import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
 import {Frame} from "../Parsers/Frame";
 
 // Interface between the debugger and the VS runtime 
@@ -126,6 +126,9 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
                 },
                 notifyProgress(message: string): void {
                     that.notifier.text = message;
+                },
+                notifyStateUpdate(): void {
+                    that.notifyStepCompleted();
                 }
             }
         );
@@ -182,7 +185,6 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
 
     private setLineNumberFromPC(pc: number) {
         this.testCurrentLine = this.getLineNumberForAddress(pc);
-        console.log(`Set current line to: ${this.testCurrentLine}`);
     }
 
     private getLineNumberForAddress(address: number): number {
@@ -279,7 +281,6 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         console.log("nextRequest");
         this.sendResponse(response);
         this.debugBridge?.step();
-        this.notifyStopped();
     }
 
     override shutdown(): void {
@@ -287,7 +288,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         this.debugBridge?.disconnect();
     }
 
-    public notifyStopped() {
+    public notifyStepCompleted() {
         this.sendEvent(new StoppedEvent('step', this.THREAD_ID));
     }
 

@@ -3,4 +3,5 @@ export interface DebugBridgeListener {
     disconnected(): void;
     notifyError(message: string): void;
     notifyProgress(message: string): void;
+    notifyStateUpdate(): void;
 }
