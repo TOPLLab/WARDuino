@@ -18,7 +18,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
     private port: SerialPort | undefined;
     private pc: number = 0;
     private locals: VariableInfo[] = [];
-    private currentFunctionIndex: number = -1;
+    private callstack: number[] = [];
     private portAddress: string;
     private sdk : string
 
@@ -120,12 +120,12 @@ export class WARDuinoDebugBridge implements DebugBridge {
         this.locals = locals;
     }
 
-    getCurrentFunctionIndex(): number {
-        return this.currentFunctionIndex;
+    getCallstack(): number[] {
+        return this.callstack;
     }
 
-    setCurrentFunctionIndex(fidx: number): void {
-        this.currentFunctionIndex = fidx;
+    setCallstack(callstack: number[]): void {
+        this.callstack = callstack;
     }
 
     step(): void {

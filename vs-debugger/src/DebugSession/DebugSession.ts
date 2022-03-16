@@ -186,7 +186,9 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         this.sendResponse(response);
     }
 
-    protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request) {
+    protected variablesRequest(response: DebugProtocol.VariablesResponse,
+                               args: DebugProtocol.VariablesArguments,
+                               request?: DebugProtocol.Request) {
         if (this.sourceMap === undefined) {
             return;
         }
@@ -194,17 +196,17 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         const v = this.variableHandles.get(args.variablesReference);
         if (v === "locals") {
             let locals: VariableInfo[] = this.debugBridge === undefined ? [] : this.debugBridge.getLocals();
-            let fidx: number = this.debugBridge === undefined ? 0 : this.debugBridge.getCurrentFunctionIndex()
-            console.log(`FIDX: ${fidx}`);
+            let callstack: number[] = this.debugBridge === undefined ? [] : this.debugBridge.getCallstack();
             response.body = {
                 variables: Array.from(locals, (local) => {
                     return {
-                        name: (this.sourceMap === undefined ? local.index.toString() : this.sourceMap.functionInfos[fidx].locals[local.index].name),
+                        name: (this.sourceMap === undefined
+                            ? local.index.toString()
+                            : this.sourceMap.functionInfos[callstack[callstack.length - 1]].locals[local.index].name),
                         value: local.value.toString(), variablesReference: 0
                     };
                 })
             };
-            console.log(response.body);
             this.sendResponse(response);
         } else {
             response.body = {
@@ -212,12 +214,12 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
                     return {name: info.name, value: info.value, variablesReference: 0};
                 })
             };
-            console.log(response.body);
             this.sendResponse(response);
         }
     }
 
-    protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
+    protected stackTraceRequest(response: DebugProtocol.StackTraceResponse,
+                                args: DebugProtocol.StackTraceArguments): void {
         const pc = this.debugBridge!.getProgramCounter();
         this.setLineNumberFromPC(pc);
 

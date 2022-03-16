@@ -17,7 +17,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private parser: DebugInfoParser;
     private pc: number = 0;
     private locals: VariableInfo[] = [];
-    private currentFunctionIndex: number = -1;
+    private callstack: number[] = [];
 
     constructor(wasmPath: string, listener: DebugBridgeListener) {
         this.wasmPath = wasmPath;
@@ -49,12 +49,12 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         this.locals = locals;
     }
 
-    getCurrentFunctionIndex(): number {
-        return this.currentFunctionIndex;
+    getCallstack(): number[] {
+        return this.callstack;
     }
 
-    setCurrentFunctionIndex(fidx: number): void {
-        this.currentFunctionIndex = fidx;
+    setCallstack(callstack: number[]): void {
+        this.callstack = callstack;
     }
 
     private initClient() {

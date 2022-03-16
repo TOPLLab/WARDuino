@@ -7,8 +7,8 @@ export interface DebugBridge {
     setProgramCounter(pc: number): void;
     getLocals(): VariableInfo[];
     setLocals(locals: VariableInfo[]): void;
-    getCurrentFunctionIndex(): number;
-    setCurrentFunctionIndex(fidx: number): void;
+    getCallstack(): number[];
+    setCallstack(callstack: number[]): void;
     step(): void;
     refresh(): void;
     disconnect(): void;
