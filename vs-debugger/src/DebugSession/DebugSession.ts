@@ -181,12 +181,19 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
     }
 
     private setLineNumberFromPC(pc: number) {
+        this.testCurrentLine = this.getLineNumberForAddress(pc);
+        console.log(`Set current line to: ${this.testCurrentLine}`);
+    }
+
+    private getLineNumberForAddress(address: number): number {
+        let line = 0;
         this.sourceMap?.lineInfoPairs.forEach((info) => {
-            const address = parseInt("0x" + info.lineAddress);
-            if (Math.abs(pc - address) === 0) {
-                this.testCurrentLine = info.lineInfo.line - 1;
+            const candidate = parseInt("0x" + info.lineAddress);
+            if (Math.abs(address - candidate) === 0) {
+                line = info.lineInfo.line - 1;
             }
         });
+        return line;
     }
 
     protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
@@ -236,35 +243,31 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         const pc = this.debugBridge!.getProgramCounter();
         this.setLineNumberFromPC(pc);
 
-        const sf: DebugProtocol.StackFrame = new StackFrame(0,
-            'Top Frame',
+        const bottom: DebugProtocol.StackFrame = new StackFrame(0,
+            "module",
             this.createSource(this.program),
-            this.convertDebuggerLineToClient(this.testCurrentLine));
+            1);
+
+        let callstack = this.debugBridge === undefined
+            ? [] : Array.from(this.debugBridge.getCallstack().reverse(), (frame, index) => {
+                // @ts-ignore
+                const functionInfo = this.sourceMap.functionInfos[frame.index];
+                let start = this.getLineNumberForAddress(frame.returnAddress);
+                console.log(start);
+                return new StackFrame(index, functionInfo.name,
+                    this.createSource(this.program), // TODO
+                    this.convertDebuggerLineToClient(start)); // TODO
+            });
+        callstack.push(bottom);
+        callstack[0].line = this.convertDebuggerLineToClient(this.testCurrentLine);
 
         if (this.sourceMap !== undefined) {
             response.body = {
-                stackFrames: Array.from(this.debugBridge === undefined
-                    ? [] : this.debugBridge.getCallstack(), (frame, index) => {
-                    // @ts-ignore
-                    const functionInfo = this.sourceMap.functionInfos[frame.index];
-                    let start = 0;
-                    // @ts-ignore
-                    this.sourceMap.lineInfoPairs.forEach((info) => {
-                        const address = parseInt("0x" + info.lineAddress);
-                        if (Math.abs(frame.start - address) === 0) {
-                            start = info.lineInfo.line - 1;
-                        }
-                    });
-
-                    return new StackFrame(index, functionInfo.name,
-                        this.createSource(this.program), // TODO
-                        start); // TODO
-                }),
-                totalFrames: 1
+                stackFrames: callstack,
+                totalFrames: callstack.length
             };
         }
 
-        response.body.stackFrames.unshift(sf);
         this.sendResponse(response);
     }
 

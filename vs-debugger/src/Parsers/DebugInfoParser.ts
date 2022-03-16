@@ -38,7 +38,7 @@ export class DebugInfoParser {
         objs.filter((obj) => {
             return obj.type === 0;
         }).forEach((obj) => {
-            functions.push({index: parseInt(obj.fidx), start: parseInt(obj.start) - this.addressBeginning});
+            functions.push({index: parseInt(obj.fidx), returnAddress: parseInt(obj.ra) - this.addressBeginning});
         });
         return functions;
     }
