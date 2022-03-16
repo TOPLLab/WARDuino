@@ -478,7 +478,6 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 
 
 def_prim(init_pixels,NoneToNoneU32) {
-				printf("pixels !! \n");
 				pixels.begin();
 				return true;
 }
@@ -489,7 +488,6 @@ def_prim(set_pixel_color, fourToOneU32) {
     uint8_t red   = arg2.uint32;
     uint8_t index = arg3.uint32;
 
-				printf("pixels index %d  r:%d g:%d b:%d \n",index,red,green,blue);
 	   pixels.setPixelColor(index, pixels.Color(red,green,blue));
 				pop_args(4);
 				return true;

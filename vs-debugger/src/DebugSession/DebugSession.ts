@@ -137,6 +137,19 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         this.sendEvent(new StoppedEvent('entry', this.THREAD_ID));
     }
 
+
+    protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
+		this.debugBridge?.run();
+		this.sendResponse(response);
+	}
+
+    protected pauseRequest(response: DebugProtocol.PauseResponse, args: DebugProtocol.PauseArguments, request?: DebugProtocol.Request): void {
+        this.debugBridge?.pause();
+        this.sendResponse(response);
+        this.sendEvent(new StoppedEvent('pause', this.THREAD_ID));
+    }
+ 
+
     private handleCompileError(handleCompileError: CompileTimeError) {
         let range = new vscode.Range(handleCompileError.lineInfo.line - 1,
             handleCompileError.lineInfo.column,
@@ -221,6 +234,8 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
             let callstack: Frame[] = this.debugBridge === undefined ? [] : this.debugBridge.getCallstack();
             response.body = {
                 variables: Array.from(locals, (local) => {
+
+
                     return {
                         name: (this.sourceMap === undefined
                             ? local.index.toString()
@@ -256,7 +271,9 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
             // @ts-ignore
             const functionInfo = this.sourceMap.functionInfos[frame.index];
             let start = (index === 0) ? this.testCurrentLine : this.getLineNumberForAddress(callstack[index - 1].returnAddress);
-            return new StackFrame(index, functionInfo.name,
+            let name = (functionInfo === undefined) ? "todo" : functionInfo.name ;
+
+            return new StackFrame(index,name,
                 this.createSource(this.program), // TODO
                 this.convertDebuggerLineToClient(start)); // TODO
         });

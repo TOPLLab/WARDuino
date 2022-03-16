@@ -26,6 +26,9 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         this.parser = new DebugInfoParser();
         this.connect();
     }
+    pause(): void {
+        throw new Error('Method not implemented.');
+    }
     setStartAddress(startAddress: number) {
         this.startAddress = startAddress;
     }
