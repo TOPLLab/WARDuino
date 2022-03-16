@@ -13,6 +13,7 @@ export interface DebugBridge {
     setCallstack(callstack: Frame[]): void;
     step(): void;
     run(): void;
+    pause(): void;
     setBreakPoint(x:number): void;
     refresh(): void;
     disconnect(): void;

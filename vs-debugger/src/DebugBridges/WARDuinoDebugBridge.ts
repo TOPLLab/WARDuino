@@ -51,7 +51,11 @@ export class WARDuinoDebugBridge implements DebugBridge {
     }
 
     run(): void {
-        throw new Error("Method not implemented.");
+        this.port?.write('01 \n');
+    }
+
+    pause(): void {
+        this.port?.write('03 \n');
     }
 
     async connect(): Promise<string> {
@@ -80,7 +84,6 @@ export class WARDuinoDebugBridge implements DebugBridge {
     public setBreakPoint(address:number) {
         let breakPointAddress : string = (this.startAddress+address).toString(16).toUpperCase();
         let command = `060${(breakPointAddress.length/2).toString(16)}${breakPointAddress} \n`;
-
         this.port?.write(command);
     }
 

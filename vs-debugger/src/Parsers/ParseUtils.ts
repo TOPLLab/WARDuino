@@ -53,13 +53,17 @@ function fillInLocalInfos(functionInfos: FunctionInfo[], lines: String[]): Funct
         let fidx = lines[i].match(/\[([0-9]+)]/);
         if (fidx !== null) {
             let name = lines[i].match(/<([a-zA-Z0-9 ]+)>/);
-            functionInfos[+fidx[1]].locals.push({
+            let f = fidx[1];
+            if(f !==null) {
+            let functionInfo = functionInfos.find(o => o.index == parseInt(f));
+            functionInfo?.locals.push({
                 index: i,
                 name: ((name === null) ? `${i}` : `$${name[1]}`),
                 type: "undefined",
                 mutable: true,
                 value: ""
             });  // TODO get type from disassembly
+         }
         }
     }
     return functionInfos;
