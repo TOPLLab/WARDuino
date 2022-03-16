@@ -248,23 +248,23 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
             this.createSource(this.program),
             1);
 
-        let callstack = this.debugBridge === undefined
-            ? [] : Array.from(this.debugBridge.getCallstack().reverse(), (frame, index) => {
-                // @ts-ignore
-                const functionInfo = this.sourceMap.functionInfos[frame.index];
-                let start = this.getLineNumberForAddress(frame.returnAddress);
-                console.log(start);
-                return new StackFrame(index, functionInfo.name,
-                    this.createSource(this.program), // TODO
-                    this.convertDebuggerLineToClient(start)); // TODO
-            });
-        callstack.push(bottom);
-        callstack[0].line = this.convertDebuggerLineToClient(this.testCurrentLine);
+        const callstack = this.debugBridge === undefined
+            ? [] : this.debugBridge.getCallstack();
+        let frames = Array.from(callstack.reverse(), (frame, index) => {
+            // @ts-ignore
+            const functionInfo = this.sourceMap.functionInfos[frame.index];
+            let start = (index === 0) ? this.testCurrentLine : this.getLineNumberForAddress(callstack[index - 1].returnAddress);
+            return new StackFrame(index, functionInfo.name,
+                this.createSource(this.program), // TODO
+                this.convertDebuggerLineToClient(start)); // TODO
+        });
+        frames.push(bottom);
+        frames[0].line = this.convertDebuggerLineToClient(this.testCurrentLine);
 
         if (this.sourceMap !== undefined) {
             response.body = {
-                stackFrames: callstack,
-                totalFrames: callstack.length
+                stackFrames: frames,
+                totalFrames: frames.length
             };
         }
 
