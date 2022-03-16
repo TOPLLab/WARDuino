@@ -1,12 +1,11 @@
 import {ChildProcess, spawn} from 'child_process';
 import * as net from 'net';
-import {jsonParse} from '../Parsers/ParseUtils';
 import {DebugBridge} from './DebugBridge';
 import {DebugBridgeListener} from './DebugBridgeListener';
 import {InterruptTypes} from './InterruptTypes';
 import {DebugInfoParser} from "../Parsers/DebugInfoParser";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
-import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
+import {Frame} from "../Parsers/Frame";
 
 export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
@@ -17,7 +16,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private parser: DebugInfoParser;
     private pc: number = 0;
     private locals: VariableInfo[] = [];
-    private callstack: number[] = [];
+    private callstack: Frame[] = [];
 
     constructor(wasmPath: string, listener: DebugBridgeListener) {
         this.wasmPath = wasmPath;
@@ -49,11 +48,11 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         this.locals = locals;
     }
 
-    getCallstack(): number[] {
+    getCallstack(): Frame[] {
         return this.callstack;
     }
 
-    setCallstack(callstack: number[]): void {
+    setCallstack(callstack: Frame[]): void {
         this.callstack = callstack;
     }
 

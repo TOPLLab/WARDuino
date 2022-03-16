@@ -1,7 +1,10 @@
 import {DebugBridge} from "../DebugBridges/DebugBridge";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
+import {Frame} from "./Frame";
 
 export class DebugInfoParser {
+
+    private addressBeginning: number = 0;
 
     public parse(bridge: DebugBridge, line: any): void {
         console.log(line);
@@ -12,9 +15,10 @@ export class DebugInfoParser {
 
         if (line.startsWith("{")) {
             let obj = JSON.parse(line);
-            bridge.setProgramCounter((parseInt(obj.pc) - parseInt(obj.start)));
+            this.addressBeginning = parseInt(obj.start);
+            bridge.setProgramCounter((parseInt(obj.pc) - this.addressBeginning));
             bridge.setLocals(DebugInfoParser.parseLocals(obj.locals.locals));
-            bridge.setCallstack(DebugInfoParser.parseCallstack(obj.callstack));
+            bridge.setCallstack(this.parseCallstack(obj.callstack));
             console.log(bridge.getProgramCounter().toString(16));
         }
     }
@@ -28,14 +32,13 @@ export class DebugInfoParser {
         return locals;
     }
 
-    private static parseCallstack(objs: any[]): number[] {
-        let functions: number[] = [];
+    private parseCallstack(objs: any[]): Frame[] {
+        let functions: Frame[] = [];
         objs.filter((obj) => {
             return obj.type === 0;
         }).forEach((obj) => {
-            functions.push(parseInt(obj.fidx));
+            functions.push({index: parseInt(obj.fidx), start: parseInt(obj.start) - this.addressBeginning});
         });
         return functions;
     }
-
 }

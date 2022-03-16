@@ -1,5 +1,6 @@
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
 import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
+import {Frame} from "../Parsers/Frame";
 
 export interface DebugBridge {
     connect(): Promise<string>;
@@ -7,8 +8,8 @@ export interface DebugBridge {
     setProgramCounter(pc: number): void;
     getLocals(): VariableInfo[];
     setLocals(locals: VariableInfo[]): void;
-    getCallstack(): number[];
-    setCallstack(callstack: number[]): void;
+    getCallstack(): Frame[];
+    setCallstack(callstack: Frame[]): void;
     step(): void;
     refresh(): void;
     disconnect(): void;

@@ -22,6 +22,7 @@ import {CompileBridge} from "../CompilerBridges/CompileBridge";
 import {SourceMap} from "../CompilerBridges/SourceMap";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
 import {FunctionInfo} from "../CompilerBridges/FunctionInfo";
+import {Frame} from "../Parsers/Frame";
 
 // Interface between the debugger and the VS runtime 
 export class WARDuinoDebugSession extends LoggingDebugSession {
@@ -196,13 +197,13 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         const v = this.variableHandles.get(args.variablesReference);
         if (v === "locals") {
             let locals: VariableInfo[] = this.debugBridge === undefined ? [] : this.debugBridge.getLocals();
-            let callstack: number[] = this.debugBridge === undefined ? [] : this.debugBridge.getCallstack();
+            let callstack: Frame[] = this.debugBridge === undefined ? [] : this.debugBridge.getCallstack();
             response.body = {
                 variables: Array.from(locals, (local) => {
                     return {
                         name: (this.sourceMap === undefined
                             ? local.index.toString()
-                            : this.sourceMap.functionInfos[callstack[callstack.length - 1]].locals[local.index].name),
+                            : this.sourceMap.functionInfos[callstack[callstack.length - 1].index].locals[local.index].name),
                         value: local.value.toString(), variablesReference: 0
                     };
                 })
@@ -228,10 +229,28 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
             this.createSource(this.program),
             this.convertDebuggerLineToClient(this.testCurrentLine));
 
-        response.body = {
-            stackFrames: [sf],
-            totalFrames: 1
-        };
+        if (this.sourceMap !== undefined) {
+            response.body = {
+                stackFrames: Array.from(this.debugBridge === undefined
+                    ? [] : this.debugBridge.getCallstack(), (frame, index) => {
+                    // @ts-ignore
+                    const functionInfo = this.sourceMap.functionInfos[frame.index];
+                    let start = 0;
+                    // @ts-ignore
+                    this.sourceMap.lineInfoPairs.forEach((info) => {
+                        const address = parseInt("0x" + info.lineAddress);
+                        if (Math.abs(frame.start - address) === 0) {
+                            start = info.lineInfo.line - 1;
+                        }
+                    });
+
+                    return new StackFrame(index, functionInfo.name,
+                        this.createSource(this.program), // TODO
+                        start); // TODO
+                }),
+                totalFrames: 1
+            };
+        }
 
         this.sendResponse(response);
     }

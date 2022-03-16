@@ -24,7 +24,7 @@ export class DebugBridgeFactory {
                         }
 
                         if (warduinoSDK === undefined) {
-                            throw new Error('WARDuino Tool Chain not set')
+                            throw new Error('WARDuino Tool Chain not set');
                         }
                         return new WARDuinoDebugBridge(file,listener, portAddress, warduinoSDK);
                 }

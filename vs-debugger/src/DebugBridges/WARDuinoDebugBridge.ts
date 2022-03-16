@@ -9,6 +9,7 @@ import {spawn, exec} from "child_process";
 import {ThreadEvent} from "vscode-debugadapter";
 import {resolve} from "path";
 import {rejects} from "assert";
+import {Frame} from "../Parsers/Frame";
 
 
 export class WARDuinoDebugBridge implements DebugBridge {
@@ -18,7 +19,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
     private port: SerialPort | undefined;
     private pc: number = 0;
     private locals: VariableInfo[] = [];
-    private callstack: number[] = [];
+    private callstack: Frame[] = [];
     private portAddress: string;
     private sdk: string;
 
@@ -55,7 +56,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
 
             const parser = new ReadlineParser();
             that.port?.pipe(parser);
-            parser.on('data', (line: any) => {
+            parser.on("data", (line: any) => {
                 that.parser.parse(that, line);
             });
         });
@@ -66,38 +67,42 @@ export class WARDuinoDebugBridge implements DebugBridge {
     }
 
     private uploadArduino(path: string, resolver: (value: boolean) => void): void {
-        const upload = exec('make flash', {cwd: path}, (err, stdout, stderr) => {
+        const upload = exec("make flash", {cwd: path}, (err, stdout, stderr) => {
                 console.log(err);
             }
         );
 
-        upload.on('data', (data) => {
+        upload.on("data", (data) => {
             console.log(`stdout: ${data}`);
         });
 
-        upload.on('close', (code) => {
-            resolver(true);
+        upload.on("close", (code) => {
+            resolver(code === 0);
         });
     }
 
     compileArduino(path: string, resolver: (value: boolean) => void): void {
-        const compile = exec('make compile', {
+        const compile = exec("make compile", {
             cwd: path
         });
 
-        compile.on('close', (code) => {
+        compile.on("error", (err => {
+            resolver(false);
+        }));
+
+        compile.on("close", (code) => {
             this.uploadArduino(path, resolver);
         });
     }
 
     upload(): Promise<boolean> {
         return new Promise<boolean>((resolve, reject) => {
-            if (this.port === undefined) {
-                reject("Cannot upload. Plugin is not connected to a serial port.");
-            }
-            const path: string = this.sdk + '/platforms/Arduino/';
-            const cp = exec('cp /tmp/warduino/upload.c ' + path + '/upload.h');
-            cp.on('close', (code) => {
+            const path: string = this.sdk + "/platforms/Arduino/";
+            const cp = exec("cp /tmp/warduino/upload.c " + path + "/upload.h");
+            cp.on("error", err => {
+                resolve(false);
+            });
+            cp.on("close", (code) => {
                 this.compileArduino(path, resolve);
             });
         });
@@ -123,11 +128,11 @@ export class WARDuinoDebugBridge implements DebugBridge {
         this.locals = locals;
     }
 
-    getCallstack(): number[] {
+    getCallstack(): Frame[] {
         return this.callstack;
     }
 
-    setCallstack(callstack: number[]): void {
+    setCallstack(callstack: Frame[]): void {
         this.callstack = callstack;
     }
 
@@ -135,7 +140,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
         this.sendInterrupt(InterruptTypes.interruptSTEP, function (err: any) {
             console.log("step");
             if (err) {
-                return console.log('Error on write: ', err.message);
+                return console.log("Error on write: ", err.message);
             }
         });
     }
@@ -143,9 +148,9 @@ export class WARDuinoDebugBridge implements DebugBridge {
     refresh(): void {
         this.sendInterrupt(InterruptTypes.interruptDUMPFull, function (err: any) {
             if (err) {
-                return console.log('Error on write: ', err.message);
+                return console.log("Error on write: ", err.message);
             }
-            console.log('dbg');
+            console.log("dbg");
         });
     }
 }

@@ -34,7 +34,7 @@ suite('Hardware-less Test Suite', () => {
         });
     });
 
-    test('TestUploadBeforeConnected', async () => {
+    test('TestUpload', async () => {
         let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge(wasmDirectoryPath,
             {
                 notifyError(): void {
@@ -54,8 +54,8 @@ suite('Hardware-less Test Suite', () => {
             warduinoSDK
         );
 
-        bridge.upload().catch(reason => {
-            expect(reason.to.equal("Cannot upload. Plugin is not connected to a serial port."));
+        bridge.upload().then(value => {
+            expect(value).to.be.true;
         });
     });
 });
