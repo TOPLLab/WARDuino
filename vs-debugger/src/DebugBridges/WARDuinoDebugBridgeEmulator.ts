@@ -6,6 +6,7 @@ import {InterruptTypes} from './InterruptTypes';
 import {DebugInfoParser} from "../Parsers/DebugInfoParser";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
 import {Frame} from "../Parsers/Frame";
+import { start } from 'repl';
 
 export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
@@ -17,12 +18,25 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private pc: number = 0;
     private locals: VariableInfo[] = [];
     private callstack: Frame[] = [];
+    private startAddress : number = 0;
 
     constructor(wasmPath: string, listener: DebugBridgeListener) {
         this.wasmPath = wasmPath;
         this.listener = listener;
         this.parser = new DebugInfoParser();
         this.connect();
+    }
+    setStartAddress(startAddress: number) {
+        this.startAddress = startAddress;
+    }
+
+    run(): void {
+        this.sendInterrupt(InterruptTypes.interruptRUN);
+    }
+    
+    setBreakPoint(x: number): void {
+        console.log(this.startAddress);
+        throw new Error('Method not implemented.');
     }
 
     public connect(): Promise<string> {
