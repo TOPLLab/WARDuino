@@ -37,14 +37,21 @@ function extractDetailedSection(section: string, input: String): String[] {
     return lines.slice(i, ((isNaN(count)) ? lines.length : i + count));
 }
 
-function extractFunctionInfo(line: String): FunctionInfo {
-    let index = +(line.split(/[\[\]]+/)[1]);
-    let name = `func ${index}`;
-    let splitOnName = line.split(/[<>]/);
-    if (splitOnName.length >= 2) {
-        name = splitOnName[1];
+function extractMajorSection(section: string, input: String): String[] {
+    let lines = input.split("\n");
+    let i = 0;
+    while (i < lines.length && !lines[i].startsWith(section)) {
+        i++;
     }
-    return {index: index, name: name, locals: []};
+
+    i += 2;
+    let start = i;
+    while (i < lines.length && lines[i] !== "") {
+        i++;
+    }
+
+    let count: number = +(lines[i++].split(/[\[\]]+/)[1]);
+    return lines.slice(start, i);
 }
 
 function fillInLocalInfos(functionInfos: FunctionInfo[], lines: String[]): FunctionInfo[] {
@@ -54,16 +61,16 @@ function fillInLocalInfos(functionInfos: FunctionInfo[], lines: String[]): Funct
         if (fidx !== null) {
             let name = lines[i].match(/<([a-zA-Z0-9 ]+)>/);
             let f = fidx[1];
-            if(f !==null) {
-            let functionInfo = functionInfos.find(o => o.index == parseInt(f));
-            functionInfo?.locals.push({
-                index: i,
-                name: ((name === null) ? `${i}` : `$${name[1]}`),
-                type: "undefined",
-                mutable: true,
-                value: ""
-            });  // TODO get type from disassembly
-         }
+            if (f !== null) {
+                let functionInfo = functionInfos.find(o => o.index === parseInt(f));
+                functionInfo?.locals.push({
+                    index: i,
+                    name: ((name === null) ? `${i}` : `$${name[1]}`),
+                    type: "undefined",
+                    mutable: true,
+                    value: ""
+                });  // TODO get type from disassembly
+            }
         }
     }
     return functionInfos;
@@ -89,19 +96,22 @@ function extractGlobalInfo(line: String): VariableInfo {
 }
 
 export function getFunctionInfos(input: String): FunctionInfo[] {
-    let functionLines: String[] = extractDetailedSection("Function[", input);
-    let customLines = extractDetailedSection("Custom:", input);
+    let functionLines: String[] = extractMajorSection("Sourcemap JSON:", input);
 
     if (functionLines.length === 0) {
-        throw Error("Could not parse 'Function' section of objdump");
+        throw Error("Could not parse 'sourcemap' section of objdump");
     }
 
+    let sourcemap = JSON.parse(functionLines.join("").replace(/\t/g,""));
     let functions: FunctionInfo[] = [];
-    functionLines.forEach((line) => {
-        functions.push(extractFunctionInfo(line));
+    sourcemap.Functions.forEach((func: any, index: number) => {
+        let locals: VariableInfo[] = [];
+        func.locals.forEach((local: string, index: number) => {
+            locals.push({index: index, name: local, type: "undefined", mutable: true, value: ""});
+        });
+        functions.push({index: index, name: func.name, locals: locals});
     });
-
-    return fillInLocalInfos(functions, customLines);
+    return functions;
 }
 
 export function getGlobalInfos(input: String): VariableInfo[] {
