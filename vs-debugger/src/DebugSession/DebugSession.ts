@@ -121,6 +121,9 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
                 connected(): void {
 
                 },
+                notifyPaused() :void {
+                    that.sendEvent(new StoppedEvent('pause', that.THREAD_ID));
+                },
                 disconnected(): void {
 
                 },
