@@ -14,9 +14,9 @@ class Messages {
     public static CONNECTED: string = "Connected to board";
     public static DISCONNECTED: string = "Disconnected board";
 
-    static COMPILING: string = "Compiling the code";
+    public static COMPILING: string = "Compiling the code";
     public static COMPILED: string = "Compiled Code";
-    static RESET: string = "Press reset button";
+    public static RESET: string = "Press reset button";
 }
 
 
@@ -51,11 +51,12 @@ export class WARDuinoDebugBridge implements DebugBridge {
     }
 
     run(): void {
-        this.port?.write('01 \n');
+        this.sendInterrupt(InterruptTypes.interruptRUN);
     }
 
     pause(): void {
-        this.port?.write('03 \n');
+        this.sendInterrupt(InterruptTypes.interruptPAUSE);
+        this.listener.notifyPaused();
     }
 
     async connect(): Promise<string> {

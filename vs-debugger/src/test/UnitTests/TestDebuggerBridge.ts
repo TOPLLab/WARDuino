@@ -19,6 +19,10 @@ suite('Hardware-less Test Suite', () => {
                 connected(): void {
 
                 },
+                notifyPaused(): void 
+                {
+                    
+                },
                 disconnected(): void {
 
                 },
@@ -45,6 +49,9 @@ suite('Hardware-less Test Suite', () => {
 
                 },
                 connected(): void {
+
+                }, 
+                notifyPaused() :void {
 
                 },
                 disconnected(): void {
@@ -73,6 +80,9 @@ suite('Hardware-less Test Suite', () => {
 
                 },
                 disconnected(): void {
+
+                },
+                notifyPaused() :void {
 
                 },
                 notifyProgress(message: string): void {
