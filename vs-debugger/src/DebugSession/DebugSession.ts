@@ -168,18 +168,18 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
     }
 
     protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, request?: DebugProtocol.Request): void {
-       
-        if(this.sourceMap === undefined) {
+
+        if (this.sourceMap === undefined) {
             console.log("no source map yet");
         } else {
-            args.lines?.forEach( ( breakpoint : number )=> { 
-                let lineInfoPair = this.sourceMap?.lineInfoPairs.find( info => info.lineInfo.line == breakpoint);
-                if(lineInfoPair) {
+            args.lines?.forEach((breakpoint: number) => {
+                let lineInfoPair = this.sourceMap?.lineInfoPairs.find(info => info.lineInfo.line === breakpoint);
+                if (lineInfoPair) {
                     console.log(lineInfoPair);
                     this.debugBridge?.setBreakPoint(parseInt("0x" + lineInfoPair.lineAddress));
                 }
 
-            })            
+            });
 
         }
     }
@@ -274,7 +274,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
             // @ts-ignore
             const functionInfo = this.sourceMap.functionInfos[frame.index];
             let start = (index === 0) ? this.testCurrentLine : this.getLineNumberForAddress(callstack[index - 1].returnAddress);
-            let name = (functionInfo === undefined) ? "todo" : functionInfo.name ;
+            let name = (functionInfo === undefined) ? "<anonymous>" : functionInfo.name ;
 
             return new StackFrame(index,name,
                 this.createSource(this.program), // TODO

@@ -173,7 +173,7 @@ export class WASMCompilerBridge implements CompileBridge {
     }
 
     private static getNameDumpCommand(): string {
-        return "wasm-objdump -x /tmp/warduino/upload.wasm";
+        return "wasm-objdump -m /tmp/warduino/upload.wasm";
     }
 
     private static compileCHeaderFileCommand(): string {
