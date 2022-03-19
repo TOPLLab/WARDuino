@@ -7,10 +7,11 @@ export interface DebugBridge {
     connect(): Promise<string>;
     getProgramCounter(): number;
     setProgramCounter(pc: number): void;
-    getLocals(): VariableInfo[];
-    setLocals(locals: VariableInfo[]): void;
+    getLocals(fidx: number): VariableInfo[];
+    setLocals(fidx: number, locals: VariableInfo[]): void;
     getCallstack(): Frame[];
     setCallstack(callstack: Frame[]): void;
+    getCurrentFunctionIndex(): number;
     step(): void;
     run(): void;
     pause(): void;

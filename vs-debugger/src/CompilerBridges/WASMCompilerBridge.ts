@@ -7,7 +7,6 @@ import {CompileBridge} from "./CompileBridge";
 import {SourceMap} from "./SourceMap";
 import {FunctionInfo} from "./FunctionInfo";
 import {VariableInfo} from "./VariableInfo";
-import {getFunctionInfos, getGlobalInfos} from "../Parsers/ParseUtils";
 
 function checkCompileTimeError(errorMessage: string) {
     let regexpr = /:(?<line>(\d+)):(?<column>(\d+)): error: (?<message>(.*))/;
@@ -66,7 +65,7 @@ export class WASMCompilerBridge implements CompileBridge {
     }
 
     async compile() {
-        let sourceMap :SourceMap = await this.compileAndDump(this.compileToWasmCommand(), WASMCompilerBridge.getNameDumpCommand());
+        let sourceMap: SourceMap = await this.compileAndDump(this.compileToWasmCommand(), WASMCompilerBridge.getNameDumpCommand());
         await this.compileHeader();
         return sourceMap;
     }
@@ -118,7 +117,7 @@ export class WASMCompilerBridge implements CompileBridge {
             });
 
         }).then((result) => {
-            return new Promise((resolve, reject) => {
+            return new Promise<SourceMap>((resolve, reject) => {
                 let functionInfos: FunctionInfo[];
                 let globalInfos: VariableInfo[];
                 let sourceMap: SourceMap;
@@ -173,7 +172,7 @@ export class WASMCompilerBridge implements CompileBridge {
     }
 
     private static getNameDumpCommand(): string {
-        return "wasm-objdump -m /tmp/warduino/upload.wasm";
+        return "wasm-objdump -x -m /tmp/warduino/upload.wasm";
     }
 
     private static compileCHeaderFileCommand(): string {

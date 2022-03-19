@@ -107,12 +107,12 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
 
         let compiler: CompileBridge = CompileBridgeFactory.makeCompileBridge(args.program);
 
-        let sourceMap = await compiler.compile().catch((reason) => this.handleCompileError(reason));
+        let sourceMap: SourceMap | void = await compiler.compile().catch((reason) => this.handleCompileError(reason));
         if (sourceMap) {
             this.sourceMap = sourceMap;
         }
         let that = this;
-        this.debugBridge = DebugBridgeFactory.makeDebugBridge(args.program,
+        this.debugBridge = DebugBridgeFactory.makeDebugBridge(args.program, sourceMap,
             RunTimeTarget.embedded,
             {   // VS Code Interface
                 notifyError(): void {
@@ -121,7 +121,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
                 connected(): void {
 
                 },
-                notifyPaused() :void {
+                notifyPaused(): void {
                     that.sendEvent(new StoppedEvent('pause', that.THREAD_ID));
                 },
                 disconnected(): void {
@@ -142,9 +142,9 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
 
 
     protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
-		this.debugBridge?.run();
-		this.sendResponse(response);
-	}
+        this.debugBridge?.run();
+        this.sendResponse(response);
+    }
 
     protected pauseRequest(response: DebugProtocol.PauseResponse, args: DebugProtocol.PauseArguments, request?: DebugProtocol.Request): void {
         this.debugBridge?.pause();
@@ -161,7 +161,6 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         this.debugBridge?.upload();
     }
  
-
     private handleCompileError(handleCompileError: CompileTimeError) {
         let range = new vscode.Range(handleCompileError.lineInfo.line - 1,
             handleCompileError.lineInfo.column,
@@ -242,16 +241,13 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
 
         const v = this.variableHandles.get(args.variablesReference);
         if (v === "locals") {
-            let locals: VariableInfo[] = this.debugBridge === undefined ? [] : this.debugBridge.getLocals();
-            let callstack: Frame[] = this.debugBridge === undefined ? [] : this.debugBridge.getCallstack();
+            let locals: VariableInfo[] = this.debugBridge === undefined ? [] : this.debugBridge.getLocals(this.debugBridge.getCurrentFunctionIndex());
             response.body = {
                 variables: Array.from(locals, (local) => {
-
-
                     return {
-                        name: (this.sourceMap === undefined
+                        name: (local.name === ""
                             ? local.index.toString()
-                            : this.sourceMap.functionInfos[callstack[callstack.length - 1].index].locals[local.index].name),
+                            : local.name),
                         value: local.value.toString(), variablesReference: 0
                     };
                 })
@@ -283,9 +279,9 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
             // @ts-ignore
             const functionInfo = this.sourceMap.functionInfos[frame.index];
             let start = (index === 0) ? this.testCurrentLine : this.getLineNumberForAddress(callstack[index - 1].returnAddress);
-            let name = (functionInfo === undefined) ? "<anonymous>" : functionInfo.name ;
+            let name = (functionInfo === undefined) ? "<anonymous>" : functionInfo.name;
 
-            return new StackFrame(index,name,
+            return new StackFrame(index, name,
                 this.createSource(this.program), // TODO
                 this.convertDebuggerLineToClient(start)); // TODO
         });

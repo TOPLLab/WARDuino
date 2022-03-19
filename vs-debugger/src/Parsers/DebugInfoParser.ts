@@ -27,16 +27,22 @@ export class DebugInfoParser {
             this.addressBeginning = parseInt(obj.start);
             bridge.setProgramCounter((parseInt(obj.pc) - this.addressBeginning));
             bridge.setStartAddress(this.addressBeginning);
-            bridge.setLocals(DebugInfoParser.parseLocals(obj.locals.locals));
             bridge.setCallstack(this.parseCallstack(obj.callstack));
+            let fidx = bridge.getCurrentFunctionIndex();
+            bridge.setLocals(fidx, this.parseLocals(bridge, obj.locals.locals));
             console.log(bridge.getProgramCounter().toString(16));
         }
     }
 
-    private static parseLocals(objs: any[]): VariableInfo[] {
-        let locals: VariableInfo[] = [];
+    private parseLocals(bridge: DebugBridge, objs: any[]): VariableInfo[] {
+        let fidx = bridge.getCurrentFunctionIndex();
+        let locals: VariableInfo[] = bridge.getLocals(fidx);
         objs.forEach((obj) => {
-            locals.push({index: obj.index, name: obj.name, type: obj.type, value: obj.value, mutable: true});
+            let local = locals[obj.index];
+            if (local) {
+                local.type = obj.type;
+                local.value = obj.value;
+            }
         });
         console.log(locals);
         return locals;
