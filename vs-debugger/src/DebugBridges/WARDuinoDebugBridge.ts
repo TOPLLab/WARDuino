@@ -6,7 +6,7 @@ import {InterruptTypes} from "./InterruptTypes";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
 import {exec} from "child_process";
 import {Frame} from "../Parsers/Frame";
-import { start } from "repl";
+import {SourceMap} from "../CompilerBridges/SourceMap";
 
 class Messages {
     public static UPLOADING: string = "Uploading to board";
@@ -24,20 +24,22 @@ export class WARDuinoDebugBridge implements DebugBridge {
     private listener: DebugBridgeListener;
     private parser: DebugInfoParser = new DebugInfoParser();
     private wasmPath: string;
+    private sourceMap: SourceMap | void;
     private port: SerialPort | undefined;
     private pc: number = 0;
-    private locals: VariableInfo[] = [];
+    // private locals: VariableInfo[] = [];
     private callstack: Frame[] = [];
     private portAddress: string;
     private sdk: string;
-    private startAddress : number = 0;
-
+    private startAddress: number = 0;
 
     constructor(wasmPath: string,
+                sourceMap: SourceMap | void,
                 listener: DebugBridgeListener,
                 portAddress: string,
                 warduinoSDK: string) {
         this.wasmPath = wasmPath;
+        this.sourceMap = sourceMap;
         this.listener = listener;
         this.portAddress = portAddress;
         this.sdk = warduinoSDK;
@@ -52,7 +54,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
         this.port?.write(`21000${value} \n`);
     }
 
-    setStartAddress(startAddress : number) {
+    setStartAddress(startAddress: number) {
         this.startAddress = startAddress;
     }
 
@@ -68,6 +70,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
     async connect(): Promise<string> {
         return new Promise(async (resolve, reject) => {
             this.listener.notifyProgress(Messages.COMPILING);
+            // await this.compileAndUpload();
             this.listener.notifyProgress(Messages.CONNECTING);
             this.openSerialPort(reject, resolve);
             this.installInputStreamListener();
@@ -92,9 +95,9 @@ export class WARDuinoDebugBridge implements DebugBridge {
         );
     }
 
-    public setBreakPoint(address:number) {
-        let breakPointAddress : string = (this.startAddress+address).toString(16).toUpperCase();
-        let command = `060${(breakPointAddress.length/2).toString(16)}${breakPointAddress} \n`;
+    public setBreakPoint(address: number) {
+        let breakPointAddress: string = (this.startAddress + address).toString(16).toUpperCase();
+        let command = `060${(breakPointAddress.length / 2).toString(16)}${breakPointAddress} \n`;
         this.port?.write(command);
     }
 
@@ -175,12 +178,22 @@ export class WARDuinoDebugBridge implements DebugBridge {
         return this.port?.write(`${i} \n`, callback);
     }
 
-    getLocals(): VariableInfo[] {
-        return this.locals;
+    getLocals(fidx: number): VariableInfo[] {
+        if (this.sourceMap === undefined || fidx >= this.sourceMap.functionInfos.length || fidx < 0) {
+            return [];
+        }
+        return this.sourceMap.functionInfos[fidx].locals;
     }
 
-    setLocals(locals: VariableInfo[]) {
-        this.locals = locals;
+    setLocals(fidx: number, locals: VariableInfo[]) {
+        if (this.sourceMap === undefined) {
+            return;
+        }
+        if (fidx >= this.sourceMap.functionInfos.length) {
+            console.log(`warning setting locals for new function with index: ${fidx}`);
+            this.sourceMap.functionInfos[fidx] = {index: fidx, name: "<anonymous>", locals: []};
+        }
+        this.sourceMap.functionInfos[fidx].locals = locals;
     }
 
     getCallstack(): Frame[] {
@@ -190,6 +203,13 @@ export class WARDuinoDebugBridge implements DebugBridge {
     setCallstack(callstack: Frame[]): void {
         this.callstack = callstack;
         this.listener.notifyStateUpdate();
+    }
+
+    getCurrentFunctionIndex(): number {
+        if (this.callstack.length === 0) {
+            return -1;
+        }
+        return this.callstack[this.callstack.length - 1].index;
     }
 
     step(): void {

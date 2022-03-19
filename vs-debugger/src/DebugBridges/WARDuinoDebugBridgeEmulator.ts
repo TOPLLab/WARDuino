@@ -7,11 +7,13 @@ import {DebugInfoParser} from "../Parsers/DebugInfoParser";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
 import {Frame} from "../Parsers/Frame";
 import { start } from 'repl';
+import {SourceMap} from "../CompilerBridges/SourceMap";
 
 export class WARDuinoDebugBridgeEmulator implements DebugBridge {
 
     private client?: net.Socket;
     private wasmPath: string;
+    private sourceMap: SourceMap | void;
     private cp?: ChildProcess;
     private listener: DebugBridgeListener;
     private parser: DebugInfoParser;
@@ -20,8 +22,9 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private callstack: Frame[] = [];
     private startAddress : number = 0;
 
-    constructor(wasmPath: string, listener: DebugBridgeListener) {
+    constructor(wasmPath: string, sourceMap: SourceMap | void, listener: DebugBridgeListener) {
         this.wasmPath = wasmPath;
+        this.sourceMap = sourceMap;
         this.listener = listener;
         this.parser = new DebugInfoParser();
         this.connect();
@@ -64,12 +67,22 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         this.pc = pc;
     }
 
-    getLocals(): VariableInfo[] {
-        return this.locals;
+    getLocals(fidx: number): VariableInfo[] {
+        if (this.sourceMap === undefined || fidx >= this.sourceMap.functionInfos.length || fidx < 0) {
+            return [];
+        }
+        return this.sourceMap.functionInfos[fidx].locals;
     }
 
-    setLocals(locals: VariableInfo[]) {
-        this.locals = locals;
+    setLocals(fidx: number, locals: VariableInfo[]) {
+        if (this.sourceMap === undefined) {
+            return;
+        }
+        if (fidx >= this.sourceMap.functionInfos.length) {
+            console.log(`warning setting locals for new function with index: ${fidx}`);
+            this.sourceMap.functionInfos[fidx] = {index: fidx, name: "<anonymous>", locals: []};
+        }
+        this.sourceMap.functionInfos[fidx].locals = locals;
     }
 
     getCallstack(): Frame[] {
@@ -79,6 +92,13 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     setCallstack(callstack: Frame[]): void {
         this.callstack = callstack;
         this.listener.notifyStateUpdate();
+    }
+
+    getCurrentFunctionIndex(): number {
+        if (this.callstack.length === 0) {
+            return -1;
+        }
+        return this.callstack[this.callstack.length - 1].index;
     }
 
     private initClient() {

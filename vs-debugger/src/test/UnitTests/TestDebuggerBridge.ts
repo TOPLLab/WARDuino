@@ -12,6 +12,7 @@ const wasmDirectoryPath = `${runPath}/src/test/UnitTests/TestSource/fac_ok.wasm`
 suite('Hardware-less Test Suite', () => {
     test('TestEstablishConnectionFailure', async () => {
         let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge(wasmDirectoryPath,
+            undefined,
             {
                 notifyError(): void {
 
@@ -19,9 +20,8 @@ suite('Hardware-less Test Suite', () => {
                 connected(): void {
 
                 },
-                notifyPaused(): void 
-                {
-                    
+                notifyPaused(): void {
+
                 },
                 disconnected(): void {
 
@@ -44,14 +44,15 @@ suite('Hardware-less Test Suite', () => {
     test('TestWrongPath', async () => {
 
         let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge("",
+            undefined,
             {
                 notifyError(): void {
 
                 },
                 connected(): void {
 
-                }, 
-                notifyPaused() :void {
+                },
+                notifyPaused(): void {
 
                 },
                 disconnected(): void {
@@ -72,6 +73,7 @@ suite('Hardware-less Test Suite', () => {
 
     test('TestUpload', async () => {
         let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge(wasmDirectoryPath,
+            undefined,
             {
                 notifyError(): void {
 
@@ -82,7 +84,7 @@ suite('Hardware-less Test Suite', () => {
                 disconnected(): void {
 
                 },
-                notifyPaused() :void {
+                notifyPaused(): void {
 
                 },
                 notifyProgress(message: string): void {
