@@ -28,7 +28,7 @@
 
 //NEOPIXEL 
 #include <Adafruit_NeoPixel.h>
-#define PIN 15
+#define PIN 33
 #define NUMPIXELS 64
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS,PIN, NEO_GRB + NEO_KHZ800);
 
@@ -64,7 +64,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 #ifdef ARDUINO
 #define NUM_PRIMITIVES_ARDUINO 33
 #else
-#define NUM_PRIMITIVES_ARDUINO 19
+#define NUM_PRIMITIVES_ARDUINO 23
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
@@ -736,6 +736,30 @@ def_prim(mqtt_loop, NoneToOneU32) {
 
 #else
 
+
+def_prim(init_pixels,NoneToNoneU32) {
+    printf("init_pixels \n");
+				return true;
+}
+
+def_prim(set_pixel_color, fourToOneU32) {
+    printf("set_pixel_color \n");
+				pop_args(4);
+				return true;
+}
+
+def_prim(show_pixels,NoneToNoneU32) {
+    printf("show pixels \n");
+				return true;
+}
+
+def_prim(clear_pixels,NoneToNoneU32) {
+    printf("clear pixels \n");
+				return true;
+}
+
+
+
 def_prim(abort, NoneToNoneU32) {
     debug("EMU: abort\n");
     return false;
@@ -1087,6 +1111,7 @@ void install_primitives() {
 				install_primitive(set_pixel_color);
 				install_primitive(clear_pixels);
 				install_primitive(show_pixels);
+
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(abort);
@@ -1108,6 +1133,12 @@ void install_primitives() {
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
     install_primitive(write_spi_bytes_16);
+
+    install_primitive(init_pixels);
+				install_primitive(set_pixel_color);
+				install_primitive(clear_pixels);
+				install_primitive(show_pixels);
+
 #endif
 }
 

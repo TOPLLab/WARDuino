@@ -26,6 +26,13 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         this.parser = new DebugInfoParser();
         this.connect();
     }
+    upload(): void {
+        throw new Error('Method not implemented.');
+    }
+    setVariable(name: string, value: number): void {
+        console.log(`setting ${name} ${value}`);
+     
+    }
     pause(): void {
         throw new Error('Method not implemented.');
     }

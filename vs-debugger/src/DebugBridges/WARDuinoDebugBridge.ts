@@ -46,6 +46,12 @@ export class WARDuinoDebugBridge implements DebugBridge {
             console.log(reason);
         });
     }
+    setVariable(name: string, value: number): void {
+        //TOM TODO 
+        console.log(`setting ${name} ${value}`);
+        this.port?.write(`21000${value} \n`);
+    }
+
     setStartAddress(startAddress : number) {
         this.startAddress = startAddress;
     }
@@ -62,12 +68,16 @@ export class WARDuinoDebugBridge implements DebugBridge {
     async connect(): Promise<string> {
         return new Promise(async (resolve, reject) => {
             this.listener.notifyProgress(Messages.COMPILING);
-           // await this.compileAndUpload();
             this.listener.notifyProgress(Messages.CONNECTING);
             this.openSerialPort(reject, resolve);
             this.installInputStreamListener();
         });
     }
+
+    public async upload() { 
+        await this.compileAndUpload();
+    }
+
 
     private openSerialPort(reject: (reason?: any) => void, resolve: (value: string | PromiseLike<string>) => void) {
         this.port = new SerialPort({path: this.portAddress, baudRate: 115200},

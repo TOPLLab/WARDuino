@@ -7,6 +7,14 @@ export function activate(context: vscode.ExtensionContext) {
     let errorReporter = installDiagnosticReporting(context);
     let factory = new InlineDebugAdapterFactory(status, errorReporter);
     context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory('WARDuinoDBG', factory));
+
+    const command = 'warduinodebug.upload';
+
+    const commandHandler = () => {
+      factory.warduino?.upload();
+    };
+  
+    context.subscriptions.push(vscode.commands.registerCommand(command, commandHandler));
 }
 
 function installDiagnosticReporting(context: vscode.ExtensionContext) {
@@ -23,7 +31,7 @@ function installStatusMenuBar(context: vscode.ExtensionContext): vscode.StatusBa
 
 function initialiseStatusBarItem(warduinoStatusBarItem: vscode.StatusBarItem) {
     warduinoStatusBarItem.tooltip = "Information about the status of the WARDuino debugger";
-    warduinoStatusBarItem.text = "This is a test message";
+    warduinoStatusBarItem.text = "Plugin loaded";
     warduinoStatusBarItem.show();
 }
 

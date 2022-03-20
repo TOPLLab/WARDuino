@@ -823,16 +823,23 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     }
 
     find_blocks(m);
+    debug("findblocks finished\n");
 
     if (m->start_function != UNDEF) {
-        uint32_t fidx = m->start_function;
-        bool result;
-        dbg_warn("Running start function 0x%x ('%s')\n", fidx,
-                 m->functions[fidx].export_name);
 
-        dbg_dump_stack(m);
-        ASSERT(m->functions[fidx].type->result_count == 0,
-               "start function 0x%x must not have arguments!", fidx);
+        debug("has startfun \n");
+        uint32_t fidx = m->start_function;
+        debug("1 \n");
+        bool result;
+        debug("1b \n");
+        //dbg_warn("Running start function 0x%x ('%s')\n", fidx, m->functions[fidx].export_name);
+
+        debug("1c \n");
+        //dbg_dump_stack(m);
+								
+        debug("1d \n");
+        ASSERT(m->functions[fidx].type->result_count == 0, "start function 0x%x must not have arguments!", fidx);
+        debug("2 \n");
 
         if (fidx < m->import_count) {
             // THUNK thunk_out(m, fidx);     // import/thunk call
@@ -840,20 +847,27 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
             setup_call(m, fidx);  // regular function call
         }
 
+        debug("3 \n");
         if (m->csp < 0) {
             // start function was a direct external call
             result = true;
         } else {
             // run the function setup by setup_call
+            debug("running startfun \n");
             result = interpret(m);
         }
         if (!result) {
+
+            debug("OEPS has startfun \n");
             FATAL("Exception: %s\n", exception);
         }
+
+        debug("4 \n");
     }
 
     this->modules.push_back(m);
 
+        debug("return moduel \n");
     return m;
 }
 
