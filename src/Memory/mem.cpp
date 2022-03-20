@@ -27,9 +27,11 @@ void *acalloc(size_t nmemb, size_t size, const char *name, bool psram) {
 #endif
         debug("Done ... Acalloc\n");
         if (res == nullptr) {
+            debug("FAILED ... Acalloc\n");
             FATAL("Could not allocate %d bytes for %s \n", (int)(nmemb * size),
                   name);
         }
+        debug("NOT FAILED ... Acalloc\n");
         return res;
     }
 }

@@ -80,7 +80,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         response.body.supportsExceptionInfoRequest = false;
 
         // make VS Code send setVariable request
-        response.body.supportsSetVariable = false;
+        response.body.supportsSetVariable = true;
 
         // make VS Code send setExpression request
         response.body.supportsSetExpression = false;
@@ -150,6 +150,15 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         this.debugBridge?.pause();
         this.sendResponse(response);
         this.sendEvent(new StoppedEvent('pause', this.THREAD_ID));
+    }
+
+    protected async setVariableRequest(response: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments): Promise<void> {
+        console.log(args);  
+        this.debugBridge?.setVariable(args.name,parseInt(args.value));
+    }
+
+    public upload() {
+        this.debugBridge?.upload();
     }
  
 

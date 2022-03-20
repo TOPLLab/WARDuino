@@ -32,8 +32,8 @@
     ],
     "commands": [
       {
-        "command": "warduinodebug.testHelloWorld",
-        "title": "Say Hello"
+        "command": "warduinodebug.upload",
+        "title": "upload file"
       }
     ],
     "configuration": {
