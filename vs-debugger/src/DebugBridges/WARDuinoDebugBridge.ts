@@ -48,10 +48,14 @@ export class WARDuinoDebugBridge implements DebugBridge {
             console.log(reason);
         });
     }
+
     setVariable(name: string, value: number): void {
-        //TOM TODO 
         console.log(`setting ${name} ${value}`);
-        this.port?.write(`21000${value} \n`);
+        let local = this.getLocals(this.getCurrentFunctionIndex()).find(o => o.name === name);
+        if (local) {
+            let command = `21${this.convertToLEB128(local.index)}${this.convertToLEB128(value)} \n`;
+            this.port?.write(command);
+        }
     }
 
     setStartAddress(startAddress: number) {
@@ -77,7 +81,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
         });
     }
 
-    public async upload() { 
+    public async upload() {
         await this.compileAndUpload();
     }
 
@@ -98,6 +102,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
     public setBreakPoint(address: number) {
         let breakPointAddress: string = (this.startAddress + address).toString(16).toUpperCase();
         let command = `060${(breakPointAddress.length / 2).toString(16)}${breakPointAddress} \n`;
+        console.log(`Command set: ${command}`);
         this.port?.write(command);
     }
 
@@ -228,5 +233,22 @@ export class WARDuinoDebugBridge implements DebugBridge {
             }
             console.log("dbg");
         });
+    }
+
+    private convertToLEB128(a: number): string { // TODO can only handle 32 bit
+        a |= 0;
+        const result = [];
+        while (true) {
+            const byte_ = a & 0x7f;
+            a >>= 7;
+            if (
+                (a === 0 && (byte_ & 0x40) === 0) ||
+                (a === -1 && (byte_ & 0x40) !== 0)
+            ) {
+                result.push(byte_.toString(16).padStart(2, "0"));
+                return result.join("").toUpperCase();
+            }
+            result.push((byte_ | 0x80).toString(16).padStart(2, "0"));
+        }
     }
 }
