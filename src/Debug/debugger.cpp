@@ -99,8 +99,8 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
  * - `0x04` : Execute one operation and then pause
  * - `0x06` : Add a breakpoint, the address is specified as a pointer.
  *            The pointer should be specified as: 06[length][pointer]
- *            eg: 060655a5994fa3d6 (note the lack of spaces between the arguments, 
-	*            the 'length' is halve the size of the address string)
+ *            eg: 060655a5994fa3d6 (note the lack of spaces between the
+ *            arguments, the 'length' is halve the size of the address string)
  * - `0x07` : Remove the breakpoint at the address specified as a pointer if it
  *            exists (see `0x06`)
  * - `0x10` : Dump information about the program
@@ -392,7 +392,7 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
     dprintf(this->socket, "Local updates: %x\n", *pos);
     uint32_t localId = read_LEB_32(&pos);
 
-    dprintf(this->socket, "Local %u being cahnged\n", localId);
+    dprintf(this->socket, "Local %u being changed\n", localId);
     auto v = &m->stack[m->fp + localId];
     switch (v->value_type) {
         case I32:

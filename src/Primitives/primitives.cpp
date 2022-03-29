@@ -24,13 +24,15 @@
 #ifdef ARDUINO
 #include <HTTPClient.h>
 #include <WiFi.h>
+
 #include "Arduino.h"
 
-//NEOPIXEL 
+// NEOPIXEL
 #include <Adafruit_NeoPixel.h>
 #define PIN 33
 #define NUMPIXELS 64
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS,PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel pixels =
+    Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 #define delay_us(ms) delayMicroseconds(ms)
 #include <SPI.h>
@@ -476,31 +478,30 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     return true;
 }
 
-
-def_prim(init_pixels,NoneToNoneU32) {
-				pixels.begin();
-				return true;
+def_prim(init_pixels, NoneToNoneU32) {
+    pixels.begin();
+    return true;
 }
 
 def_prim(set_pixel_color, fourToOneU32) {
-    uint8_t blue  = arg0.uint32;
+    uint8_t blue = arg0.uint32;
     uint8_t green = arg1.uint32;
-    uint8_t red   = arg2.uint32;
+    uint8_t red = arg2.uint32;
     uint8_t index = arg3.uint32;
 
-	   pixels.setPixelColor(index, pixels.Color(red,green,blue));
-				pop_args(4);
-				return true;
+    pixels.setPixelColor(index, pixels.Color(red, green, blue));
+    pop_args(4);
+    return true;
 }
 
-def_prim(show_pixels,NoneToNoneU32) {
-				pixels.show();
-				return true;
+def_prim(show_pixels, NoneToNoneU32) {
+    pixels.show();
+    return true;
 }
 
-def_prim(clear_pixels,NoneToNoneU32) {
-				pixels.clear();
-				return true;
+def_prim(clear_pixels, NoneToNoneU32) {
+    pixels.clear();
+    return true;
 }
 
 // INTERRUPTS
@@ -736,29 +737,26 @@ def_prim(mqtt_loop, NoneToOneU32) {
 
 #else
 
-
-def_prim(init_pixels,NoneToNoneU32) {
+def_prim(init_pixels, NoneToNoneU32) {
     printf("init_pixels \n");
-				return true;
+    return true;
 }
 
 def_prim(set_pixel_color, fourToOneU32) {
     printf("set_pixel_color \n");
-				pop_args(4);
-				return true;
+    pop_args(4);
+    return true;
 }
 
-def_prim(show_pixels,NoneToNoneU32) {
+def_prim(show_pixels, NoneToNoneU32) {
     printf("show pixels \n");
-				return true;
+    return true;
 }
 
-def_prim(clear_pixels,NoneToNoneU32) {
+def_prim(clear_pixels, NoneToNoneU32) {
     printf("clear pixels \n");
-				return true;
+    return true;
 }
-
-
 
 def_prim(abort, NoneToNoneU32) {
     debug("EMU: abort\n");
@@ -1107,10 +1105,10 @@ void install_primitives() {
     install_primitive(mqtt_unsubscribe);
     install_primitive(mqtt_loop);
 
-				install_primitive(init_pixels);
-				install_primitive(set_pixel_color);
-				install_primitive(clear_pixels);
-				install_primitive(show_pixels);
+    install_primitive(init_pixels);
+    install_primitive(set_pixel_color);
+    install_primitive(clear_pixels);
+    install_primitive(show_pixels);
 
 #else
     dbg_info("INSTALLING FAKE ARDUINO\n");
@@ -1135,9 +1133,9 @@ void install_primitives() {
     install_primitive(write_spi_bytes_16);
 
     install_primitive(init_pixels);
-				install_primitive(set_pixel_color);
-				install_primitive(clear_pixels);
-				install_primitive(show_pixels);
+    install_primitive(set_pixel_color);
+    install_primitive(clear_pixels);
+    install_primitive(show_pixels);
 
 #endif
 }

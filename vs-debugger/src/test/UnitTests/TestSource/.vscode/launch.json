@@ -8,7 +8,7 @@
             "type": "WARDuinoDBG",
             "request": "launch",
             "name": "Debug WARDuino",
-            "program": "${workspaceFolder}/fac_ok.wast",
+            "program": "${workspaceFolder}/blink.wast",
             "stopOnEntry": true,
             "trace": false
         }
