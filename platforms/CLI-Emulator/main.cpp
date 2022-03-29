@@ -250,7 +250,7 @@ int main(int argc, const char *argv[]) {
     if (m) {
         pthread_t id;
         uint8_t command[] = {'0', '3', '\n'};
-//        wac.handleInterrupt(3, command);
+        // wac.handleInterrupt(3, command);
         m->warduino = &wac;
         pthread_create(&id, nullptr, runWAC, nullptr);
         if (no_socket) {
