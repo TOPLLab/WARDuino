@@ -8,8 +8,8 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "../../debug.h"
-#include "../../instructions.h"
+#include "../../src/Interpreter/instructions.h"
+#include "../../src/Utils/macros.h"
 #include "assertion.h"
 
 int COUNT = 0;

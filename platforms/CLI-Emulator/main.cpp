@@ -13,6 +13,7 @@
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/WARDuino.h"
+#include "../../tests/integration/wasm_tests.h"
 
 // Constants
 #define MAX_MODULE_SIZE (64 * 1024 * 1024)
@@ -192,10 +193,8 @@ int main(int argc, const char *argv[]) {
     bool no_socket = false;
     const char *file_name = nullptr;
 
-#ifdef TEST
     const char *asserts_file = nullptr;
     const char *watcompiler = "wat2wasm";
-#endif
 
     // Parse options
     while (argc > 0) {
@@ -212,13 +211,11 @@ int main(int argc, const char *argv[]) {
             return_exception = false;
         } else if (!strcmp("--file", arg)) {
             ARGV_GET(file_name);
-#ifdef TEST
         } else if (!strcmp("--asserts", arg)) {
             run_tests = true;
             ARGV_GET(asserts_file);
         } else if (!strcmp("--watcompiler", arg)) {
             ARGV_GET(watcompiler);
-#endif
         } else if (!strcmp("--no-socket", arg)) {
             no_socket = true;
         }
@@ -230,12 +227,10 @@ int main(int argc, const char *argv[]) {
     }
 
     if (argc == 0 && file_name != nullptr) {
-#ifdef TEST
         if (run_tests) {
             run_wasm_test(wac, file_name, asserts_file, watcompiler);
             return 0;
         }
-#endif
         printf("=== LOAD MODULE INTO WARDUINO ===\n");
         m = load(wac, file_name,
                  {.disable_memory_bounds = false,
