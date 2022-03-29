@@ -22,6 +22,10 @@ export class DebugInfoParser {
             }
         }
 
+        if(line.includes("CHANGE local")) {
+            bridge.refresh();
+        }
+
         if (line.startsWith("{")) {
             let obj = JSON.parse(line);
             this.addressBeginning = parseInt(obj.start);
