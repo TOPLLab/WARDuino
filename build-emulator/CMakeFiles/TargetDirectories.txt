@@ -1,3 +1,0 @@
-/Users/xtofs/Documents/Arduino/libraries/WARDuino/build-emulator/CMakeFiles/wdcli.dir
-/Users/xtofs/Documents/Arduino/libraries/WARDuino/build-emulator/CMakeFiles/edit_cache.dir
-/Users/xtofs/Documents/Arduino/libraries/WARDuino/build-emulator/CMakeFiles/rebuild_cache.dir
