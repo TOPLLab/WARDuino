@@ -21,7 +21,7 @@ jobs:
                 check-path: '.'
                 fallback-style: 'Google'
 
-    compile-benchmarks:
+    compile-cli:
         name: Compile on ${{matrix.os}}
         needs: formatting-check
         runs-on: ${{matrix.os}}
@@ -32,56 +32,18 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v2
-
-            - name: Cache benchmark binary
-              id: cache_bench
-              if: ${{ matrix.os == 'ubuntu-20.04' }}
-              uses: actions/cache@v2
               with:
-                path: |
-                    ./benchmarks/bin
-                    ./benchmarks/tasks
-                key: ${{ matrix.os }}-${{ env.BENCHMARKS_CACHE }}
+                  submodules: 'recursive'
 
-            # Install with brew to have wasm-ld
-            - name: Install Brew
-              run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            - name: Verify Brew
-              run: brew help
-            - name: Install LLVM/clang
-              run: brew install llvm
-            - name: Verify clang
-              run: clang --version
-            - name: Compile benchmarks
-              run: make -C benchmarks/ clean all
+            - name: Create build folder
+              run: mkdir build-emu
 
-    run-benchmarks:
-        runs-on: ubuntu-20.04
-        needs: compile-benchmarks
-        name: Check benchmarks
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v2
+            - name: Build WARDuino CLI
+              run: cmake .. -D BUILD_EMULATOR=ON ; cmake --build .
+              working-directory: build-emu
 
-            - name: Get benchmark binary
-              id: cache_bench
-              uses: actions/cache@v2
-              with:
-                path: |
-                    ./benchmarks/bin
-                    ./benchmarks/tasks
-                key: ubuntu-20.04-${{ env.BENCHMARKS_CACHE }}
-
-            - name: Quit on cache miss
-              if: ${{ steps.cache_bench.outputs.cache-hit != 'true' }}
-              run: echo "::error::can not get prebuilt benchmark binary" && exit 1
-
-            - name: Execute benchmarks
-              run: ./bin/warduino_benchmark
-              working-directory: benchmarks
-
-    test-compile-on-mcus:
-        name: Compile on ${{matrix.board.platform-name }}
+    compile-with-arduino:
+        name: (Arduino) Compile on ${{matrix.board.platform-name}}
         needs: formatting-check
         runs-on: ubuntu-latest
         env:
@@ -92,12 +54,13 @@ jobs:
                 - name: WiFi
                 - name: HTTPClient
                 - name: PubSubClient
+                - name: Adafruit NeoPixel
         strategy:
             fail-fast: false
             matrix:
                 board:
                     - fqbn: 'esp32:esp32:esp32'
-                      platform-name: esp32:esp32
+                      platform-name: esp32
                 include:
                     - board:
                         platform-name: esp32:esp32
@@ -106,7 +69,7 @@ jobs:
                         - name: esp32:esp32
                           source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
                       sketches: |
-                        - tests/compilation/esp32
+                        - platforms/Arduino
         steps:
             - uses: actions/checkout@v2
             - name: Compile sketches
@@ -123,20 +86,44 @@ jobs:
             - name: Upload sketches report to workflow artifact
               uses: actions/upload-artifact@v2
               with:
-                name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
-                path: ${{ env.SKETCHES_REPORTS_PATH }}
+                  name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
+                  path: ${{ env.SKETCHES_REPORTS_PATH }}
 
     report:
         name: Report memory usage of the Arduino sketches
-        needs: test-compile-on-mcus
+        needs: compile-with-arduino
         if: ${{ github.event_name == 'pull_request' }}
         runs-on: ubuntu-latest
         steps:
             - name: Download sketches reports artifact
               uses: actions/download-artifact@v2
               with:
-                name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
-                path: ${{ env.SKETCHES_REPORTS_PATH }}
+                  name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
+                  path: ${{ env.SKETCHES_REPORTS_PATH }}
             - uses: arduino/report-size-deltas@v1
               with:
-                sketches-reports-source: /github/workspace/sketches-reports # ${{ env.SKETCHES_REPORTS_PATH }}
+                  sketches-reports-source: /github/workspace/sketches-reports # ${{ env.SKETCHES_REPORTS_PATH }}
+
+    compile-with-idf:
+        name: (ESP-IDF) Compile on ${{matrix.board.platform-name}}
+        needs: formatting-check
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                board:
+                    - fqbn: 'esp32:esp32:esp32'
+                      platform-name: esp32
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+              with:
+                  submodules: 'recursive'
+
+            - name: Build WARDuino for ESP-IDF
+              uses: espressif/esp-idf-ci-action@main
+              with:
+                  esp_idf_version: latest
+                  target: esp32
+                  path: platforms/ESP-IDF
+
