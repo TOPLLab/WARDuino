@@ -4,6 +4,13 @@ cmake_minimum_required(VERSION 3.5)
 option(BUILD_ESP "Build for esp" OFF)
 option(BUILD_EMULATOR "Build for emulator" OFF)
 
+project(WARDuino)
+
+if (NOT BUILD_ESP AND NOT BUILD_EMULATOR)
+    message(WARNING "No build target set. Nothing to do.")
+endif ()
+
+
 # Build WARDuino with the ESP-IDF toolchain
 if (BUILD_ESP)
     if (NOT EXISTS $ENV{IDF_PATH}/tools/cmake/project.cmake)
@@ -14,8 +21,6 @@ if (BUILD_ESP)
 
     include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 endif (BUILD_ESP)
-
-project(WARDuino)
 
 # Build the emulator version of WARDuino
 if (BUILD_EMULATOR)
