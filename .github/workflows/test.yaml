@@ -17,8 +17,7 @@ jobs:
               with:
                 python-version: "3.x"
             - name: Build warduino cli
-              run: cmake . ; cmake --build . --target warduino
-              working-directory: platforms/CLI-Emulator
+              run: cmake . ; cmake --build . --target wdcli
             - name: Build WABT  # Build latest version
               run: |
                 git clone --recursive https://github.com/WebAssembly/wabt
