@@ -60,7 +60,7 @@ jobs:
             matrix:
                 board:
                     - fqbn: 'esp32:esp32:esp32'
-                      platform-name: esp32
+                      platform-name: esp32:esp32
                 include:
                     - board:
                         platform-name: esp32:esp32
@@ -113,7 +113,7 @@ jobs:
             matrix:
                 board:
                     - fqbn: 'esp32:esp32:esp32'
-                      platform-name: esp32
+                      platform-name: esp32:esp32
         steps:
             - name: Checkout
               uses: actions/checkout@v2
@@ -125,5 +125,5 @@ jobs:
               with:
                   esp_idf_version: latest
                   target: esp32
-                  path: platforms/ESP-IDF
+                  path: .
 
