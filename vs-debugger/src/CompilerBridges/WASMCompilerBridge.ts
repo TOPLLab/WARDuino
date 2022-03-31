@@ -7,6 +7,9 @@ import {CompileBridge} from "./CompileBridge";
 import {SourceMap} from "./SourceMap";
 import {FunctionInfo} from "./FunctionInfo";
 import {VariableInfo} from "./VariableInfo";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 function checkCompileTimeError(errorMessage: string) {
     let regexpr = /:(?<line>(\d+)):(?<column>(\d+)): error: (?<message>(.*))/;
@@ -58,20 +61,37 @@ function makeLineInfoPairs(sourceMapInput: String): LineInfoPairs[] {
 }
 
 export class WASMCompilerBridge implements CompileBridge {
+    tmpdir: string;
     wasmFilePath: String;
 
     constructor(wasmFilePath: String) {
         this.wasmFilePath = wasmFilePath;
+        this.tmpdir = "";
     }
 
     async compile() {
-        let sourceMap: SourceMap = await this.compileAndDump(this.compileToWasmCommand(), WASMCompilerBridge.getNameDumpCommand());
+        let sourceMap: SourceMap = await new Promise<string>((resolve, reject) => {
+            fs.mkdtemp(path.join(os.tmpdir(), 'warduino.'), (err, dir) => {
+                if (err === null) {
+                    resolve(dir);
+                } else {
+                    reject('Could not create temporary directory.');
+                }
+            });
+        }).then(value => {
+            this.tmpdir = value;
+            return this.compileAndDump(this.compileToWasmCommand(), this.getNameDumpCommand());
+        });
         await this.compileHeader();
+        fs.rm(this.tmpdir, {recursive: true}, err => {
+            throw new Error('Could not delete temporary directory.');
+        });
+        this.tmpdir = "";
         return sourceMap;
     }
 
     async compileHeader() {
-        let compileCHeader: string = WASMCompilerBridge.compileCHeaderFileCommand();
+        let compileCHeader: string = this.compileCHeaderFileCommand();
         return await this.executeCompileCommand(compileCHeader);
     }
 
@@ -168,15 +188,15 @@ export class WASMCompilerBridge implements CompileBridge {
     }
 
     private compileToWasmCommand(): string {
-        return `wat2wasm --debug-names -v -o /tmp/warduino/upload.wasm ` + this.wasmFilePath;
+        return `wat2wasm --debug-names -v -o ${this.tmpdir}/upload.wasm ` + this.wasmFilePath;
     }
 
-    private static getNameDumpCommand(): string {
-        return "wasm-objdump -x -m /tmp/warduino/upload.wasm";
+    private getNameDumpCommand(): string {
+        return `wasm-objdump -x -m ${this.tmpdir}/upload.wasm`;
     }
 
-    private static compileCHeaderFileCommand(): string {
-        return `xxd -i /tmp/warduino/upload.wasm > /tmp/warduino/upload.c`;
+    private compileCHeaderFileCommand(): string {
+        return `xxd -i ${this.tmpdir}/upload.wasm > ${this.tmpdir}/upload.c`;
     }
 
 }

@@ -19,10 +19,8 @@ import {DebugBridge} from '../DebugBridges/DebugBridge';
 import {DebugBridgeFactory} from '../DebugBridges/DebugBridgeFactory';
 import {RunTimeTarget} from "../DebugBridges/RunTimeTarget";
 import {CompileBridgeFactory} from "../CompilerBridges/CompileBridgeFactory";
-import {CompileBridge} from "../CompilerBridges/CompileBridge";
 import {SourceMap} from "../CompilerBridges/SourceMap";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
-import {Frame} from "../Parsers/Frame";
 
 // Interface between the debugger and the VS runtime 
 export class WARDuinoDebugSession extends LoggingDebugSession {
@@ -30,7 +28,6 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
     private program: string = "";
     private THREAD_ID: number = 42;
     private testCurrentLine = 0;
-    //private compiler? : WASMCompilerBridge;
     private debugBridge?: DebugBridge;
     private notifier: vscode.StatusBarItem;
     private reporter: ErrorReporter;
@@ -105,7 +102,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         this.reporter.clear();
         this.program = args.program;
 
-        let compiler: CompileBridge = CompileBridgeFactory.makeCompileBridge(args.program);
+        let compiler = CompileBridgeFactory.makeCompileBridge(args.program);
 
         let sourceMap: SourceMap | void = await compiler.compile().catch((reason) => this.handleCompileError(reason));
         if (sourceMap) {
@@ -153,14 +150,14 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
     }
 
     protected async setVariableRequest(response: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments): Promise<void> {
-        console.log(args);  
-        this.debugBridge?.setVariable(args.name,parseInt(args.value));
+        console.log(args);
+        this.debugBridge?.setVariable(args.name, parseInt(args.value));
     }
 
     public upload() {
         this.debugBridge?.upload();
     }
- 
+
     private handleCompileError(handleCompileError: CompileTimeError) {
         let range = new vscode.Range(handleCompileError.lineInfo.line - 1,
             handleCompileError.lineInfo.column,
