@@ -71,7 +71,7 @@ suite('Hardware-less Test Suite', () => {
 
     });
 
-    test('TestUpload', async () => {
+    test('TestNoLocalDevice', async () => {
         let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge(wasmDirectoryPath,
             undefined,
             {
@@ -98,7 +98,7 @@ suite('Hardware-less Test Suite', () => {
         );
 
         let result = await bridge.compileAndUpload();
-        expect(result).to.be.true;
+        expect(result).to.be.false;
     });
 
 
