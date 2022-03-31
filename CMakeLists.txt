@@ -49,8 +49,12 @@ if (BUILD_EMULATOR)
     add_definitions(-DTRACE=0)
     add_definitions(-DWARN=0)
 
+    # Set default compile flags for GCC
+    if(CMAKE_COMPILER_IS_GNUCXX)
+        add_compile_options(-g -v -std=c++11 -Wall -Wextra -Wunused)
+    endif(CMAKE_COMPILER_IS_GNUCXX)
+
     # WARDuino CLI
-    add_compile_options(-g -v -std=c++11 -Wall -Wextra -Wunused)
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES} ${TEST_FRAMEWORK})
     target_link_libraries(wdcli PRIVATE Threads::Threads)
 endif (BUILD_EMULATOR)
