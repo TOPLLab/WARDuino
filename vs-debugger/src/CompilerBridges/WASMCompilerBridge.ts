@@ -84,7 +84,9 @@ export class WASMCompilerBridge implements CompileBridge {
         });
         await this.compileHeader();
         fs.rm(this.tmpdir, {recursive: true}, err => {
-            throw new Error('Could not delete temporary directory.');
+            if (err) {
+                throw new Error('Could not delete temporary directory.');
+            }
         });
         this.tmpdir = "";
         return sourceMap;
