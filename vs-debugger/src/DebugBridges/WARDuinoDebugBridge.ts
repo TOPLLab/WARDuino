@@ -7,6 +7,9 @@ import {VariableInfo} from "../CompilerBridges/VariableInfo";
 import {exec} from "child_process";
 import {Frame} from "../Parsers/Frame";
 import {SourceMap} from "../CompilerBridges/SourceMap";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 class Messages {
     public static UPLOADING: string = "Uploading to board";
@@ -31,6 +34,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
     private callstack: Frame[] = [];
     private portAddress: string;
     private sdk: string;
+    private tmpdir: string | undefined;
     private startAddress: number = 0;
 
     constructor(wasmPath: string,
@@ -44,7 +48,10 @@ export class WARDuinoDebugBridge implements DebugBridge {
         this.portAddress = portAddress;
         this.sdk = warduinoSDK;
 
-        this.connect().catch(reason => {
+        this.connect().then(() => {
+            console.log("Plugin: Connected.")
+            this.listener.connected();
+        }).catch(reason => {
             console.log(reason);
         });
     }
@@ -80,7 +87,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
     async connect(): Promise<string> {
         return new Promise(async (resolve, reject) => {
             this.listener.notifyProgress(Messages.COMPILING);
-            // await this.compileAndUpload();
+            await this.compileAndUpload();
             this.listener.notifyProgress(Messages.CONNECTING);
             this.openSerialPort(reject, resolve);
             this.installInputStreamListener();
@@ -123,6 +130,13 @@ export class WARDuinoDebugBridge implements DebugBridge {
     public disconnect(): void {
         this.port?.close();
         this.listener.notifyProgress(Messages.DISCONNECTED);
+        if (this.tmpdir) {
+            fs.rm(this.tmpdir, {recursive: true}, err => {
+                if (err) {
+                    throw new Error('Could not delete temporary directory.');
+                }
+            });
+        }
     }
 
     private uploadArduino(path: string, resolver: (value: boolean) => void): void {
@@ -164,15 +178,22 @@ export class WARDuinoDebugBridge implements DebugBridge {
     }
 
     public compileAndUpload(): Promise<boolean> {
-        return new Promise<boolean>((resolve, reject) => {
-            const path: string = this.sdk + "/platforms/Arduino/";
-            const cp = exec("cp /tmp/warduino/upload.c " + path + "/upload.h");
 
-            cp.on("error", err => {
-                resolve(false);
-            });
-            cp.on("close", (code) => {
-                this.compileArduino(path, resolve);
+        return new Promise<boolean>((resolve, reject) => {
+            const sdkpath: string = this.sdk + "/platforms/Arduino/";
+            fs.mkdtemp(path.join(os.tmpdir(), 'warduino.'), (err, tmpdir) => {
+                if (err === null) {
+                    this.tmpdir = tmpdir;
+                    const cp = exec(`cp ${this.tmpdir}/upload.c ${sdkpath}/upload.h`);
+                    cp.on("error", err => {
+                        resolve(false);
+                    });
+                    cp.on("close", (code) => {
+                        this.compileArduino(sdkpath, resolve);
+                    });
+                } else {
+                    reject(false);
+                }
             });
         });
     }

@@ -116,7 +116,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
 
                 },
                 connected(): void {
-
+                    that.debugBridge?.pause();
                 },
                 notifyPaused(): void {
                     that.sendEvent(new StoppedEvent('pause', that.THREAD_ID));
@@ -133,8 +133,6 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
                 }
             }
         );
-
-        this.debugBridge.pause();
 
         this.sendResponse(response);
         this.sendEvent(new StoppedEvent('entry', this.THREAD_ID));
