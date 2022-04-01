@@ -18,7 +18,7 @@ export interface DebugBridge {
     setBreakPoint(x:number): void;
     refresh(): void;
     disconnect(): void;
-    setVariable(name:string,value:number):void;
+    setVariable(name:string,value:number): Promise<string>;
 
     upload() : void;
 }

@@ -6,7 +6,6 @@ import {InterruptTypes} from './InterruptTypes';
 import {DebugInfoParser} from "../Parsers/DebugInfoParser";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
 import {Frame} from "../Parsers/Frame";
-import { start } from 'repl';
 import {SourceMap} from "../CompilerBridges/SourceMap";
 
 export class WARDuinoDebugBridgeEmulator implements DebugBridge {
@@ -20,7 +19,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private pc: number = 0;
     private locals: VariableInfo[] = [];
     private callstack: Frame[] = [];
-    private startAddress : number = 0;
+    private startAddress: number = 0;
 
     constructor(wasmPath: string, sourceMap: SourceMap | void, listener: DebugBridgeListener) {
         this.wasmPath = wasmPath;
@@ -29,16 +28,20 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         this.parser = new DebugInfoParser();
         this.connect();
     }
+
     upload(): void {
         throw new Error('Method not implemented.');
     }
-    setVariable(name: string, value: number): void {
+
+    setVariable(name: string, value: number): Promise<string> {
         console.log(`setting ${name} ${value}`);
-     
+        return new Promise<string>(resolve => resolve("Variable set."));
     }
+
     pause(): void {
         throw new Error('Method not implemented.');
     }
+
     setStartAddress(startAddress: number) {
         this.startAddress = startAddress;
     }
@@ -46,7 +49,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     run(): void {
         this.sendInterrupt(InterruptTypes.interruptRUN);
     }
-    
+
     setBreakPoint(x: number): void {
         console.log(this.startAddress);
         throw new Error('Method not implemented.');
