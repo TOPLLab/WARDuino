@@ -7,6 +7,7 @@
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
+#include "../WARDuino.h"
 
 // Debugger
 
