@@ -13,17 +13,13 @@ export class DebugInfoParser {
             bridge.refresh();
         }
 
-        if(line.includes("AT")) {
+        if (line.includes("AT")) {
             let breakpointInfo = line.match(/AT (0x.*)!/);
-            if(breakpointInfo.length > 1) {
+            if (breakpointInfo.length > 1) {
                 let pc = parseInt(breakpointInfo[1]);
                 bridge.setProgramCounter(pc);
                 bridge.pause();
             }
-        }
-
-        if(line.includes("CHANGE local")) {
-            bridge.refresh();
         }
 
         if (line.startsWith("{")) {

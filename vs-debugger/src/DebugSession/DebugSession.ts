@@ -120,6 +120,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
                 },
                 notifyPaused(): void {
                     that.sendEvent(new StoppedEvent('pause', that.THREAD_ID));
+                    that.debugBridge?.refresh();
                 },
                 disconnected(): void {
 
@@ -132,6 +133,8 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
                 }
             }
         );
+
+        this.debugBridge.pause();
 
         this.sendResponse(response);
         this.sendEvent(new StoppedEvent('entry', this.THREAD_ID));
@@ -151,7 +154,10 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
 
     protected async setVariableRequest(response: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments): Promise<void> {
         console.log(args);
-        this.debugBridge?.setVariable(args.name, parseInt(args.value));
+        this.debugBridge?.setVariable(args.name, parseInt(args.value)).then(value => {
+            console.log(`Plugin: ${value}`);
+            this.debugBridge?.refresh();
+        });
     }
 
     public upload() {

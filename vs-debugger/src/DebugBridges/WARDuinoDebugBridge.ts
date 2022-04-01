@@ -49,13 +49,19 @@ export class WARDuinoDebugBridge implements DebugBridge {
         });
     }
 
-    setVariable(name: string, value: number): void {
-        console.log(`setting ${name} ${value}`);
-        let local = this.getLocals(this.getCurrentFunctionIndex()).find(o => o.name === name);
-        if (local) {
-            let command = `21${this.convertToLEB128(local.index)}${this.convertToLEB128(value)} \n`;
-            this.port?.write(command);
-        }
+    setVariable(name: string, value: number): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
+            console.log(`setting ${name} ${value}`);
+            let local = this.getLocals(this.getCurrentFunctionIndex()).find(o => o.name === name);
+            if (local) {
+                let command = `21${this.convertToLEB128(local.index)}${this.convertToLEB128(value)} \n`;
+                this.port?.write(command, err => {
+                    resolve("Interrupt send.");
+                });
+            } else {
+                reject("Local not found.");
+            }
+        });
     }
 
     setStartAddress(startAddress: number) {
@@ -102,7 +108,7 @@ export class WARDuinoDebugBridge implements DebugBridge {
     public setBreakPoint(address: number) {
         let breakPointAddress: string = (this.startAddress + address).toString(16).toUpperCase();
         let command = `060${(breakPointAddress.length / 2).toString(16)}${breakPointAddress} \n`;
-        console.log(`Command set: ${command}`);
+        console.log(`Plugin: sent ${command}`);
         this.port?.write(command);
     }
 
@@ -227,11 +233,11 @@ export class WARDuinoDebugBridge implements DebugBridge {
     }
 
     refresh(): void {
+        console.log("Plugin: Refreshing");
         this.sendInterrupt(InterruptTypes.interruptDUMPFull, function (err: any) {
             if (err) {
                 return console.log("Error on write: ", err.message);
             }
-            console.log("dbg");
         });
     }
 
