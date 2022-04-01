@@ -3,8 +3,6 @@
 
 #include <cstdio>
 
-#include "../WARDuino.h"
-
 #ifndef DEBUG
 #define DEBUG 0
 #endif

@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
-class Module;
+struct Module;
 
 class Callback;
 

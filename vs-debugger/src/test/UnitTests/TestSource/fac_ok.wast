@@ -9,7 +9,7 @@
  (export "main" (func $fac5))
 
  (memory 1)
- (table $funcs 3 anyfunc)
+ (table $funcs 3 funcref)
  (global $i32 (mut i32) (i32.const 0))
  (global $ai32 (mut i32) (i32.const 0))
 
@@ -61,7 +61,7 @@
     (loop 
 
       (i64.const 13)
-      (get_local $foo)
+      (local.get $foo)
       (call $fac)
 
       (call $dummy) 

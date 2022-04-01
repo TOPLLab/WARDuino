@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
-class Module;
+struct Module;
 
 enum RunningState { WARDUINOrun, WARDUINOpause, WARDUINOstep };
 
