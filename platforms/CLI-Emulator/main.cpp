@@ -3,15 +3,15 @@
 //
 #include <netinet/in.h>
 #include <pthread.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 
 #include "../../src/Debug/debugger.h"
+#include "../../src/Utils/macros.h"
 #include "../../src/WARDuino.h"
 #include "../../tests/integration/wasm_tests.h"
 
@@ -140,7 +140,7 @@ void startDebuggerStd(WARDuino *wac, Module *m) {
     uint8_t buffer[1024] = {0};
     wac->debugger->socket = fileno(stdout);
     while (true) {
-        printf("waiting for debug command\n");
+        debug("waiting for debug command\n");
         while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
             write(fileno(stdout), "got a message ... \n", 19);
             wac->handleInterrupt(valread - 1, buffer);
@@ -180,7 +180,7 @@ Module *m;
 
 void *runWAC(void *p) {
     // Print value received as argument:
-    printf("\n=== STARTED INTERPRETATION (in separate thread) ===\n");
+    dbg_info("\n=== STARTED INTERPRETATION (in separate thread) ===\n");
     wac.run_module(m);
     wac.unload_module(m);
 }
@@ -228,10 +228,11 @@ int main(int argc, const char *argv[]) {
 
     if (argc == 0 && file_name != nullptr) {
         if (run_tests) {
+            dbg_info("=== STARTING SPEC TESTS ===\n")
             run_wasm_test(wac, file_name, asserts_file, watcompiler);
             return 0;
         }
-        printf("=== LOAD MODULE INTO WARDUINO ===\n");
+        dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
         m = load(wac, file_name,
                  {.disable_memory_bounds = false,
                   .mangle_table_index = false,

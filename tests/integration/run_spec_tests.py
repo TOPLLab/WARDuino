@@ -94,12 +94,11 @@ def main():
         base = "core/" + "".join(os.path.basename(filename).split(".")[:-2])
         print(base)
         status = subprocess.run(
-            [args.interpreter, "--file", base + ".wast", "--asserts", base + ".asserts.wast", "--watcompiler", args.compiler],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            [args.interpreter, "--file", base + ".wast", "--asserts", base + ".asserts.wast", "--watcompiler", args.compiler])
         if status.returncode == 0:
             print(f"{filename}: All tests passed.\n")
         else:
-            print(f"""{filename}:\n {status.stdout.decode("utf-8")}\n""")
+            print(f"""{filename}: exited with {status.returncode}""")
             exit(status.returncode)
 
 

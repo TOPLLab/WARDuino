@@ -44,7 +44,7 @@ if (BUILD_EMULATOR)
         tests/integration/sexpr-parser/src/sexpr.c
         )
 
-    add_definitions(-DINFO=0)
+    add_definitions(-DINFO=1)
     add_definitions(-DDEBUG=0)
     add_definitions(-DTRACE=0)
     add_definitions(-DWARN=0)
