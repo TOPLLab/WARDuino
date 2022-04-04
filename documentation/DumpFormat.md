@@ -2,7 +2,7 @@
 
 WARDuino sends its information dumps as json.
 
-## Full dump (0x10) 
+## Full dump (0x12) 
 
 Lists the following items:
 
@@ -29,58 +29,114 @@ When the block is a function it also holds the function index in the `fidx` fiel
 
 ```json
 {
-   "pc":"0x55affcc8e71d",
+   "pc":"0x3ffbdc00",
    "start":[
-      "0x55affcc8e6b0"
+      "0x3ffbdb70"
    ],
    "breakpoints":[
       
    ],
-   "functions":[ // All declared functions
+   "functions":[
       {
-         "fidx":"0x0",
-         "from":"0x55affcc8e718",
-         "to":"0x55affcc8e718"
+         "fidx":"0x3",
+         "from":"0x3ffbdbee",
+         "to":"0x3ffbdbf4"
       },
       {
-         "fidx":"0x1",
-         "from":"0x55affcc8e71b",
-         "to":"0x55affcc8e752"
-      },
-      {
-         "fidx":"0x2",
-         "from":"0x55affcc8e757",
-         "to":"0x55affcc8e768"
+         "fidx":"0x4",
+         "from":"0x3ffbdbf9",
+         "to":"0x3ffbdc19"
       }
    ],
    "callstack":[
-      {  // Bottom of stack
-         "type":0,                  // block type 0 = FUNCTION
-         "fidx":"0x2",              // index of function
-         "sp":-1,                   // stack pointer before function call
-         "fp":-1,                   // function pointer before function call
-         "start":"0x55affcc8e757",  // pointer to start of program buffer
-         "ra":"0x55affcc8e70f"      // pointer to return address
+      {
+         "type":0,
+         "fidx":"0x4",
+         "sp":-1,
+         "fp":-1,
+         "start":"0x3ffbdbf9",
+         "ra":"0x3ffbdbdf",
+         "callsite":"0x3ffbdbdd"
+      }
+   ],
+   "locals":{
+      "count":1,
+      "locals":[
+         {
+            "type":"i32",
+            "value":1000,
+            "index":0
+         }
+      ]
+   }
+}
+
+
+{
+   "pc":"0x3ffbdbf0",
+   "start":[
+      "0x3ffbdb70"
+   ],
+   "breakpoints":[
+      
+   ],
+   "functions":[
+      {
+         "fidx":"0x3",
+         "from":"0x3ffbdbee",
+         "to":"0x3ffbdbf4"
       },
       {
-         "type":3,          // block type 3 = LOOP
-         "fidx":"0x0",
-         "sp":0,
-         "fp":0,
-         "start":"0x55affcc8e75b",
-         "ra":"0x55affcc8e75d"
+         "fidx":"0x4",
+         "from":"0x3ffbdbf9",
+         "to":"0x3ffbdc19"
+      }
+   ],
+   "callstack":[
+      {
+         "type":0,
+         "fidx":"0x4",
+         "sp":-1,
+         "fp":-1,
+         "start":"0x3ffbdbf9",
+         "ra":"0x3ffbdbdf",
+         "callsite":"0x3ffbdbdd"
       },
-      {  // Top of stack
-         "type":0,          // block type 0 = FUNCTION
-         "fidx":"0x1",
+      {
+         "type":0,
+         "fidx":"0x3",
          "sp":0,
          "fp":0,
-         "start":"0x55affcc8e71b",
-         "ra":"0x55affcc8e763"
+         "start":"0x3ffbdbee",
+         "ra":"0x3ffbdc00",
+         "callsite":"0x3ffbdbfe"
+      }
+   ],
+   "locals":{
+      "count":0,
+      "locals":[
+         
+      ]
+   }
+}
+```
+
+The WARDuino VM also supports a shorter version of the full dump (0x10), without the locals.
+
+## Dump locals (0x11)
+
+The locals can also be retreived on their own with the 0x11 byte.
+
+```json
+{
+   "count":1,
+   "locals":[
+      {
+         "type":"i32",
+         "value":1000,
+         "index":0
       }
    ]
 }
 ```
-
-## Dump locals (0x11)
 
