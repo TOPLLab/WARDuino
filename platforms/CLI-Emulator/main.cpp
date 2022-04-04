@@ -6,8 +6,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "../../src/Debug/debugger.h"
@@ -39,6 +39,12 @@ void print_help() {
     fprintf(
         stdout,
         "    --loop         Let the runtime loop infinitely on exceptions\n");
+    fprintf(stdout,
+            "    --asserts      Name of file containing asserts to run against "
+            "loaded module\n");
+    fprintf(stdout,
+            "    --watcompiler  Command to compile Wat files to Wasm "
+            "binaries (default: wat2wasm)\n");
     fprintf(stdout,
             "    --file         Wasm file (module) to load and execute\n");
 }
@@ -228,7 +234,7 @@ int main(int argc, const char *argv[]) {
 
     if (argc == 0 && file_name != nullptr) {
         if (run_tests) {
-            dbg_info("=== STARTING SPEC TESTS ===\n")
+            dbg_info("=== STARTING SPEC TESTS ===\n");
             run_wasm_test(wac, file_name, asserts_file, watcompiler);
             return 0;
         }
