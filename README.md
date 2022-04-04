@@ -91,8 +91,8 @@ make
 ### WebAssembly Specification tests
 
 ```shell
-pip install -r requirements.txt
-./tests/integration/run_spec_tests.py --interpreter "build/warduino" --compiler "wat2wasm"
+python3 -m pip install -r requirements.txt
+./tests/integration/run_spec_tests.py --interpreter "build-emu/wdcli" --compiler "wat2wasm"
 ```
 
 ### Technical support and feedback
