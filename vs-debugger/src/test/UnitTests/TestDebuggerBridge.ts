@@ -1,18 +1,37 @@
-import 'mocha';
-import {WARDuinoDebugBridge} from '../../DebugBridges/WARDuinoDebugBridge';
-import exp = require("constants");
+import "mocha";
+import {WARDuinoDebugBridge} from "../../DebugBridges/WARDuinoDebugBridge";
 import {expect} from "chai";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import {before, beforeEach} from "mocha";
+import ErrnoException = NodeJS.ErrnoException;
 
 const runPath = process.cwd();
 
-const port = "/dev/cu.usbserial-0001";
-const warduinoSDK = "/Users/xtofs/Documents/Arduino/libraries/WARDuino";
+const port = "port does not exist";
+const warduinoSDK = "$HOME/Arduino/libraries/WARDuino";
 const wasmDirectoryPath = `${runPath}/src/test/UnitTests/TestSource/fac_ok.wasm`;
 
 suite('Hardware-less Test Suite', () => {
-    test('TestEstablishConnectionFailure', async () => {
-        let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge(wasmDirectoryPath,
+    let tmpdir: string = "";
+    let bridge: WARDuinoDebugBridge;
+
+    before(async function () {
+        await new Promise(resolve => {
+            fs.mkdtemp(path.join(os.tmpdir(), 'warduino.'), (err: ErrnoException | null, dir: string) => {
+                if (err === null) {
+                    tmpdir = dir;
+                    resolve(null);
+                }
+            });
+        });
+    });
+
+    beforeEach(async function () {
+        bridge = new WARDuinoDebugBridge("",
             undefined,
+            tmpdir,
             {
                 notifyError(): void {
 
@@ -35,72 +54,18 @@ suite('Hardware-less Test Suite', () => {
             port,
             warduinoSDK
         );
+    });
 
+    test('TestEstablishConnectionFailure', async () => {
         bridge.compileAndUpload().catch(reason => {
             expect(reason.to.equal(`Could not connect to serial port: ${port}`));
         });
     });
 
-    test('TestWrongPath', async () => {
-
-        let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge("",
-            undefined,
-            {
-                notifyError(): void {
-
-                },
-                connected(): void {
-
-                },
-                notifyPaused(): void {
-
-                },
-                disconnected(): void {
-
-                },
-                notifyProgress(message: string): void {
-                    console.log(message);
-                },
-                notifyStateUpdate() {
-                }
-            },
-            port,
-            warduinoSDK
-        );
-
-
-    });
-
     test('TestNoLocalDevice', async () => {
-        let bridge: WARDuinoDebugBridge = new WARDuinoDebugBridge(wasmDirectoryPath,
-            undefined,
-            {
-                notifyError(): void {
-
-                },
-                connected(): void {
-
-                },
-                disconnected(): void {
-
-                },
-                notifyPaused(): void {
-
-                },
-                notifyProgress(message: string): void {
-                    console.log(message);
-                },
-                notifyStateUpdate() {
-                }
-            },
-            port,
-            warduinoSDK
-        );
-
         let result = await bridge.compileAndUpload();
         expect(result).to.be.false;
     });
-
 
 });
 

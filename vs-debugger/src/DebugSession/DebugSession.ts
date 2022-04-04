@@ -21,11 +21,15 @@ import {RunTimeTarget} from "../DebugBridges/RunTimeTarget";
 import {CompileBridgeFactory} from "../CompilerBridges/CompileBridgeFactory";
 import {SourceMap} from "../CompilerBridges/SourceMap";
 import {VariableInfo} from "../CompilerBridges/VariableInfo";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 // Interface between the debugger and the VS runtime 
 export class WARDuinoDebugSession extends LoggingDebugSession {
     private sourceMap?: SourceMap = undefined;
     private program: string = "";
+    private tmpdir: string;
     private THREAD_ID: number = 42;
     private testCurrentLine = 0;
     private debugBridge?: DebugBridge;
@@ -38,6 +42,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         super("debug_log.txt");
         this.notifier = notifier;
         this.reporter = reporter;
+        this.tmpdir = "/tmp/";
     }
 
     protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
@@ -102,7 +107,16 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         this.reporter.clear();
         this.program = args.program;
 
-        let compiler = CompileBridgeFactory.makeCompileBridge(args.program);
+        await new Promise(resolve => {
+            fs.mkdtemp(path.join(os.tmpdir(), 'warduino.'), (err, tmpdir) => {
+                if (err === null) {
+                    this.tmpdir = tmpdir;
+                    resolve(null);
+                }
+            });
+        });
+
+        let compiler = CompileBridgeFactory.makeCompileBridge(args.program, this.tmpdir);
 
         let sourceMap: SourceMap | void = await compiler.compile().catch((reason) => this.handleCompileError(reason));
         if (sourceMap) {
@@ -111,6 +125,7 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
         let that = this;
         this.debugBridge = DebugBridgeFactory.makeDebugBridge(args.program, sourceMap,
             RunTimeTarget.embedded,
+            this.tmpdir,
             {   // VS Code Interface
                 notifyError(): void {
 
@@ -312,6 +327,13 @@ export class WARDuinoDebugSession extends LoggingDebugSession {
     override shutdown(): void {
         console.log("Shutting the debugger down");
         this.debugBridge?.disconnect();
+        if (this.tmpdir) {
+            fs.rm(this.tmpdir, {recursive: true}, err => {
+                if (err) {
+                    throw new Error('Could not delete temporary directory.');
+                }
+            });
+        }
     }
 
     public notifyStepCompleted() {
