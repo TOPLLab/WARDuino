@@ -1,4 +1,4 @@
-name: WebAssembly specification tests
+name: WASM Spectests
 on: [push, pull_request]
 
 concurrency:

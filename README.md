@@ -1,9 +1,19 @@
-[![compile](https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg)](https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml)
-[![test](https://github.com/TOPLLab/WARDuino/actions/workflows/test.yaml/badge.svg)](https://github.com/TOPLLab/WARDuino/actions/workflows/test.yaml)
+<h1 align="center">WARDuino</h1>
 
-# WARDuino
+<p align="center">
+  <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg"></a>
+  <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml/badge.svg"></a>
+  <a href="https://github.com/TOPLLab/WARDuino/blob/cleanup/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
+</p>
 
-[Installation](./README.md#build-and-development-instructions) | [Examples](./examples/README.md) | [Run Specification tests](./README.md#webassembly-specification-tests) | [Documentation](./documentation/)
+This project is released under the Mozilla Public License 2.0, and is being developed as part of an active research project at the University of Ghent's [TOPL](https://github.com/TOPLLab) lab.
+
+The WARDuino virtual machine is a WebAssembly runtime for microcontrollers, which runs both under the Arduino and ESP-IDF toolchains.
+The WARDuino project also includes a VS Code extension to use the remote debugging facilities offered by the virtual machine.
+
+<p align="center">
+  <a href="./README.md#build-and-development-instructions">Installation</a> | <a href="./examples/">Examples</a> | <a href="./README.md#webassembly-specification-tests">Run Specification tests</a> | <a href="./documentation/">Documentation</a>
+</p>
 
 ## Build and Development Instructions
 
@@ -100,9 +110,7 @@ For a feature request or bug report, create a [GitHub issue](https://github.com/
 
 ## LICENCE
 
-MPL-2.0 (see LICENSE).
-
-WARDuino by Robbert Gurdeep Singh, Tom Lauwaerts, Christophe Scholliers and Joel Martin is licensed under a Mozilla Public License 2.0.
+WARDuino by Robbert Gurdeep Singh, Tom Lauwaerts, Christophe Scholliers and Joel Martin is licensed under a [MPL-2.0 License](./LICENSE).
 This is a derivative work of [kanaka/wac](https://github.com/kanaka/wac) by Joel Martin.
 
 If you need to cite WARDuino in your research, use:
