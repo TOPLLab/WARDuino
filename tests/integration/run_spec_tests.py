@@ -86,10 +86,15 @@ def sanitise_testfile(filename):
 def main():
     tests = [os.path.join(args.testsuite, filename) for filename in sorted(os.listdir(args.testsuite)) if
              filename.endswith(".asserts.wast")]
+
+    if args.file:
+        tests = [args.file]
+
     for filename in tests:
-        module_file = "core/" + "".join(os.path.basename(filename).split(".")[:-2]) + ".wast"
+        base = "core/" + "".join(os.path.basename(filename).split(".")[:-2])
+        print(base)
         status = subprocess.run(
-            [args.interpreter, "--file", module_file, "--asserts", filename, "--watcompiler", args.compiler],
+            [args.interpreter, "--file", base + ".wast", "--asserts", base + ".asserts.wast", "--watcompiler", args.compiler],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if status.returncode == 0:
             print(f"{filename}: All tests passed.\n")
@@ -109,6 +114,7 @@ if __name__ == '__main__':
     parser.add_argument("--compiler", default="wat2wasm", help="WebAssembly text format compiler (default: wat2wasm)")
     parser.add_argument("--verbosity", type=int, default=1, help="Verbosity level: 0-3 (default: 1)")
     parser.add_argument("--ignore", type=str, default=None, help="Ignore file lists tests to ignore")
+    parser.add_argument("--file", type=str, default=None, help="Assert file to run (.asserts.wast extension)")
 
     args = parser.parse_args()
 
