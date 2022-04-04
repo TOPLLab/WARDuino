@@ -7,9 +7,6 @@ import {CompileBridge} from "./CompileBridge";
 import {SourceMap} from "./SourceMap";
 import {FunctionInfo} from "./FunctionInfo";
 import {VariableInfo} from "./VariableInfo";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 
 function checkCompileTimeError(errorMessage: string) {
     let regexpr = /:(?<line>(\d+)):(?<column>(\d+)): error: (?<message>(.*))/;
@@ -64,31 +61,14 @@ export class WASMCompilerBridge implements CompileBridge {
     tmpdir: string;
     wasmFilePath: String;
 
-    constructor(wasmFilePath: String) {
+    constructor(wasmFilePath: String, tmpdir: string) {
         this.wasmFilePath = wasmFilePath;
-        this.tmpdir = "";
+        this.tmpdir = tmpdir;
     }
 
     async compile() {
-        let sourceMap: SourceMap = await new Promise<string>((resolve, reject) => {
-            fs.mkdtemp(path.join(os.tmpdir(), 'warduino.'), (err, dir) => {
-                if (err === null) {
-                    resolve(dir);
-                } else {
-                    reject('Could not create temporary directory.');
-                }
-            });
-        }).then(value => {
-            this.tmpdir = value;
-            return this.compileAndDump(this.compileToWasmCommand(), this.getNameDumpCommand());
-        });
+        let sourceMap: SourceMap = await this.compileAndDump(this.compileToWasmCommand(), this.getNameDumpCommand());
         await this.compileHeader();
-        fs.rm(this.tmpdir, {recursive: true}, err => {
-            if (err) {
-                throw new Error('Could not delete temporary directory.');
-            }
-        });
-        this.tmpdir = "";
         return sourceMap;
     }
 

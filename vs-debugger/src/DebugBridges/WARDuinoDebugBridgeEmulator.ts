@@ -13,6 +13,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private client?: net.Socket;
     private wasmPath: string;
     private sourceMap: SourceMap | void;
+    private tmpdir: string;
     private cp?: ChildProcess;
     private listener: DebugBridgeListener;
     private parser: DebugInfoParser;
@@ -21,9 +22,10 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     private callstack: Frame[] = [];
     private startAddress: number = 0;
 
-    constructor(wasmPath: string, sourceMap: SourceMap | void, listener: DebugBridgeListener) {
+    constructor(wasmPath: string, sourceMap: SourceMap | void, tmpdir: string, listener: DebugBridgeListener) {
         this.wasmPath = wasmPath;
         this.sourceMap = sourceMap;
+        this.tmpdir = tmpdir;
         this.listener = listener;
         this.parser = new DebugInfoParser();
         this.connect();
@@ -144,7 +146,7 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
     }
 
     private startEmulator() {
-        this.cp = WARDuinoDebugBridgeEmulator.spawnEmulatorProcess();
+        this.cp = this.spawnEmulatorProcess();
 
         this.listener.notifyProgress('Started Emulator');
         while (this.cp.stdout === undefined) {
@@ -168,7 +170,6 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
             console.log('Something went wrong with the emulator stream');
             this.listener.notifyProgress('Disconnected from emulator');
         });
-
     }
 
     public disconnect(): void {
@@ -176,9 +177,9 @@ export class WARDuinoDebugBridgeEmulator implements DebugBridge {
         this.client?.destroy();
     }
 
-    private static spawnEmulatorProcess(): ChildProcess {
+    private spawnEmulatorProcess(): ChildProcess {
         // TODO no absolute path. package extension with upload.wasm and compile warduino during installation.
-        return spawn('/home/tolauwae/Arduino/libraries/WARDuino/vs-debugger/wdcli', ['--file', '/tmp/warduino/upload.wasm']);
+        return spawn('/home/tolauwae/Arduino/libraries/WARDuino/build-emu/wdcli', ['--file', `${this.tmpdir}/upload.wasm`]);
     }
 
 }

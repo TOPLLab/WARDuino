@@ -9,13 +9,13 @@ import {SourceMap} from "../CompilerBridges/SourceMap";
 
 
 export class DebugBridgeFactory {
-    static makeDebugBridge(file: string, sourceMap: SourceMap | void, target: RunTimeTarget, listener: DebugBridgeListener): DebugBridge {
+    static makeDebugBridge(file: string, sourceMap: SourceMap | void, target: RunTimeTarget, tmpdir: string, listener: DebugBridgeListener): DebugBridge {
         let fileType = getFileExtension(file);
         switch (fileType) {
             case "wast" :
                 switch (target) {
                     case RunTimeTarget.emulator:
-                        return new WARDuinoDebugBridgeEmulator(file, sourceMap, listener);
+                        return new WARDuinoDebugBridgeEmulator(file, sourceMap, tmpdir, listener);
                     case RunTimeTarget.embedded:
                         let portAddress: string | undefined = vscode.workspace.getConfiguration().get("warduino.Port");
                         let warduinoSDK: string | undefined = vscode.workspace.getConfiguration().get("warduino.WarduinoToolChainPath");
@@ -27,7 +27,7 @@ export class DebugBridgeFactory {
                         if (warduinoSDK === undefined) {
                             throw new Error('WARDuino Tool Chain not set');
                         }
-                        return new WARDuinoDebugBridge(file, sourceMap, listener, portAddress, warduinoSDK);
+                        return new WARDuinoDebugBridge(file, sourceMap, tmpdir, listener, portAddress, warduinoSDK);
                 }
         }
         throw new Error("Unsupported file type");
