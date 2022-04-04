@@ -3,6 +3,8 @@
 
 # WARDuino
 
+[Installation](./README.md#build-and-development-instructions) | [Examples](./examples/README.md) | [Run Specification tests](./README.md#webassembly-specification-tests) | [Documentation](./documentation/)
+
 ## Build and Development Instructions
 
 The project uses CMake. Quick install looks like this:
@@ -85,14 +87,14 @@ cmake .. -D BUILD_EMULATOR=ON
 make
 ```
 
-### WebAssembly Specification tests
+## WebAssembly Specification tests
 
 ```shell
 python3 -m pip install -r requirements.txt
 ./tests/integration/run_spec_tests.py --interpreter "build-emu/wdcli" --compiler "wat2wasm"
 ```
 
-### Technical support and feedback
+## Technical support and feedback
 
 For a feature request or bug report, create a [GitHub issue](https://github.com/TOPLLab/WARDuino/issues).
 
