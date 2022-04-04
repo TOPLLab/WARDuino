@@ -1,6 +1,6 @@
 # The following lines of boilerplate have to be in your project's
 # CMakeLists in this exact order for cmake to work correctly
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.15)
 option(BUILD_ESP "Build for esp" OFF)
 option(BUILD_EMULATOR "Build for emulator" OFF)
 
@@ -17,6 +17,8 @@ if (BUILD_ESP)
         message(FATAL_ERROR "Can't find $IDF_PATH/tools/cmake/project.cmake. Make sure ESP-IDF is installed and $IDF_PATH is set.")
     endif ()
     
+    message(VERBOSE "Using ESP-IDF toolchain")
+
     set(EXTRA_COMPONENT_DIRS "platforms/ESP-IDF")
 
     include($ENV{IDF_PATH}/tools/cmake/project.cmake)
@@ -44,7 +46,7 @@ if (BUILD_EMULATOR)
         tests/integration/sexpr-parser/src/sexpr.c
         )
 
-    add_definitions(-DINFO=1)
+    add_definitions(-DINFO=0)
     add_definitions(-DDEBUG=0)
     add_definitions(-DTRACE=0)
     add_definitions(-DWARN=0)

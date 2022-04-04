@@ -12,11 +12,11 @@ git clone git@github.com:TOPLLab/WARDuino.git
 cd WARDuino
 mkdir build-emu
 cd build-emu
-cmake ..
+cmake .. -D BUILD_EMULATOR=ON
 make
 ```
 
-This will build the command-line tool (EMULATOR) by default.
+This will build the command-line tool (EMULATOR).
 
 ### Build for ESP-IDF
 
@@ -37,7 +37,7 @@ To install the WARDuino with the ESP-IDF toolchain perform the following steps s
 ```bash
 mkdir build
 cd build
-cmake ..
+cmake .. -D BUILD_ESP=ON
 make flash
 ```
 
@@ -81,12 +81,9 @@ To install the CLI perform the following steps starting from the project root fo
 ```bash
 mkdir build-emu
 cd build-emu
-cmake ..
+cmake .. -D BUILD_EMULATOR=ON
 make
 ```
-
-### Unit testing
-
 
 ### WebAssembly Specification tests
 
