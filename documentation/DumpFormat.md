@@ -70,55 +70,6 @@ When the block is a function it also holds the function index in the `fidx` fiel
       ]
    }
 }
-
-
-{
-   "pc":"0x3ffbdbf0",
-   "start":[
-      "0x3ffbdb70"
-   ],
-   "breakpoints":[
-      
-   ],
-   "functions":[
-      {
-         "fidx":"0x3",
-         "from":"0x3ffbdbee",
-         "to":"0x3ffbdbf4"
-      },
-      {
-         "fidx":"0x4",
-         "from":"0x3ffbdbf9",
-         "to":"0x3ffbdc19"
-      }
-   ],
-   "callstack":[
-      {
-         "type":0,
-         "fidx":"0x4",
-         "sp":-1,
-         "fp":-1,
-         "start":"0x3ffbdbf9",
-         "ra":"0x3ffbdbdf",
-         "callsite":"0x3ffbdbdd"
-      },
-      {
-         "type":0,
-         "fidx":"0x3",
-         "sp":0,
-         "fp":0,
-         "start":"0x3ffbdbee",
-         "ra":"0x3ffbdc00",
-         "callsite":"0x3ffbdbfe"
-      }
-   ],
-   "locals":{
-      "count":0,
-      "locals":[
-         
-      ]
-   }
-}
 ```
 
 The WARDuino VM also supports a shorter version of the full dump (0x10), without the locals.
