@@ -67,10 +67,11 @@ arduino-cli config init
 
 If you need additional boards, such as the esp32 boards, you can add them in the generated config file. More information [here](https://arduino.github.io/arduino-cli/0.21/getting-started/).
 
-Thirdly, make sure you install the `PubSubClient` library. (used for MQTT)
+Thirdly, make sure you install the `PubSubClient` and `Adafruit NeoPixel` library. (used for MQTT and pixel primitives)
 
 ```bash
 arduino-cli lib install PubSubClient
+arduino-cli lib install "Adafruit NeoPixel"
 ```
 
 After this initial installation steps you can start using WARDuino with the Arduino toolchain.
