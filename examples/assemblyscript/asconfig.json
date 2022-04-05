@@ -1,0 +1,11 @@
+{
+  "targets": {
+    "release": {
+      "binaryFile": "build/smartlamp.wasm",
+      "textFile": "build/smartlamp.wat",
+      "sourceMap": false,
+      "optimize": true
+    }
+  },
+  "options": {}
+}

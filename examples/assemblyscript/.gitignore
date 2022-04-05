@@ -1,0 +1,12 @@
+npm-debug.*
+dist/
+docs/
+node_modules/
+out/
+build/
+raw/
+.history
+*.backup
+.vscode
+.idea
+idf/
