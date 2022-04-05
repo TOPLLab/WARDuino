@@ -9,13 +9,15 @@
 This project is released under the Mozilla Public License 2.0, and is being developed as part of an active research project at the University of Ghent's [TOPL](https://github.com/TOPLLab) lab.
 
 The WARDuino virtual machine is a WebAssembly runtime for microcontrollers, which runs both under the Arduino and ESP-IDF toolchains.
-The WARDuino project also includes a VS Code extension to use the remote debugging facilities offered by the virtual machine.
+The WARDuino project also includes a [VS Code extension](https://github.com/TOPLLab/WARDuino-VSCode) to use the remote debugging facilities offered by the virtual machine.
 
 <p align="center">
   <a href="./README.md#build-and-development-instructions">Installation</a> | <a href="./examples/">Examples</a> | <a href="./README.md#webassembly-specification-tests">Run Specification tests</a> | <a href="./documentation/">Documentation</a>
 </p>
 
 ## Build and Development Instructions
+
+Supported platforms: Linux (Ubuntu), macOS, ESP-IDF, Arduino
 
 The project uses CMake. Quick install looks like this:
 
@@ -28,11 +30,13 @@ cmake .. -D BUILD_EMULATOR=ON
 make
 ```
 
-This will build the command-line tool (EMULATOR).
+This will build the command-line tool (`emulator`), which has been tested on both linux and macOS.
+
+The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, and has been extensively tested on different ESP8266 and ESP32 microcontrollers.
 
 ### Build for ESP-IDF
 
-Before you can compile and flash with ESP-IDF, you must install and enable the toolchain.
+Before you can compile and flash with ESP-IDF, you must install and enable [the toolchain](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html).
 You also need to disable the watchdog timer:
 
 1. Go to the root folder of the WARDuino repo
@@ -70,7 +74,7 @@ If you need additional boards, such as the esp32 boards, you can add them in the
 Thirdly, make sure you install the `PubSubClient` and `Adafruit NeoPixel` library. (used for MQTT and pixel primitives)
 
 ```bash
-arduino-cli lib install PubSubClient
+arduino-cli lib install "PubSubClient"
 arduino-cli lib install "Adafruit NeoPixel"
 ```
 
