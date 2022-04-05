@@ -89,21 +89,6 @@ jobs:
                   name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
                   path: ${{ env.SKETCHES_REPORTS_PATH }}
 
-    report:
-        name: Report memory usage of the Arduino sketches
-        needs: compile-with-arduino
-        if: ${{ github.event_name == 'pull_request' }}
-        runs-on: ubuntu-latest
-        steps:
-            - name: Download sketches reports artifact
-              uses: actions/download-artifact@v2
-              with:
-                  name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
-                  path: ${{ env.SKETCHES_REPORTS_PATH }}
-            - uses: arduino/report-size-deltas@v1
-              with:
-                  sketches-reports-source: /github/workspace/sketches-reports # ${{ env.SKETCHES_REPORTS_PATH }}
-
     compile-with-idf:
         name: (ESP-IDF) Compile on ${{matrix.board.platform-name}}
         needs: formatting-check
