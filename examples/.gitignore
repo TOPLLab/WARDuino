@@ -1,0 +1,3 @@
+sdkconfig
+*.wasm
+*.wasm.h
