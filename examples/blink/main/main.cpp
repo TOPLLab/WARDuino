@@ -52,4 +52,3 @@ void app_main(void) {
     printf("END\n\n");
     wac.unload_module(m);
 }
-
