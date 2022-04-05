@@ -59,7 +59,7 @@ export function wifi_connect(ssid: string, password: string): void {
 }
 
 export function wifi_localip(): string {
-    let localip = new ArrayBuffer(20);
+    let localip = new ArrayBuffer(46);  // large enough for ipv6 addresses
     _wifi_localip(localip, localip.byteLength);
     return String.UTF8.decode(localip, true);
 }
