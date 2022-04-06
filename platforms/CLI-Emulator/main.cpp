@@ -235,8 +235,7 @@ int main(int argc, const char *argv[]) {
     if (argc == 0 && file_name != nullptr) {
         if (run_tests) {
             dbg_info("=== STARTING SPEC TESTS ===\n");
-            run_wasm_test(wac, file_name, asserts_file, watcompiler);
-            return 0;
+            return run_wasm_test(wac, file_name, asserts_file, watcompiler);
         }
         dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
         m = load(wac, file_name,
