@@ -4,6 +4,9 @@
 #
 # Runs all WebAssembly Core Spec tests for WARDuino.
 #
+# By default the script stops when it encounters a single error.
+# At verbosity level 0: the script will run all spectest files regardless of failing tests.
+#
 # Requirements:
 #   command to translate WebAssembly text format to the WebAssembly binary format (default: wat2wasm)
 #   TESTWARDuino executable (build cmake project in root)
@@ -66,7 +69,7 @@ def sanitise_testfile(filename):
                 if module_seen:
                     break
                 module_seen = True
-            elif line.startswith("(assert"):
+            elif line.startswith("(assert") or line.startswith("(invoke"):
                 file = False
                 if any([line.startswith(f"({_assert}") for _assert in SUPPORTED_ASSERTS]):
                     file = asserts_file
@@ -94,12 +97,16 @@ def main():
         base = "core/" + "".join(os.path.basename(filename).split(".")[:-2])
         print(base)
         status = subprocess.run(
-            [args.interpreter, "--file", base + ".wast", "--asserts", base + ".asserts.wast", "--watcompiler", args.compiler])
+            [args.interpreter, "--file", base + ".wast", "--asserts", base + ".asserts.wast", "--watcompiler", args.compiler],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if status.returncode == 0:
             print(f"{filename}: All tests passed.\n")
         else:
-            print(f"""{filename}: exited with {status.returncode}""")
-            exit(status.returncode)
+            if args.verbosity == 0:
+                print(f"""{filename}: exited with {status.returncode}""")
+            else:
+                print(f"""{filename}:\n {status.stdout.decode("utf-8")}\n""")
+                exit(status.returncode)
 
 
 if __name__ == '__main__':
