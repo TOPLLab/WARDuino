@@ -1,5 +1,4 @@
 block.wast
-br.wast
 br_table.wast
 call_indirect.wast
 call.wast
