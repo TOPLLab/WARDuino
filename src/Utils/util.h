@@ -67,4 +67,9 @@ double wa_fmax(double a, double b);
 
 double wa_fmin(double a, double b);
 
+//WOOD
+uint32_t read_B32(uint8_t **bytes);
+uint16_t read_B16(uint8_t **bytes);
+int read_B32_signed(uint8_t **bytes);
+
 #endif

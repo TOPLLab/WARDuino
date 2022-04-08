@@ -161,3 +161,26 @@ double wa_fmin(double a, double b) {
     }
     return c;
 }
+
+
+//WOOD
+uint32_t read_B32(uint8_t **bytes) {
+    uint8_t *b = *bytes;
+    uint32_t n = (b[0] << 24) + (b[1] << 16) + (b[2] << 8) + b[3];
+    *bytes += 4;
+    return n;
+}
+
+uint16_t read_B16(uint8_t **bytes) {
+    uint8_t *b = *bytes;
+    uint32_t n = (b[0] << 8) + b[1];
+    *bytes += 2;
+    return n;
+}
+
+int read_B32_signed(uint8_t **bytes) {
+    uint8_t *b = *bytes;
+    int n = (b[0] << 24) + (b[1] << 16) + (b[2] << 8) + b[3];
+    *bytes += 4;
+    return n;
+}  // TODO replace with read_LEB_32? If keep Big endian use memcpy?
