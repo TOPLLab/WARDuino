@@ -71,14 +71,12 @@ class Debugger {
 
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
-
-    //WOOD
+    // WOOD
     bool receivingData = false;
-    void freeState(Module *m, uint8_t * interruptData);
+    void freeState(Module *m, uint8_t *interruptData);
     uint8_t *findOpcode(Module *m, Block *block);
     bool saveState(Module *m, uint8_t *interruptData);
     uintptr_t readPointer(uint8_t **data);
-
 
    public:
     int socket;
@@ -104,7 +102,7 @@ class Debugger {
     void deleteBreakpoint(uint8_t *loc);
 
     bool isBreakpoint(uint8_t *loc);
-    
+
     // WOOD
     void woodDump(Module *m);
 };

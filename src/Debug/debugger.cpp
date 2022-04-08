@@ -1,14 +1,14 @@
 #include "debugger.h"
 
-#include <inttypes.h>
-
-#include <cstring>
 #include <unistd.h>
+
+#include <algorithm>
+#include <cinttypes>
+#include <cstring>
 
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
-#include "../WARDuino.h"
 
 // Debugger
 
@@ -180,8 +180,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptOffset: {
             free(interruptData);
-            printf("here");
-            dprintf(this->socket, "\"{\"offset\":\"%p\"}\"\n", (void *)m->bytes);
+            dprintf(this->socket, "\"{\"offset\":\"%p\"}\"\n",
+                    (void *)m->bytes);
             break;
         }
         case interruptRecvState: {
@@ -199,7 +199,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 free(interruptData);
                 debug("sending %s!\n", receivingData ? "ack" : "done");
                 dprintf(this->socket, "%s!\n", receivingData ? "ack" : "done");
-                if(!this->receivingData){
+                if (!this->receivingData) {
                     debug("receiving state done\n");
                 }
             }
@@ -216,37 +216,32 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
 }
 
 // Private methods
-void Debugger::printValue(StackValue *v, int idx, bool end = false){
-        char buff[256];
+void Debugger::printValue(StackValue *v, int idx, bool end = false) {
+    char buff[256];
 
-        switch (v->value_type) {
-            case I32:
-                snprintf(buff, 255, R"("type":"i32","value":%)" PRIi32,
-                         v->value.uint32);
-                break;
-            case I64:
-                snprintf(buff, 255, R"("type":"i64","value":%)" PRIi64,
-                         v->value.uint64);
-                break;
-            case F32:
-                snprintf(buff, 255, R"("type":"F32","value":%.7f)",
-                         v->value.f32);
-                break;
-            case F64:
-                snprintf(buff, 255, R"("type":"F64","value":%.7f)",
-                         v->value.f64);
-                break;
-            default:
-                snprintf(buff, 255,
-                         R"("type":"%02x","value":"%)" PRIx64 "\"",
-                         v->value_type, v->value.uint64);
-        }
-        dprintf(this->socket, R"({"idx":%d,%s}%s)", idx, buff,
-                  end ? "": ",");
-
+    switch (v->value_type) {
+        case I32:
+            snprintf(buff, 255, R"("type":"i32","value":%)" PRIi32,
+                     v->value.uint32);
+            break;
+        case I64:
+            snprintf(buff, 255, R"("type":"i64","value":%)" PRIi64,
+                     v->value.uint64);
+            break;
+        case F32:
+            snprintf(buff, 255, R"("type":"F32","value":%.7f)", v->value.f32);
+            break;
+        case F64:
+            snprintf(buff, 255, R"("type":"F64","value":%.7f)", v->value.f64);
+            break;
+        default:
+            snprintf(buff, 255, R"("type":"%02x","value":"%)" PRIx64 "\"",
+                     v->value_type, v->value.uint64);
+    }
+    dprintf(this->socket, R"({"idx":%d,%s}%s)", idx, buff, end ? "" : ",");
 }
 
-uint8_t * Debugger::findOpcode(Module *m, Block *block){
+uint8_t *Debugger::findOpcode(Module *m, Block *block) {
     auto find =
         std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
                      [&](const std::pair<uint8_t *, Block *> &pair) {
@@ -262,7 +257,6 @@ uint8_t * Debugger::findOpcode(Module *m, Block *block){
     }
     return opcode;
 }
-
 
 void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
     dprintf(this->socket, "GO!\n");
@@ -511,12 +505,12 @@ void Debugger::woodDump(Module *m) {
     size_t i = 0;
     for (auto bp : this->breakpoints) {
         dprintf(this->socket, R"("%p"%s)", bp,
-                  (++i < this->breakpoints.size()) ? "," : "");
+                (++i < this->breakpoints.size()) ? "," : "");
     }
     dprintf(this->socket, "],");
 
     // printf("asked for stack\n");
-    //stack
+    // stack
     dprintf(this->socket, "\"stack\":[");
     char _value_str[256];
     for (int i = 0; i <= m->sp; i++) {
@@ -531,7 +525,8 @@ void Debugger::woodDump(Module *m) {
         Frame *f = &m->callstack[i];
         uint8_t *block_key =
             f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
-        dprintf(this->socket, 
+        dprintf(
+            this->socket,
             R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
             static_cast<void *>(f->ra_ptr), i, (i < m->csp) ? "," : "");
@@ -542,30 +537,31 @@ void Debugger::woodDump(Module *m) {
     dprintf(this->socket, "],\"globals\":[");
     for (uint32_t i = 0; i < m->global_count; i++) {
         auto v = m->globals + i;
-        printValue(v, i,  i == (m->global_count - 1));
+        printValue(v, i, i == (m->global_count - 1));
     }
     dprintf(this->socket, "]");  // closing globals
 
     // printf("asked for table\n");
     dprintf(this->socket, ",\"table\":{\"max\":%d, \"init\":%d, \"elements\":[",
-              m->table.maximum, m->table.initial);
+            m->table.maximum, m->table.initial);
 
-    //write(this->socket, m->table.entries, sizeof(uint32_t) * m->table.size);
+    // write(this->socket, m->table.entries, sizeof(uint32_t) * m->table.size);
     dprintf(this->socket, "]}");  // closing table
 
     // printf("asked for mem\n");
     // memory
     uint32_t total_elems =
         m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
-    dprintf(this->socket, ",\"memory\":{\"pages\":%d,\"max\":%d,\"init\":%d,\"bytes\":[",
-              m->memory.pages, m->memory.maximum, m->memory.initial);
+    dprintf(this->socket,
+            ",\"memory\":{\"pages\":%d,\"max\":%d,\"init\":%d,\"bytes\":[",
+            m->memory.pages, m->memory.maximum, m->memory.initial);
 
-    //write(this->socket, m->memory.bytes, total_elems * sizeof(uint8_t));
+    // write(this->socket, m->memory.bytes, total_elems * sizeof(uint8_t));
     dprintf(this->socket, "]}");  // closing memory
 
-
     // printf("asked for br_table\n");
-    dprintf(this->socket, ",\"br_table\":{\"size\":\"0x%x\",\"labels\":[", BR_TABLE_SIZE);
+    dprintf(this->socket, ",\"br_table\":{\"size\":\"0x%x\",\"labels\":[",
+            BR_TABLE_SIZE);
     write(this->socket, m->br_table, BR_TABLE_SIZE * sizeof(uint32_t));
     dprintf(this->socket, "]}}\n");
 }
@@ -649,10 +645,10 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 debug("max %d init %d current page %d\n", m->memory.maximum,
                       m->memory.initial, pages);
                 printf("max %d init %d current page %d\n", m->memory.maximum,
-                      m->memory.initial, pages);
+                       m->memory.initial, pages);
                 // if(pages !=m->memory.pages){
                 // if(m->memory.pages !=0)
-                if(m->memory.bytes != nullptr){
+                if (m->memory.bytes != nullptr) {
                     free(m->memory.bytes);
                 }
                 m->memory.bytes =
@@ -687,7 +683,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
         switch (*program_state++) {
             case pcState: {  // PC
                 m->pc_ptr = (uint8_t *)readPointer(&program_state);
-                /* printf("reciving pc %p\n", static_cast<void*>(m->pc_ptr)); */
+                /* printf("receiving pc %p\n", static_cast<void*>(m->pc_ptr)); */
                 break;
             }
             case breakpointsState: {  // breakpoints
@@ -729,10 +725,11 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                         printf("non function block\n");
                         uint8_t *block_key =
                             (uint8_t *)readPointer(&program_state);
-                        /* printf("block_key=%p\n", static_cast<void *>(block_key)); */
+                        /* printf("block_key=%p\n", static_cast<void
+                         * *>(block_key)); */
                         f->block = m->block_lookup[block_key];
-                        if(f->block == nullptr){
-                          FATAL("block_lookup cannot be nullptr\n");
+                        if (f->block == nullptr) {
+                            FATAL("block_lookup cannot be nullptr\n");
                         }
                     }
                 }
