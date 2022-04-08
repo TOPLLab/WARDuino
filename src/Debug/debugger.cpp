@@ -3,6 +3,7 @@
 #include <inttypes.h>
 
 #include <cstring>
+#include <unistd.h>
 
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
@@ -172,6 +173,37 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleChangedLocal(m, interruptData);
             free(interruptData);
             break;
+        case interruptWOODDUMP:
+            *program_state = WARDUINOpause;
+            free(interruptData);
+            woodDump(m);
+            break;
+        case interruptOffset: {
+            free(interruptData);
+            dprintf(this->socket, "\"{\"offset\":\"%p\"}\"\n", (void *)m->bytes);
+            break;
+        }
+        case interruptRecvState: {
+            if (!this->receivingData) {
+                debug("paused program execution\n");
+                *program_state = WARDUINOpause;
+                this->receivingData = true;
+                this->freeState(m, interruptData);
+                free(interruptData);
+                dprintf(this->socket, "ack!\n");
+            } else {
+                printf("reeiving state\n");
+                debug("receiving state\n");
+                receivingData = !this->saveState(m, interruptData);
+                free(interruptData);
+                debug("sending %s!\n", receivingData ? "ack" : "done");
+                dprintf(this->socket, "%s!\n", receivingData ? "ack" : "done");
+                if(!this->receivingData){
+                    debug("receiving state done\n");
+                }
+            }
+            break;
+        }
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");
@@ -183,6 +215,53 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
 }
 
 // Private methods
+void Debugger::printValue(StackValue *v, int idx, bool end = false){
+        char buff[256];
+
+        switch (v->value_type) {
+            case I32:
+                snprintf(buff, 255, R"("type":"i32","value":%)" PRIi32,
+                         v->value.uint32);
+                break;
+            case I64:
+                snprintf(buff, 255, R"("type":"i64","value":%)" PRIi64,
+                         v->value.uint64);
+                break;
+            case F32:
+                snprintf(buff, 255, R"("type":"F32","value":%.7f)",
+                         v->value.f32);
+                break;
+            case F64:
+                snprintf(buff, 255, R"("type":"F64","value":%.7f)",
+                         v->value.f64);
+                break;
+            default:
+                snprintf(buff, 255,
+                         R"("type":"%02x","value":"%)" PRIx64 "\"",
+                         v->value_type, v->value.uint64);
+        }
+        dprintf(this->socket, R"({"idx":%d,%s}%s)", idx, buff,
+                  end ? "": ",");
+
+}
+
+uint8_t * Debugger::findOpcode(Module *m, Block *block){
+    auto find =
+        std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
+                     [&](const std::pair<uint8_t *, Block *> &pair) {
+                         return pair.second == block;
+                     });
+    uint8_t *opcode = nullptr;
+    if (find != std::end(m->block_lookup)) {
+        opcode = find->first;
+    } else {
+        // FIXME FATAL?
+        debug("find_opcode: not found\n");
+        exit(33);
+    }
+    return opcode;
+}
+
 
 void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
     dprintf(this->socket, "GO!\n");
@@ -300,11 +379,11 @@ void Debugger::dumpLocals(Module *m) const {
                          v->value.uint64);
                 break;
             case F32:
-                snprintf(_value_str, 255, R"("type":"i64","value":%.7f)",
+                snprintf(_value_str, 255, R"("type":"F32","value":%.7f)",
                          v->value.f32);
                 break;
             case F64:
-                snprintf(_value_str, 255, R"("type":"i64","value":%.7f)",
+                snprintf(_value_str, 255, R"("type":"F64","value":%.7f)",
                          v->value.f64);
                 break;
             default:
@@ -411,4 +490,368 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
     }
     dprintf(this->socket, "Local %u changed to %u\n", localId, v->value.uint32);
     return true;
+}
+void Debugger::woodDump(Module *m) {
+    // FIXME replace write
+
+    debug("asked for doDump\n");
+    dprintf(this->socket, "DUMP!\n");
+    dprintf(this->socket, "{");
+
+    // printf("asked for pc\n");
+    // current PC
+    dprintf(this->socket, R"("pc":"%p",)", (void *)m->pc_ptr);
+
+    // start of bytes
+    dprintf(this->socket, R"("start":["%p"],)", (void *)m->bytes);
+    // printf("asked for bps\n");
+
+    dprintf(this->socket, "\"breakpoints\":[");
+    size_t i = 0;
+    for (auto bp : this->breakpoints) {
+        dprintf(this->socket, R"("%p"%s)", bp,
+                  (++i < this->breakpoints.size()) ? "," : "");
+    }
+    dprintf(this->socket, "],");
+
+    // printf("asked for stack\n");
+    //stack
+    dprintf(this->socket, "\"stack\":[");
+    char _value_str[256];
+    for (int i = 0; i <= m->sp; i++) {
+        auto v = &m->stack[i];
+        printValue(v, i, i == m->sp);
+    }
+    dprintf(this->socket, "],");
+
+    // Callstack
+    dprintf(this->socket, "\"callstack\":[");
+    for (int i = 0; i <= m->csp; i++) {
+        Frame *f = &m->callstack[i];
+        uint8_t *block_key =
+            f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
+        dprintf(this->socket, 
+            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p"}%s)",
+            f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
+            static_cast<void *>(f->ra_ptr), (i < m->csp) ? "," : "");
+    }
+
+    // printf("asked for globals\n");
+    // GLobals
+    dprintf(this->socket, "],\"globals\":[");
+    for (uint32_t i = 0; i < m->global_count; i++) {
+        auto v = m->globals + i;
+        printValue(v, i,  i == (m->global_count - 1));
+    }
+    dprintf(this->socket, "]");  // closing globals
+
+    // printf("asked for table\n");
+    dprintf(this->socket, ",\"table\":{\"max\":%d, \"init\":%d, \"elements\":[",
+              m->table.maximum, m->table.initial);
+
+    write(this->socket, m->table.entries, sizeof(uint32_t) * m->table.size);
+    dprintf(this->socket, "]}");  // closing table
+
+    // printf("asked for mem\n");
+    // memory
+    uint32_t total_elems =
+        m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
+    dprintf(this->socket, ",\"memory\":{\"pages\":%d,\"max\":%d,\"init\":%d,\"bytes\":[",
+              m->memory.pages, m->memory.maximum, m->memory.initial);
+
+    write(this->socket, m->memory.bytes, total_elems * sizeof(uint8_t));
+    dprintf(this->socket, "]}");  // closing memory
+
+
+    // printf("asked for br_table\n");
+    dprintf(this->socket, ",\"br_table\":{\"size\":\"0x%x\",\"labels\":[", BR_TABLE_SIZE);
+    write(this->socket, m->br_table, BR_TABLE_SIZE * sizeof(uint32_t));
+    dprintf(this->socket, "]}}\n");
+}
+
+enum ReceiveState {
+    pcState = 0x01,
+    breakpointsState = 0x02,
+    callstackState = 0x03,
+    globalsState = 0x04,
+    tblState = 0x05,
+    memState = 0x06,
+    brtblState = 0x07,
+    stackvalsState = 0x08,
+    pcErrorState = 0x09
+};
+
+void Debugger::freeState(Module *m, uint8_t *interruptData) {
+    debug("freeing the program state\n");
+    printf("freeing the program state\n");
+    uint8_t *first_msg = nullptr;
+    uint8_t *endfm = nullptr;
+    first_msg = interruptData + 1;  // skip interruptRecvState
+    endfm = first_msg + read_B32(&first_msg);
+
+    // nullify state
+    this->breakpoints.clear();
+    m->csp = -1;
+    m->sp = -1;
+    memset(m->br_table, 0, BR_TABLE_SIZE);
+
+    while (first_msg < endfm) {
+        switch (*first_msg++) {
+            case globalsState: {
+                debug("receiving globals info\n");
+                printf("receiving globals info\n");
+                uint32_t amount = read_B32(&first_msg);
+                debug("total globals %d\n", amount);
+                // TODO if global_count != amount Otherwise set all to zero
+                if (m->global_count != amount) {
+                    debug("globals freeing state and then allocating\n");
+                    if (m->global_count > 0) free(m->globals);
+                    if (amount > 0)
+                        m->globals = (StackValue *)acalloc(
+                            amount, sizeof(StackValue), "globals");
+                } else {
+                    debug("globals setting existing state to zero\n");
+                    for (uint32_t i = 0; i < m->global_count; i++) {
+                        debug("decreasing global_count\n");
+                        StackValue *sv = &m->globals[i];
+                        sv->value_type = 0;
+                        sv->value.uint32 = 0;
+                    }
+                }
+                m->global_count = 0;
+                break;
+            }
+            case tblState: {
+                debug("receiving table info\n");
+                printf("receiving table info\n");
+                m->table.initial = read_B32(&first_msg);
+                m->table.maximum = read_B32(&first_msg);
+                uint32_t size = read_B32(&first_msg);
+                debug("init %d max %d size %d\n", m->table.initial,
+                      m->table.maximum, size);
+                if (m->table.size != size) {
+                    debug("old table size %d\n", m->table.size);
+                    if (m->table.size != 0) free(m->table.entries);
+                    m->table.entries = (uint32_t *)acalloc(
+                        size, sizeof(uint32_t), "Module->table.entries");
+                }
+                m->table.size = 0;  // allows to accumulatively add entries
+                break;
+            }
+            case memState: {
+                debug("receiving memory info\n");
+                printf("receiving memory info\n");
+                // FIXME: init & max not needed
+                m->memory.maximum = read_B32(&first_msg);
+                m->memory.initial = read_B32(&first_msg);
+                uint32_t pages = read_B32(&first_msg);
+                debug("max %d init %d current page %d\n", m->memory.maximum,
+                      m->memory.initial, pages);
+                printf("max %d init %d current page %d\n", m->memory.maximum,
+                      m->memory.initial, pages);
+                // if(pages !=m->memory.pages){
+                // if(m->memory.pages !=0)
+                if(m->memory.bytes != nullptr){
+                    free(m->memory.bytes);
+                }
+                m->memory.bytes =
+                    (uint8_t *)acalloc(pages * PAGE_SIZE, sizeof(uint32_t),
+                                       "Module->memory.bytes");
+                m->memory.pages = pages;
+                // }
+                // else{
+                //   //TODO fill memory.bytes with zeros
+                // memset(m->memory.bytes, 0, m->memory.pages * PAGE_SIZE) ;
+                // }
+                break;
+            }
+            default: {
+                FATAL("freeState: receiving unknown command\n");
+                break;
+            }
+        }
+    }
+    debug("done with first msg\n");
+    /* printf("done with first msg\n"); */
+}
+
+bool Debugger::saveState(Module *m, uint8_t *interruptData) {
+    uint8_t *program_state = nullptr;
+    uint8_t *endstate = nullptr;
+    program_state = interruptData + 1;  // skip interruptRecvState
+    endstate = program_state + read_B32(&program_state);
+
+    while (program_state < endstate) {
+        switch (*program_state++) {
+            case pcState: {  // PC
+                printf("reciving pc\n");
+                m->pc_ptr = (uint8_t *)readPointer(&program_state);
+                break;
+            }
+            case breakpointsState: {  // breakpoints
+                uint8_t quantity_bps = *program_state++;
+                printf("receiving breakpoints %" PRIu8 "\n", quantity_bps);
+                for (size_t i = 0; i < quantity_bps; i++) {
+                    auto bp = (uint8_t *)readPointer(&program_state);
+                    this->addBreakpoint(bp);
+                }
+                break;
+            }
+            case callstackState: {
+                debug("receiving callstack\n");
+                printf("receiving callstack\n");
+                uint16_t quantity = read_B16(&program_state);
+                debug("quantity frames %" PRIu16 "\n", quantity);
+                for (size_t i = 0; i < quantity; i++) {
+                    uint8_t block_type = *program_state++;
+                    m->csp += 1;
+                    Frame *f = m->callstack + m->csp;
+                    f->sp = read_B32_signed(&program_state);
+                    f->fp = read_B32_signed(&program_state);
+                    f->ra_ptr = (uint8_t *)readPointer(&program_state);
+                    if (block_type == 0) {  // a function
+                        debug("function block\n");
+                        uint32_t fidx = read_B32(&program_state);
+                        debug("function block idx=%" PRIu32 "\n", fidx);
+                        f->block = m->functions + fidx;
+
+                        if (f->block->fidx != fidx) {
+                            FATAL("incorrect fidx: exp %" PRIu32 " got %" PRIu32
+                                  ". Exiting program\n",
+                                  fidx, f->block->fidx);
+                        }
+                        m->fp = f->sp + 1;
+                    } else {
+                        printf("non function block\n");
+                        uint8_t *block_key =
+                            (uint8_t *)readPointer(&program_state);
+                        /* printf("block_key=%p\n", static_cast<void *>(block_key)); */
+                        f->block = m->block_lookup[block_key];
+                        if(f->block == nullptr){
+                          FATAL("block_lookup cannot be nullptr\n");
+                        }
+                    }
+                }
+                break;
+            }
+            case globalsState: {  // TODO merge globalsState stackvalsState into
+                                  // one case
+                debug("receiving global state\n");
+                printf("receiving globals\n");
+                uint32_t quantity_globals = read_B32(&program_state);
+                uint8_t valtypes[] = {I32, I64, F32, F64};
+
+                debug("receiving #%" PRIu32 " globals\n", quantity_globals);
+                for (uint32_t q = 0; q < quantity_globals; q++) {
+                    uint8_t typeidx = *program_state++;
+                    if (typeidx >= sizeof(valtypes)) {
+                        FATAL("received unknown type %" PRIu8 "\n", typeidx);
+                    }
+                    StackValue *sv = &m->globals[m->global_count++];
+                    size_t qb = typeidx == 0 || typeidx == 2 ? 4 : 8;
+                    debug("receiving type %" PRIu8 " and %d bytes \n", typeidx,
+                          typeidx == 0 || typeidx == 2 ? 4 : 8);
+
+                    sv->value_type = valtypes[typeidx];
+                    memcpy(&sv->value, program_state, qb);
+                    program_state += qb;
+                }
+                break;
+            }
+            case tblState: {
+                printf("receiving table\n");
+                uint8_t tbl_type =
+                    (uint8_t)*program_state++;  // for now only funcref
+                uint32_t quantity = read_B32(&program_state);
+                for (size_t i = 0; i < quantity; i++) {
+                    uint32_t ne = read_B32(&program_state);
+                    m->table.entries[m->table.size++] = ne;
+                }
+                break;
+            }
+            case memState: {
+                debug("receiving memory\n");
+                printf("receiving memory\n");
+                uint32_t begin = read_B32(&program_state);
+                uint32_t end = read_B32(&program_state);
+                debug("memory offsets begin=%" PRIu32 " , end=%" PRIu32 "\n",
+                      begin, end);
+                if (begin > end) {
+                    FATAL("incorrect memory offsets\n");
+                }
+                uint32_t totalbytes = end - begin + 1;
+                uint8_t *mem_end =
+                    m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+                debug("will copy #%" PRIu32 " bytes\n", totalbytes);
+                if ((m->bytes + begin) + totalbytes > mem_end) {
+                    FATAL("memory overflow\n");
+                }
+                memcpy(m->memory.bytes + begin, program_state, totalbytes + 1);
+                for (auto i = begin; i <= (begin + totalbytes - 1); i++) {
+                    debug("GOT byte idx %" PRIu32 " =%" PRIu8 "\n", i,
+                          m->memory.bytes[i]);
+                }
+                debug("outside the out\n");
+                program_state += totalbytes;
+                break;
+            }
+            case brtblState: {
+                debug("receiving br_table\n");
+                printf("receiving br_table\n");
+                uint16_t beginidx = read_B16(&program_state);
+                uint16_t endidx = read_B16(&program_state);
+                debug("br_table offsets begin=%" PRIu16 " , end=%" PRIu16 "\n",
+                      beginidx, endidx);
+                if (beginidx > endidx) {
+                    FATAL("incorrect br_table offsets\n");
+                }
+                if (endidx >= BR_TABLE_SIZE) {
+                    FATAL("br_table overflow\n");
+                }
+                for (auto idx = beginidx; idx <= endidx; idx++) {
+                    // FIXME speedup with memcpy?
+                    uint32_t el = read_B32(&program_state);
+                    m->br_table[idx] = el;
+                }
+                break;
+            }
+            case stackvalsState: {
+                // FIXME the float does add numbers at the end. The extra
+                // numbers are present in the send information when dump occurs
+                printf("receiving stack\n");
+                uint16_t quantity_sv = read_B16(&program_state);
+                uint8_t valtypes[] = {I32, I64, F32, F64};
+                for (size_t i = 0; i < quantity_sv; i++) {
+                    uint8_t typeidx = *program_state++;
+                    if (typeidx >= sizeof(valtypes)) {
+                        FATAL("received unknown type %" PRIu8 "\n", typeidx);
+                    }
+                    m->sp += 1;
+                    StackValue *sv = &m->stack[m->sp];
+                    sv->value.uint64 = 0;  // init whole union to 0
+                    size_t qb = typeidx == 0 || typeidx == 2 ? 4 : 8;
+                    sv->value_type = valtypes[typeidx];
+                    memcpy(&sv->value, program_state, qb);
+                    program_state += qb;
+                }
+                break;
+            }
+            default: {
+                FATAL("saveState: Reiceived unknown program state\n");
+            }
+        }
+    }
+    uint8_t done = (uint8_t)*program_state;
+    return done == (uint8_t)1;
+}
+
+uintptr_t Debugger::readPointer(uint8_t **data) {
+    uint8_t len = (*data)[0];
+    uintptr_t bp = 0x0;
+    for (size_t i = 0; i < len; i++) {
+        bp <<= sizeof(uint8_t) * 8;
+        bp |= (*data)[i + 1];
+    }
+    *data += 1 + len;  // skip pointer
+    return bp;
 }

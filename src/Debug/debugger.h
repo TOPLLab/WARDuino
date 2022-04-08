@@ -6,6 +6,8 @@
 #include <vector>
 
 struct Module;
+struct Block;
+struct StackValue;
 
 enum RunningState { WARDUINOrun, WARDUINOpause, WARDUINOstep };
 
@@ -20,7 +22,10 @@ enum InterruptTypes {
     interruptDUMPLocals = 0x11,
     interruptDUMPFull = 0x12,
     interruptUPDATEFun = 0x20,
-    interruptUPDATELocal = 0x21
+    interruptUPDATELocal = 0x21,
+    interruptWOODDUMP = 0x60,
+    interruptOffset = 0x61,
+    interruptRecvState = 0x62,
 };
 
 class Debugger {
@@ -36,6 +41,8 @@ class Debugger {
     long interruptSize{};
 
     // Private methods
+
+    void printValue(StackValue *v, int idx, bool end);
 
     // TODO Move parsing to WARDuino class?
     uint8_t *parseDebugBuffer(size_t len, const uint8_t *buff);
@@ -64,6 +71,15 @@ class Debugger {
 
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
+
+    //WOOD
+    bool receivingData = false;
+    void freeState(Module *m, uint8_t * interruptData);
+    uint8_t *findOpcode(Module *m, Block *block);
+    bool saveState(Module *m, uint8_t *interruptData);
+    uintptr_t readPointer(uint8_t **data);
+
+
    public:
     int socket;
 
@@ -88,4 +104,7 @@ class Debugger {
     void deleteBreakpoint(uint8_t *loc);
 
     bool isBreakpoint(uint8_t *loc);
+    
+    // WOOD
+    void woodDump(Module *m);
 };
