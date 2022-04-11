@@ -42,7 +42,7 @@ class Debugger {
 
     // Private methods
 
-    void printValue(StackValue *v, int idx, bool end);
+    void printValue(StackValue *v, int idx, bool end) const;
 
     // TODO Move parsing to WARDuino class?
     uint8_t *parseDebugBuffer(size_t len, const uint8_t *buff);
@@ -51,7 +51,7 @@ class Debugger {
 
     void handleInterruptRUN(Module *m, RunningState *program_state);
 
-    void handleInterruptBP(uint8_t *interruptData);
+    void handleInterruptBP(const uint8_t *interruptData);
 
     //// Information dumps
 
@@ -67,16 +67,16 @@ class Debugger {
 
     //// Handle live code update
 
-    bool handleChangedFunction(Module *m, uint8_t *bytes);
+    static bool handleChangedFunction(Module *m, uint8_t *bytes);
 
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
     // WOOD
     bool receivingData = false;
     void freeState(Module *m, uint8_t *interruptData);
-    uint8_t *findOpcode(Module *m, Block *block);
+    static uint8_t *findOpcode(Module *m, Block *block);
     bool saveState(Module *m, uint8_t *interruptData);
-    uintptr_t readPointer(uint8_t **data);
+    static uintptr_t readPointer(uint8_t **data);
 
    public:
     int socket;

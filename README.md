@@ -22,7 +22,7 @@ Supported platforms: Linux (Ubuntu), macOS, ESP-IDF, Arduino
 The project uses CMake. Quick install looks like this:
 
 ```bash
-git clone git@github.com:TOPLLab/WARDuino.git
+git clone --recursive git@github.com:TOPLLab/WARDuino.git
 cd WARDuino
 mkdir build-emu
 cd build-emu
