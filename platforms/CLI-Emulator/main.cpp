@@ -12,7 +12,6 @@
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
-#include "../../src/WARDuino.h"
 #include "../../tests/integration/wasm_tests.h"
 
 // Constants
@@ -47,6 +46,9 @@ void print_help() {
             "binaries (default: wat2wasm)\n");
     fprintf(stdout,
             "    --file         Wasm file (module) to load and execute\n");
+    fprintf(stdout,
+            "    --no-socket    Run without socket "
+            "(default: false)\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -116,7 +118,7 @@ void bindSocketToAddress(int socket_fd, struct sockaddr_in address) {
 }
 
 struct sockaddr_in createAddress(int port) {
-    struct sockaddr_in address;
+    struct sockaddr_in address {};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
