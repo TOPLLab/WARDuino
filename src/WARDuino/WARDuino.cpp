@@ -3,7 +3,6 @@
 #include <algorithm>  // std::find
 #include <cmath>
 #include <cstring>
-#include <utility>
 
 #include "../Interpreter/instructions.h"
 #include "../Memory/mem.h"

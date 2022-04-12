@@ -1,5 +1,4 @@
-#ifndef WAC_H
-#define WAC_H
+#pragma once
 
 #include <array>
 #include <climits>
@@ -197,5 +196,3 @@ class WARDuino {
 
     void handleInterrupt(size_t len, uint8_t *buff);
 };
-
-#endif

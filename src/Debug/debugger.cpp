@@ -141,11 +141,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptBPAdd:  // Breakpoint
         case interruptBPRem:  // Breakpoint remove
-        {
             this->handleInterruptBP(interruptData);
             free(interruptData);
             break;
-        }
         case interruptDUMP:
             *program_state = WARDUINOpause;
             this->dump(m);
@@ -178,13 +176,12 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             woodDump(m);
             break;
-        case interruptOffset: {
+        case interruptOffset:
             free(interruptData);
             dprintf(this->socket, "\"{\"offset\":\"%p\"}\"\n",
                     (void *)m->bytes);
             break;
-        }
-        case interruptRecvState: {
+        case interruptRecvState:
             if (!this->receivingData) {
                 debug("paused program execution\n");
                 *program_state = WARDUINOpause;
@@ -193,7 +190,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 free(interruptData);
                 dprintf(this->socket, "ack!\n");
             } else {
-                printf("reeiving state\n");
+                printf("receiving state\n");
                 debug("receiving state\n");
                 receivingData = !this->saveState(m, interruptData);
                 free(interruptData);
@@ -204,7 +201,6 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 }
             }
             break;
-        }
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");
@@ -489,8 +485,7 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
 void Debugger::woodDump(Module *m) {
     // FIXME replace write
 
-    debug("asked for doDump\n");
-    dprintf(this->socket, "DUMP!\n");
+    debug("asked for woodDump\n");
     dprintf(this->socket, "{");
 
     // printf("asked for pc\n");
@@ -512,7 +507,6 @@ void Debugger::woodDump(Module *m) {
     // printf("asked for stack\n");
     // stack
     dprintf(this->socket, "\"stack\":[");
-    char _value_str[256];
     for (int j = 0; j <= m->sp; j++) {
         auto v = &m->stack[j];
         printValue(v, j, j == m->sp);

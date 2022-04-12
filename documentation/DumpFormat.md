@@ -91,3 +91,79 @@ The locals can also be retreived on their own with the 0x11 byte.
 }
 ```
 
+## WOOD Dump (0x60)
+
+```json
+{
+  "pc":"0x564df0c5e746",
+  "start":[
+    "0x564df0c5e6a0"
+  ],
+  "breakpoints":[
+
+  ],
+  "stack":[
+    {
+      "idx":0,
+      "type":"i32",
+      "value":1000
+    }
+  ],
+  "callstack":[
+    {
+      "type":0,
+      "fidx":"0x4",
+      "sp":-1,
+      "fp":-1,
+      "block_key":"(nil)",
+      "ra":"0x564df0c5e70f"
+    },
+    {
+      "type":3,
+      "fidx":"0x0",
+      "sp":0,
+      "fp":0,
+      "block_key":"0x564df0c5e730",
+      "ra":"0x564df0c5e732"
+    }
+  ],
+  "globals":[
+    {
+      "idx":0,
+      "type":"i32",
+      "value":23
+    },
+    {
+      "idx":1,
+      "type":"i32",
+      "value":1
+    },
+    {
+      "idx":2,
+      "type":"i32",
+      "value":0
+    }
+  ],
+  "table":{
+    "max":0,
+    "init":0,
+    "elements":[
+
+    ]
+  },
+  "memory":{
+    "pages":0,
+    "max":0,
+    "init":0,
+    "bytes":[
+
+    ]
+  },
+  "br_table":{
+    "size":"0x100",
+    "labels":[
+
+    ]
+  }
+}
+```
