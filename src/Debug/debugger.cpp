@@ -756,22 +756,22 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
             }
             case memState: {
                 debug("receiving memory\n");
-                uint32_t begin = read_B32(&program_state);
-                uint32_t end = read_B32(&program_state);
-                debug("memory offsets begin=%" PRIu32 " , end=%" PRIu32 "\n",
-                      begin, end);
-                if (begin > end) {
+                uint32_t start = read_B32(&program_state);
+                uint32_t limit = read_B32(&program_state);
+                debug("memory offsets start=%" PRIu32 " , limit=%" PRIu32 "\n",
+                      start, limit);
+                if (start > limit) {
                     FATAL("incorrect memory offsets\n");
                 }
-                uint32_t totalbytes = end - begin + 1;
+                uint32_t totalbytes = limit - start + 1;
                 uint8_t *mem_end =
                     m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
                 debug("will copy #%" PRIu32 " bytes\n", totalbytes);
-                if ((m->bytes + begin) + totalbytes > mem_end) {
+                if ((m->bytes + start) + totalbytes > mem_end) {
                     FATAL("memory overflow\n");
                 }
-                memcpy(m->memory.bytes + begin, program_state, totalbytes + 1);
-                for (auto i = begin; i <= (begin + totalbytes - 1); i++) {
+                memcpy(m->memory.bytes + start, program_state, totalbytes + 1);
+                for (auto i = start; i <= (start + totalbytes - 1); i++) {
                     debug("GOT byte idx %" PRIu32 " =%" PRIu8 "\n", i,
                           m->memory.bytes[i]);
                 }
