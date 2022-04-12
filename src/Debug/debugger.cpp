@@ -305,7 +305,7 @@ void Debugger::dump(Module *m, bool full) const {
     }
 
     dprintf(this->socket, "}\n\n");
-//    fflush(stdout);
+    //    fflush(stdout);
 }
 
 void Debugger::dumpBreakpoints(Module *m) const {
@@ -350,7 +350,7 @@ void Debugger::dumpCallstack(Module *m) const {
 }
 
 void Debugger::dumpLocals(Module *m) const {
-//    fflush(stdout);
+    //    fflush(stdout);
     int firstFunFramePtr = m->csp;
     while (m->callstack[firstFunFramePtr].block->block_type != 0) {
         firstFunFramePtr--;
@@ -360,7 +360,7 @@ void Debugger::dumpLocals(Module *m) const {
     }
     Frame *f = &m->callstack[firstFunFramePtr];
     dprintf(this->socket, R"({"count":%u,"locals":[)", 0);
-//    fflush(stdout);  // FIXME: this is needed for ESP to propery print
+    //    fflush(stdout);  // FIXME: this is needed for ESP to propery print
     char _value_str[256];
     for (size_t i = 0; i < f->block->local_count; i++) {
         auto v = &m->stack[m->fp + i];
@@ -392,7 +392,7 @@ void Debugger::dumpLocals(Module *m) const {
                 (i + 1 < f->block->local_count) ? "," : "");
     }
     dprintf(this->socket, "]}");
-//    fflush(stdout);
+    //    fflush(stdout);
 }
 
 /**
