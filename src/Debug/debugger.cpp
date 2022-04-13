@@ -485,7 +485,9 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
 void Debugger::woodDump(Module *m) {
     // FIXME replace write
 
-    debug("asked for woodDump\n");
+    debug("asked for doDump\n");
+    printf("asked for woodDump\n");
+    dprintf(this->socket, "DUMP!\n");
     dprintf(this->socket, "{");
 
     // printf("asked for pc\n");
@@ -500,62 +502,61 @@ void Debugger::woodDump(Module *m) {
     size_t i = 0;
     for (auto bp : this->breakpoints) {
         dprintf(this->socket, R"("%p"%s)", bp,
-                (++i < this->breakpoints.size()) ? "," : "");
+                  (++i < this->breakpoints.size()) ? "," : "");
     }
     dprintf(this->socket, "],");
 
     // printf("asked for stack\n");
-    // stack
+    //stack
     dprintf(this->socket, "\"stack\":[");
-    for (int j = 0; j <= m->sp; j++) {
-        auto v = &m->stack[j];
-        printValue(v, j, j == m->sp);
+    for (int i = 0; i <= m->sp; i++) {
+        auto v = &m->stack[i];
+        printValue(v, i, i == m->sp);
     }
     dprintf(this->socket, "],");
 
     // Callstack
     dprintf(this->socket, "\"callstack\":[");
-    for (int j = 0; j <= m->csp; j++) {
-        Frame *f = &m->callstack[j];
+    for (int i = 0; i <= m->csp; i++) {
+        Frame *f = &m->callstack[i];
         uint8_t *block_key =
             f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
         dprintf(
             this->socket,
             R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p"}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
-            static_cast<void *>(f->ra_ptr), j, (j < m->csp) ? "," : "");
+            static_cast<void *>(f->ra_ptr), i, (j < m->csp) ? "," : "");
     }
 
     // printf("asked for globals\n");
     // GLobals
     dprintf(this->socket, "],\"globals\":[");
-    for (uint32_t j = 0; j < m->global_count; j++) {
-        auto v = m->globals + j;
-        printValue(v, j, j == (m->global_count - 1));
+    for (uint32_t i = 0; i < m->global_count; i++) {
+        auto v = m->globals + i;
+        printValue(v, i,  i == (m->global_count - 1));
     }
     dprintf(this->socket, "]");  // closing globals
 
     // printf("asked for table\n");
-    dprintf(this->socket, R"(,"table":{"max":%d, "init":%d, "elements":[)",
-            m->table.maximum, m->table.initial);
+    dprintf(this->socket, ",\"table\":{\"max\":%d, \"init\":%d, \"elements\":[",
+              m->table.maximum, m->table.initial);
 
-    // write(this->socket, m->table.entries, sizeof(uint32_t) * m->table.size);
+    write(this->socket, m->table.entries, sizeof(uint32_t) * m->table.size);
     dprintf(this->socket, "]}");  // closing table
 
     // printf("asked for mem\n");
     // memory
     uint32_t total_elems =
         m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
-    dprintf(this->socket,
-            R"(,"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
-            m->memory.pages, m->memory.maximum, m->memory.initial);
+    dprintf(this->socket, ",\"memory\":{\"pages\":%d,\"max\":%d,\"init\":%d,\"bytes\":[",
+              m->memory.pages, m->memory.maximum, m->memory.initial);
 
-    // write(this->socket, m->memory.bytes, total_elems * sizeof(uint8_t));
+    write(this->socket, m->memory.bytes, total_elems * sizeof(uint8_t));
     dprintf(this->socket, "]}");  // closing memory
 
+
     // printf("asked for br_table\n");
-    dprintf(this->socket, R"(,"br_table":{"size":"0x%x","labels":[)",
-            BR_TABLE_SIZE);
+    dprintf(this->socket, ",\"br_table\":{\"size\":\"0x%x\",\"labels\":[", BR_TABLE_SIZE);
     write(this->socket, m->br_table, BR_TABLE_SIZE * sizeof(uint32_t));
     dprintf(this->socket, "]}}\n");
 }
