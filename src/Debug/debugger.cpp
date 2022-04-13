@@ -670,7 +670,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
         switch (*program_state++) {
             case pcState: {  // PC
                 m->pc_ptr = (uint8_t *)readPointer(&program_state);
-                /* printf("receiving pc %p\n", static_cast<void*>(m->pc_ptr)); */
+                /* printf("receiving pc %p\n", static_cast<void*>(m->pc_ptr));
+                 */
                 break;
             }
             case breakpointsState: {  // breakpoints
