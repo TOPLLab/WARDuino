@@ -669,8 +669,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
         switch (*program_state++) {
             case pcState: {  // PC
                 m->pc_ptr = (uint8_t *)readPointer(&program_state);
-                /* printf("receiving pc %p\n", static_cast<void*>(m->pc_ptr));
-                 */
+                /* printf("receiving pc %p\n", static_cast<void*>(m->pc_ptr)); */
                 break;
             }
             case breakpointsState: {  // breakpoints
@@ -767,8 +766,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 uint8_t *mem_end =
                     m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
                 debug("will copy #%" PRIu32 " bytes\n", totalbytes);
-                if ((m->bytes + start) + totalbytes > mem_end) {
-                    FATAL("memory overflow\n");
+                if ((m->memory.bytes + start) + totalbytes > mem_end) {
+                    FATAL("memory overflow %p > %p\n", static_cast<void *>( (m->bytes + start) + totalbytes), static_cast<void *>(mem_end));
                 }
                 memcpy(m->memory.bytes + start, program_state, totalbytes + 1);
                 for (auto i = start; i <= (start + totalbytes - 1); i++) {
