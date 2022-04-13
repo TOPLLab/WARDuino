@@ -483,7 +483,6 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
     return true;
 }
 void Debugger::woodDump(Module *m) {
-    // FIXME replace write
 
     debug("asked for doDump\n");
     printf("asked for woodDump\n");
@@ -521,11 +520,10 @@ void Debugger::woodDump(Module *m) {
         Frame *f = &m->callstack[i];
         uint8_t *block_key =
             f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
-        dprintf(
-            this->socket,
-            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p"}%s)",
+        dprintf(this->socket, 
+            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
-            static_cast<void *>(f->ra_ptr), i, (j < m->csp) ? "," : "");
+            static_cast<void *>(f->ra_ptr), i, (i < m->csp) ? "," : "");
     }
 
     // printf("asked for globals\n");
