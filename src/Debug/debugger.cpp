@@ -180,6 +180,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptOffset: {
             free(interruptData);
+            printf("here");
             dprintf(this->socket, "\"{\"offset\":\"%p\"}\"\n", (void *)m->bytes);
             break;
         }
@@ -531,9 +532,9 @@ void Debugger::woodDump(Module *m) {
         uint8_t *block_key =
             f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
         dprintf(this->socket, 
-            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p"}%s)",
+            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
-            static_cast<void *>(f->ra_ptr), (i < m->csp) ? "," : "");
+            static_cast<void *>(f->ra_ptr), i, (i < m->csp) ? "," : "");
     }
 
     // printf("asked for globals\n");
@@ -549,7 +550,7 @@ void Debugger::woodDump(Module *m) {
     dprintf(this->socket, ",\"table\":{\"max\":%d, \"init\":%d, \"elements\":[",
               m->table.maximum, m->table.initial);
 
-    write(this->socket, m->table.entries, sizeof(uint32_t) * m->table.size);
+    //write(this->socket, m->table.entries, sizeof(uint32_t) * m->table.size);
     dprintf(this->socket, "]}");  // closing table
 
     // printf("asked for mem\n");
@@ -559,7 +560,7 @@ void Debugger::woodDump(Module *m) {
     dprintf(this->socket, ",\"memory\":{\"pages\":%d,\"max\":%d,\"init\":%d,\"bytes\":[",
               m->memory.pages, m->memory.maximum, m->memory.initial);
 
-    write(this->socket, m->memory.bytes, total_elems * sizeof(uint8_t));
+    //write(this->socket, m->memory.bytes, total_elems * sizeof(uint8_t));
     dprintf(this->socket, "]}");  // closing memory
 
 
@@ -681,11 +682,12 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     program_state = interruptData + 1;  // skip interruptRecvState
     endstate = program_state + read_B32(&program_state);
 
+    printf("saving program_state\n");
     while (program_state < endstate) {
         switch (*program_state++) {
             case pcState: {  // PC
-                printf("reciving pc\n");
                 m->pc_ptr = (uint8_t *)readPointer(&program_state);
+                /* printf("reciving pc %p\n", static_cast<void*>(m->pc_ptr)); */
                 break;
             }
             case breakpointsState: {  // breakpoints
@@ -702,7 +704,9 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 printf("receiving callstack\n");
                 uint16_t quantity = read_B16(&program_state);
                 debug("quantity frames %" PRIu16 "\n", quantity);
+                /* printf("quantity frames %" PRIu16 "\n", quantity); */
                 for (size_t i = 0; i < quantity; i++) {
+                    /* printf("frame IDX: %lu\n", i); */
                     uint8_t block_type = *program_state++;
                     m->csp += 1;
                     Frame *f = m->callstack + m->csp;
@@ -712,7 +716,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     if (block_type == 0) {  // a function
                         debug("function block\n");
                         uint32_t fidx = read_B32(&program_state);
-                        debug("function block idx=%" PRIu32 "\n", fidx);
+                        /* printf("function block idx=%" PRIu32 "\n", fidx); */
                         f->block = m->functions + fidx;
 
                         if (f->block->fidx != fidx) {
