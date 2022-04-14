@@ -35,6 +35,10 @@ void CallbackHandler::remove_callback(const Callback &c) {
                 list->end());
 }
 
+size_t CallbackHandler::callback_count(const std::string &topic) {
+    return callbacks->find(topic)->second->size();
+}
+
 void CallbackHandler::push_event(std::string topic,
                                  const unsigned char *payload,
                                  unsigned int length) {

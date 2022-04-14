@@ -717,7 +717,10 @@ def_prim(mqtt_unsubscribe, threeToOneU32) {
     Callback c = Callback(m, topic, fidx);
     CallbackHandler::remove_callback(c);
 
-    bool ret = mqttClient.unsubscribe(topic);
+    bool ret = 1;
+    if (CallbackHandler::callback_count(topic) == 0) {
+        ret = mqttClient.unsubscribe(topic);
+    }
 
 #if DEBUG
     Serial.print("Unsubscribed to ");
