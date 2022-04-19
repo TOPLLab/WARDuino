@@ -539,7 +539,9 @@ void Debugger::woodDump(Module *m) {
     dprintf(this->socket, ",\"table\":{\"max\":%d, \"init\":%d, \"elements\":[",
               m->table.maximum, m->table.initial);
 
-    write(this->socket, m->table.entries, sizeof(uint32_t) * m->table.size);
+    for (uint32_t i = 0; i < m->table.size; i++) {
+      dprintf(this->socket, "%" PRIu32 "%s", m->table.entries[i], (i + 1) == m->table.size ? "" : ",");
+    }
     dprintf(this->socket, "]}");  // closing table
 
     // printf("asked for mem\n");
@@ -548,14 +550,18 @@ void Debugger::woodDump(Module *m) {
         m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
     dprintf(this->socket, ",\"memory\":{\"pages\":%d,\"max\":%d,\"init\":%d,\"bytes\":[",
               m->memory.pages, m->memory.maximum, m->memory.initial);
-
-    write(this->socket, m->memory.bytes, total_elems * sizeof(uint8_t));
+    for (uint32_t i = 0; i < total_elems; i++) {
+      dprintf(this->socket, "%" PRIu8 "%s",m->memory.bytes[i], (i + 1) == total_elems ? "" : ",");
+    }
     dprintf(this->socket, "]}");  // closing memory
 
 
     // printf("asked for br_table\n");
     dprintf(this->socket, ",\"br_table\":{\"size\":\"0x%x\",\"labels\":[", BR_TABLE_SIZE);
-    write(this->socket, m->br_table, BR_TABLE_SIZE * sizeof(uint32_t));
+    total_elems = BR_TABLE_SIZE * sizeof(uint32_t);
+    for (uint32_t i = 0; i < total_elems; i++) {
+      dprintf(this->socket, "%" PRIu32 "%s", m->br_table[i], (i + 1) == total_elems ? "" : ",");
+    }
     dprintf(this->socket, "]}}\n");
 }
 
