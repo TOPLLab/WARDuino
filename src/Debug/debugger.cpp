@@ -558,9 +558,8 @@ void Debugger::woodDump(Module *m) {
 
     // printf("asked for br_table\n");
     dprintf(this->socket, ",\"br_table\":{\"size\":\"0x%x\",\"labels\":[", BR_TABLE_SIZE);
-    total_elems = BR_TABLE_SIZE * sizeof(uint32_t);
-    for (uint32_t i = 0; i < total_elems; i++) {
-      dprintf(this->socket, "%" PRIu32 "%s", m->br_table[i], (i + 1) == total_elems ? "" : ",");
+    for (uint32_t i = 0; i < BR_TABLE_SIZE; i++) {
+      dprintf(this->socket, "%" PRIu32 "%s", m->br_table[i], (i + 1) == BR_TABLE_SIZE ? "" : ",");
     }
     dprintf(this->socket, "]}}\n");
 }
