@@ -178,8 +178,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptOffset:
             free(interruptData);
-            dprintf(this->socket, "\"{\"offset\":\"%p\"}\"\n",
-                    (void *)m->bytes);
+            dprintf(this->socket, "{\"offset\":\"%p\"}\n", (void *)m->bytes);
             break;
         case interruptRecvState:
             if (!this->receivingData) {
