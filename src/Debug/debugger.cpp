@@ -483,7 +483,6 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
     return true;
 }
 void Debugger::woodDump(Module *m) {
-
     debug("asked for doDump\n");
     printf("asked for woodDump\n");
     dprintf(this->socket, "DUMP!\n");
@@ -501,12 +500,12 @@ void Debugger::woodDump(Module *m) {
     size_t i = 0;
     for (auto bp : this->breakpoints) {
         dprintf(this->socket, R"("%p"%s)", bp,
-                  (++i < this->breakpoints.size()) ? "," : "");
+                (++i < this->breakpoints.size()) ? "," : "");
     }
     dprintf(this->socket, "],");
 
     // printf("asked for stack\n");
-    //stack
+    // stack
     dprintf(this->socket, "\"stack\":[");
     for (int i = 0; i <= m->sp; i++) {
         auto v = &m->stack[i];
@@ -520,7 +519,8 @@ void Debugger::woodDump(Module *m) {
         Frame *f = &m->callstack[i];
         uint8_t *block_key =
             f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
-        dprintf(this->socket, 
+        dprintf(
+            this->socket,
             R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
             static_cast<void *>(f->ra_ptr), i, (i < m->csp) ? "," : "");
@@ -531,16 +531,17 @@ void Debugger::woodDump(Module *m) {
     dprintf(this->socket, "],\"globals\":[");
     for (uint32_t i = 0; i < m->global_count; i++) {
         auto v = m->globals + i;
-        printValue(v, i,  i == (m->global_count - 1));
+        printValue(v, i, i == (m->global_count - 1));
     }
     dprintf(this->socket, "]");  // closing globals
 
     // printf("asked for table\n");
     dprintf(this->socket, ",\"table\":{\"max\":%d, \"init\":%d, \"elements\":[",
-              m->table.maximum, m->table.initial);
+            m->table.maximum, m->table.initial);
 
     for (uint32_t i = 0; i < m->table.size; i++) {
-      dprintf(this->socket, "%" PRIu32 "%s", m->table.entries[i], (i + 1) == m->table.size ? "" : ",");
+        dprintf(this->socket, "%" PRIu32 "%s", m->table.entries[i],
+                (i + 1) == m->table.size ? "" : ",");
     }
     dprintf(this->socket, "]}");  // closing table
 
@@ -548,18 +549,21 @@ void Debugger::woodDump(Module *m) {
     // memory
     uint32_t total_elems =
         m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
-    dprintf(this->socket, ",\"memory\":{\"pages\":%d,\"max\":%d,\"init\":%d,\"bytes\":[",
-              m->memory.pages, m->memory.maximum, m->memory.initial);
+    dprintf(this->socket,
+            ",\"memory\":{\"pages\":%d,\"max\":%d,\"init\":%d,\"bytes\":[",
+            m->memory.pages, m->memory.maximum, m->memory.initial);
     for (uint32_t i = 0; i < total_elems; i++) {
-      dprintf(this->socket, "%" PRIu8 "%s",m->memory.bytes[i], (i + 1) == total_elems ? "" : ",");
+        dprintf(this->socket, "%" PRIu8 "%s", m->memory.bytes[i],
+                (i + 1) == total_elems ? "" : ",");
     }
     dprintf(this->socket, "]}");  // closing memory
 
-
     // printf("asked for br_table\n");
-    dprintf(this->socket, ",\"br_table\":{\"size\":\"0x%x\",\"labels\":[", BR_TABLE_SIZE);
+    dprintf(this->socket, ",\"br_table\":{\"size\":\"0x%x\",\"labels\":[",
+            BR_TABLE_SIZE);
     for (uint32_t i = 0; i < BR_TABLE_SIZE; i++) {
-      dprintf(this->socket, "%" PRIu32 "%s", m->br_table[i], (i + 1) == BR_TABLE_SIZE ? "" : ",");
+        dprintf(this->socket, "%" PRIu32 "%s", m->br_table[i],
+                (i + 1) == BR_TABLE_SIZE ? "" : ",");
     }
     dprintf(this->socket, "]}}\n");
 }
@@ -674,7 +678,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
         switch (*program_state++) {
             case pcState: {  // PC
                 m->pc_ptr = (uint8_t *)readPointer(&program_state);
-                /* printf("receiving pc %p\n", static_cast<void*>(m->pc_ptr)); */
+                /* printf("receiving pc %p\n", static_cast<void*>(m->pc_ptr));
+                 */
                 break;
             }
             case breakpointsState: {  // breakpoints
@@ -772,7 +777,9 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
                 debug("will copy #%" PRIu32 " bytes\n", totalbytes);
                 if ((m->memory.bytes + start) + totalbytes > mem_end) {
-                    FATAL("memory overflow %p > %p\n", static_cast<void *>( (m->bytes + start) + totalbytes), static_cast<void *>(mem_end));
+                    FATAL("memory overflow %p > %p\n",
+                          static_cast<void *>((m->bytes + start) + totalbytes),
+                          static_cast<void *>(mem_end));
                 }
                 memcpy(m->memory.bytes + start, program_state, totalbytes + 1);
                 for (auto i = start; i <= (start + totalbytes - 1); i++) {
