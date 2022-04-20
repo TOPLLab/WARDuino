@@ -36,6 +36,8 @@ if (BUILD_EMULATOR)
             src/WARDuino/CallbackHandler.cpp
             src/Primitives/primitives.cpp
             src/Interpreter/instructions.cpp
+            src/RFC/rfc.cpp
+            src/RFC/proxy_server.cpp
             )
     set(TEST_FRAMEWORK
         tests/integration/wasm_tests.cpp
