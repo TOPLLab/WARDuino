@@ -26,10 +26,4 @@ bool resolve_external_memory(char *symbol, Memory **val);
 
 void install_primitives();
 
-#ifdef Arduino
-#include "arduino.cpp"
-#else
-#include "emulated.cpp"
-#endif
-
 #endif

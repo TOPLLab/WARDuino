@@ -5,7 +5,7 @@ set(SOURCE_FILES
         ../../src/Debug/debugger.cpp
         ../../src/Utils/macros.cpp
         ../../src/WARDuino/WARDuino.cpp
-        ../../src/Primitives/primitives.h
+        ../../src/Primitives/emulated.cpp
         ../../src/Interpreter/instructions.cpp
         ../../src/WARDuino/CallbackHandler.cpp
         )

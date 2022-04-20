@@ -34,7 +34,7 @@ if (BUILD_EMULATOR)
             src/Utils/macros.cpp
             src/WARDuino/WARDuino.cpp
             src/WARDuino/CallbackHandler.cpp
-            src/Primitives/primitives.h
+            src/Primitives/emulated.cpp
             src/Interpreter/instructions.cpp
             )
     set(TEST_FRAMEWORK

@@ -1,3 +1,5 @@
+#ifndef ARDUINO
+
 /**
  * This file lists the primitives of the language and stores them in the
  * primitives
@@ -20,6 +22,7 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "primitives.h"
 
 #define NUM_PRIMITIVES 0
 #define NUM_PRIMITIVES_ARDUINO 23
@@ -485,3 +488,5 @@ bool resolve_external_memory(char *symbol, Memory **val) {
     FATAL("Could not find memory %s \n", symbol);
     return false;
 }
+
+#endif  // ARDUINO

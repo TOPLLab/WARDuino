@@ -22,6 +22,7 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "primitives.h"
 
 // NEOPIXEL
 #include <Adafruit_NeoPixel.h>
