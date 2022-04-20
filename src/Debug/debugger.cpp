@@ -7,6 +7,8 @@
 #include <cstring>
 
 #include "../Memory/mem.h"
+#include "../RFC/proxy_server.h"
+#include "../RFC/rfc.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 
@@ -201,6 +203,18 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 }
             }
             break;
+#ifdef ARDUINO
+        case interruptProxyCall: {
+            this->handleProxyCall(m, program_state, interruptData + 1);
+            free(interruptData);
+        } break;
+#else
+        case interruptMonitorProxies: {
+            printf("receiving functions list to proxy\n");
+            this->handleMonitorProxies(m, interruptData + 1);
+            free(interruptData);
+        } break;
+#endif
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");
@@ -849,3 +863,36 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
     *data += 1 + len;  // skip pointer
     return bp;
 }
+
+#ifdef ARDUINO
+void Debugger::handleProxyCall(Module *m, RunningState *program_state,
+                     uint8_t *interruptData) {
+    uint8_t *data = interruptData + 1;
+    uint32_t fidx = read_L32(&data);
+    printf("Call func %" PRIu32 "\n", fidx);
+
+    Block *func = &m->functions[fidx];
+    StackValue *args = RFC::readRFCArgs(func, data);
+    printf("Registering %" PRIu32 "as Callee\n", func->fidx);
+
+    // preserving execution state of call that got interrupted
+    ExecutionState *executionState = new ExecutionState;
+    executionState->program_state = *program_state;
+    executionState->sp = m->sp;
+    executionState->pc_ptr = m->pc_ptr;
+    executionState->csp = m->csp;
+    RFC::registerRFCallee(fidx, func->type, args, executionState);
+
+    *program_state = WARDuinoProxyRun;
+}
+#else
+void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
+    RFC::registerRFCs(m, &interruptData);
+    ProxyServer::registerMCUHost(&interruptData);
+    ProxyServer *mcuhost = ProxyServer::getServer();
+    if (!mcuhost->openConnection()) {
+        FATAL("problem opening socket to MCU: %s\n", mcuhost->exceptionMsg);
+    }
+    dprintf(this->socket, "done!\n");
+}
+#endif

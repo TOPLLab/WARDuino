@@ -9,7 +9,12 @@ struct Module;
 struct Block;
 struct StackValue;
 
-enum RunningState { WARDUINOrun, WARDUINOpause, WARDUINOstep };
+enum RunningState {
+    WARDUINOrun,
+    WARDUINOpause,
+    WARDUINOstep,
+    WARDuinoProxyRun
+};
 
 enum InterruptTypes {
     interruptRUN = 0x01,
@@ -26,6 +31,8 @@ enum InterruptTypes {
     interruptWOODDUMP = 0x60,
     interruptOffset = 0x61,
     interruptRecvState = 0x62,
+    interruptMonitorProxies = 0x63,
+    interruptProxyCall = 0x64
 };
 
 class Debugger {
@@ -71,7 +78,9 @@ class Debugger {
 
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
-    // WOOD
+    // WOOD Private Methods
+
+    // receiving and dumping State
     bool receivingData = false;
     void freeState(Module *m, uint8_t *interruptData);
     static uint8_t *findOpcode(Module *m, Block *block);
@@ -105,4 +114,10 @@ class Debugger {
 
     // WOOD
     void woodDump(Module *m);
+#ifdef ARDUINO
+    void handleProxyCall(Module *m, RunningState *program_state,
+                         uint8_t *interruptData);
+#else
+    void handleMonitorProxies(Module *m, uint8_t *interruptData);
+#endif
 };
