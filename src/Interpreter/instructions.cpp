@@ -5,10 +5,15 @@
 
 #include "../Debug/debugger.h"
 #include "../Memory/mem.h"
+#include "../RFC/rfc.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../Utils/util_arduino.h"
 
+#ifndef ARDUINO
+// performs proxy calls to an MCU
+bool proxy_call(uint32_t fidx, Module *m);
+#endif
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
 uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,  // loads
@@ -339,6 +344,9 @@ bool i_instr_return(Module *m) {
  */
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
+#ifndef ARDUINO
+    if (RFC::isRFC(fidx)) return proxy_call(fidx, m);
+#endif
     if (fidx < m->import_count) {
         return ((Primitive)m->functions[fidx].func_ptr)(m);
     } else {
@@ -354,6 +362,27 @@ bool i_instr_call(Module *m) {
     }
     return true;
 }
+
+#ifndef ARDUINO
+bool proxy_call(uint32_t fidx, Module *m) {
+    printf("Remote Function Call %d\n", fidx);
+    RFC *rf = RFC::getRFC(fidx);
+    StackValue *args = nullptr;
+    if (rf->type->param_count > 0) {
+        m->sp -= rf->type->param_count;
+        args = &m->stack[m->sp + 1];
+    }
+
+    rf->call(args);
+    if (!rf->succes) {
+        // TODO exception bugger might be too small and msg not null terminated?
+        memcpy(&exception, rf->exceptionMsg, strlen(rf->exceptionMsg));
+        return false;
+    }
+    if (rf->type->result_count > 0) m->stack[++m->sp] = *rf->result;
+    return true;
+}
+#endif
 
 /**
  * 0x11 call_indirect
@@ -385,6 +414,10 @@ bool i_instr_call_indirect(Module *m) {
         debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx,
               val, fidx);
     }
+
+#ifndef ARDUINO
+    if (RFC::isRFC(fidx)) return proxy_call(fidx, m);
+#endif
 
     if (fidx < m->import_count) {
         // THUNK thunk_out(m, fidx);    // import/thunk call
@@ -1467,6 +1500,8 @@ bool interpret(Module *m) {
     // TODO: this is actually a property of warduino
     RunningState program_state = WARDUINOrun;
 
+    // needed for RFC
+    RFC *callee = nullptr;
     while (!program_done && success) {
         if (program_state == WARDUINOstep) {
             program_state = WARDUINOpause;
@@ -1477,21 +1512,52 @@ bool interpret(Module *m) {
         fflush(stdout);
         reset_wdt();
 
+#ifdef ARDUINO
+        // handle RFC requested by emulator
+        if (program_state == WARDuinoProxyRun) {
+            if (callee == nullptr) {  // TODO maybe use RFC::hasRFCallee()
+                // call happens for the first time
+                callee = RFC::currentCallee();
+                RFC::setupCalleeArgs(m, callee);
+
+                // Primitive function RFC happen instantly
+                if (callee->fid < m->import_count) {
+                    callee->succes =
+                        ((Primitive)m->functions[callee->fid].func_ptr)(m);
+                    callee->returnResult(m);
+                    callee->restoreExecutionState(m, &program_state);
+                    RFC::removeRFCallee();
+                    callee = nullptr;
+                } else
+                    setup_call(m, callee->fid);
+            } else {
+                // check if call completes
+                if (callee->callCompleted(m)) {
+                    callee->returnResult(m);
+                    callee->restoreExecutionState(m, &program_state);
+                    RFC::removeRFCallee();
+                    callee = nullptr;
+                }
+            }
+        }
+#endif
+
         if (program_state == WARDUINOpause) {
             continue;
         }
 
         // Program state is not paused
 
-        // Resolve 1 callback event if queue is not empty and no event currently
-        // resolving
+        // Resolve 1 callback event if queue is not empty and no event
+        // currently resolving
         //        if (!CallbackHandler::resolving_event) {
         CallbackHandler::resolve_event();
         //        }
 
         // if BP and not the one we just unpaused
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
-            m->warduino->debugger->skipBreakpoint != m->pc_ptr) {
+            m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
+            program_state != WARDuinoProxyRun) {
             program_state = WARDUINOpause;
             printf("AT %p!\n", (void *)m->pc_ptr);
             continue;
@@ -1689,6 +1755,12 @@ bool interpret(Module *m) {
                     m->exception = strdup(exception);
                 }
                 return false;
+        }
+        if (program_state == WARDuinoProxyRun && !success) {
+            // RFC was unsuccesful
+            RFC::currentCallee()->succes = false;
+            // TODO copy exceptionMsg
+            success = true;
         }
     }
 
