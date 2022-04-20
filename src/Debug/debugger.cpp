@@ -863,7 +863,7 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
 
 #ifdef ARDUINO
 void Debugger::handleProxyCall(Module *m, RunningState *program_state,
-                     uint8_t *interruptData) {
+                               uint8_t *interruptData) {
     uint8_t *data = interruptData + 1;
     uint32_t fidx = read_L32(&data);
     printf("Call func %" PRIu32 "\n", fidx);
