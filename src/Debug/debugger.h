@@ -49,7 +49,7 @@ class Debugger {
 
     // Private methods
 
-    void printValue(StackValue *v, int idx, bool end) const;
+    void printValue(StackValue *v, uint32_t idx, bool end) const;
 
     // TODO Move parsing to WARDuino class?
     uint8_t *parseDebugBuffer(size_t len, const uint8_t *buff);

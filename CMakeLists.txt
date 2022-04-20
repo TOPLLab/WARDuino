@@ -34,7 +34,7 @@ if (BUILD_EMULATOR)
             src/Utils/macros.cpp
             src/WARDuino/WARDuino.cpp
             src/WARDuino/CallbackHandler.cpp
-            src/Primitives/primitives.cpp
+            src/Primitives/emulated.cpp
             src/Interpreter/instructions.cpp
             src/RFC/rfc.cpp
             src/RFC/proxy_server.cpp
