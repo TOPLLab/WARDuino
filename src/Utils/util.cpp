@@ -183,3 +183,21 @@ int read_B32_signed(uint8_t **bytes) {
     *bytes += 4;
     return n;
 }  // TODO replace with read_LEB_32? If keep Big endian use memcpy?
+
+uint32_t read_L32(uint8_t **bytes) {
+    // uint8_t *b = *bytes;
+    uint32_t n = 0;
+    memcpy(&n, *bytes, sizeof(uint32_t));
+    *bytes += 4;
+    return n;
+}  // TODO replace with read_LEB_32? If keep Big endian use memcpy?
+
+void chars_as_hexa(unsigned char *dest, unsigned char *source,
+                   uint32_t len_source) {
+    for (uint32_t i = 0; i < len_source; i++) {
+        unsigned c = source[i] >> 4;
+        unsigned c2 = source[i] & 0xF;
+        dest[i * 2 + 0] = c > 9 ? (c - 10 + 'A') : (c + '0');
+        dest[i * 2 + 1] = c2 > 9 ? (c2 - 10 + 'A') : (c2 + '0');
+    }
+}
