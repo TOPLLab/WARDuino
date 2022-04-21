@@ -18,10 +18,9 @@ unsigned char* wasm = upload_wasm;
 WARDuino wac;
 Module* m;
 
-SocketServer *server;
+SocketServer* server;
 ServerCredentials serverCredentials = {"SSID", "Password"};
 uint16_t portno = 8080;
-
 
 #define UART_PIN 3
 
@@ -51,8 +50,8 @@ void startDebuggerStd(void* pvParameter) {
     }
 }
 
-void handleInterrupt(size_t len, uint8_t *buff){
-  wac.handleInterrupt(len, buff);
+void handleInterrupt(size_t len, uint8_t* buff) {
+    wac.handleInterrupt(len, buff);
 }
 
 void setup(void) {
@@ -69,7 +68,7 @@ void setup(void) {
     Serial.println("\nFree PSRAM: ");
     Serial.println(ESP.getFreePsram());
 
-    //create & connect SocketServer
+    // create & connect SocketServer
     SocketServer::createServer(portno, &handleInterrupt);
     server = SocketServer::getServer();
     server->connect2Wifi(&serverCredentials);
