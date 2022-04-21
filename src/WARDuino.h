@@ -10,6 +10,9 @@
 
 #include "Debug/debugger.h"
 #include "WARDuino/CallbackHandler.h"
+#ifdef ARDUINO
+#include "RFC/SocketServer.h"
+#endif
 
 // Constants
 #define WA_MAGIC 0x6d736100
