@@ -38,6 +38,7 @@ if (BUILD_EMULATOR)
             src/Interpreter/instructions.cpp
             src/RFC/rfc.cpp
             src/RFC/proxy_server.cpp
+            src/RFC/SocketServer.cpp
             )
     set(TEST_FRAMEWORK
         tests/integration/wasm_tests.cpp
