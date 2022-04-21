@@ -2,7 +2,7 @@
 #ifdef ARDUINO
 // clang-format off
 // FreeRTOS has to be imported before AsyncTCP.h
-#include <FreeRTOS.h>
+#include "freertos/FreeRTOS.h"
 #include <AsyncTCP.h>
 // clang-format on
 #include <inttypes.h>

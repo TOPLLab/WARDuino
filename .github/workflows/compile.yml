@@ -56,7 +56,6 @@ jobs:
                 - name: HTTPClient
                 - name: PubSubClient
                 - name: Adafruit NeoPixel
-                - name: FreeRTOS
                 - source-url: https://github.com/me-no-dev/AsyncTCP.git
         strategy:
             fail-fast: false
