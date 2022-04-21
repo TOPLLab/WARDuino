@@ -1,11 +1,10 @@
 #pragma once
 #ifdef ARDUINO
-#include <cstddef>
-#include <FreeRTOS.h>
 #include <AsyncTCP.h>
+#include <FreeRTOS.h>  //FreeRTOS has to be imported before AsyncTCP.h
 #include <inttypes.h>
 
-#include "WARDuino.h"
+#include <cstddef>
 
 typedef struct {
     const char *ssid;
@@ -14,26 +13,30 @@ typedef struct {
 
 class SocketServer {
    private:
-    AsyncServer *asyncServer;
-    AsyncClient *client;
-    WARDuino *warduino;
-
+    // SocketServer configuration
     const uint16_t portno;
     ServerCredentials *credentials;
+
+    AsyncServer *asyncServer;
+    AsyncClient *client;
+
+    // handler for client's received data
+    void (*handler)(size_t, uint8_t *);
+
+    // singleton
+    static SocketServer *socketServer;
+    SocketServer(uint16_t t_port, void (*t_handler)(size_t, uint8_t *));
 
     void registerClient(AsyncClient *t_client);
     void unregisterClient(AsyncClient *t_client);
 
    public:
-    // singleton
-    static SocketServer *socketServer;
-    SocketServer(uint16_t t_port, WARDuino *t_wrd);
-
     void begin();
     void connect2Wifi(ServerCredentials *t_credentials);
     void write2Client(const char *buf, size_t size_buf);
 
     static SocketServer *getServer(void);
-    static void initializeServer(uint16_t t_port, WARDuino *t_wrd);
+    static void initializeServer(uint16_t t_port,
+                                 void (*t_handler)(size_t, uint8_t *));
 };
 #endif
