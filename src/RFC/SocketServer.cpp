@@ -14,8 +14,8 @@ SocketServer::SocketServer(uint16_t t_port,
     this->handler = t_handler;
 }
 
-void SocketServer::initializeServer(uint16_t t_port,
-                                    void (*t_handler)(size_t, uint8_t *)) {
+void SocketServer::createServer(uint16_t t_port,
+                                void (*t_handler)(size_t, uint8_t *)) {
     if (socketServer == nullptr)
         socketServer = new SocketServer(t_port, t_handler);
 }

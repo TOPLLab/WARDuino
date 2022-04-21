@@ -1,7 +1,7 @@
 #pragma once
 #ifdef ARDUINO
-#include <AsyncTCP.h>
 #include <FreeRTOS.h>  //FreeRTOS has to be imported before AsyncTCP.h
+#include <AsyncTCP.h>
 #include <inttypes.h>
 
 #include <cstddef>
@@ -36,7 +36,7 @@ class SocketServer {
     void write2Client(const char *buf, size_t size_buf);
 
     static SocketServer *getServer(void);
-    static void initializeServer(uint16_t t_port,
-                                 void (*t_handler)(size_t, uint8_t *));
+    static void createServer(uint16_t t_port,
+                             void (*t_handler)(size_t, uint8_t *));
 };
 #endif
