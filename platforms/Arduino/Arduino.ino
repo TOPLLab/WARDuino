@@ -5,6 +5,7 @@
 //#include <cstdio>
 
 #include <WARDuino.h>
+#include <SocketServer.h>
 
 #include "Arduino.h"
 #include "upload.h"
@@ -17,6 +18,9 @@ unsigned char* wasm = upload_wasm;
 
 WARDuino wac;
 Module* m;
+ServerCredentials serverCredentials = {"telenet-3689855", "bhdkeswun6Fz"};
+uint16_t portno = 8080;
+SocketServer *server;
 
 #define UART_PIN 3
 
@@ -59,16 +63,22 @@ void setup(void) {
     Serial.println(ESP.getPsramSize());
     Serial.println("\nFree PSRAM: ");
     Serial.println(ESP.getFreePsram());
+
+    SocketServer::initializeServer(portno, &wac);
+    SocketServer *server = SocketServer::getServer();
+    server->connect2Wifi(&serverCredentials);
 }
 
 void loop() {
     disableCore0WDT();
     m = wac.load_module(wasm, wasm_len, {});
-
+    printf("PRIOR BEGIN\n");
+    server->begin();
+    printf("POST BEGIN\n");
     printf("LOADED \n\n");
-    uint8_t command[] = {'0', '3', '\n'};
-    wac.handleInterrupt(3, command);
-    xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
+    //uint8_t command[] = {'0', '3', '\n'};
+    //wac.handleInterrupt(3, command);
+    //xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
 
     Serial.println("\nFree heap:");

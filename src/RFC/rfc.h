@@ -37,7 +37,9 @@ class RFC {
     RFC(uint32_t t_fid, Type *t_type, StackValue *t_args = nullptr,
         ExecutionState *t_exState = nullptr);
     void call(StackValue *args);
+#ifdef ARDUINO
     void returnResult(Module *m);
+#endif ARDUINO
     void restoreExecutionState(Module *m, RunningState *program_state);
     bool callCompleted(Module *m);
 

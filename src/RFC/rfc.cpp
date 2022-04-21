@@ -12,6 +12,9 @@
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "proxy_server.h"
+#ifdef ARDUINO
+#include "SocketServer.h"
+#endif
 
 // TODO tests with exceptions
 ////TODO test with many args proxy
@@ -89,7 +92,7 @@ RFC::RFC(uint32_t t_fid, Type *t_type, StackValue *t_args,
         this->result->value_type = t_type->results[0];
     }
 }
-
+#ifdef ARDUINO
 void RFC::returnResult(Module *m) {
     // reading result from stack
     if (this->succes && this->type->result_count > 0) {
@@ -102,9 +105,13 @@ void RFC::returnResult(Module *m) {
 
     // returning the result to the client
     struct SerializeData *rfc_result = this->serializeRFCallee();
-    FATAL("writing into socketdf\n");
-    write(m->warduino->debugger->socket, rfc_result->raw, rfc_result->size);
+    const char * data = (const char*) rfc_result->raw;
+    size_t data_size = (size_t) rfc_result->size;
+    SocketServer::getServer()->write2Client(data, data_size);
+    // FATAL("writing into socketdf\n");
+    // write(m->warduino->debugger->socket, rfc_result->raw, rfc_result->size);
 }
+#endif
 
 void RFC::restoreExecutionState(Module *m, RunningState *program_state) {
     // restoring the original execution state
