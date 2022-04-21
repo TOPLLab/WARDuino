@@ -78,6 +78,13 @@ arduino-cli lib install "PubSubClient"
 arduino-cli lib install "Adafruit NeoPixel"
 ```
 
+To build for Arduino with WIFI support you need to also install the following third-party libraries
+
+```bash
+arduino-cli lib install FreeRTOS
+arduino-cli lib install --git-url https://github.com/me-no-dev/AsyncTCP.git
+```
+
 After this initial installation steps you can start using WARDuino with the Arduino toolchain.
 You can upload the example file as follows, starting from the project root:
 
