@@ -1,7 +1,10 @@
 #pragma once
 #ifdef ARDUINO
-#include <FreeRTOS.h>  //FreeRTOS has to be imported before AsyncTCP.h
+// clang-format off
+// FreeRTOS has to be imported before AsyncTCP.h
+#include <FreeRTOS.h>
 #include <AsyncTCP.h>
+// clang-format on
 #include <inttypes.h>
 
 #include <cstddef>
