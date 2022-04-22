@@ -9,9 +9,6 @@
 #include "Arduino.h"
 #include "upload.h"
 
-// unsigned int wasm_len = _tmp_warduino_upload_wasm_len;
-// unsigned char* wasm = _tmp_warduino_upload_wasm;
-
 unsigned int wasm_len = upload_wasm_len;
 unsigned char* wasm = upload_wasm;
 
@@ -19,7 +16,7 @@ WARDuino wac;
 Module* m;
 
 SocketServer* server;
-ServerCredentials serverCredentials = {"SSID", "Password"};
+ServerCredentials serverCredentials = {"{{SSID}}", "{{Password}}"};
 uint16_t portno = 8080;
 
 #define UART_PIN 3
