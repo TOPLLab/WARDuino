@@ -86,7 +86,18 @@ def sanitise_testfile(filename):
             os.remove(asserts_file_name)
 
 
+def count_asserts(filename):
+    with open(filename, "r") as file:
+        return len([line for line in file.readlines() if line.startswith("(assert")])
+
+
+def count_successes(output):
+    return len([line for line in output.split("\n") if " OK" in line])
+
+
 def main():
+    total_tests = 0
+    total_successes = 0
     tests = [os.path.join(args.testsuite, filename) for filename in sorted(os.listdir(args.testsuite)) if
              filename.endswith(".asserts.wast")]
 
@@ -96,17 +107,22 @@ def main():
     for filename in tests:
         base = "core/" + "".join(os.path.basename(filename).split(".")[:-2])
         print(base)
+        total_tests += count_asserts(base + ".asserts.wast")
         status = subprocess.run(
             [args.interpreter, "--file", base + ".wast", "--asserts", base + ".asserts.wast", "--watcompiler", args.compiler],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if status.returncode == 0:
+            total_successes += count_asserts(base + ".asserts.wast")
             print(f"{filename}: All tests passed.\n")
         else:
+            total_successes += count_successes(status.stdout.decode("utf-8"))
             if args.verbosity == 0:
                 print(f"""{filename}: exited with {status.returncode}""")
             else:
                 print(f"""{filename}:\n {status.stdout.decode("utf-8")}\n""")
-                exit(status.returncode)
+                # exit(status.returncode)
+
+    print(f"""Total: {total_successes}/{total_tests} succeeded ({(total_successes/total_tests)*100:.2f}%)""")
 
 
 if __name__ == '__main__':
