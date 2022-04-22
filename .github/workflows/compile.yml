@@ -6,7 +6,7 @@ concurrency:
     cancel-in-progress: true  # Cancel in-flight jobs for the same branch or PR
 
 env:
-    BENCHMARKS_CACHE: "build-benchmarks"
+    INO_SOCKET_CACHE: "template-socket"
 
 jobs:
     formatting-check:
@@ -43,9 +43,39 @@ jobs:
               run: cmake .. -D BUILD_EMULATOR=ON ; cmake --build .
               working-directory: build-emu
 
+    fill-out-template:
+        name: Fill out template files
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+              with:
+                  submodules: 'recursive'
+
+            - name: Retrieve version
+              id: version
+              run: |
+                echo "::set-output name=COMMIT::$(sha1sum Arduino-socket.ino.template | grep '^[^ ]*' -o)"
+              working-directory: platforms/Arduino-socket
+
+            - name: Cache filled out templates
+              id: cache-ino
+              uses: actions/cache@v2
+              with:
+                path: |
+                    platforms/Arduino-socket
+                key: ${{ env.INO_SOCKET_CACHE }}-${{ steps.version.outputs.COMMIT }}
+
+            - name: Fill out Arduino-socket.ino.template
+              if: steps.cache-ino.outputs.cache-hit != 'true'
+              run: |
+                  echo -e "SSID=ssid\nPASSWORD=password" > .config
+                  make Arduino-socket.ino
+              working-directory: platforms/Arduino-socket
+
     compile-with-arduino:
         name: (Arduino) Compile on ${{matrix.board.platform-name}}
-        needs: formatting-check
+        needs: [formatting-check, fill-out-template]
         runs-on: ubuntu-latest
         env:
             SKETCHES_REPORTS_PATH: sketches-reports
@@ -72,8 +102,21 @@ jobs:
                           source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
                       sketches: |
                         - platforms/Arduino
+                        - platforms/Arduino-socket
         steps:
-            - uses: actions/checkout@v2
+            - name: Checkout
+              uses: actions/checkout@v2
+              with:
+                  submodules: 'recursive'
+
+            - name: Get Template Cache
+              id: cache-ino
+              uses: actions/cache@v2
+              with:
+                path: |
+                    platforms/Arduino-socket
+                key: ${{ env.INO_SOCKET_CACHE }}-${{ steps.version.outputs.COMMIT }}
+
             - name: Compile sketches
               uses: arduino/compile-sketches@v1
               with:
@@ -85,6 +128,7 @@ jobs:
                       ${{ env.LIBRARIES }}
                   enable-deltas-report: true
                   sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
+
             - name: Upload sketches report to workflow artifact
               uses: actions/upload-artifact@v2
               with:

@@ -15,7 +15,7 @@ $(error PASSWORD is not set. Use a .config file.)
 endif
 
 Arduino-socket.ino: .config Arduino-socket.ino.template
-	sed 's/{{SSID}}/$(SSID)/g; s/{{Password}}/$(PASSWORD)/g' Arduino-socket.ino.template >> $@
+	sed 's/{{SSID}}/$(SSID)/g; s/{{Password}}/$(PASSWORD)/g' Arduino-socket.ino.template > $@
 
 compile: Arduino-socket.ino
 	arduino-cli -v compile --fqbn $(FQBN) Arduino-socket.ino
