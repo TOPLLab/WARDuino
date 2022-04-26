@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cstdint>
 #include <unistd.h>
+
+#include <cstdint>
 
 #include "../WARDuino.h"
 
@@ -39,7 +40,7 @@ class RFC {
     void call(StackValue *args);
 #ifdef ARDUINO
     void returnResult(Module *m);
-#endif //ARDUINO
+#endif  // ARDUINO
     void restoreExecutionState(Module *m, RunningState *program_state) const;
     bool callCompleted(Module *m) const;
 

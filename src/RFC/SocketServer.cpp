@@ -23,14 +23,14 @@ void SocketServer::createServer(uint16_t t_port,
 SocketServer *SocketServer::getServer() { return socketServer; }
 
 void SocketServer::connect2Wifi(ServerCredentials *t_credentials) {
-    debug("Connecting to WiFi..");
+    printf("Connecting to WiFi...\n");
     WiFi.begin(t_credentials->ssid, t_credentials->pswd);
     while (WiFi.status() != WL_CONNECTED) {
         delay(10);
     }
 
-    debug("%d.%d.%d.%d\n\n", WiFi.localIP()[0], WiFi.localIP()[1],
-          WiFi.localIP()[2], WiFi.localIP()[3]);
+    printf("localip: %d.%d.%d.%d\n\n", WiFi.localIP()[0], WiFi.localIP()[1],
+           WiFi.localIP()[2], WiFi.localIP()[3]);
 }
 
 void SocketServer::begin() {
