@@ -1,14 +1,12 @@
 #include "rfc.h"
 
-#include <inttypes.h>
-
+#include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <map>
 #include <queue>
 
-#include "../Debug/debugger.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "proxy_server.h"
@@ -113,7 +111,7 @@ void RFC::returnResult(Module *m) {
 }
 #endif
 
-void RFC::restoreExecutionState(Module *m, RunningState *program_state) {
+void RFC::restoreExecutionState(Module *m, RunningState *program_state) const {
     // restoring the original execution state
     *program_state = this->executionState->program_state;
     m->csp = this->executionState->csp;
@@ -121,7 +119,7 @@ void RFC::restoreExecutionState(Module *m, RunningState *program_state) {
     m->pc_ptr = this->executionState->pc_ptr;
 }
 
-bool RFC::callCompleted(Module *m) {
+bool RFC::callCompleted(Module *m) const {
     return !this->succes || this->executionState->csp == m->csp;
 }
 
@@ -136,7 +134,7 @@ bool RFC::callCompleted(Module *m) {
 
 struct RFC::SerializeData *RFC::serializeRFC() {
     const unsigned short serializationSize = sizeSerializationRFC(this->type);
-    unsigned char *buffer = new unsigned char[serializationSize];
+    auto *buffer = new unsigned char[serializationSize];
 
     // write to array: interrupt, function identifier and arguments
     const unsigned char interrupt = interruptProxyCall;
@@ -146,14 +144,14 @@ struct RFC::SerializeData *RFC::serializeRFC() {
 
     // array as hexa
     const uint32_t hexa_size = serializationSize * 2;
-    unsigned char *hexa =
+    auto *hexa =
         new unsigned char[hexa_size + 2];  //+2 for '\n' and '0' termination
     chars_as_hexa(hexa, buffer, serializationSize);
     hexa[hexa_size] = '\n';
     hexa[hexa_size + 1] = '\0';  // TODO remove zero termination and +2 above
 
     delete[] buffer;
-    struct SerializeData *ser = new SerializeData;
+    auto *ser = new SerializeData;
     ser->size = hexa_size + 1;
     ser->raw = hexa;
     return ser;
@@ -161,7 +159,7 @@ struct RFC::SerializeData *RFC::serializeRFC() {
 
 struct RFC::SerializeData *RFC::serializeRFCallee() {
     const unsigned short serializationSize = sizeSerializationRFCallee(this);
-    unsigned char *raw = new unsigned char[serializationSize];
+    auto *raw = new unsigned char[serializationSize];
     uint8_t suc = this->succes ? 1 : 0;
 
     memcpy(raw, &suc, sizeof(uint8_t));
@@ -177,7 +175,7 @@ struct RFC::SerializeData *RFC::serializeRFCallee() {
                this->excpMsgSize);
     }
 
-    struct SerializeData *ser = new struct SerializeData;
+    auto *ser = new struct SerializeData;
     ser->raw = raw;
     ser->size = serializationSize;
     return ser;
@@ -252,7 +250,7 @@ void arguments_copy(unsigned char *dest, StackValue *args,
 void RFC::deserializeRFCResult() {
     ProxyServer *host = ProxyServer::getServer();
 
-    uint8_t *call_result = (uint8_t *)host->readReply();
+    auto *call_result = (uint8_t *)host->readReply();
     this->succes = (uint8_t)call_result[0] == 1;
 
     if (!this->succes) {
@@ -298,8 +296,8 @@ void RFC::deserializeRFCResult() {
     delete[] call_result;
 }
 
-void RFC::call(StackValue *args) {
-    this->args = args;
+void RFC::call(StackValue *arguments) {
+    this->args = arguments;
     struct SerializeData *rfc_request = this->serializeRFC();
 
     ProxyServer *host = ProxyServer::getServer();
@@ -335,7 +333,7 @@ StackValue *RFC::readRFCArgs(Block *func, uint8_t *data) {
         return nullptr;
     }
 
-    StackValue *args = new StackValue[func->type->param_count];
+    auto *args = new StackValue[func->type->param_count];
     uint32_t *params = func->type->params;
     for (uint32_t i = 0; i < func->type->param_count; i++) {
         args[i].value.uint64 = 0;  // init whole union to 0

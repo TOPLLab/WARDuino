@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <unistd.h>
 
 #include "../WARDuino.h"
@@ -22,7 +22,7 @@ class RFC {
 
     struct SerializeData *serializeRFC();
     struct SerializeData *serializeRFCallee();
-    void deserializeRFCResult(void);
+    void deserializeRFCResult();
 
    public:
     const uint32_t fid;
@@ -39,9 +39,9 @@ class RFC {
     void call(StackValue *args);
 #ifdef ARDUINO
     void returnResult(Module *m);
-#endif ARDUINO
-    void restoreExecutionState(Module *m, RunningState *program_state);
-    bool callCompleted(Module *m);
+#endif //ARDUINO
+    void restoreExecutionState(Module *m, RunningState *program_state) const;
+    bool callCompleted(Module *m) const;
 
     // Client side
     static RFC *registerRFC(uint32_t t_fid, Type *t_type);
@@ -49,15 +49,15 @@ class RFC {
     static void unregisterRFC(uint32_t fid);
     static bool isRFC(uint32_t fid);
     static RFC *getRFC(uint32_t fid);
-    static void clearRFCs(void);
+    static void clearRFCs();
 
     // Server side
     static RFC *registerRFCallee(uint32_t t_fid, Type *t_type,
                                  StackValue *t_args,
                                  ExecutionState *t_executionState);
-    static bool hasRFCallee(void);
-    static RFC *currentCallee(void);
-    static void removeRFCallee(void);
+    static bool hasRFCallee();
+    static RFC *currentCallee();
+    static void removeRFCallee();
     static StackValue *readRFCArgs(Block *func, uint8_t *data);
     static void setupCalleeArgs(Module *m, RFC *callee);
 };
