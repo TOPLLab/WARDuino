@@ -22,7 +22,7 @@ class ProxyServer {
    public:
     char *exceptionMsg;
 
-    void registerAddress(char *t_host, int t_port);
+    void registerAddresses(char *_host, int _pull_port, int _push_port);
     void closeConnections();
     bool openConnections();
     void updateExcpMsg(const char *msg);
