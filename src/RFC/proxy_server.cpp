@@ -2,18 +2,18 @@
 /* #include <asm-generic/errno-base.h> */  // Might be needed
 #include <netdb.h>
 #include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "../Utils/util.h"
 
-// TODO exceptionmsg
+// TODO exception msg
+const char SUCCESS[] = "";
 const char NO_HOST_ERR[] = "No host and port set";
 const char CREATE_SOCK_ERR[] = "Could not create Socket";
 const char INVALID_HOST[] = "Invalid host";
@@ -21,10 +21,36 @@ const char CONNECT_ERR[] = "Socket failed to connect";
 const char WRITE_ERR[] = "ERROR writing to socket";
 const char READ_ERR[] = "ERROR reading from socket";
 
-struct ProxyServer::Address {
+struct Address {
     struct sockaddr_in aserv_addr;
     struct hostent *aServer;
 };
+
+const char *createConnection(int socketfd, char *host, int port,
+                             struct Address *address) {
+    struct hostent *server = gethostbyname(host);
+    if (server == nullptr) {
+        return INVALID_HOST;
+    }
+
+    address->aServer = server;
+    struct sockaddr_in *server_address = &address->aserv_addr;
+    bzero((char *)server_address, sizeof(*server_address));
+    server_address->sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&server_address->sin_addr.s_addr,
+          server->h_length);
+    server_address->sin_port = htons(port);
+    if (connect(socketfd, (struct sockaddr *)server_address,
+                sizeof(*server_address)) < 0) {
+        return CONNECT_ERR;
+    }
+
+    return SUCCESS;
+}
+
+bool is_success(const char *msg) {
+    return (msg != nullptr) && (msg[0] == '\0');
+}
 
 ProxyServer *ProxyServer::proxyServer = nullptr;
 
@@ -68,6 +94,7 @@ ProxyServer::ProxyServer() {
 }
 
 bool ProxyServer::openConnection() {
+    printf("connecting");
     if (this->host == nullptr) {
         this->updateExcpMsg(NO_HOST_ERR);
         return false;
@@ -79,24 +106,13 @@ bool ProxyServer::openConnection() {
         return false;
     }
 
-    struct hostent *aServer = gethostbyname(this->host);
-    if (aServer == NULL) {
-        this->updateExcpMsg(INVALID_HOST);
+    const char *msg =
+        createConnection(sockfd, this->host, this->port, this->address);
+    if (!is_success(msg)) {
+        this->updateExcpMsg(msg);
         return false;
     }
-
-    this->address->aServer = aServer;
-    struct sockaddr_in *aserv_addr = &this->address->aserv_addr;
-    bzero((char *)aserv_addr, sizeof(*aserv_addr));
-    aserv_addr->sin_family = AF_INET;
-    bcopy((char *)aServer->h_addr, (char *)&aserv_addr->sin_addr.s_addr,
-          aServer->h_length);
-    aserv_addr->sin_port = htons(this->port);
-    if (connect(sockfd, (struct sockaddr *)aserv_addr, sizeof(*aserv_addr)) <
-        0) {
-        this->updateExcpMsg(CONNECT_ERR);
-        return false;
-    }
+    printf("connected");
     return true;
 }
 

@@ -2,6 +2,8 @@
 
 #include <inttypes.h>
 
+struct Address;
+
 class ProxyServer {
    private:
     // for singleton
@@ -10,7 +12,6 @@ class ProxyServer {
     char *host;
     int port, sockfd;
 
-    struct Address;
     struct Address *address;
 
     // private constructor for singleton
