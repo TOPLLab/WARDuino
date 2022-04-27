@@ -887,7 +887,7 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     RFC::registerRFCs(m, &interruptData);
     ProxyServer::registerMCUHost(&interruptData);
     ProxyServer *mcuhost = ProxyServer::getServer();
-    if (!mcuhost->openConnection()) {
+    if (!mcuhost->openConnections()) {
         FATAL("problem opening socket to MCU: %s\n", mcuhost->exceptionMsg);
     }
     dprintf(this->socket, "done!\n");

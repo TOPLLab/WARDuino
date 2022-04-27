@@ -39,7 +39,7 @@ if (BUILD_EMULATOR)
             src/RFC/rfc.cpp
             src/RFC/proxy_server.cpp
             src/RFC/SocketServer.cpp
-            )
+            src/Utils/sockets.cpp)
     set(TEST_FRAMEWORK
         tests/integration/wasm_tests.cpp
         tests/integration/assertion.cpp

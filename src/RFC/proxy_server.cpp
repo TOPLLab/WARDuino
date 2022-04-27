@@ -10,10 +10,11 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "../Utils/sockets.h"
 #include "../Utils/util.h"
 
 // TODO exception msg
-const char SUCCESS[] = "";
+const char SUCCESS[] = "";  // Empty denotes success
 const char NO_HOST_ERR[] = "No host and port set";
 const char CREATE_SOCK_ERR[] = "Could not create Socket";
 const char INVALID_HOST[] = "Invalid host";
@@ -25,6 +26,10 @@ struct Address {
     struct sockaddr_in aserv_addr;
     struct hostent *aServer;
 };
+
+bool is_success(const char *msg) {
+    return (msg != nullptr) && (msg[0] == '\0');  // check if string is empty
+}
 
 const char *createConnection(int socketfd, char *host, int port,
                              struct Address *address) {
@@ -48,10 +53,6 @@ const char *createConnection(int socketfd, char *host, int port,
     return SUCCESS;
 }
 
-bool is_success(const char *msg) {
-    return (msg != nullptr) && (msg[0] == '\0');
-}
-
 ProxyServer *ProxyServer::proxyServer = nullptr;
 
 ProxyServer *ProxyServer::getServer() {
@@ -61,21 +62,21 @@ ProxyServer *ProxyServer::getServer() {
 
 void ProxyServer::registerMCUHost(uint8_t **data) {
     int portno = (int)read_B32(data);
-    uint8_t hostsize = (uint8_t)(*data)[0];
+    auto hostsize = (uint8_t)(*data)[0];
     char *hostname = new char[hostsize + 1];
     memcpy((void *)hostname, ++(*data), hostsize);
     hostname[hostsize] = '\0';
     printf("Registering Proxy Host: %s PORT=%d\n", hostname, portno);
-    ProxyServer::getServer()->registerAdress(hostname, portno);
+    ProxyServer::getServer()->registerAddress(hostname, portno);
 }
 
-void ProxyServer::registerAdress(char *t_host, int t_port) {
+void ProxyServer::registerAddress(char *t_host, int t_port) {
     if (this->host != nullptr) {
-        this->closeConnection();
+        this->closeConnections();
         free(this->host);
     }
     this->host = t_host;
-    this->port = t_port;
+    this->pull_port = t_port;
 }
 
 void ProxyServer::updateExcpMsg(const char *msg) {
@@ -88,45 +89,78 @@ void ProxyServer::updateExcpMsg(const char *msg) {
 
 ProxyServer::ProxyServer() {
     host = exceptionMsg = nullptr;
-    port = 0;
-    sockfd = -1;
+    pull_port = 0;
+    push_port = 0;
+    pull_socket = -1;
+    push_socket = -1;
     address = (struct Address *)malloc(sizeof(struct Address));
 }
 
-bool ProxyServer::openConnection() {
+void ProxyServer::startPushDebuggerSocket() const {
+    struct sockaddr_in _address = createAddress(this->push_port);
+    bindSocketToAddress(this->push_socket, _address);
+    startListening(this->push_socket);
+
+    int valread;
+    uint8_t buffer[1024] = {0};
+    while (true) {
+        int socket = listenForIncomingConnection(this->push_socket, _address);
+        while ((valread = read(socket, buffer, 1024)) != -1) {
+            write(socket, "got a push message ... \n", 19);
+            // TODO process push message
+        }
+    }
+}
+
+bool ProxyServer::openConnections() {
     printf("connecting");
     if (this->host == nullptr) {
         this->updateExcpMsg(NO_HOST_ERR);
         return false;
     }
 
-    this->sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (this->sockfd < 0) {
+    // Create sockets
+    this->pull_socket = socket(AF_INET, SOCK_STREAM, 0);
+    this->push_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (this->pull_socket < 0 || this->push_socket < 0) {
         this->updateExcpMsg(CREATE_SOCK_ERR);
         return false;
     }
 
-    const char *msg =
-        createConnection(sockfd, this->host, this->port, this->address);
+    // Connect to pull socket
+    const char *msg = createConnection(pull_socket, this->host, this->pull_port,
+                                       this->address);
     if (!is_success(msg)) {
         this->updateExcpMsg(msg);
         return false;
     }
+
+    // Connect to push socket
+    msg = createConnection(push_socket, this->host, this->pull_port,
+                           this->address);
+    if (!is_success(msg)) {
+        this->updateExcpMsg(msg);  // TODO differentiate between ports
+        return false;
+    }
+
+    // Listen to push socket on new thread
+    // TODO
+
     printf("connected");
     return true;
 }
 
-void ProxyServer::closeConnection() {
-    if (this->sockfd != -1) {
-        if (close(this->sockfd) == -1) {
-            if (errno == EINTR) close(this->sockfd);
+void ProxyServer::closeConnections() {
+    if (this->pull_socket != -1) {
+        if (close(this->pull_socket) == -1) {
+            if (errno == EINTR) close(this->pull_socket);
         }
-        this->sockfd = -1;
+        this->pull_socket = -1;
     }
 }
 
 bool ProxyServer::send(void *buffer, int size) {
-    int n = write(this->sockfd, buffer, size);
+    int n = write(this->pull_socket, buffer, size);
     if (n == size) return true;
 
     if (n < 0 && errno == EINTR)  // write interrupted, thus retry
@@ -143,7 +177,7 @@ bool ProxyServer::send(void *buffer, int size) {
 char *ProxyServer::readReply(short int amount) {
     char *buffer = new char[amount + 1];
     bzero(buffer, amount + 1);
-    int n = read(this->sockfd, buffer, amount);
+    int n = read(this->pull_socket, buffer, amount);
     if (n > 0) return buffer;
 
     delete[] buffer;
