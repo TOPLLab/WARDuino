@@ -4,6 +4,7 @@
 
 #include "../Debug/debugger.h"
 #include "../Interpreter/instructions.h"
+#include "../RFC/SocketServer.h"
 #include "../Utils/macros.h"
 
 // CallbackHandler class
