@@ -105,11 +105,8 @@ void RFC::returnResult(Module *m) {
     struct SerializeData *rfc_result = this->serializeRFCallee();
     const char *data = (const char *)rfc_result->raw;
     size_t data_size = (size_t)rfc_result->size;
-    SocketServer::getServer()->write2Client(data, data_size);
-    // SocketServer *server = SocketServer::getServer();
-    // server->write2Client(server->pullClient, data, data_size);
-    // FATAL("writing into socketdf\n");
-    // write(m->warduino->debugger->socket, rfc_result->raw, rfc_result->size);
+    SocketServer *server = SocketServer::getServer();
+    server->write2Client(server->pullClient, data, data_size);
 }
 #endif
 
