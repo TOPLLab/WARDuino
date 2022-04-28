@@ -67,20 +67,20 @@ void setup(void) {
     Serial.println(ESP.getFreePsram());
 
     // create & connect SocketServer
-    //SocketServer::createServer(pullportno, pushportno, &handleInterrupt);
-    //server = SocketServer::getServer();
-    //server->connect2Wifi(&serverCredentials);
+    SocketServer::createServer(pullportno, pushportno, &handleInterrupt);
+    server = SocketServer::getServer();
+    server->connect2Wifi(&serverCredentials);
 }
 
 void loop() {
     disableCore0WDT();
     m = wac.load_module(wasm, wasm_len, {});
-    //server->begin();
+    server->begin();
 
     printf("LOADED \n\n");
-//    uint8_t command[] = {'0', '3', '\n'};
-//    wac.handleInterrupt(3, command);
-  //  xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
+    uint8_t command[] = {'0', '3', '\n'};
+    wac.handleInterrupt(3, command);
+    xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
 
     wac.run_module(m);
