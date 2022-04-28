@@ -57,8 +57,8 @@ bool CallbackHandler::resolve_event() {
     Event event = CallbackHandler::events->front();
     CallbackHandler::events->pop();
 
-    dbg_info("Resolving an event. (%lu remaining)\n",
-             CallbackHandler::events->size());
+    printf("Resolving an event. (%lu remaining)\n",
+           CallbackHandler::events->size());
 
     auto iterator = CallbackHandler::callbacks->find(event.topic);
     if (iterator != CallbackHandler::callbacks->end()) {
