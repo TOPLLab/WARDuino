@@ -11,7 +11,9 @@ SocketServer::SocketServer(uint16_t t_pullport, uint16_t t_pushport,
                            void (*t_handler)(size_t, uint8_t *))
     : pull_portno(t_pullport), push_portno(t_pushport) {
     this->pullServer = new AsyncServer(t_pullport);
-    this->pushServer = nullptr;  // new AsyncServer(t_pushport);
+    this->pushServer = new AsyncServer(t_pushport);
+    this->pullClient = nullptr;
+    this->pushClient = nullptr;
     this->handler = t_handler;
 }
 
@@ -21,12 +23,7 @@ void SocketServer::createServer(uint16_t t_pullport, uint16_t t_pushport,
         socketServer = new SocketServer(t_pullport, t_pushport, t_handler);
 }
 
-SocketServer *SocketServer::getServer() {
-    // if (socketServer == nullptr) {
-    //     FATAL("SocketServer::getServer is nullptr\n");
-    // }
-    return socketServer;
-}
+SocketServer *SocketServer::getServer() { return socketServer; }
 
 void SocketServer::connect2Wifi(ServerCredentials *t_credentials) {
     printf("Connecting to WiFi...\n");
@@ -42,22 +39,22 @@ void SocketServer::connect2Wifi(ServerCredentials *t_credentials) {
 void SocketServer::begin() {
     printf("starting PullSever\n");
     SocketServer *thisServer = this;
-    // this->pullServer->begin();
-    // this->pullServer->onClient(
-    //     [thisServer](void *s, AsyncClient *c) {
-    //         debug("A new client connected!\n");
-    //         thisServer->registerClient(c, &thisServer->pullClient);
-    //     },
-    //     NULL);
+    this->pullServer->begin();
+    this->pullServer->onClient(
+        [thisServer](void *s, AsyncClient *c) {
+            printf("A new PullClient connected!\n");
+            thisServer->registerClient(c, &thisServer->pullClient);
+        },
+        NULL);
 
     printf("starting PushSever\n");
-    // this->pushServer->begin();
-    // this->pushServer->onClient(
-    //     [thisServer](void *s, AsyncClient *c) {
-    //         debug("A new client connected!\n");
-    //         thisServer->registerClient(c, &thisServer->pushClient);
-    //     },
-    //     NULL);
+    this->pushServer->begin();
+    this->pushServer->onClient(
+        [thisServer](void *s, AsyncClient *c) {
+            printf("A new PushClient connected!\n");
+            thisServer->registerClient(c, &thisServer->pushClient);
+        },
+        NULL);
 }
 
 void SocketServer::registerClient(AsyncClient *new_client,
@@ -112,30 +109,29 @@ void SocketServer::unregisterClient(AsyncClient *t_client) {
     delete t_client;
 }
 
-// void SocketServer::write2Client(AsyncClient *client, const char *buf,
-//                                 size_t size_buf) {
-void SocketServer::write2Client(const char *buf, size_t size_buf) {
-    AsyncClient *client = this->pullClient;
+void SocketServer::write2Client(AsyncClient *client, const char *buf,
+                                size_t size_buf) {
     if (client == nullptr) return;
     size_t space_left = client->space();
     client->add(buf, size_buf > space_left ? space_left : size_buf);
     client->send();
     if (size_buf <= space_left) return;
-    // write2Client(client, buf + space_left, size_buf - space_left);
-    write2Client(buf + space_left, size_buf - space_left);
+    write2Client(client, buf + space_left, size_buf - space_left);
 }
 
-// void SocketServer::printf2Client(AsyncClient *client, const char *format, ...) {
-//     va_list args;
-//     va_start(args, format);
+void SocketServer::printf2Client(AsyncClient *client, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
 
-//     if (client == nullptr) return;
+    if (client == nullptr) return;
 
-//     uint32_t BUFF_SIZE = 300;
-//     char buffer[BUFF_SIZE];
-//     int l = vsnprintf(buffer, BUFF_SIZE, format, args);
-//     if (l == BUFF_SIZE) FATAL("TOO MUCH got %d\n", l);
-//     this->write2Client(client, buffer, l);
-//     va_end(args);
-// }
+    uint32_t BUFF_SIZE = 300;
+    char buffer[BUFF_SIZE];
+    int l = vsnprintf(buffer, BUFF_SIZE, format, args);
+    if (l == BUFF_SIZE) FATAL("Buffer not big enough: %d\n", l);
+    this->write2Client(client, buffer, l);
+    va_end(args);
+}
+
+bool SocketServer::hasPushClient() { return this->pushClient != nullptr; }
 #endif

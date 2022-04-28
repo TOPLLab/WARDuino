@@ -41,9 +41,9 @@ class SocketServer {
 
     void begin();
     void connect2Wifi(ServerCredentials *t_credentials);
-    void write2Client(const char *buf, size_t size_buf);
-    // void write2Client(AsyncClient *client, const char *buf, size_t size_buf);
-    // void printf2Client(AsyncClient *client, const char *format, ...);
+    void write2Client(AsyncClient *client, const char *buf, size_t size_buf);
+    void printf2Client(AsyncClient *client, const char *format, ...);
+    bool hasPushClient();
 
     static SocketServer *getServer(void);
     static void createServer(uint16_t t_pullport, uint16_t t_pushport,
