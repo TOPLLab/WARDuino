@@ -513,16 +513,6 @@ void Interrupt::handleInterrupt() {
     topic += String(pin);
     auto *empty = reinterpret_cast<const unsigned char *>("");
     CallbackHandler::push_event(topic.c_str(), empty, 0);
-    bool recording = true;
-    printf("reached handleInterrupt\n");
-    // if (recording) {
-    //     SocketServer *server = SocketServer::getServer();
-    //     printf(R"({"topic":"%s","payload":"%s"})", topic.c_str(), "empty");
-    //     // server->printf2Client(server->pushClient,
-    //     //                R"({"topic":"%s","payload":"%s"})", topic.c_str(),
-    //     //                empty);
-    // } else {
-    // }
 }
 
 std::vector<Interrupt *> handlers;
