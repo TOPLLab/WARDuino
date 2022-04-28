@@ -17,29 +17,36 @@ typedef struct {
 class SocketServer {
    private:
     // SocketServer configuration
-    const uint16_t portno;
+    const uint16_t pull_portno, push_portno;
+
     ServerCredentials *credentials;
 
-    AsyncServer *asyncServer;
-    AsyncClient *client;
+    AsyncServer *pullServer;
+    AsyncServer *pushServer;
 
     // handler for client's received data
     void (*handler)(size_t, uint8_t *);
 
     // singleton
     static SocketServer *socketServer;
-    SocketServer(uint16_t t_port, void (*t_handler)(size_t, uint8_t *));
+    SocketServer(uint16_t t_pullport, uint16_t t_pushport,
+                 void (*t_handler)(size_t, uint8_t *));
 
-    void registerClient(AsyncClient *t_client);
+    void registerClient(AsyncClient *new_client, AsyncClient **current_client);
     void unregisterClient(AsyncClient *t_client);
 
    public:
+    AsyncClient *pullClient;
+    AsyncClient *pushClient;
+
     void begin();
     void connect2Wifi(ServerCredentials *t_credentials);
     void write2Client(const char *buf, size_t size_buf);
+    // void write2Client(AsyncClient *client, const char *buf, size_t size_buf);
+    // void printf2Client(AsyncClient *client, const char *format, ...);
 
     static SocketServer *getServer(void);
-    static void createServer(uint16_t t_port,
+    static void createServer(uint16_t t_pullport, uint16_t t_pushport,
                              void (*t_handler)(size_t, uint8_t *));
 };
 #endif
