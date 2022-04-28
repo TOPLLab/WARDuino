@@ -3,6 +3,9 @@
 #include <cinttypes>
 #include <csignal>
 
+#include "pthread.h"
+#include "sys/types.h"
+
 struct Address;
 
 class ProxyServer {

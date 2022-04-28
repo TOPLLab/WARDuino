@@ -150,7 +150,7 @@ pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
     printf("connecting");
     if (this->host == nullptr) {
         this->updateExcpMsg(NO_HOST_ERR);
-        return false;
+        FATAL("problem opening socket to MCU: %s\n", this->exceptionMsg);
     }
 
     // Create sockets
