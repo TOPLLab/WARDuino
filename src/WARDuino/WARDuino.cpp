@@ -862,7 +862,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
 }
 
 void WARDuino::unload_module(Module *m) {
-    this->debugger->disconnect_drone(); // TODO should this be in unload module?
+    this->debugger
+        ->disconnect_drone();  // TODO should this be in unload module?
 
     auto it = std::find(this->modules.begin(), this->modules.end(), m);
     if (it != this->modules.end()) this->modules.erase(it);

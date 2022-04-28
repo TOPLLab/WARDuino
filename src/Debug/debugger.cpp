@@ -895,9 +895,7 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     dprintf(this->socket, "done!\n");
 }
 
-bool Debugger::drone_connected() const {
-    return this->connected_to_drone;
-}
+bool Debugger::drone_connected() const { return this->connected_to_drone; }
 
 void Debugger::disconnect_drone() {
     if (this->drone_connected()) {

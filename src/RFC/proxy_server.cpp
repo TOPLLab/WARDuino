@@ -10,9 +10,9 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "../Utils/macros.h"
 #include "../Utils/sockets.h"
 #include "../Utils/util.h"
-#include "../Utils/macros.h"
 
 // TODO exception msg
 const char SUCCESS[] = "";  // Empty denotes success
@@ -60,9 +60,8 @@ const char *createConnection(int socketfd, char *host, int port,
     return SUCCESS;
 }
 
-bool continuing(pthread_mutex_t *mutex)
-{
-    switch(pthread_mutex_trylock(mutex)) {
+bool continuing(pthread_mutex_t *mutex) {
+    switch (pthread_mutex_trylock(mutex)) {
         case 0: /* if we got the lock, unlock and return true */
             pthread_mutex_unlock(mutex);
             return true;
@@ -76,7 +75,11 @@ bool continuing(pthread_mutex_t *mutex)
 void *readSocket(void *input) {
     // Print value received as argument:
     dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
-    ProxyServer::startPushDebuggerSocket(*((struct Socket*)input));
+    ProxyServer::startPushDebuggerSocket(*((struct Socket *)input));
+}
+
+Event parseJSON(size_t len, uint8_t *buff) {
+    // TODO parse JSON message
 }
 
 ProxyServer *ProxyServer::proxyServer = nullptr;
@@ -136,8 +139,9 @@ void ProxyServer::startPushDebuggerSocket(struct Socket arg) {
     while (continuing(arg.mutex)) {
         int socket = listenForIncomingConnection(arg.fileDescriptor, _address);
         while ((valread = read(socket, buffer, 1024)) != -1) {
-            write(socket, "got a push message ... \n", 19);
-            // TODO process push message
+            write(socket, "got a push message ... \n", 24);
+            Event event = parseJSON(valread - 1, buffer);
+            // TODO sent event to CallbackHandler
         }
     }
 }
