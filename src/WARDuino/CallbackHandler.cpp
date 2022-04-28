@@ -4,7 +4,9 @@
 
 #include "../Debug/debugger.h"
 #include "../Interpreter/instructions.h"
+#ifdef ARDUINO
 #include "../RFC/SocketServer.h"
+#endif
 #include "../Utils/macros.h"
 
 // CallbackHandler class
@@ -59,12 +61,15 @@ bool CallbackHandler::resolve_event() {
     //    CallbackHandler::resolving_event = true;
 
     Event event = CallbackHandler::events->front();
+
+#ifdef ARDUINO
     // check if we need to push events
     SocketServer *server = SocketServer::getServer();
     if (CallbackHandler::pushingMode && !server->hasPushClient()) {
-        printf("recording and no push client\n");
+        printf("pushingMode activated but client to push to\n");
         return true;
     }
+#endif
     CallbackHandler::events->pop();
 
     printf("Resolving an event. (%lu remaining)\n",
@@ -95,6 +100,7 @@ void Callback::resolve_event(const Event &e) {
     dbg_trace("Callback(%s, %i): resolving Event(%s, \"%s\")\n", topic.c_str(),
               table_index, e.topic.c_str(), e.payload);
 
+#ifdef ARDUINO
     if (CallbackHandler::pushingMode) {
         SocketServer *server = SocketServer::getServer();
         printf(R"({"topic":"%s","payload":"%s"})", e.topic.c_str(),
@@ -104,6 +110,7 @@ void Callback::resolve_event(const Event &e) {
                               e.topic.c_str(), e.payload);
         return;
     }
+#endif
 
     // Copy topic and payload to linear memory
     uint32_t start = 10000;  // TODO use reserved area in linear memory

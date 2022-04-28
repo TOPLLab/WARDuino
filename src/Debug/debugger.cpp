@@ -173,7 +173,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptWOODDUMP:
             *program_state = WARDUINOpause;
+#ifdef ARDUINO
             CallbackHandler::pushingMode = true;
+#endif
             free(interruptData);
             woodDump(m);
             break;
