@@ -47,6 +47,12 @@ class Debugger {
     std::vector<uint8_t> interruptBuffer;
     long interruptSize{};
 
+#ifndef ARDUINO
+    bool connected_to_drone = false;
+    pthread_mutex_t push_mutex;
+    pthread_t push_debugging_threadid;
+#endif
+
     // Private methods
 
     void printValue(StackValue *v, uint32_t idx, bool end) const;
@@ -119,5 +125,9 @@ class Debugger {
                          uint8_t *interruptData);
 #else
     void handleMonitorProxies(Module *m, uint8_t *interruptData);
+
+    bool drone_connected() const;
+
+    void disconnect_drone();
 #endif
 };

@@ -884,12 +884,27 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
 }
 #else
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
+    this->connected_to_drone = true;
+    pthread_mutex_init(&this->push_mutex, nullptr);
+    pthread_mutex_lock(&this->push_mutex);
+
     RFC::registerRFCs(m, &interruptData);
     ProxyServer::registerMCUHost(&interruptData);
     ProxyServer *mcuhost = ProxyServer::getServer();
-    if (!mcuhost->openConnections()) {
-        FATAL("problem opening socket to MCU: %s\n", mcuhost->exceptionMsg);
-    }
+    this->push_debugging_threadid = mcuhost->openConnections(&this->push_mutex);
     dprintf(this->socket, "done!\n");
+}
+
+bool Debugger::drone_connected() const {
+    return this->connected_to_drone;
+}
+
+void Debugger::disconnect_drone() {
+    if (this->drone_connected()) {
+        return;
+    }
+    int *ptr;
+    pthread_mutex_unlock(&this->push_mutex);
+    pthread_join(this->push_debugging_threadid, (void **)&ptr);
 }
 #endif

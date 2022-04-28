@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cinttypes>
+#include <csignal>
 
 struct Address;
 
@@ -17,14 +18,14 @@ class ProxyServer {
     // private constructor for singleton
     ProxyServer();
 
-    void startPushDebuggerSocket() const;
-
    public:
     char *exceptionMsg;
 
+    static void startPushDebuggerSocket(struct Socket arg);
+
     void registerAddresses(char *_host, int _pull_port, int _push_port);
     void closeConnections();
-    bool openConnections();
+    pthread_t openConnections(pthread_mutex_t *mutex);
     void updateExcpMsg(const char *msg);
     bool send(void *t_buffer, int t_size);
     char *readReply(short int amount = 1024);

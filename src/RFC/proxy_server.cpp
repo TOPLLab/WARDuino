@@ -12,6 +12,7 @@
 
 #include "../Utils/sockets.h"
 #include "../Utils/util.h"
+#include "../Utils/macros.h"
 
 // TODO exception msg
 const char SUCCESS[] = "";  // Empty denotes success
@@ -25,6 +26,12 @@ const char READ_ERR[] = "ERROR reading from socket";
 struct Address {
     struct sockaddr_in aserv_addr;
     struct hostent *aServer;
+};
+
+struct Socket {
+    int port;
+    int fileDescriptor;
+    pthread_mutex_t *mutex;
 };
 
 bool is_success(const char *msg) {
@@ -51,6 +58,25 @@ const char *createConnection(int socketfd, char *host, int port,
     }
 
     return SUCCESS;
+}
+
+bool continuing(pthread_mutex_t *mutex)
+{
+    switch(pthread_mutex_trylock(mutex)) {
+        case 0: /* if we got the lock, unlock and return true */
+            pthread_mutex_unlock(mutex);
+            return true;
+        case EBUSY: /* return false if the mutex was locked */
+            return false;
+        default:
+            return true;
+    }
+}
+
+void *readSocket(void *input) {
+    // Print value received as argument:
+    dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
+    ProxyServer::startPushDebuggerSocket(*((struct Socket*)input));
 }
 
 ProxyServer *ProxyServer::proxyServer = nullptr;
@@ -100,15 +126,15 @@ ProxyServer::ProxyServer() {
     address = (struct Address *)malloc(sizeof(struct Address));
 }
 
-void ProxyServer::startPushDebuggerSocket() const {
-    struct sockaddr_in _address = createAddress(this->push_port);
-    bindSocketToAddress(this->push_socket, _address);
-    startListening(this->push_socket);
+void ProxyServer::startPushDebuggerSocket(struct Socket arg) {
+    struct sockaddr_in _address = createAddress(arg.port);
+    bindSocketToAddress(arg.fileDescriptor, _address);
+    startListening(arg.fileDescriptor);
 
     int valread;
     uint8_t buffer[1024] = {0};
-    while (true) {
-        int socket = listenForIncomingConnection(this->push_socket, _address);
+    while (continuing(arg.mutex)) {
+        int socket = listenForIncomingConnection(arg.fileDescriptor, _address);
         while ((valread = read(socket, buffer, 1024)) != -1) {
             write(socket, "got a push message ... \n", 19);
             // TODO process push message
@@ -116,7 +142,7 @@ void ProxyServer::startPushDebuggerSocket() const {
     }
 }
 
-bool ProxyServer::openConnections() {
+pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
     printf("connecting");
     if (this->host == nullptr) {
         this->updateExcpMsg(NO_HOST_ERR);
@@ -128,7 +154,7 @@ bool ProxyServer::openConnections() {
     this->push_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (this->pull_socket < 0 || this->push_socket < 0) {
         this->updateExcpMsg(CREATE_SOCK_ERR);
-        return false;
+        FATAL("problem opening socket to MCU: %s\n", this->exceptionMsg);
     }
 
     // Connect to pull socket
@@ -136,7 +162,7 @@ bool ProxyServer::openConnections() {
                                        this->address);
     if (!is_success(msg)) {
         this->updateExcpMsg(msg);
-        return false;
+        FATAL("problem opening socket to MCU: %s\n", this->exceptionMsg);
     }
 
     // Connect to push socket
@@ -144,14 +170,19 @@ bool ProxyServer::openConnections() {
                            this->address);
     if (!is_success(msg)) {
         this->updateExcpMsg(msg);  // TODO differentiate between ports
-        return false;
+        FATAL("problem opening socket to MCU: %s\n", this->exceptionMsg);
     }
 
     // Listen to push socket on new thread
-    // TODO
+    pthread_t id;
+    auto *args = (struct Socket *)malloc(sizeof(struct Socket));
+    args->port = this->push_port;
+    args->fileDescriptor = this->push_socket;
+    args->mutex = mutex;
+    pthread_create(&id, nullptr, readSocket, &args);
 
     printf("connected");
-    return true;
+    return id;
 }
 
 void ProxyServer::closeConnections() {

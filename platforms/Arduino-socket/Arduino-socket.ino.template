@@ -55,17 +55,7 @@ void setup(void) {
     Serial.begin(115200);
     //    attachInterrupt(UART_PIN, handleInput, CHANGE);
 
-    Serial.println(ESP.getFreeHeap());
-    Serial.println("Total heap:");
-    Serial.println(ESP.getHeapSize());
-    Serial.println("\nFree heap:");
-    Serial.println(ESP.getFreeHeap());
-    Serial.println("\nTotal PSRAM:");
-    Serial.println(ESP.getPsramSize());
-    Serial.println("\nFree PSRAM: ");
-    Serial.println(ESP.getFreePsram());
-
-    // create & connect SocketServer
+    // Create & connect SocketServer
     SocketServer::createServer(portno, &handleInterrupt);
     server = SocketServer::getServer();
     server->connect2Wifi(&serverCredentials);
@@ -82,10 +72,8 @@ void loop() {
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
 
-    Serial.println("\nFree heap:");
-    Serial.println(ESP.getFreeHeap());
-
     wac.run_module(m);
+
     printf("END\n\n");
     wac.unload_module(m);
 }
