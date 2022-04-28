@@ -26,6 +26,9 @@ class CallbackHandler {
     static void push_event(std::string topic, const unsigned char *payload,
                            unsigned int length);
     static bool resolve_event();
+
+    // WOOD needed to know when to push events
+    static bool pushingMode;
 };
 
 class Event {

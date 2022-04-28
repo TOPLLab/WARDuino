@@ -2,10 +2,13 @@
 
 #include <algorithm>
 
+#include "../Debug/debugger.h"
 #include "../Interpreter/instructions.h"
 #include "../Utils/macros.h"
 
 // CallbackHandler class
+
+bool CallbackHandler::pushingMode = false;
 
 // bool CallbackHandler::resolving_event = false;
 std::unordered_map<std::string, std::vector<Callback> *>
@@ -55,6 +58,12 @@ bool CallbackHandler::resolve_event() {
     //    CallbackHandler::resolving_event = true;
 
     Event event = CallbackHandler::events->front();
+    // check if we need to push events
+    SocketServer *server = SocketServer::getServer();
+    if (CallbackHandler::pushingMode && !server->hasPushClient()) {
+        printf("recording and no push client\n");
+        return true;
+    }
     CallbackHandler::events->pop();
 
     printf("Resolving an event. (%lu remaining)\n",
@@ -84,6 +93,16 @@ Callback::Callback(Module *m, std::string id, uint32_t tidx) {
 void Callback::resolve_event(const Event &e) {
     dbg_trace("Callback(%s, %i): resolving Event(%s, \"%s\")\n", topic.c_str(),
               table_index, e.topic.c_str(), e.payload);
+
+    if (CallbackHandler::pushingMode) {
+        SocketServer *server = SocketServer::getServer();
+        printf(R"({"topic":"%s","payload":"%s"})", e.topic.c_str(),
+               e.payload);  // TODO remove
+        server->printf2Client(server->pushClient,
+                              R"({"topic":"%s","payload":"%s"})",
+                              e.topic.c_str(), e.payload);
+        return;
+    }
 
     // Copy topic and payload to linear memory
     uint32_t start = 10000;  // TODO use reserved area in linear memory
