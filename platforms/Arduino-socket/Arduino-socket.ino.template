@@ -17,7 +17,8 @@ Module* m;
 
 SocketServer* server;
 ServerCredentials serverCredentials = {"{{SSID}}", "{{Password}}"};
-uint16_t portno = 8080;
+uint16_t pullportno = 8080;
+uint16_t pushportno = 8081;
 
 #define UART_PIN 3
 
@@ -55,21 +56,31 @@ void setup(void) {
     Serial.begin(115200);
     //    attachInterrupt(UART_PIN, handleInput, CHANGE);
 
-    // Create & connect SocketServer
-    SocketServer::createServer(portno, &handleInterrupt);
-    server = SocketServer::getServer();
-    server->connect2Wifi(&serverCredentials);
+    Serial.println(ESP.getFreeHeap());
+    Serial.println("Total heap:");
+    Serial.println(ESP.getHeapSize());
+    Serial.println("\nFree heap:");
+    Serial.println(ESP.getFreeHeap());
+    Serial.println("\nTotal PSRAM:");
+    Serial.println(ESP.getPsramSize());
+    Serial.println("\nFree PSRAM: ");
+    Serial.println(ESP.getFreePsram());
+
+    // create & connect SocketServer
+    //SocketServer::createServer(pullportno, pushportno, &handleInterrupt);
+    //server = SocketServer::getServer();
+    //server->connect2Wifi(&serverCredentials);
 }
 
 void loop() {
     disableCore0WDT();
     m = wac.load_module(wasm, wasm_len, {});
-    server->begin();
+    //server->begin();
 
     printf("LOADED \n\n");
-    uint8_t command[] = {'0', '3', '\n'};
-    wac.handleInterrupt(3, command);
-    xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
+//    uint8_t command[] = {'0', '3', '\n'};
+//    wac.handleInterrupt(3, command);
+  //  xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
 
     wac.run_module(m);
