@@ -1,3 +1,4 @@
+#ifndef ARDUINO
 #include "proxy_server.h"
 /* #include <asm-generic/errno-base.h> */  // Might be needed
 #include <netdb.h>
@@ -226,3 +227,4 @@ char *ProxyServer::readReply(short int amount) {
     this->updateExcpMsg(READ_ERR);
     return nullptr;
 }
+#endif
