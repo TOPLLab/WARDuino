@@ -1,3 +1,4 @@
+#ifndef ARDUINO
 #include "proxy_server.h"
 /* #include <asm-generic/errno-base.h> */  // Might be needed
 #include <netdb.h>
@@ -150,7 +151,7 @@ pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
     printf("connecting");
     if (this->host == nullptr) {
         this->updateExcpMsg(NO_HOST_ERR);
-        return false;
+        FATAL("problem opening socket to MCU: %s\n", this->exceptionMsg);
     }
 
     // Create sockets
@@ -226,3 +227,4 @@ char *ProxyServer::readReply(short int amount) {
     this->updateExcpMsg(READ_ERR);
     return nullptr;
 }
+#endif
