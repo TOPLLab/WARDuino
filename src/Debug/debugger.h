@@ -17,6 +17,7 @@ enum RunningState {
 };
 
 enum InterruptTypes {
+    // Remote Debugging
     interruptRUN = 0x01,
     interruptHALT = 0x02,
     interruptPAUSE = 0x03,
@@ -28,11 +29,18 @@ enum InterruptTypes {
     interruptDUMPFull = 0x12,
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
+
+    // WOOD Pull Debugging
     interruptWOODDUMP = 0x60,
     interruptOffset = 0x61,
     interruptRecvState = 0x62,
     interruptMonitorProxies = 0x63,
-    interruptProxyCall = 0x64
+    interruptProxyCall = 0x64,
+
+    // Push Debugging
+    interruptDUMPEvent = 0x65,
+    interruptPOPEvent = 0x66,
+    interruptPUSHEvent = 0x67
 };
 
 class Debugger {
