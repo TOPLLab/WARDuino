@@ -55,7 +55,7 @@ jobs:
             - name: Retrieve version
               id: version
               run: |
-                echo "::set-output name=COMMIT::$(sha1sum Arduino-socket.ino.template | grep '^[^ ]*' -o)"
+                echo "::set-output name=HASH::$(sha1sum Arduino-socket.ino.template | grep '^[^ ]*' -o)"
               working-directory: platforms/Arduino-socket
 
             - name: Cache filled out templates
@@ -64,7 +64,7 @@ jobs:
               with:
                 path: |
                     platforms/Arduino-socket
-                key: ${{ env.INO_SOCKET_CACHE }}-${{ steps.version.outputs.COMMIT }}
+                key: ${{ env.INO_SOCKET_CACHE }}-${{ steps.version.outputs.HASH }}
 
             - name: Fill out Arduino-socket.ino.template
               if: steps.cache-ino.outputs.cache-hit != 'true'
@@ -109,13 +109,19 @@ jobs:
               with:
                   submodules: 'recursive'
 
+            - name: Retrieve version
+              id: version
+              run: |
+                echo "::set-output name=HASH::$(sha1sum Arduino-socket.ino.template | grep '^[^ ]*' -o)"
+              working-directory: platforms/Arduino-socket
+
             - name: Get Template Cache
               id: cache-ino
               uses: actions/cache@v2
               with:
                 path: |
                     platforms/Arduino-socket
-                key: ${{ env.INO_SOCKET_CACHE }}-${{ steps.version.outputs.COMMIT }}
+                key: ${{ env.INO_SOCKET_CACHE }}-${{ steps.version.outputs.HASH }}
 
             - name: Compile sketches
               uses: arduino/compile-sketches@v1
