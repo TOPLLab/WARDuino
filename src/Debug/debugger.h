@@ -94,7 +94,7 @@ class Debugger {
 
     // WOOD Private Methods
 
-    // receiving and dumping State
+    // Receiving and dumping State
     bool receivingData = false;
     void freeState(Module *m, uint8_t *interruptData);
     static uint8_t *findOpcode(Module *m, Block *block);

@@ -3,7 +3,6 @@
 //
 #include <netinet/in.h>
 #include <pthread.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include <cstdio>
@@ -32,7 +31,7 @@
     }
 
 void print_help() {
-    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.1.0\n\n");
+    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.1.1\n\n");
     fprintf(stdout, "Usage:\n");
     fprintf(stdout, "    warduino [options] <file>\n");
     fprintf(stdout, "Options:\n");

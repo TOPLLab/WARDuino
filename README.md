@@ -69,7 +69,7 @@ Second, create the config file:
 arduino-cli config init
 ```
 
-If you need additional boards, such as the esp32 boards, you can add them in the generated config file. More information [here](https://arduino.github.io/arduino-cli/0.21/getting-started/).
+If you need additional boards, such as the esp32 boards, you can add them in the generated config file. More information on how to install the esp32 boards can be found <a href="./documentation/InstallArduinoESP32.md">here</a>.
 
 Thirdly, make sure you install the `PubSubClient` and `Adafruit NeoPixel` library. (used for MQTT and pixel primitives)
 
