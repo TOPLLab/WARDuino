@@ -65,9 +65,20 @@ bool CallbackHandler::resolve_event() {
 #ifdef ARDUINO
     // check if we need to push events
     SocketServer *server = SocketServer::getServer();
-    if (CallbackHandler::pushingMode && !server->hasPushClient()) {
-        printf("pushingMode activated but client to push to\n");
-        return true;
+    if (CallbackHandler::pushingMode) {
+        if (!server->hasPushClient()) {
+            printf("pushingMode activated but no PushClient to push to\n");
+            return true;
+        } else {
+            CallbackHandler::events->pop();
+            SocketServer *server = SocketServer::getServer();
+            printf(R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
+                   event.payload);
+            server->printf2Client(server->pushClient,
+                                  R"({"topic":"%s","payload":"%s"})",
+                                  event.topic.c_str(), event.payload);
+            return CallbackHandler::resolve_event();
+        }
     }
 #endif
     CallbackHandler::events->pop();
@@ -99,18 +110,6 @@ Callback::Callback(Module *m, std::string id, uint32_t tidx) {
 void Callback::resolve_event(const Event &e) {
     dbg_trace("Callback(%s, %i): resolving Event(%s, \"%s\")\n", topic.c_str(),
               table_index, e.topic.c_str(), e.payload);
-
-#ifdef ARDUINO
-    if (CallbackHandler::pushingMode) {
-        SocketServer *server = SocketServer::getServer();
-        printf(R"({"topic":"%s","payload":"%s"})", e.topic.c_str(),
-               e.payload);  // TODO remove
-        server->printf2Client(server->pushClient,
-                              R"({"topic":"%s","payload":"%s"})",
-                              e.topic.c_str(), e.payload);
-        return;
-    }
-#endif
 
     // Copy topic and payload to linear memory
     uint32_t start = 10000;  // TODO use reserved area in linear memory
