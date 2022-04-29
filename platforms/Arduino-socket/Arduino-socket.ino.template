@@ -78,8 +78,8 @@ void loop() {
     server->begin();
 
     printf("LOADED \n\n");
-    uint8_t command[] = {'0', '3', '\n'};
-    wac.handleInterrupt(3, command);
+    // uint8_t command[] = {'0', '3', '\n'};
+    // wac.handleInterrupt(3, command);
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
 
