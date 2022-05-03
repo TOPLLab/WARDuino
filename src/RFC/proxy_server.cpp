@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <nlohmann/json.hpp>
 
 #include "../Utils/macros.h"
 #include "../Utils/sockets.h"
@@ -81,6 +82,7 @@ void *readSocket(void *input) {
 
 Event parseJSON(size_t len, uint8_t *buff) {
     // TODO parse JSON message
+    nlohmann::json parsed;
 }
 
 ProxyServer *ProxyServer::proxyServer = nullptr;
