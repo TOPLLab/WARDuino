@@ -941,3 +941,10 @@ int WARDuino::run_module(Module *m) {
 void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
     this->debugger->addDebugMessage(len, buff);
 }
+
+WARDuino *WARDuino::singleton = nullptr;
+
+WARDuino *WARDuino::instance() {
+    if (singleton == nullptr) singleton = new WARDuino();
+    return singleton;
+}

@@ -15,7 +15,7 @@
 unsigned int wasm_len = upload_wasm_len;
 unsigned char* wasm = upload_wasm;
 
-WARDuino wac;
+WARDuino* wac = WARDuino::instance();
 Module* m;
 
 #define UART_PIN 3
@@ -23,7 +23,7 @@ Module* m;
 void startDebuggerStd(void* pvParameter) {
     int valread;
     uint8_t buffer[1024] = {0};
-    wac.debugger->socket = fileno(stdout);
+    wac->debugger->socket = fileno(stdout);
     write(fileno(stdout), "Got a message ... \n", 19);
     while (true) {
         // taskYIELD();
@@ -38,7 +38,7 @@ void startDebuggerStd(void* pvParameter) {
             if (buff_len) {
                 write(fileno(stdout), "Reading message ..... \n", 19);
                 fflush(stdout);
-                wac.handleInterrupt(valread - 1, buffer);
+                wac->handleInterrupt(valread - 1, buffer);
                 write(fileno(stdout), buffer, valread);
                 fflush(stdout);
             }
@@ -63,18 +63,18 @@ void setup(void) {
 
 void loop() {
     disableCore0WDT();
-    m = wac.load_module(wasm, wasm_len, {});
+    m = wac->load_module(wasm, wasm_len, {});
 
     printf("LOADED \n\n");
     uint8_t command[] = {'0', '3', '\n'};
-    wac.handleInterrupt(3, command);
+    wac->handleInterrupt(3, command);
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
 
     Serial.println("\nFree heap:");
     Serial.println(ESP.getFreeHeap());
 
-    wac.run_module(m);
+    wac->run_module(m);
     printf("END\n\n");
-    wac.unload_module(m);
+    wac->unload_module(m);
 }

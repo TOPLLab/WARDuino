@@ -180,12 +180,15 @@ typedef struct PrimitiveEntry {
 
 class WARDuino {
    private:
+    static WARDuino *singleton;
     std::vector<Module *> modules = {};
+
+    WARDuino();
 
    public:
     Debugger *debugger;
 
-    WARDuino();
+    static WARDuino *instance();
 
     int run_module(Module *m);
 

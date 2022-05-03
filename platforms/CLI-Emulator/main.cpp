@@ -131,14 +131,14 @@ void startDebuggerSocket(WARDuino *wac, Module *m) {
     }
 }
 
-WARDuino wac;
+WARDuino *wac = WARDuino::instance();
 Module *m;
 
 void *runWAC(void *p) {
     // Print value received as argument:
     dbg_info("\n=== STARTED INTERPRETATION (in separate thread) ===\n");
-    wac.run_module(m);
-    wac.unload_module(m);
+    wac->run_module(m);
+    wac->unload_module(m);
 }
 
 int main(int argc, const char *argv[]) {
@@ -185,10 +185,10 @@ int main(int argc, const char *argv[]) {
     if (argc == 0 && file_name != nullptr) {
         if (run_tests) {
             dbg_info("=== STARTING SPEC TESTS ===\n");
-            return run_wasm_test(wac, file_name, asserts_file, watcompiler);
+            return run_wasm_test(*wac, file_name, asserts_file, watcompiler);
         }
         dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
-        m = load(wac, file_name,
+        m = load(*wac, file_name,
                  {.disable_memory_bounds = false,
                   .mangle_table_index = false,
                   .dlsym_trim_underscore = false,
@@ -202,12 +202,12 @@ int main(int argc, const char *argv[]) {
         pthread_t id;
         uint8_t command[] = {'0', '3', '\n'};
         // wac.handleInterrupt(3, command);
-        m->warduino = &wac;
+        m->warduino = wac;
         pthread_create(&id, nullptr, runWAC, nullptr);
         if (no_socket) {
-            startDebuggerStd(&wac, m);
+            startDebuggerStd(wac, m);
         } else {
-            startDebuggerSocket(&wac, m);
+            startDebuggerSocket(wac, m);
         }
         int *ptr;
         pthread_join(id, (void **)&ptr);
