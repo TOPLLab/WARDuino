@@ -54,6 +54,13 @@ void CallbackHandler::push_event(std::string topic,
     }
 }
 
+void CallbackHandler::push_event(Event *event) {
+    if (events->size() < EVENTS_SIZE) {
+        dbg_info("Push Event(%s, %s)\n", event->topic.c_str(), event->payload);
+        events->push(*event);
+    }
+}
+
 bool CallbackHandler::resolve_event() {
     if (CallbackHandler::events->empty()) {
         return false;

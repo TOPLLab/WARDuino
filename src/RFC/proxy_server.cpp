@@ -80,9 +80,11 @@ void *readSocket(void *input) {
     ProxyServer::startPushDebuggerSocket(*((struct Socket *)input));
 }
 
-Event parseJSON(size_t len, uint8_t *buff) {
-    // TODO parse JSON message
-    nlohmann::json parsed;
+Event *parseJSON(size_t len, char *buff) {
+    auto parsed = nlohmann::json::parse(buff);
+    dbg_info("%s\n", parsed.dump());
+    std::string payload = parsed["payload"];
+    return new Event(parsed["topic"], payload.c_str());
 }
 
 ProxyServer *ProxyServer::proxyServer = nullptr;
@@ -138,13 +140,13 @@ void ProxyServer::startPushDebuggerSocket(struct Socket arg) {
     startListening(arg.fileDescriptor);
 
     int valread;
-    uint8_t buffer[1024] = {0};
+    char buffer[1024] = {0};
     while (continuing(arg.mutex)) {
         int socket = listenForIncomingConnection(arg.fileDescriptor, _address);
         while ((valread = read(socket, buffer, 1024)) != -1) {
             write(socket, "got a push message ... \n", 24);
-            Event event = parseJSON(valread - 1, buffer);
-            // TODO sent event to CallbackHandler
+            Event *event = parseJSON(valread - 1, buffer);
+            CallbackHandler::push_event(event);
         }
     }
 }
