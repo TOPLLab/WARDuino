@@ -33,6 +33,7 @@ struct Address {
 struct Socket {
     int port;
     int fileDescriptor;
+    struct sockaddr_in adress;
     pthread_mutex_t *mutex;
 };
 
@@ -137,16 +138,11 @@ ProxyServer::ProxyServer() {
 }
 
 void ProxyServer::startPushDebuggerSocket(struct Socket arg) {
-    struct sockaddr_in _address = createAddress(arg.port);
-    bindSocketToAddress(arg.fileDescriptor, _address);
-    startListening(arg.fileDescriptor);
-
+    int socket = arg.fileDescriptor;
     int valread;
     char buffer[1024] = {0};
     while (continuing(arg.mutex)) {
-        int socket = listenForIncomingConnection(arg.fileDescriptor, _address);
         while ((valread = read(socket, buffer, 1024)) != -1) {
-            write(socket, "got a push message ... \n", 24);
             Event *event = parseJSON(valread - 1, buffer);
             CallbackHandler::push_event(event);
         }
@@ -190,9 +186,10 @@ pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
     args->port = this->push_port;
     args->fileDescriptor = this->push_socket;
     args->mutex = mutex;
+    args->adress = this->addressPush->aserv_addr;
+
     pthread_create(&id, nullptr, readSocket, &args);
 
-    printf("connected");
     return id;
 }
 
