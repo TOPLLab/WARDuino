@@ -175,7 +175,7 @@ pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
     }
 
     // Connect to push socket
-    msg = createConnection(push_socket, this->host, this->pull_port,
+    msg = createConnection(push_socket, this->host, this->push_port,
                            this->address);
     if (!is_success(msg)) {
         this->updateExcpMsg(msg);  // TODO differentiate between ports
