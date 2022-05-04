@@ -507,7 +507,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                         {
                             ASSERT(!m->table.entries,
                                    "More than 1 table not supported\n");
-                            Table *tval = (Table *)val;
+                            auto *tval = (Table *)val;
                             m->table.entries = (uint32_t *)val;
                             ASSERT(m->table.initial <= tval->maximum,
                                    "Imported table is not large enough\n");
@@ -938,7 +938,7 @@ int WARDuino::run_module(Module *m) {
 // ntly the same function)
 // parse numer per 2 chars (HEX) (stop if non-hex)
 // Don't use print in interrupt handlers
-void WARDuino::handleInterrupt(size_t len, uint8_t *buff) {
+void WARDuino::handleInterrupt(size_t len, uint8_t *buff) const {
     this->debugger->addDebugMessage(len, buff);
 }
 

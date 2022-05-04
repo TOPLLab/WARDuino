@@ -39,9 +39,10 @@ enum InterruptTypes {
     interruptDronify = 0x65,
 
     // Push Debugging
-    interruptDUMPEvent = 0x70,
-    interruptPOPEvent = 0x71,
-    interruptPUSHEvent = 0x72
+    interruptDUMPAllEvents = 0x70,
+    interruptDUMPEvents = 0x71,
+    interruptPOPEvent = 0x72,
+    interruptPUSHEvent = 0x73
 };
 
 class Debugger {
@@ -87,11 +88,15 @@ class Debugger {
 
     void dumpCallstack(Module *m) const;
 
+    void dumpEvents(long start, long size);
+
     //// Handle live code update
 
     static bool handleChangedFunction(Module *m, uint8_t *bytes);
 
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
+
+    bool handlePushedEvent(Module *m, uint8_t *bytes) const;
 
     // WOOD Private Methods
 

@@ -12,12 +12,12 @@
 // CallbackHandler class
 
 bool CallbackHandler::pushingMode = false;
+bool CallbackHandler::resolving_event = false;
 
-// bool CallbackHandler::resolving_event = false;
 std::unordered_map<std::string, std::vector<Callback> *>
     *CallbackHandler::callbacks =
         new std::unordered_map<std::string, std::vector<Callback> *>();
-std::queue<Event> *CallbackHandler::events = new std::queue<Event>();
+std::deque<Event> *CallbackHandler::events = new std::deque<Event>();
 
 void CallbackHandler::add_callback(const Callback &c) {
     auto item = callbacks->find(c.topic);
@@ -50,14 +50,14 @@ void CallbackHandler::push_event(std::string topic,
         auto e = new Event(std::move(topic),
                            reinterpret_cast<const char *>(message));
         dbg_info("Push Event(%s, %s)\n", e->topic.c_str(), e->payload);
-        events->push(*e);
+        events->push_back(*e);
     }
 }
 
 void CallbackHandler::push_event(Event *event) {
     if (events->size() < EVENTS_SIZE) {
         dbg_info("Push Event(%s, %s)\n", event->topic.c_str(), event->payload);
-        events->push(*event);
+        events->push_back(*event);
     }
 }
 
@@ -65,7 +65,7 @@ bool CallbackHandler::resolve_event() {
     if (CallbackHandler::events->empty()) {
         return false;
     }
-    //    CallbackHandler::resolving_event = true;
+    CallbackHandler::resolving_event = true;
 
     Event event = CallbackHandler::events->front();
 
@@ -88,7 +88,7 @@ bool CallbackHandler::resolve_event() {
         }
     }
 #endif
-    CallbackHandler::events->pop();
+    CallbackHandler::events->pop_front();
 
     printf("Resolving an event. (%lu remaining)\n",
            CallbackHandler::events->size());
@@ -102,8 +102,20 @@ bool CallbackHandler::resolve_event() {
     } else {
         // TODO handle error: event for non-existing iterator
     }
-    //    CallbackHandler::resolving_event = false;
+    CallbackHandler::resolving_event = false;
     return !CallbackHandler::events->empty();
+}
+
+size_t CallbackHandler::event_count() {
+    return CallbackHandler::events->size();
+}
+
+std::deque<Event>::const_iterator CallbackHandler::event_begin() {
+    return CallbackHandler::events->cbegin();
+}
+
+std::deque<Event>::const_iterator CallbackHandler::event_end() {
+    return CallbackHandler::events->cend();
 }
 
 // Callback class

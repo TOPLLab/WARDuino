@@ -32,7 +32,7 @@
 #define FUNC 0x60     // -0x20
 #define BLOCK 0x40    // -0x40
 
-#define EVENTS_SIZE 1
+#define EVENTS_SIZE 10
 
 #define KIND_FUNCTION 0
 #define KIND_TABLE 1
@@ -200,5 +200,5 @@ class WARDuino {
 
     uint32_t get_export_fidx(Module *m, const char *name);
 
-    void handleInterrupt(size_t len, uint8_t *buff);
+    void handleInterrupt(size_t len, uint8_t *buff) const;
 };

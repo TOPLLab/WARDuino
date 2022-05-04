@@ -9,6 +9,7 @@
 #include "../RFC/rfc.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
+#include "nlohmann/json.hpp"
 
 // Debugger
 
@@ -119,6 +120,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
     }
 
     dprintf(this->socket, "Interrupt: %x\n", *interruptData);
+
+    long start = 0, size = 0;
     switch (*interruptData) {
         case interruptRUN:
             this->handleInterruptRUN(m, program_state);
@@ -217,6 +220,19 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
 #endif
         case interruptDronify:
             // TODO Dronify
+            break;
+        case interruptDUMPAllEvents:
+            printf("InterruptDUMPEvents\n");
+            size = (long)CallbackHandler::event_count();
+        case interruptDUMPEvents:
+            // TODO get start and size from message
+            this->dumpEvents(start, size);
+            break;
+        case interruptPOPEvent:
+            CallbackHandler::resolve_event();
+            break;
+        case interruptPUSHEvent:
+            this->handlePushedEvent(m, interruptData);
             break;
         default:
             // handle later
@@ -408,6 +424,30 @@ void Debugger::dumpLocals(Module *m) const {
     //    fflush(stdout);
 }
 
+void Debugger::dumpEvents(long start, long size) {
+    CallbackHandler::resolving_event = true;
+    if (size > EVENTS_SIZE) {
+        size = EVENTS_SIZE;
+    }
+    dbg_info("Printing event queue (%lu, %lu) ...\n", start, size);
+
+    dprintf(this->socket, R"({"events": [)");
+    long index = start, end = start + size;
+    std::for_each(CallbackHandler::event_begin() + start,
+                  CallbackHandler::event_begin() + end,
+                  [this, &index, &end](const Event &e) {
+                      dprintf(this->socket,
+                              R"({"topic": "%s", "payload": "%s"})",
+                              e.topic.c_str(), e.payload);
+                      if (++index < end) {
+                          dprintf(this->socket, ", ");
+                      }
+                  });
+    dprintf(this->socket, "]}");
+
+    CallbackHandler::resolving_event = false;
+}
+
 /**
  * Read the change in bytes array.
  *
@@ -499,6 +539,15 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
     dprintf(this->socket, "Local %u changed to %u\n", localId, v->value.uint32);
     return true;
 }
+
+bool Debugger::handlePushedEvent(Module *m, uint8_t *bytes) const {
+    if (*bytes != interruptPUSHEvent) return false;
+    auto parsed = nlohmann::json::parse(bytes);
+    std::string payload = parsed["payload"];
+    CallbackHandler::push_event(new Event(parsed["topic"], payload.c_str()));
+    return true;
+}
+
 void Debugger::woodDump(Module *m) {
     debug("asked for doDump\n");
     printf("asked for woodDump\n");

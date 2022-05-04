@@ -1550,9 +1550,9 @@ bool interpret(Module *m) {
 
         // Resolve 1 callback event if queue is not empty and no event
         // currently resolving
-        //        if (!CallbackHandler::resolving_event) {
-        CallbackHandler::resolve_event();
-        //        }
+        if (!CallbackHandler::resolving_event) {
+            CallbackHandler::resolve_event();
+        }
 
         // if BP and not the one we just unpaused
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
@@ -1765,8 +1765,7 @@ bool interpret(Module *m) {
     }
 
     // Resolve all unhandled callback events
-    while (/*!CallbackHandler::resolving_event &&*/
-           CallbackHandler::resolve_event())
+    while (CallbackHandler::resolving_event && CallbackHandler::resolve_event())
         ;
 
     dbg_trace("Interpretation ended %s with status %s\n",

@@ -14,12 +14,16 @@ class Event;
 class CallbackHandler {
    private:
     static std::unordered_map<std::string, std::vector<Callback> *> *callbacks;
-    static std::queue<Event> *events;
+    static std::deque<Event> *events;
 
     CallbackHandler() = default;  // Disallow creation
 
    public:
-    //    static bool resolving_event;
+    static size_t event_count();
+    static std::deque<Event>::const_iterator event_begin();
+    static std::deque<Event>::const_iterator event_end();
+
+    static bool resolving_event;
 
     static void add_callback(const Callback &c);
     static void remove_callback(const Callback &c);
