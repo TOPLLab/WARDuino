@@ -143,7 +143,7 @@ void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
     char buffer[1024] = {0};
     // TODO add continuing(arg.mutex)
     while (true) {
-        valread = read(6, buffer, 1024);
+        valread = read(socket, buffer, 1024);
         if (valread != -1) {
             Event *event = parseJSON(valread - 1, buffer);
             CallbackHandler::push_event(event);
