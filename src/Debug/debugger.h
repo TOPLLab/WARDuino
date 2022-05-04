@@ -36,11 +36,12 @@ enum InterruptTypes {
     interruptRecvState = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
+    interruptDronify = 0x65,
 
     // Push Debugging
-    interruptDUMPEvent = 0x65,
-    interruptPOPEvent = 0x66,
-    interruptPUSHEvent = 0x67
+    interruptDUMPEvent = 0x70,
+    interruptPOPEvent = 0x71,
+    interruptPUSHEvent = 0x72
 };
 
 class Debugger {

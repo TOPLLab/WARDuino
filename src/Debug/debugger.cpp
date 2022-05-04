@@ -215,6 +215,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
         } break;
 #endif
+        case interruptDronify:
+            // TODO Dronify
+            break;
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");
