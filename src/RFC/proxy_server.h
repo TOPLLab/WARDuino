@@ -25,7 +25,7 @@ class ProxyServer {
    public:
     char *exceptionMsg;
 
-    static void startPushDebuggerSocket(struct Socket arg);
+    static void startPushDebuggerSocket(struct Socket *arg);
 
     void registerAddresses(char *_host, int _pull_port, int _push_port);
     void closeConnections();
