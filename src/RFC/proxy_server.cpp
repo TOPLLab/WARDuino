@@ -132,6 +132,7 @@ ProxyServer::ProxyServer() {
     pull_socket = -1;
     push_socket = -1;
     address = (struct Address *)malloc(sizeof(struct Address));
+    addressPush = (struct Address *)malloc(sizeof(struct Address));
 }
 
 void ProxyServer::startPushDebuggerSocket(struct Socket arg) {
@@ -176,7 +177,7 @@ pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
 
     // Connect to push socket
     msg = createConnection(push_socket, this->host, this->push_port,
-                           this->address);
+                           this->addressPush);
     if (!is_success(msg)) {
         this->updateExcpMsg(msg);  // TODO differentiate between ports
         FATAL("problem opening socket to MCU: %s\n", this->exceptionMsg);

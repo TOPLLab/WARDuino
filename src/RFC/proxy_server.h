@@ -17,6 +17,7 @@ class ProxyServer {
     int pull_port, push_port, pull_socket, push_socket;
 
     struct Address *address;
+    struct Address *addressPush;
 
     // private constructor for singleton
     ProxyServer();
