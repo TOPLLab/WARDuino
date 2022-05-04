@@ -9,7 +9,13 @@ struct Module;
 
 class Callback;
 
-class Event;
+class Event {
+   public:
+    std::string topic;
+    const char *payload;
+
+    Event(std::string topic, const char *payload);
+};
 
 class CallbackHandler {
    private:
@@ -34,14 +40,6 @@ class CallbackHandler {
 
     // WOOD needed to know when to push events
     static bool pushingMode;
-};
-
-class Event {
-   public:
-    std::string topic;
-    const char *payload;
-
-    Event(std::string topic, const char *payload);
 };
 
 class Callback {
