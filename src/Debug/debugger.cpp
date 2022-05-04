@@ -3,13 +3,15 @@
 #include <algorithm>
 #include <cinttypes>
 #include <cstring>
+#ifndef ARDUINO
+#include <nlohmann/json.hpp>
+#endif
 
 #include "../Memory/mem.h"
 #include "../RFC/proxy_server.h"
 #include "../RFC/rfc.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
-#include "nlohmann/json.hpp"
 
 // Debugger
 
@@ -231,9 +233,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptPOPEvent:
             CallbackHandler::resolve_event();
             break;
+#ifndef ARDUINO
         case interruptPUSHEvent:
             this->handlePushedEvent(m, interruptData);
             break;
+#endif
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");
@@ -540,6 +544,7 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
     return true;
 }
 
+#ifndef ARDUINO
 bool Debugger::handlePushedEvent(Module *m, uint8_t *bytes) const {
     if (*bytes != interruptPUSHEvent) return false;
     auto parsed = nlohmann::json::parse(bytes);
@@ -547,6 +552,7 @@ bool Debugger::handlePushedEvent(Module *m, uint8_t *bytes) const {
     CallbackHandler::push_event(new Event(parsed["topic"], payload.c_str()));
     return true;
 }
+#endif
 
 void Debugger::woodDump(Module *m) {
     debug("asked for doDump\n");

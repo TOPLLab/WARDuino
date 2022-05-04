@@ -77,7 +77,7 @@ bool CallbackHandler::resolve_event() {
             printf("pushingMode activated but no PushClient to push to\n");
             return true;
         } else {
-            CallbackHandler::events->pop();
+            CallbackHandler::events->pop_front();
             SocketServer *server = SocketServer::getServer();
             printf(R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
                    event.payload);
