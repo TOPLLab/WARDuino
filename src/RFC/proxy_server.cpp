@@ -78,7 +78,7 @@ bool continuing(pthread_mutex_t *mutex) {
 void *readSocket(void *input) {
     // Print value received as argument:
     dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
-    ProxyServer::startPushDebuggerSocket(*((struct Socket *)input));
+    ProxyServer::startPushDebuggerSocket((struct Socket *)input);
 }
 
 Event *parseJSON(size_t len, char *buff) {
@@ -137,12 +137,14 @@ ProxyServer::ProxyServer() {
     addressPush = (struct Address *)malloc(sizeof(struct Address));
 }
 
-void ProxyServer::startPushDebuggerSocket(struct Socket arg) {
-    int socket = arg.fileDescriptor;
+void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
+    int socket = arg->fileDescriptor;
     int valread;
     char buffer[1024] = {0};
-    while (continuing(arg.mutex)) {
-        while ((valread = read(socket, buffer, 1024)) != -1) {
+    // TODO add continuing(arg.mutex)
+    while (true) {
+        valread = read(6, buffer, 1024);
+        if (valread != -1) {
             Event *event = parseJSON(valread - 1, buffer);
             CallbackHandler::push_event(event);
         }
@@ -150,7 +152,6 @@ void ProxyServer::startPushDebuggerSocket(struct Socket arg) {
 }
 
 pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
-    printf("connecting");
     if (this->host == nullptr) {
         this->updateExcpMsg(NO_HOST_ERR);
         FATAL("problem opening socket to MCU: %s\n", this->exceptionMsg);
@@ -188,7 +189,7 @@ pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
     args->mutex = mutex;
     args->adress = this->addressPush->aserv_addr;
 
-    pthread_create(&id, nullptr, readSocket, &args);
+    pthread_create(&id, nullptr, readSocket, args);
 
     return id;
 }
