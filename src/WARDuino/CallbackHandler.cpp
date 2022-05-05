@@ -66,8 +66,6 @@ bool CallbackHandler::resolve_event() {
     if (CallbackHandler::events->empty()) {
         return false;
     }
-    CallbackHandler::resolving_event = true;
-
     Event event = CallbackHandler::events->front();
 
 #ifdef ARDUINO
@@ -85,11 +83,12 @@ bool CallbackHandler::resolve_event() {
             server->printf2Client(server->pushClient,
                                   R"({"topic":"%s","payload":"%s"})",
                                   event.topic.c_str(), event.payload);
-            CallbackHandler::resolving_event = false;
             return !CallbackHandler::events->empty();
         }
     }
 #endif
+
+    CallbackHandler::resolving_event = true;
     CallbackHandler::events->pop_front();
 
     printf("Resolving an event. (%lu remaining)\n",
