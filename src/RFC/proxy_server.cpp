@@ -143,13 +143,22 @@ ProxyServer::ProxyServer() {
 
 void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
     int socket = arg->fileDescriptor;
-    int valread;
+
+    char _char;
+    int buf_idx = 0;
     char buffer[1024] = {0};
+
     while (continuing(arg->mutex)) {
-        valread = read(socket, buffer, 1024);
-        if (valread != -1) {
-            Event *event = parseJSON(valread - 1, buffer);
-            CallbackHandler::push_event(event);
+        if (read(socket, &_char, 1) != -1) {
+            // TODO FIX if buffer becomes too small
+            buffer[buf_idx++] = _char;
+            buffer[buf_idx] = '\0';
+            try {
+                Event *event = parseJSON(buf_idx - 1, buffer);
+                CallbackHandler::push_event(event);
+                buf_idx = 0;
+            } catch (const nlohmann::detail::parse_error &e) {
+            }
         }
     }
 }
