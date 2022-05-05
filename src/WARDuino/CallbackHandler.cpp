@@ -73,12 +73,11 @@ bool CallbackHandler::resolve_event() {
     SocketServer *server = SocketServer::getServer();
     if (CallbackHandler::pushingMode) {
         if (!server->hasPushClient()) {
-            printf("pushingMode activated but no PushClient to push to\n");
             return true;
         } else {
             CallbackHandler::events->pop_front();
             SocketServer *server = SocketServer::getServer();
-            printf(R"({"topic":"%s","payload":"%s"}\n)", event.topic.c_str(),
+            printf(R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
                    event.payload);  // TODO remove
             server->printf2Client(server->pushClient,
                                   R"({"topic":"%s","payload":"%s"})",
