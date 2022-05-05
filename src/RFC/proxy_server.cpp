@@ -152,7 +152,8 @@ void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
         if (read(socket, &_char, 1) != -1) {
             // TODO FIX if buffer becomes too small
             buffer[buf_idx++] = _char;
-            buffer[buf_idx] = '\0';
+            buffer[buf_idx] = '\0';  // needed because parseJSON does not use
+                                     // first len argument
             try {
                 Event *event = parseJSON(buf_idx - 1, buffer);
                 CallbackHandler::push_event(event);
