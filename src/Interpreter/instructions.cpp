@@ -1543,6 +1543,9 @@ bool interpret(Module *m) {
 #endif
 
         if (program_state == WARDUINOpause) {
+            if (CallbackHandler::pushingMode) {
+                CallbackHandler::resolve_event();
+            }
             continue;
         }
 
