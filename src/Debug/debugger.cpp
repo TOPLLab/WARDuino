@@ -233,7 +233,13 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptPOPEvent:
             CallbackHandler::resolve_event();
             break;
-#ifndef ARDUINO
+#ifdef ARDUINO
+        case interruptTOGGLEPushingMode:
+            CallbackHandler::pushingMode = !CallbackHandler::pushingMode;
+            printf(R"({"pushingMode": %s})",
+                   CallbackHandler::pushingMode ? "true" : "false");
+            break;
+#else
         case interruptPUSHEvent:
             this->handlePushedEvent(m, interruptData);
             break;

@@ -42,7 +42,8 @@ enum InterruptTypes {
     interruptDUMPAllEvents = 0x70,
     interruptDUMPEvents = 0x71,
     interruptPOPEvent = 0x72,
-    interruptPUSHEvent = 0x73
+    interruptPUSHEvent = 0x73,
+    interruptTOGGLEPushingMode = 0x74
 };
 
 class Debugger {
