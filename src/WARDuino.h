@@ -32,8 +32,11 @@
 #define FUNC 0x60     // -0x20
 #define BLOCK 0x40    // -0x40
 
+#ifdef ARDUINO
 #define EVENTS_SIZE 10
-
+#else
+#define EVENTS_SIZE 50
+#endif
 #define KIND_FUNCTION 0
 #define KIND_TABLE 1
 #define KIND_MEMORY 2
