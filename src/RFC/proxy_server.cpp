@@ -67,9 +67,9 @@ bool continuing(pthread_mutex_t *mutex) {
     switch (pthread_mutex_trylock(mutex)) {
         case 0: /* if we got the lock, unlock and return true */
             pthread_mutex_unlock(mutex);
-            return true;
-        case EBUSY: /* return false if the mutex was locked */
             return false;
+        case EBUSY: /* return false if the mutex was locked */
+            return true;
         default:
             return true;
     }
