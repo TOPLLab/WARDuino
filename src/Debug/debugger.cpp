@@ -951,14 +951,15 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
 }
 #else
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
-    this->connected_to_drone = true;
-    pthread_mutex_init(&this->push_mutex, nullptr);
-    pthread_mutex_lock(&this->push_mutex);
-
     RFC::registerRFCs(m, &interruptData);
-    ProxyServer::registerMCUHost(&interruptData);
-    ProxyServer *mcuhost = ProxyServer::getServer();
-    this->push_debugging_threadid = mcuhost->openConnections(&this->push_mutex);
+    if (ProxyServer::registerMCUHost(&interruptData)) {
+        this->connected_to_drone = true;
+        pthread_mutex_init(&this->push_mutex, nullptr);
+        pthread_mutex_lock(&this->push_mutex);
+        ProxyServer *mcuhost = ProxyServer::getServer();
+        this->push_debugging_threadid =
+            mcuhost->openConnections(&this->push_mutex);
+    }
     dprintf(this->socket, "done!\n");
 }
 

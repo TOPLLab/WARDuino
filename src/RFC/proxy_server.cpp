@@ -96,27 +96,31 @@ ProxyServer *ProxyServer::getServer() {
     return proxyServer;
 }
 
-void ProxyServer::registerMCUHost(uint8_t **data) {
+bool ProxyServer::registerMCUHost(uint8_t **data) {
     int pull = (int)read_B32(data);
     int push = pull + 1;
     auto hostsize = (uint8_t)(*data)[0];
     char *hostname = new char[hostsize + 1];
     memcpy((void *)hostname, ++(*data), hostsize);
     hostname[hostsize] = '\0';
-    printf("Registering Proxy Host: %s PULL_PORT=%d PUSH_PORT=%d\n", hostname,
-           pull, push);
-    ProxyServer::getServer()->registerAddresses(hostname, pull, push);
+    return ProxyServer::getServer()->registerAddresses(hostname, pull, push);
 }
 
-void ProxyServer::registerAddresses(char *_host, int _pull_port,
+bool ProxyServer::registerAddresses(char *_host, int _pull_port,
                                     int _push_port) {
     if (this->host != nullptr) {
+        if (this->pull_port == _pull_port && strcmp(_host, this->host) == 0) {
+            return false;
+        }
         this->closeConnections();
         free(this->host);
     }
+    printf("Registering Proxy Host: %s PULL_PORT=%d PUSH_PORT=%d\n", _host,
+           _pull_port, _push_port);
     this->host = _host;
     this->pull_port = _pull_port;
     this->push_port = _push_port;
+    return true;
 }
 
 void ProxyServer::updateExcpMsg(const char *msg) {

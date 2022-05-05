@@ -27,13 +27,13 @@ class ProxyServer {
 
     static void startPushDebuggerSocket(struct Socket *arg);
 
-    void registerAddresses(char *_host, int _pull_port, int _push_port);
+    bool registerAddresses(char *_host, int _pull_port, int _push_port);
     void closeConnections();
     pthread_t openConnections(pthread_mutex_t *mutex);
     void updateExcpMsg(const char *msg);
     bool send(void *t_buffer, int t_size);
     char *readReply(short int amount = 1024);
 
-    static void registerMCUHost(uint8_t **data);
+    static bool registerMCUHost(uint8_t **data);
     static ProxyServer *getServer();
 };
