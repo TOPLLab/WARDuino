@@ -1493,7 +1493,7 @@ bool interpret(Module *m) {
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
             m->warduino->debugger->skipBreakpoint != m->pc_ptr) {
             program_state = WARDUINOpause;
-            printf("AT %p!\n", (void *)m->pc_ptr);
+            m->warduino->debugger->notifyBreakpoint(m->pc_ptr);
             continue;
         }
         m->warduino->debugger->skipBreakpoint = nullptr;
