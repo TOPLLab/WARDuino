@@ -88,4 +88,6 @@ class Debugger {
     void deleteBreakpoint(uint8_t *loc);
 
     bool isBreakpoint(uint8_t *loc);
+
+    void notifyBreakpoint(uint8_t *pc_ptr);
 };
