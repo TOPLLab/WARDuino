@@ -58,6 +58,7 @@ void CallbackHandler::push_event(Event *event) {
     if (events->size() < EVENTS_SIZE) {
         dbg_info("Push Event(%s, %s)\n", event->topic.c_str(), event->payload);
         events->push_back(*event);
+        printf("new events size %lu\n", events->size());  // TODO remove
     }
 }
 
@@ -79,12 +80,13 @@ bool CallbackHandler::resolve_event() {
         } else {
             CallbackHandler::events->pop_front();
             SocketServer *server = SocketServer::getServer();
-            printf(R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
-                   event.payload);
+            printf(R"({"topic":"%s","payload":"%s"}\n)", event.topic.c_str(),
+                   event.payload);  // TODO remove
             server->printf2Client(server->pushClient,
                                   R"({"topic":"%s","payload":"%s"})",
                                   event.topic.c_str(), event.payload);
-            return CallbackHandler::resolve_event();
+            CallbackHandler::resolving_event = false;
+            return !CallbackHandler::events->empty();
         }
     }
 #endif
