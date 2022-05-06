@@ -81,12 +81,12 @@ void *readSocket(void *input) {
     ProxyServer::startPushDebuggerSocket((struct Socket *)input);
 }
 
-Event *parseJSON(size_t len, char *buff) {
+Event *parseJSON(char *buff) {
     // TODO duplicate code in Debugger::handlePushedEvent
-    auto parsed = nlohmann::json::parse(buff);
+    nlohmann::basic_json<> parsed = nlohmann::json::parse(buff);
     dbg_info("%s\n", parsed.dump());
-    std::string payload = parsed["payload"];
-    return new Event(parsed["topic"], payload.c_str());
+    std::string payload = *parsed.find("payload");
+    return new Event(*parsed.find("topic"), payload.c_str());
 }
 
 ProxyServer *ProxyServer::proxyServer = nullptr;
@@ -167,7 +167,7 @@ void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
             // first len argument
             buffer[buf_idx] = '\0';
             try {
-                Event *event = parseJSON(buf_idx - 1, buffer);
+                Event *event = parseJSON(buffer);
                 CallbackHandler::push_event(event);
                 buf_idx = 0;
             } catch (const nlohmann::detail::parse_error &e) {

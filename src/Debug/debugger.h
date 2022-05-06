@@ -50,12 +50,14 @@ class Debugger {
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
+
     volatile bool interruptWrite{};
     volatile bool interruptRead{};
     bool interruptEven = true;
     uint8_t interruptLastChar{};
     std::vector<uint8_t> interruptBuffer;
     long interruptSize{};
+    bool receivingData = false;
 
 #ifndef ARDUINO
     bool connected_to_drone = false;
@@ -96,24 +98,26 @@ class Debugger {
 
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
-    bool handlePushedEvent(Module *m, uint8_t *bytes) const;
+    //// Handle out-of-place debugging
 
-    // WOOD Private Methods
-
-    // Receiving and dumping State
-    bool receivingData = false;
     void freeState(Module *m, uint8_t *interruptData);
+
     static uint8_t *findOpcode(Module *m, Block *block);
+
     bool saveState(Module *m, uint8_t *interruptData);
+
     static uintptr_t readPointer(uint8_t **data);
 
    public:
+    // Public fields
+
     int socket;
 
     std::set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
     uint8_t *skipBreakpoint =
         nullptr;  // Breakpoint to skip in the next interpretation step
 
+    // Constructor
     explicit Debugger(int socket);
 
     // Interrupts
@@ -134,16 +138,24 @@ class Debugger {
 
     void notifyBreakpoint(uint8_t *pc_ptr);
 
-    // WOOD
+    // Out-of-place debugging
+
     void woodDump(Module *m);
+
 #ifdef ARDUINO
     void handleProxyCall(Module *m, RunningState *program_state,
                          uint8_t *interruptData);
 #else
-    void handleMonitorProxies(Module *m, uint8_t *interruptData);
-
     bool drone_connected() const;
 
     void disconnect_drone();
+
+    // Pull-based
+
+    void handleMonitorProxies(Module *m, uint8_t *interruptData);
+
+    // Push-based
+
+    bool handlePushedEvent(Module *m, char *bytes) const;
 #endif
 };

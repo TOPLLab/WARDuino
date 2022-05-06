@@ -217,6 +217,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         } break;
 #else
         case interruptMonitorProxies: {
+            CallbackHandler::manual_event_resolution = true;
             printf("receiving functions list to proxy\n");
             this->handleMonitorProxies(m, interruptData + 1);
             free(interruptData);
@@ -232,14 +233,16 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             // TODO get start and size from message
             dprintf(this->socket, "{");
             this->dumpEvents(start, size);
-            dprintf(this->socket, "}");
+            dprintf(this->socket, "}\n");
             break;
         case interruptPOPEvent:
             CallbackHandler::resolve_event();
             break;
+#ifndef ARDUINO
         case interruptPUSHEvent:
-            this->handlePushedEvent(m, interruptData);
+            this->handlePushedEvent(m, reinterpret_cast<char *>(interruptData));
             break;
+#endif
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");
@@ -549,11 +552,12 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
 }
 
 #ifndef ARDUINO
-bool Debugger::handlePushedEvent(Module *m, uint8_t *bytes) const {
+bool Debugger::handlePushedEvent(Module *m, char *bytes) const {
     if (*bytes != interruptPUSHEvent) return false;
     auto parsed = nlohmann::json::parse(bytes);
-    std::string payload = parsed["payload"];
-    CallbackHandler::push_event(new Event(parsed["topic"], payload.c_str()));
+    std::string payload = *parsed.find("payload");
+    CallbackHandler::push_event(
+        new Event(*parsed.find("topic"), payload.c_str()));
     return true;
 }
 #endif

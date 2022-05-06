@@ -1542,7 +1542,8 @@ bool interpret(Module *m) {
         }
 #endif
 
-        if (CallbackHandler::manual_event_resolution || program_state != WARDUINOpause) {
+        if (CallbackHandler::manual_event_resolution ||
+            program_state != WARDUINOpause) {
             // Resolve 1 callback event if queue is not empty and no event
             // currently resolving
             CallbackHandler::resolve_event();

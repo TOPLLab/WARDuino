@@ -91,8 +91,8 @@ bool CallbackHandler::resolve_event() {
     CallbackHandler::resolving_event = true;
     CallbackHandler::events->pop_front();
 
-    printf("Resolving an event. (%lu remaining)\n",
-           CallbackHandler::events->size());
+    debug("Resolving an event. (%lu remaining)\n",
+          CallbackHandler::events->size());
 
     auto iterator = CallbackHandler::callbacks->find(event.topic);
     if (iterator != CallbackHandler::callbacks->end()) {
