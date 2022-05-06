@@ -89,7 +89,7 @@ class Debugger {
 
     void dumpCallstack(Module *m) const;
 
-    void dumpEvents(long start, long size);
+    void dumpEvents(long start, long size) const;
 
     //// Handle live code update
 

@@ -228,7 +228,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             size = (long)CallbackHandler::event_count();
         case interruptDUMPEvents:
             // TODO get start and size from message
+            dprintf(this->socket, "{");
             this->dumpEvents(start, size);
+            dprintf(this->socket, "}");
             break;
         case interruptPOPEvent:
             CallbackHandler::resolve_event();
@@ -341,6 +343,8 @@ void Debugger::dump(Module *m, bool full) const {
     if (full) {
         dprintf(this->socket, R"(, "locals": )");
         this->dumpLocals(m);
+        dprintf(this->socket, ", ");
+        this->dumpEvents(0, CallbackHandler::event_count());
     }
 
     dprintf(this->socket, "}\n\n");
@@ -434,14 +438,14 @@ void Debugger::dumpLocals(Module *m) const {
     //    fflush(stdout);
 }
 
-void Debugger::dumpEvents(long start, long size) {
+void Debugger::dumpEvents(long start, long size) const {
     CallbackHandler::resolving_event = true;
     if (size > EVENTS_SIZE) {
         size = EVENTS_SIZE;
     }
     dbg_info("Printing event queue (%lu, %lu) ...\n", start, size);
 
-    dprintf(this->socket, R"({"events": [)");
+    dprintf(this->socket, R"("events": [)");
     long index = start, end = start + size;
     std::for_each(CallbackHandler::event_begin() + start,
                   CallbackHandler::event_begin() + end,
@@ -453,7 +457,7 @@ void Debugger::dumpEvents(long start, long size) {
                           dprintf(this->socket, ", ");
                       }
                   });
-    dprintf(this->socket, "]}");
+    dprintf(this->socket, "]");
 
     CallbackHandler::resolving_event = false;
 }
