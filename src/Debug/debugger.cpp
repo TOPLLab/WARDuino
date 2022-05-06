@@ -182,9 +182,6 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptWOODDUMP:
             *program_state = WARDUINOpause;
-#ifdef ARDUINO
-            CallbackHandler::pushingMode = true;
-#endif
             free(interruptData);
             woodDump(m);
             break;
@@ -196,6 +193,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             if (!this->receivingData) {
                 debug("paused program execution\n");
                 *program_state = WARDUINOpause;
+                CallbackHandler::manual_event_resolution = true;
                 this->receivingData = true;
                 this->freeState(m, interruptData);
                 free(interruptData);
@@ -239,17 +237,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptPOPEvent:
             CallbackHandler::resolve_event();
             break;
-#ifdef ARDUINO
-        case interruptTOGGLEPushingMode:
-            CallbackHandler::pushingMode = !CallbackHandler::pushingMode;
-            printf(R"({"pushingMode": %s})",
-                   CallbackHandler::pushingMode ? "true" : "false");
-            break;
-#else
         case interruptPUSHEvent:
             this->handlePushedEvent(m, interruptData);
             break;
-#endif
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");

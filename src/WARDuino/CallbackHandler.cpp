@@ -11,7 +11,7 @@
 
 // CallbackHandler class
 
-bool CallbackHandler::pushingMode = true;
+bool CallbackHandler::manual_event_resolution = false;
 bool CallbackHandler::resolving_event = false;
 
 std::unordered_map<std::string, std::vector<Callback> *>
@@ -67,7 +67,7 @@ void CallbackHandler::push_event(Event *event) {
 }
 
 bool CallbackHandler::resolve_event() {
-    if (CallbackHandler::events->empty()) {
+    if (CallbackHandler::resolving_event || CallbackHandler::events->empty()) {
         return false;
     }
     Event event = CallbackHandler::events->front();
@@ -75,17 +75,18 @@ bool CallbackHandler::resolve_event() {
 #ifdef ARDUINO
     // check if we need to push events
     SocketServer *server = SocketServer::getServer();
-    if (CallbackHandler::pushingMode && server != nullptr &&
-        server->hasPushClient()) {
-        CallbackHandler::events->pop_front();
+    if (server != nullptr && server->hasPushClient()) {
         printf(R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
                event.payload);  // TODO remove
         server->printf2Client(server->pushClient,
                               R"({"topic":"%s","payload":"%s"})",
                               event.topic.c_str(), event.payload);
-        return !CallbackHandler::events->empty();
     }
 #endif
+
+    if (CallbackHandler::manual_event_resolution) {
+        return true;
+    }
 
     CallbackHandler::resolving_event = true;
     CallbackHandler::events->pop_front();

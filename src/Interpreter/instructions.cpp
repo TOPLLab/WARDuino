@@ -1542,22 +1542,19 @@ bool interpret(Module *m) {
         }
 #endif
 
+        if (CallbackHandler::manual_event_resolution || program_state != WARDUINOpause) {
+            // Resolve 1 callback event if queue is not empty and no event
+            // currently resolving
+            CallbackHandler::resolve_event();
+        }
+
         if (program_state == WARDUINOpause) {
-            if (CallbackHandler::pushingMode) {
-                CallbackHandler::resolve_event();
-            }
             continue;
         }
 
         // Program state is not paused
 
-        // Resolve 1 callback event if queue is not empty and no event
-        // currently resolving
-        if (!CallbackHandler::resolving_event) {
-            CallbackHandler::resolve_event();
-        }
-
-        // if BP and not the one we just unpaused
+        // If BP and not the one we just unpaused
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
             m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
             program_state != WARDuinoProxyRun) {

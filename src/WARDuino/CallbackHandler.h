@@ -40,7 +40,7 @@ class CallbackHandler {
     static bool resolve_event();
 
     // WOOD needed to know when to push events
-    static bool pushingMode;
+    static bool manual_event_resolution;
 };
 
 class Callback {
