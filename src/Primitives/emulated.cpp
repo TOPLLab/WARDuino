@@ -25,7 +25,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 23
+#define NUM_PRIMITIVES_ARDUINO 24
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -419,6 +419,15 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     return true;
 }
 
+def_prim(subscribe_interrupt, threeToNoneU32) {
+    uint8_t pin = arg2.uint32;   // GPIOPin
+    uint8_t fidx = arg1.uint32;  // Callback function
+    uint8_t mode = arg0.uint32;
+
+    debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, fidx, mode);
+    pop_args(3);
+    return true;
+}
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -444,6 +453,7 @@ void install_primitives() {
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
     install_primitive(write_spi_bytes_16);
+    install_primitive(subscribe_interrupt);
 
     install_primitive(init_pixels);
     install_primitive(set_pixel_color);
