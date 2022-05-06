@@ -11,7 +11,7 @@
 
 // CallbackHandler class
 
-bool CallbackHandler::pushingMode = false;
+bool CallbackHandler::pushingMode = true;
 bool CallbackHandler::resolving_event = false;
 
 std::unordered_map<std::string, std::vector<Callback> *>
