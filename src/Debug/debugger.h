@@ -133,6 +133,8 @@ class Debugger {
 
     bool isBreakpoint(uint8_t *loc);
 
+    void notifyBreakpoint(uint8_t *pc_ptr);
+
     // WOOD
     void woodDump(Module *m);
 #ifdef ARDUINO

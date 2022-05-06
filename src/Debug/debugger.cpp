@@ -93,6 +93,10 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end();
 }
 
+void Debugger::notifyBreakpoint(uint8_t *pc_ptr) {
+    dprintf(this->socket, "AT %p!\n", (void *)pc_ptr);
+}
+
 /**
  * Validate if there are interrupts and execute them
  *
