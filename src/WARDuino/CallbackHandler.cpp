@@ -75,19 +75,15 @@ bool CallbackHandler::resolve_event() {
 #ifdef ARDUINO
     // check if we need to push events
     SocketServer *server = SocketServer::getServer();
-    if (CallbackHandler::pushingMode) {
-        if (!server->hasPushClient()) {
-            return true;
-        } else {
-            CallbackHandler::events->pop_front();
-            SocketServer *server = SocketServer::getServer();
-            printf(R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
-                   event.payload);  // TODO remove
-            server->printf2Client(server->pushClient,
-                                  R"({"topic":"%s","payload":"%s"})",
-                                  event.topic.c_str(), event.payload);
-            return !CallbackHandler::events->empty();
-        }
+    if (CallbackHandler::pushingMode && server != nullptr &&
+        server->hasPushClient()) {
+        CallbackHandler::events->pop_front();
+        printf(R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
+               event.payload);  // TODO remove
+        server->printf2Client(server->pushClient,
+                              R"({"topic":"%s","payload":"%s"})",
+                              event.topic.c_str(), event.payload);
+        return !CallbackHandler::events->empty();
     }
 #endif
 
