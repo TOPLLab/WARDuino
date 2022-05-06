@@ -145,15 +145,27 @@ void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
     int socket = arg->fileDescriptor;
 
     char _char;
-    int buf_idx = 0;
-    char buffer[1024] = {0};
+    uint32_t buf_idx = 0;
+    const uint32_t start_size = 1024;
+    uint32_t current_size = start_size;
+    char *buffer = (char *)malloc(start_size);
 
     while (continuing(arg->mutex)) {
         if (read(socket, &_char, 1) != -1) {
-            // TODO FIX if buffer becomes too small
+            // increase buffer size if needed
+            if (current_size <= (buf_idx + 1)) {
+                char *new_buff = (char *)malloc(current_size + start_size);
+                memcpy((void *)new_buff, (void *)buffer, current_size);
+                free(buffer);
+                buffer = new_buff;
+                current_size += start_size;
+                printf("increasing PushClient's buffer size to %d\n",
+                       current_size);
+            }
             buffer[buf_idx++] = _char;
-            buffer[buf_idx] = '\0';  // needed because parseJSON does not use
-                                     // first len argument
+            // manual nulltermination is needed because parseJSON does not use
+            // first len argument
+            buffer[buf_idx] = '\0';
             try {
                 Event *event = parseJSON(buf_idx - 1, buffer);
                 CallbackHandler::push_event(event);
