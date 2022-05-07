@@ -217,7 +217,6 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         } break;
 #else
         case interruptMonitorProxies: {
-            CallbackHandler::manual_event_resolution = true;
             printf("receiving functions list to proxy\n");
             this->handleMonitorProxies(m, interruptData + 1);
             free(interruptData);
