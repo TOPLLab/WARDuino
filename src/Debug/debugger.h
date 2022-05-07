@@ -156,6 +156,10 @@ class Debugger {
 
     // Push-based
 
+#ifndef ARDUINO
+    void notifyPushedEvent(const std::string &serialized) const;
+#endif
+
     bool handlePushedEvent(Module *m, char *bytes) const;
 #endif
 };

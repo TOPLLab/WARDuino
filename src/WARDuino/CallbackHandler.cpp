@@ -55,6 +55,9 @@ void CallbackHandler::push_event(std::string topic,
                            reinterpret_cast<const char *>(message));
         dbg_info("Push Event(%s, %s)\n", e->topic.c_str(), e->payload);
         events->push_back(*e);
+#ifndef ARDUINO
+        WARDuino::instance()->debugger->notifyPushedEvent(e->serialized());
+#endif
     }
 }
 
@@ -62,7 +65,9 @@ void CallbackHandler::push_event(Event *event) {
     if (events->size() < EVENTS_SIZE) {
         dbg_info("Push Event(%s, %s)\n", event->topic.c_str(), event->payload);
         events->push_back(*event);
-        printf("new events size %lu\n", events->size());  // TODO remove
+#ifndef ARDUINO
+        WARDuino::instance()->debugger->notifyPushedEvent(event->serialized());
+#endif
     }
 }
 
@@ -76,8 +81,6 @@ bool CallbackHandler::resolve_event() {
     // check if we need to push events
     SocketServer *server = SocketServer::getServer();
     if (server != nullptr && server->hasPushClient()) {
-        printf(R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
-               event.payload);  // TODO remove
         server->printf2Client(server->pushClient,
                               R"({"topic":"%s","payload":"%s"})",
                               event.topic.c_str(), event.payload);
@@ -170,4 +173,9 @@ Callback::Callback(const Callback &c) {
 Event::Event(std::string topic, const char *payload) {
     this->topic = topic;
     this->payload = payload;
+}
+
+std::string Event::serialized() const {
+    return R"({"topic": ")" + this->topic + R"(", "payload": ")" +
+           this->payload + R"("})";
 }

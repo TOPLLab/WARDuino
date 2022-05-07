@@ -551,12 +551,18 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
 }
 
 #ifndef ARDUINO
+void Debugger::notifyPushedEvent(const std::string &serialized) const {
+    dprintf(this->socket, "new pushed event");
+    //    dprintf(this->socket, "%s", serialized.c_str());
+}
+
 bool Debugger::handlePushedEvent(Module *m, char *bytes) const {
     if (*bytes != interruptPUSHEvent) return false;
     auto parsed = nlohmann::json::parse(bytes);
     std::string payload = *parsed.find("payload");
-    CallbackHandler::push_event(
-        new Event(*parsed.find("topic"), payload.c_str()));
+    auto *event = new Event(*parsed.find("topic"), payload.c_str());
+    CallbackHandler::push_event(event);
+    this->notifyPushedEvent(event->serialized());
     return true;
 }
 #endif

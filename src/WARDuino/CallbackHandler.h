@@ -15,6 +15,8 @@ class Event {
     const char *payload;
 
     Event(std::string topic, const char *payload);
+
+    std::string serialized() const;
 };
 
 class CallbackHandler {
