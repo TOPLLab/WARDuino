@@ -84,7 +84,7 @@ void *readSocket(void *input) {
 Event *parseJSON(char *buff) {
     // TODO duplicate code in Debugger::handlePushedEvent
     nlohmann::basic_json<> parsed = nlohmann::json::parse(buff);
-    dbg_info("%s\n", parsed.dump());
+    printf("parseJSON: %s\n", parsed.dump().c_str());
     std::string payload = *parsed.find("payload");
     return new Event(*parsed.find("topic"), payload.c_str());
 }

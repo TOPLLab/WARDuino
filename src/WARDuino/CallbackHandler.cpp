@@ -56,7 +56,7 @@ void CallbackHandler::push_event(std::string topic,
         dbg_info("Push Event(%s, %s)\n", e->topic.c_str(), e->payload);
         events->push_back(*e);
 #ifndef ARDUINO
-        WARDuino::instance()->debugger->notifyPushedEvent(e->serialized());
+        WARDuino::instance()->debugger->notifyPushedEvent();
 #endif
     }
 }
@@ -66,7 +66,7 @@ void CallbackHandler::push_event(Event *event) {
         dbg_info("Push Event(%s, %s)\n", event->topic.c_str(), event->payload);
         events->push_back(*event);
 #ifndef ARDUINO
-        WARDuino::instance()->debugger->notifyPushedEvent(event->serialized());
+        WARDuino::instance()->debugger->notifyPushedEvent();
 #endif
     }
 }
@@ -83,7 +83,7 @@ bool CallbackHandler::resolve_event() {
     if (server != nullptr && server->hasPushClient()) {
         server->printf2Client(server->pushClient,
                               R"({"topic":"%s","payload":"%s"})",
-                              event.topic.c_str(), event.payload);
+                              event.topic.c_str(), event.payload.c_str());
     }
 #endif
 
@@ -170,7 +170,7 @@ Callback::Callback(const Callback &c) {
 
 // Event class
 
-Event::Event(std::string topic, const char *payload) {
+Event::Event(std::string topic, std::string payload) {
     this->topic = topic;
     this->payload = payload;
 }

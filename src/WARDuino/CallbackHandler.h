@@ -12,9 +12,9 @@ class Callback;
 class Event {
    public:
     std::string topic;
-    const char *payload;
+    std::string payload;
 
-    Event(std::string topic, const char *payload);
+    Event(std::string topic, std::string payload);
 
     std::string serialized() const;
 };

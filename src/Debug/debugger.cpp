@@ -448,7 +448,7 @@ void Debugger::dumpEvents(long start, long size) const {
                   [this, &index, &end](const Event &e) {
                       dprintf(this->socket,
                               R"({"topic": "%s", "payload": "%s"})",
-                              e.topic.c_str(), e.payload);
+                              e.topic.c_str(), e.payload.c_str());
                       if (++index < end) {
                           dprintf(this->socket, ", ");
                       }
@@ -551,18 +551,17 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
 }
 
 #ifndef ARDUINO
-void Debugger::notifyPushedEvent(const std::string &serialized) const {
+void Debugger::notifyPushedEvent() const {
     dprintf(this->socket, "new pushed event");
-    //    dprintf(this->socket, "%s", serialized.c_str());
 }
 
 bool Debugger::handlePushedEvent(Module *m, char *bytes) const {
     if (*bytes != interruptPUSHEvent) return false;
     auto parsed = nlohmann::json::parse(bytes);
-    std::string payload = *parsed.find("payload");
-    auto *event = new Event(*parsed.find("topic"), payload.c_str());
+    printf("handle pushed event: %s", bytes);
+    auto *event = new Event(*parsed.find("topic"), *parsed.find("payload"));
     CallbackHandler::push_event(event);
-    this->notifyPushedEvent(event->serialized());
+    this->notifyPushedEvent();
     return true;
 }
 #endif
