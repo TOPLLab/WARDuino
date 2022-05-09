@@ -235,7 +235,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             dprintf(this->socket, "}\n");
             break;
         case interruptPOPEvent:
-            CallbackHandler::resolve_event();
+            CallbackHandler::resolve_event(true);
             break;
 #ifndef ARDUINO
         case interruptPUSHEvent:

@@ -71,7 +71,7 @@ void CallbackHandler::push_event(Event *event) {
     }
 }
 
-bool CallbackHandler::resolve_event() {
+bool CallbackHandler::resolve_event(bool force) {
     if (CallbackHandler::resolving_event || CallbackHandler::events->empty()) {
         return false;
     }
@@ -87,8 +87,8 @@ bool CallbackHandler::resolve_event() {
     }
 #endif
 
-    if (CallbackHandler::manual_event_resolution ||
-        WARDuino::instance()->program_state == WARDUINOpause) {
+    if (!force && (CallbackHandler::manual_event_resolution ||
+                   WARDuino::instance()->program_state == WARDUINOpause)) {
         return true;
     }
 

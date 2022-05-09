@@ -43,7 +43,7 @@ class CallbackHandler {
     static void push_event(std::string topic, const unsigned char *payload,
                            unsigned int length);
     static void push_event(Event *event);
-    static bool resolve_event();
+    static bool resolve_event(bool force = false);
 
     // WOOD needed to know when to push events
     static bool manual_event_resolution;
