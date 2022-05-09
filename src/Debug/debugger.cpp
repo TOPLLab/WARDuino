@@ -21,7 +21,14 @@ Debugger::Debugger(int socket) { this->socket = socket; }
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     uint8_t *data = this->parseDebugBuffer(len, buff);
-    if (data != nullptr) {
+    if (*data == interruptRecvCallbackmapping) {
+        std::string text = (char *)buff;
+        auto *msg =
+            (uint8_t *)acalloc(sizeof(uint8_t), len, "interrupt buffer");
+        memcpy(msg, buff, len * sizeof(uint8_t));
+        *msg = *data;
+        this->debugMessages.push_back(msg);
+    } else if (data != nullptr) {
         this->debugMessages.push_back(data);
     }
 }
@@ -243,7 +250,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptRecvCallbackmapping:
             this->updateCallbackmapping(
-                m, reinterpret_cast<const char *>(interruptData + 1));
+                m, reinterpret_cast<const char *>(interruptData + 2));
             break;
 #endif
         case interruptDUMPCallbackmapping:
