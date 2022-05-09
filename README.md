@@ -6,10 +6,10 @@
   <a href="https://github.com/TOPLLab/WARDuino/blob/cleanup/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
 </p>
 
-This project is released under the Mozilla Public License 2.0, and is being developed as part of an active research project at the University of Ghent's [TOPL](https://github.com/TOPLLab) lab.
+This project is released under the Mozilla Public License 2.0, and is being developed as part of an active research project at the University of Ghent's [TOPL Lab](https://github.com/TOPLLab).
 
 The WARDuino virtual machine is a WebAssembly runtime for microcontrollers, which runs both under the Arduino and ESP-IDF toolchains.
-The WARDuino project also includes a [VS Code extension](https://github.com/TOPLLab/WARDuino-VSCode) to use the remote debugging facilities offered by the virtual machine.
+The WARDuino project also includes a [VS Code extension](https://github.com/TOPLLab/WARDuino-VSCode) to use both the remote debugging and the out-of-place debugging facilities offered by the virtual machine.
 
 <p align="center">
   <a href="./README.md#build-and-development-instructions">Installation</a> | <a href="./examples/">Examples</a> | <a href="./README.md#webassembly-specification-tests">Run Specification tests</a> | <a href="./documentation/">Documentation</a>
@@ -70,6 +70,7 @@ arduino-cli config init
 ```
 
 If you need additional boards, such as the esp32 boards, you can add them in the generated config file. More information on how to install the esp32 boards can be found <a href="./documentation/InstallArduinoESP32.md">here</a>.
+(_note: WARDuino requires at least version 2.0.2 of the esp32 board manager when using esp32 devices)_
 
 Thirdly, make sure you install the `PubSubClient` and `Adafruit NeoPixel` library. (used for MQTT and pixel primitives)
 
