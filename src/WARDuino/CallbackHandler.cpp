@@ -13,6 +13,14 @@
 
 bool CallbackHandler::manual_event_resolution = false;
 bool CallbackHandler::resolving_event = false;
+#ifdef ARDUINO
+size_t CallbackHandler::pushed_cursor = 0;
+
+bool should_push_event(SocketServer *server) {
+    return server != nullptr && server->hasPushClient() &&
+           CallbackHandler::pushed_cursor < CallbackHandler::event_count();
+}
+#endif
 
 std::unordered_map<std::string, std::vector<Callback> *>
     *CallbackHandler::callbacks =
@@ -45,29 +53,21 @@ size_t CallbackHandler::callback_count(const std::string &topic) {
     return callbacks->find(topic)->second->size();
 }
 
+// WARNING: Push event functions should not use IO functions, since they can be
+// called from ISR callbacks
 void CallbackHandler::push_event(std::string topic,
                                  const unsigned char *payload,
                                  unsigned int length) {
-    if (events->size() < EVENTS_SIZE) {
-        char *message = (char *)(malloc(sizeof(char) * length + 1));
-        snprintf(message, length + 1, "%s", payload);
-        auto e = new Event(std::move(topic),
-                           reinterpret_cast<const char *>(message));
-        dbg_info("Push Event(%s, %s)\n", e->topic.c_str(), e->payload);
-        events->push_back(*e);
-#ifndef ARDUINO
-        WARDuino::instance()->debugger->notifyPushedEvent();
-#endif
-    }
+    char *message = (char *)(malloc(sizeof(char) * length + 1));
+    snprintf(message, length + 1, "%s", payload);
+    auto event =
+        new Event(std::move(topic), reinterpret_cast<const char *>(message));
+    CallbackHandler::push_event(event);
 }
 
 void CallbackHandler::push_event(Event *event) {
     if (events->size() < EVENTS_SIZE) {
-        dbg_info("Push Event(%s, %s)\n", event->topic.c_str(), event->payload);
         events->push_back(*event);
-#ifndef ARDUINO
-        WARDuino::instance()->debugger->notifyPushedEvent();
-#endif
     }
 }
 
@@ -78,21 +78,25 @@ bool CallbackHandler::resolve_event() {
     Event event = CallbackHandler::events->front();
 
 #ifdef ARDUINO
-    // check if we need to push events
     SocketServer *server = SocketServer::getServer();
-    if (server != nullptr && server->hasPushClient()) {
+    if (should_push_event(server)) {
+        Event e = CallbackHandler::events->at(CallbackHandler::pushed_cursor++);
         server->printf2Client(server->pushClient,
                               R"({"topic":"%s","payload":"%s"})",
-                              event.topic.c_str(), event.payload.c_str());
+                              e.topic.c_str(), e.payload.c_str());
     }
 #endif
 
-    if (CallbackHandler::manual_event_resolution) {
+    if (CallbackHandler::manual_event_resolution ||
+        WARDuino::instance()->program_state == WARDUINOpause) {
         return true;
     }
 
     CallbackHandler::resolving_event = true;
     CallbackHandler::events->pop_front();
+#ifdef ARDUINO
+    CallbackHandler::pushed_cursor--;
+#endif
 
     debug("Resolving an event. (%lu remaining)\n",
           CallbackHandler::events->size());

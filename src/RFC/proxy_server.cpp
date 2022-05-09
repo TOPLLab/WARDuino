@@ -169,6 +169,7 @@ void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
             try {
                 Event *event = parseJSON(buffer);
                 CallbackHandler::push_event(event);
+                WARDuino::instance()->debugger->notifyPushedEvent();
                 buf_idx = 0;
             } catch (const nlohmann::detail::parse_error &e) {
             }

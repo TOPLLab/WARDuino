@@ -1498,23 +1498,24 @@ bool interpret(Module *m) {
     bool program_done = false;
 
     // TODO: this is actually a property of warduino
-    RunningState program_state = WARDUINOrun;
+    m->warduino->program_state = WARDUINOrun;
 
     // needed for RFC
     RFC *callee = nullptr;
     while (!program_done && success) {
-        if (program_state == WARDUINOstep) {
-            program_state = WARDUINOpause;
+        if (m->warduino->program_state == WARDUINOstep) {
+            m->warduino->program_state = WARDUINOpause;
         }
 
-        while (m->warduino->debugger->checkDebugMessages(m, &program_state)) {
+        while (m->warduino->debugger->checkDebugMessages(
+            m, &m->warduino->program_state)) {
         };
         fflush(stdout);
         reset_wdt();
 
 #ifdef ARDUINO
         // handle RFC requested by emulator
-        if (program_state == WARDuinoProxyRun) {
+        if (m->warduino->program_state == WARDuinoProxyRun) {
             if (callee == nullptr) {  // TODO maybe use RFC::hasRFCallee()
                 // call happens for the first time
                 callee = RFC::currentCallee();
@@ -1525,7 +1526,8 @@ bool interpret(Module *m) {
                     callee->succes =
                         ((Primitive)m->functions[callee->fid].func_ptr)(m);
                     callee->returnResult(m);
-                    callee->restoreExecutionState(m, &program_state);
+                    callee->restoreExecutionState(m,
+                                                  &m->warduino->program_state);
                     RFC::removeRFCallee();
                     callee = nullptr;
                 } else
@@ -1534,7 +1536,8 @@ bool interpret(Module *m) {
                 // check if call completes
                 if (callee->callCompleted(m)) {
                     callee->returnResult(m);
-                    callee->restoreExecutionState(m, &program_state);
+                    callee->restoreExecutionState(m,
+                                                  &m->warduino->program_state);
                     RFC::removeRFCallee();
                     callee = nullptr;
                 }
@@ -1542,14 +1545,11 @@ bool interpret(Module *m) {
         }
 #endif
 
-        if (CallbackHandler::manual_event_resolution ||
-            program_state != WARDUINOpause) {
-            // Resolve 1 callback event if queue is not empty and no event
-            // currently resolving
-            CallbackHandler::resolve_event();
-        }
+        // Resolve 1 callback event if queue is not empty and VM not paused, and
+        // no event currently resolving
+        CallbackHandler::resolve_event();
 
-        if (program_state == WARDUINOpause) {
+        if (m->warduino->program_state == WARDUINOpause) {
             continue;
         }
 
@@ -1558,8 +1558,8 @@ bool interpret(Module *m) {
         // If BP and not the one we just unpaused
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
             m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
-            program_state != WARDuinoProxyRun) {
-            program_state = WARDUINOpause;
+            m->warduino->program_state != WARDuinoProxyRun) {
+            m->warduino->program_state = WARDUINOpause;
             m->warduino->debugger->notifyBreakpoint(m->pc_ptr);
             continue;
         }
@@ -1757,7 +1757,7 @@ bool interpret(Module *m) {
                 }
                 return false;
         }
-        if (program_state == WARDuinoProxyRun && !success) {
+        if (m->warduino->program_state == WARDuinoProxyRun && !success) {
             // RFC was unsuccesful
             RFC::currentCallee()->succes = false;
             // TODO copy exceptionMsg
