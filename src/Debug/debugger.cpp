@@ -242,6 +242,12 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handlePushedEvent(m, reinterpret_cast<char *>(interruptData));
             break;
 #endif
+        case interruptDUMPCallbackmapping:
+            this->dumpCallbackmapping();
+            break;
+        case interruptRecvCallbackmapping:
+            this->updateCallbackmapping(
+                m, reinterpret_cast<const char *>(interruptData + 1));
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");
@@ -456,6 +462,10 @@ void Debugger::dumpEvents(long start, long size) const {
     dprintf(this->socket, "]");
 
     CallbackHandler::resolving_event = false;
+}
+
+void Debugger::dumpCallbackmapping() const {
+    dprintf(this->socket, "%s", CallbackHandler::dump_callbacks().c_str());
 }
 
 /**
@@ -978,5 +988,12 @@ void Debugger::disconnect_drone() {
     int *ptr;
     pthread_mutex_unlock(&this->push_mutex);
     pthread_join(this->push_debugging_threadid, (void **)&ptr);
+}
+
+void Debugger::updateCallbackmapping(Module *m, const char *data) const {
+    nlohmann::basic_json<> parsed = nlohmann::json::parse(data);
+    printf("updateCallbackmapping: %s\n", parsed.dump().c_str());
+    CallbackHandler::clear_callbacks();
+    // TODO for each callback in json: CallbackHandler::add_callback();
 }
 #endif

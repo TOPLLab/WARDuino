@@ -42,7 +42,9 @@ enum InterruptTypes {
     interruptDUMPAllEvents = 0x70,
     interruptDUMPEvents = 0x71,
     interruptPOPEvent = 0x72,
-    interruptPUSHEvent = 0x73
+    interruptPUSHEvent = 0x73,
+    interruptDUMPCallbackmapping = 0x74,
+    interruptRecvCallbackmapping = 0x75
 };
 
 class Debugger {
@@ -92,6 +94,8 @@ class Debugger {
 
     void dumpEvents(long start, long size) const;
 
+    void dumpCallbackmapping() const;
+
     //// Handle live code update
 
     static bool handleChangedFunction(Module *m, uint8_t *bytes);
@@ -107,6 +111,8 @@ class Debugger {
     bool saveState(Module *m, uint8_t *interruptData);
 
     static uintptr_t readPointer(uint8_t **data);
+
+    void updateCallbackmapping(Module *m, const char *interruptData) const;
 
    public:
     // Public fields

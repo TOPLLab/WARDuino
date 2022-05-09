@@ -126,6 +126,27 @@ std::deque<Event>::const_iterator CallbackHandler::event_end() {
     return CallbackHandler::events->cend();
 }
 
+void CallbackHandler::clear_callbacks() { CallbackHandler::callbacks->clear(); }
+
+std::string CallbackHandler::dump_callbacks() {
+    std::string repr = R"({"callbacks": [)";
+    auto iterator = CallbackHandler::callbacks->begin();
+    while (iterator != CallbackHandler::callbacks->end()) {
+        repr += R"({")" + iterator->first + R"(": [)";
+        for (const auto &value : *iterator->second) {
+            auto callback = std::begin(*iterator->second);
+            while (callback != std::end(*iterator->second)) {
+                repr += std::to_string(callback->table_index);
+                repr += (++callback != iterator->second->end()) ? ", " : "";
+            }
+        }
+        repr += "]}";
+        repr += (++iterator != CallbackHandler::callbacks->end()) ? ", " : "";
+    }
+    repr += "]}";
+    return repr;
+}
+
 // Callback class
 
 Callback::Callback(Module *m, std::string id, uint32_t tidx) {
