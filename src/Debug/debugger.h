@@ -112,8 +112,9 @@ class Debugger {
 
     static uintptr_t readPointer(uint8_t **data);
 
+#ifndef ARDUINO
     void updateCallbackmapping(Module *m, const char *interruptData) const;
-
+#endif
    public:
     // Public fields
 

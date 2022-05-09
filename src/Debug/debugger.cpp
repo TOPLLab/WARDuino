@@ -241,13 +241,14 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptPUSHEvent:
             this->handlePushedEvent(m, reinterpret_cast<char *>(interruptData));
             break;
+        case interruptRecvCallbackmapping:
+            this->updateCallbackmapping(
+                m, reinterpret_cast<const char *>(interruptData + 1));
+            break;
 #endif
         case interruptDUMPCallbackmapping:
             this->dumpCallbackmapping();
             break;
-        case interruptRecvCallbackmapping:
-            this->updateCallbackmapping(
-                m, reinterpret_cast<const char *>(interruptData + 1));
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");
@@ -465,7 +466,7 @@ void Debugger::dumpEvents(long start, long size) const {
 }
 
 void Debugger::dumpCallbackmapping() const {
-    dprintf(this->socket, "%s", CallbackHandler::dump_callbacks().c_str());
+    dprintf(this->socket, "%s\n", CallbackHandler::dump_callbacks().c_str());
 }
 
 /**

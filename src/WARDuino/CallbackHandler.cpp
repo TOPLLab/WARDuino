@@ -140,8 +140,9 @@ std::string CallbackHandler::dump_callbacks() {
                 repr += (++callback != iterator->second->end()) ? ", " : "";
             }
         }
+        iterator++;
         repr += "]}";
-        repr += (++iterator != CallbackHandler::callbacks->end()) ? ", " : "";
+        repr += (iterator != CallbackHandler::callbacks->end()) ? ", " : "";
     }
     repr += "]}";
     return repr;
