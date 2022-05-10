@@ -1000,8 +1000,14 @@ void Debugger::disconnect_drone() {
 
 void Debugger::updateCallbackmapping(Module *m, const char *data) const {
     nlohmann::basic_json<> parsed = nlohmann::json::parse(data);
-    printf("updateCallbackmapping: %s\n", parsed.dump().c_str());
     CallbackHandler::clear_callbacks();
-    // TODO for each callback in json: CallbackHandler::add_callback();
+    nlohmann::basic_json<> callbacks = *parsed.find("callbacks");
+    for (auto &array : callbacks.items()) {
+        auto callback = array.value().begin();
+        for (auto &functions : callback.value().items()) {
+            CallbackHandler::add_callback(
+                Callback(m, callback.key(), functions.value()));
+        }
+    }
 }
 #endif
