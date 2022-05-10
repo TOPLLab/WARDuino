@@ -21,7 +21,7 @@ Debugger::Debugger(int socket) { this->socket = socket; }
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     uint8_t *data = this->parseDebugBuffer(len, buff);
-    if (*data == interruptRecvCallbackmapping) {
+    if (data != nullptr && *data == interruptRecvCallbackmapping) {
         std::string text = (char *)buff;
         auto *msg =
             (uint8_t *)acalloc(sizeof(uint8_t), len, "interrupt buffer");
