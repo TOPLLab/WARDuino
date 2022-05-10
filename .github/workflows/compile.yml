@@ -46,6 +46,7 @@ jobs:
     fill-out-template:
         name: Fill out template files
         runs-on: ubuntu-latest
+        if: github.event.pull_request.draft == false
         steps:
             - name: Checkout
               uses: actions/checkout@v2
