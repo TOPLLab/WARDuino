@@ -71,7 +71,7 @@ void CallbackHandler::push_event(Event *event) {
     }
 }
 
-bool CallbackHandler::resolve_event() {
+bool CallbackHandler::resolve_event(bool force) {
     if (CallbackHandler::resolving_event || CallbackHandler::events->empty()) {
         return false;
     }
@@ -87,8 +87,8 @@ bool CallbackHandler::resolve_event() {
     }
 #endif
 
-    if (CallbackHandler::manual_event_resolution ||
-        WARDuino::instance()->program_state == WARDUINOpause) {
+    if (!force && (CallbackHandler::manual_event_resolution ||
+                   WARDuino::instance()->program_state == WARDUINOpause)) {
         return true;
     }
 
@@ -124,6 +124,28 @@ std::deque<Event>::const_iterator CallbackHandler::event_begin() {
 
 std::deque<Event>::const_iterator CallbackHandler::event_end() {
     return CallbackHandler::events->cend();
+}
+
+void CallbackHandler::clear_callbacks() { CallbackHandler::callbacks->clear(); }
+
+std::string CallbackHandler::dump_callbacks() {
+    std::string repr = R"({"callbacks": [)";
+    auto iterator = CallbackHandler::callbacks->begin();
+    while (iterator != CallbackHandler::callbacks->end()) {
+        repr += R"({")" + iterator->first + R"(": [)";
+        for (const auto &value : *iterator->second) {
+            auto callback = std::begin(*iterator->second);
+            while (callback != std::end(*iterator->second)) {
+                repr += std::to_string(callback->table_index);
+                repr += (++callback != iterator->second->end()) ? ", " : "";
+            }
+        }
+        iterator++;
+        repr += "]}";
+        repr += (iterator != CallbackHandler::callbacks->end()) ? ", " : "";
+    }
+    repr += "]}";
+    return repr;
 }
 
 // Callback class

@@ -32,3 +32,6 @@ The supported interrupt messages:
 3. `interruptPOPEvent (0x72)` tells the VM to remove the event at the front of the queue and process it.
 4. `interruptPUSHEvent (0x73)` this messages' code is followed by a json representation of an event to be pushed on the
    stack.
+5. `interruptDUMPCallbackmapping (0x74)` requests a dump of the current callback mapping as json.
+6. `interruptRecvCallbackmapping (0x75)` sends a callback mapping as json to replace the current callback mapping.
+

@@ -21,7 +21,14 @@ Debugger::Debugger(int socket) { this->socket = socket; }
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     uint8_t *data = this->parseDebugBuffer(len, buff);
-    if (data != nullptr) {
+    if (data != nullptr && *data == interruptRecvCallbackmapping) {
+        std::string text = (char *)buff;
+        auto *msg =
+            (uint8_t *)acalloc(sizeof(uint8_t), len, "interrupt buffer");
+        memcpy(msg, buff, len * sizeof(uint8_t));
+        *msg = *data;
+        this->debugMessages.push_back(msg);
+    } else if (data != nullptr) {
         this->debugMessages.push_back(data);
     }
 }
@@ -235,13 +242,20 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             dprintf(this->socket, "}\n");
             break;
         case interruptPOPEvent:
-            CallbackHandler::resolve_event();
+            CallbackHandler::resolve_event(true);
             break;
 #ifndef ARDUINO
         case interruptPUSHEvent:
             this->handlePushedEvent(m, reinterpret_cast<char *>(interruptData));
             break;
+        case interruptRecvCallbackmapping:
+            this->updateCallbackmapping(
+                m, reinterpret_cast<const char *>(interruptData + 2));
+            break;
 #endif
+        case interruptDUMPCallbackmapping:
+            this->dumpCallbackmapping();
+            break;
         default:
             // handle later
             dprintf(this->socket, "COULD not parse interrupt data!\n");
@@ -456,6 +470,10 @@ void Debugger::dumpEvents(long start, long size) const {
     dprintf(this->socket, "]");
 
     CallbackHandler::resolving_event = false;
+}
+
+void Debugger::dumpCallbackmapping() const {
+    dprintf(this->socket, "%s\n", CallbackHandler::dump_callbacks().c_str());
 }
 
 /**
@@ -978,5 +996,18 @@ void Debugger::disconnect_drone() {
     int *ptr;
     pthread_mutex_unlock(&this->push_mutex);
     pthread_join(this->push_debugging_threadid, (void **)&ptr);
+}
+
+void Debugger::updateCallbackmapping(Module *m, const char *data) const {
+    nlohmann::basic_json<> parsed = nlohmann::json::parse(data);
+    CallbackHandler::clear_callbacks();
+    nlohmann::basic_json<> callbacks = *parsed.find("callbacks");
+    for (auto &array : callbacks.items()) {
+        auto callback = array.value().begin();
+        for (auto &functions : callback.value().items()) {
+            CallbackHandler::add_callback(
+                Callback(m, callback.key(), functions.value()));
+        }
+    }
 }
 #endif
