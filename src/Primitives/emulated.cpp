@@ -25,7 +25,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 24
+#define NUM_PRIMITIVES_ARDUINO 27
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -428,6 +428,34 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
     pop_args(3);
     return true;
 }
+
+// Temporary Primitives needed for analogWrite in ESP32
+def_prim(chip_ledc_analog_write, threeToNoneU32) {
+    uint8_t channel = arg2.uint32;
+    uint32_t value = arg1.uint32;
+    uint32_t maxValue = arg0.uint32;
+    // calculate duty, 4095 from 2 ^ 12 - 1
+    printf("chip_ledc_analog_write(%u, %u, %u)\n", channel, value, maxValue);
+    pop_args(3);
+    return true;
+}
+
+def_prim(chip_ledc_setup, threeToNoneU32) {
+    uint32_t channel = arg2.uint32;
+    uint32_t freq = arg1.uint32;
+    uint32_t ledc_timer = arg0.uint32;
+    printf("chip_ledc_setup(%u, %u, %u)\n", channel, freq, ledc_timer);
+    pop_args(3);
+    return true;
+}
+
+def_prim(chip_ledc_attach_pin, twoToNoneU32) {
+    uint32_t pin = arg1.uint32;
+    uint32_t channel = arg0.uint32;
+    printf("chip_ledc_attach_pin(%u,%u)\n", pin, channel);
+    pop_args(2);
+    return true;
+}
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -459,6 +487,11 @@ void install_primitives() {
     install_primitive(set_pixel_color);
     install_primitive(clear_pixels);
     install_primitive(show_pixels);
+
+    // temporary mock primitives needed for analogWrite in ESP32
+    install_primitive(chip_ledc_analog_write);
+    install_primitive(chip_ledc_setup);
+    install_primitive(chip_ledc_attach_pin);
 }
 
 //------------------------------------------------------
