@@ -1,7 +1,7 @@
 #include "Arduino.h"
 #include "WARDuino.h"
 
-WARDuino wac;
+WARDuino* wac = WARDuino::instance();
 
 #define D1 5
 
@@ -20,7 +20,7 @@ void ICACHE_RAM_ATTR handleInput() {
             buff[buff_len++] = (int8_t)Serial.read();
         }
         if (buff_len) {
-            wac.handleInterrupt(buff_len, buff);
+            wac->handleInterrupt(buff_len, buff);
         }
     }
     handelingInterrupt = false;
@@ -32,13 +32,13 @@ void setup() {
 }
 
 void loop() {
-    Module *m = wac.load_module(impl_wasm, impl_wasm_len, {});
+    Module *m = wac->load_module(impl_wasm, impl_wasm_len, {});
     delay(1000);
     printf("START\n\n");
     for (int i = 0; i < 10; i++) {
-        wac.run_module(m);
+        wac->run_module(m);
         printf("%d: %u\n", i, m->stack->value.uint32);
     }
-    wac.unload_module(m);
+    wac->unload_module(m);
     printf("DONE\n\n");
 }
