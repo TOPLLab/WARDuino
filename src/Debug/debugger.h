@@ -1,10 +1,13 @@
 #pragma once
 
+#include <cstdint>
 #include <queue>  // std::queue
 #include <set>
 #include <unordered_map>
 #include <vector>
-
+#ifndef ARDUINO
+#include <thread>
+#endif
 struct Module;
 struct Block;
 struct StackValue;
