@@ -11,16 +11,22 @@ ifndef PASSWORD
 $(error PASSWORD is not set. Use a .config file.)
 endif
 
-all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/wasm3.ino,$(TASKS)) $(addsuffix /wast/impl.wast,$(TASKS)) $(addsuffix /wast/impl.wasm,$(TASKS)) $(addsuffix /c/arduino.ino,$(TASKS))
+all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/edward/edward.ino,$(TASKS)) $(addsuffix /wast/wasm3/wasm3.ino,$(TASKS)) $(addsuffix /wast/impl.wast,$(TASKS)) $(addsuffix /wast/impl.wasm,$(TASKS)) $(addsuffix /c/arduino.ino,$(TASKS))
 
 	echo $(TASKS)
 
 
-%/wast/warduino/warduino.ino: %/wast/impl.wasm .config
+%/wast/warduino/warduino.ino: %/wast/impl.wasm
 	-mkdir $(@D)
 	xxd -i $< $@
 	sed -i 's/[^ ]*_impl_wasm/impl_wasm/' $@
 	cat ../warduino.ino.template >> $@
+
+%/wast/edward/edward.ino: %/wast/impl.wasm .config
+	-mkdir $(@D)
+	xxd -i $< $@
+	sed -i 's/[^ ]*_impl_wasm/impl_wasm/' $@
+	cat ../edward.ino.template >> $@
 	sed -i 's/{{SSID}}/$(SSID)/g; s/{{Password}}/$(PASSWORD)/g' $@
 
 %/wast/wasm3/wasm3.ino: %/wast/impl.wasm
@@ -55,5 +61,5 @@ all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/w
 	wasm2wat -f $< > $@
 
 clean:
-	-find -iname "impl.wast" -o -iname "impl.wasm" -o -iname "arduino.ino" -o -iname "warduino.ino" -o -iname "wasm3.ino" | xargs rm
+	-find -iname "impl.wast" -o -iname "impl.wasm" -o -iname "arduino.ino" -o -iname "warduino.ino" -o -iname "edward.ino" -o -iname "wasm3.ino" | xargs rm
 

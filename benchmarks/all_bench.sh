@@ -27,6 +27,10 @@ sleep 5
 to_csv $tmpdir/warduino
 
 sleep 5
+./edward_bench.sh $tmpdir/edward
+to_csv $tmpdir/edward
+
+sleep 5
 ./wasm3_bench.sh $tmpdir/wasm3
 to_csv $tmpdir/wasm3
 
@@ -38,6 +42,8 @@ echo "# Espruino"
 cat $tmpdir/espruino
 echo "# Warduino"
 cat $tmpdir/warduino
+echo "# Edward"
+cat $tmpdir/edward
 echo "# Wasm3"
 cat $tmpdir/wasm3
 echo "# Native"
