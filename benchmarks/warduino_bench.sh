@@ -11,10 +11,10 @@ make -C tasks all
 
 cat bench.list | while read l; do
   echo $l | tee -a $1
-  ../scripts/upload ${BOARD:-ESP32WROVER} ./tasks/$l/wast/warduino/warduino.ino 2>&1 >"$tmpfile"
+  ../scripts/upload ${BOARD:-ESP32WROVER} ./tasks/$l/wast/warduino/warduino.ino -p /dev/ttyUSB0 2>&1 >"$tmpfile"
   if [ "$?" -eq "0" ]; then
     echo "flashed"
-    python flash_and_check.py | tee -a $1
+    python3 flash_and_check.py | tee -a $1
   else
     cat $tmpfile
     echo "FAILED!"
