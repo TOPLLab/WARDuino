@@ -1,5 +1,16 @@
 TASKS=$(patsubst %/.,%,$(wildcard */.))
 
+CONFIG = .config
+include ${CONFIG}
+
+ifndef SSID
+$(error SSID is not set. Use a .config file.)
+endif
+
+ifndef PASSWORD
+$(error PASSWORD is not set. Use a .config file.)
+endif
+
 all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/wasm3.ino,$(TASKS)) $(addsuffix /wast/impl.wast,$(TASKS)) $(addsuffix /wast/impl.wasm,$(TASKS)) $(addsuffix /c/arduino.ino,$(TASKS))
 
 	echo $(TASKS)
@@ -9,6 +20,7 @@ all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/w
 	-mkdir $(@D)
 	xxd -i $< $@
 	sed -i 's/[^ ]*_impl_wasm/impl_wasm/'  $@
+	sed -i 's/{{SSID}}/$(SSID)/g; s/{{Password}}/$(PASSWORD)/g' $@
 	cat ../warduino.ino.template >> $@
 
 %/wast/wasm3/wasm3.ino: %/wast/impl.wasm
