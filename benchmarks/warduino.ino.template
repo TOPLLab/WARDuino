@@ -10,6 +10,27 @@ uint16_t pushportno = 8081;
 
 #define D1 5
 
+volatile bool handelingInterrupt = false;
+uint8_t buff[100] = {0};
+uint8_t buff_len = 0;
+
+void ICACHE_RAM_ATTR handleInput() {
+    if (handelingInterrupt) return;
+    handelingInterrupt = true;
+    interrupts();
+
+    while (Serial.available()) {
+        size_t buff_len = 0;
+        while (Serial.available()) {
+            buff[buff_len++] = (int8_t) Serial.read();
+        }
+        if (buff_len) {
+            wac->handleInterrupt(buff_len, buff);
+        }
+    }
+    handelingInterrupt = false;
+}
+
 void startDebuggerStd(void* pvParameter) {
     int valread;
     uint8_t buffer[1024] = {0};
@@ -52,16 +73,16 @@ void setup() {
 
 void loop() {
     disableCore0WDT();
-    Module *m = wac.load_module(impl_wasm, impl_wasm_len, {});
+    Module *m = wac->load_module(impl_wasm, impl_wasm_len, {});
     server->begin();
 
     printf("LOADED \n\n");
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
     for (int i = 0; i < 10; i++) {
-        wac.run_module(m);
+        wac->run_module(m);
         printf("%d: %u\n", i, m->stack->value.uint32);
     }
-    wac.unload_module(m);
+    wac->unload_module(m);
     printf("DONE\n\n");
 }
