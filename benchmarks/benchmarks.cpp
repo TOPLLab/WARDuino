@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "../debug.h"
+#include "../src/Utils/macros.h"
 #include "../src/WARDuino.h"
 #include "timer.h"
 
@@ -48,7 +48,7 @@ int run_benchmarks(size_t num_benchmarks, string benchmarks[],
     char path[MAX_PATH];
     unsigned char bytes[MAX_BYTE_CODE_SIZE];
     unsigned int bytes_length;
-    auto *w = new WARDuino();
+    auto *w = WARDuino::instance();
     size_t correct = 0;
     for (size_t i = 0; i < num_benchmarks; i++) {
         string name = benchmarks[i];

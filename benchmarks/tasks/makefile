@@ -16,7 +16,7 @@ all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/w
 	echo $(TASKS)
 
 
-%/wast/warduino/warduino.ino: %/wast/impl.wasm
+%/wast/warduino/warduino.ino: .config %/wast/impl.wasm
 	-mkdir $(@D)
 	xxd -i $< $@
 	sed -i 's/[^ ]*_impl_wasm/impl_wasm/'  $@

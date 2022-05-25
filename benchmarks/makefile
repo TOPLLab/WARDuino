@@ -26,15 +26,19 @@ TARGET    = warduino_benchmark
 TASKS = $(notdir $(patsubst %/.,%,$(wildcard tasks/*/.)))
 
 CXXSOURCES = \
-	../mem.cpp \
-	../util.cpp \
-	../util_arduino.cpp \
-	../interrupt_operations.cpp \
-	../debug.cpp \
-	../WARDuino.cpp \
-	../primitives.cpp \
-	../instructions.cpp \
-	../glue.cpp \
+	   ../src/Memory/mem.cpp \
+           ../src/Utils/util.cpp \
+           ../src/Utils/util_arduino.cpp \
+           ../src/Debug/debugger.cpp \
+           ../src/Utils/macros.cpp \
+           ../src/WARDuino/WARDuino.cpp \
+           ../src/WARDuino/CallbackHandler.cpp \
+           ../src/Primitives/emulated.cpp \
+           ../src/Interpreter/instructions.cpp \
+           ../src/RFC/rfc.cpp \
+           ../src/RFC/proxy_server.cpp \
+           ../src/RFC/SocketServer.cpp \
+           ../src/Utils/sockets.cpp \
 	benchmarks.cpp
 
 all: $(OUTPUTDIR)$(TARGET) $(addprefix tasks/,$(addsuffix /wast/impl.wasm, $(TASKS)))
