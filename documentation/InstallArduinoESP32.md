@@ -26,7 +26,13 @@ board_manager:
       - https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
 ```
 
-4. Install the ESP32 platform:
+4. Update index
+
+```
+arduino-cli core update-index
+```
+
+5. Install the ESP32 platform:
 
 ```
 arduino-cli core install esp32:esp32
