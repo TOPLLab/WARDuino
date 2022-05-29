@@ -1089,6 +1089,7 @@ void install_primitives() {
     install_primitive(print_string);
 
     install_primitive(wifi_connect);
+    install_primitive(wifi_connected);
     install_primitive(wifi_status);
     install_primitive(wifi_localip);
 
@@ -1131,6 +1132,7 @@ void install_primitives() {
     install_primitive(print_int);
     install_primitive(print_string);
     install_primitive(wifi_connect);
+    install_primitive(wifi_connected);
     install_primitive(wifi_status);
     install_primitive(wifi_localip);
     install_primitive(http_get);
