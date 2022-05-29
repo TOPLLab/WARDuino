@@ -317,6 +317,11 @@ def_prim(wifi_status, NoneToOneU32) {
     return true;
 }
 
+def_prim(wifi_connected, NoneToOneU32) {
+    pushInt32(WiFi.status() == WL_CONNECTED ? 1 : 0);
+    return true;
+}
+
 def_prim(wifi_localip, twoToOneU32) {
     uint32_t buff = arg1.uint32;
     uint32_t size = arg0.uint32;
@@ -822,6 +827,11 @@ def_prim(wifi_connect, fourToNoneU32) {
 
 def_prim(wifi_status, NoneToOneU32) {
     pushInt32(3);  // return WL_CONNECTED
+    return true;
+}
+
+def_prim(wifi_connected, NoneToOneU32) {
+    pushInt32(1);  // return that we are connected
     return true;
 }
 
