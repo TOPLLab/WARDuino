@@ -64,9 +64,9 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 #define NUM_PRIMITIVES 0
 #ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 33
+#define NUM_PRIMITIVES_ARDUINO 34
 #else
-#define NUM_PRIMITIVES_ARDUINO 23
+#define NUM_PRIMITIVES_ARDUINO 24
 #endif
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
