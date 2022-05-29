@@ -40,7 +40,7 @@ export function main(): void {
     // Connect to Wi-Fi
     until_connected(
         () => { wd.wifi_connect(SSID, PASSWORD); },
-        () => { return wd.wifi_status() == wd.WL_CONNECTED; });
+        wd.wifi_connected);
     let message = "Connected to wifi network with ip: ";
     wd.print(message.concat(wd.wifi_localip()));
 
