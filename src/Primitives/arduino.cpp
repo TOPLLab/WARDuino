@@ -54,7 +54,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 }
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 36
+#define NUM_PRIMITIVES_ARDUINO 37
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -297,6 +297,11 @@ def_prim(wifi_connect, fourToNoneU32) {
 def_prim(wifi_status, NoneToOneU32) {
     int32_t status = WiFi.status();
     pushInt32(status);
+    return true;
+}
+
+def_prim(wifi_connected, NoneToOneU32) {
+    pushInt32(WiFi.status() == WL_CONNECTED ? 1 : 0);
     return true;
 }
 
@@ -858,6 +863,7 @@ void install_primitives() {
     install_primitive(print_string);
 
     install_primitive(wifi_connect);
+    install_primitive(wifi_connected);
     install_primitive(wifi_status);
     install_primitive(wifi_localip);
 

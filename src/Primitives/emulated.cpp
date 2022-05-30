@@ -25,7 +25,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 27
+#define NUM_PRIMITIVES_ARDUINO 28
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -284,6 +284,11 @@ def_prim(wifi_status, NoneToOneU32) {
     return true;
 }
 
+def_prim(wifi_connected, NoneToOneU32) {
+    pushInt32(1);  // return that we are connected
+    return true;
+}
+
 def_prim(wifi_localip, twoToOneU32) {
     uint32_t buff = arg1.uint32;
     uint32_t size = arg0.uint32;
@@ -469,6 +474,7 @@ void install_primitives() {
     install_primitive(print_string);
     install_primitive(wifi_connect);
     install_primitive(wifi_status);
+    install_primitive(wifi_connected);
     install_primitive(wifi_localip);
     install_primitive(http_get);
     install_primitive(http_post);

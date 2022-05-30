@@ -11,6 +11,7 @@
 
 @external("env", "wifi_connect")        declare function _wifi_connect(ssid: ArrayBuffer, length: i32, password: ArrayBuffer, size: i32): void;
 @external("env", "wifi_status")         export declare function wifi_status(): i32;
+@external("env", "wifi_connected")      declare function _wifi_status(): i32;
 @external("env", "wifi_localip")        declare function _wifi_localip(buff: ArrayBuffer, buffer_size: u32): i32;
 
 @external("env", "http_get")            declare function _http_get(url: ArrayBuffer, url_len: u32, buffer: ArrayBuffer, buffer_size: u32): i32;
@@ -51,6 +52,11 @@ export function interrupt_on(pin: u32, mode: u32, fn: () => void): void {
 
 export function print(text: string): void {
     _print(String.UTF8.encode(text, true), String.UTF8.byteLength(text, true));
+}
+
+
+export function wifi_connected(): bool {
+    return _wifi_status() == 1;
 }
 
 export function wifi_connect(ssid: string, password: string): void {
