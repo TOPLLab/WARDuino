@@ -7,10 +7,12 @@ const PASSWORD = "network-password";
 const CLIENT_ID = "random-mqtt-client-id";
 
 function until_connected(connect: () => void,
-                         connected: () => boolean): void {
+                         connected: () => boolean,
+                         retry: boolean = false): void {
+    connect();
     while (!connected()) {
         wd.delay(1000);
-        connect();
+        if (retry) connect();
     }
 }
 
@@ -48,7 +50,8 @@ export function main(): void {
     wd.mqtt_init("192.168.0.24", 1883);
     until_connected(
         () => { wd.mqtt_connect(CLIENT_ID); wd.mqtt_loop(); },
-        () => { return wd.mqtt_connected(); });
+        () => { return wd.mqtt_connected(); },
+        true);
 
     // Subscribe to MQTT topic and turn on LED
     wd.mqtt_subscribe("LED", callback);
