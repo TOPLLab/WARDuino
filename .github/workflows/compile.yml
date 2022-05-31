@@ -158,10 +158,19 @@ jobs:
               with:
                   submodules: 'recursive'
 
+            - name: Create build folder
+              run: mkdir build
+
+            - name: Test
+              run: ls -l ..
+              working-directory: build
+
             - name: Build WARDuino for ESP-IDF
               uses: espressif/esp-idf-ci-action@main
+              working-directory: build
               with:
                   esp_idf_version: latest
                   target: esp32
+                  command: cmake .. -D BUILD_ESP=ON & make
                   path: .
 
