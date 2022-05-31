@@ -11,6 +11,8 @@
  *  4) Extend the install_primitives function
  *
  */
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <sys/time.h>
 
 #include <chrono>
@@ -26,7 +28,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 2
+#define NUM_PRIMITIVES_ARDUINO 4
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -200,15 +202,29 @@ Type NoneToOneU64 = {.form = FUNC,
                      .results = param_I64_arr_len1,
                      .mask = 0x82000};
 
+def_prim(chip_delay, oneToNoneU32) {
+    vTaskDelay(arg0.uint32 / portTICK_PERIOD_MS);
+    pop_args(1);
+    return true;
+}
+
 def_prim(chip_pin_mode, twoToNoneU32) {
-    gpio_set_direction(arg1.uint32, arg0.uint32);
+    gpio_set_direction(gpio_num_t(arg1.uint32), gpio_mode_t(arg0.uint32));
     pop_args(2);
     return true;
 }
 
 def_prim(chip_digital_write, twoToNoneU32) {
-    gpio_set_level(arg1.uint32, arg0.uint32);
+    gpio_set_level(gpio_num_t(arg1.uint32), gpio_mode_t(arg0.uint32));
     pop_args(2);
+    return true;
+}
+
+def_prim(chip_digital_read, oneToOneU32) {
+    gpio_num_t pin = gpio_num_t(arg0.uint32);
+    uint8_t res = (uint8_t)gpio_get_level(pin);
+    pop_args(1);
+    pushUInt32(res);
     return true;
 }
 
@@ -217,8 +233,10 @@ def_prim(chip_digital_write, twoToNoneU32) {
 //------------------------------------------------------
 void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
+    install_primitive(chip_delay);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
+    install_primitive(chip_digital_read);
 }
 
 //------------------------------------------------------
