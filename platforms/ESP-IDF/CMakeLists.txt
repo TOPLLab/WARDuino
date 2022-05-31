@@ -7,10 +7,13 @@ set(SOURCE_FILES
         ../../src/WARDuino/WARDuino.cpp
         ../../src/Primitives/idf.cpp
         ../../src/Interpreter/instructions.cpp
+        ../../src/RFC/rfc.cpp
+        ../../src/RFC/proxy_server.cpp
+        ../../src/RFC/SocketServer.cpp
         ../../src/WARDuino/CallbackHandler.cpp
         )
 
-idf_component_register(SRCS "main.cpp" ${SOURCE_FILES} INCLUDE_DIRS "" REQUIRES driver)
+idf_component_register(SRCS "main.cpp" ${SOURCE_FILES} INCLUDE_DIRS ../../lib/json/single_include/ REQUIRES driver)
 
 add_definitions(-DINFO=0)
 add_definitions(-DDEBUG=0)

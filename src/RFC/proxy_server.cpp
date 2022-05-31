@@ -79,6 +79,7 @@ void *readSocket(void *input) {
     // Print value received as argument:
     dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
     ProxyServer::startPushDebuggerSocket((struct Socket *)input);
+    pthread_exit(nullptr);
 }
 
 Event *parseJSON(char *buff) {
