@@ -51,7 +51,7 @@ export function main(): void {
     wd.mqtt_init("192.168.0.24", 1883);
     until_connected(
         () => { wd.mqtt_connect(CLIENT_ID); wd.mqtt_loop(); },
-        () => { return wd.mqtt_connected(); },
+        wd.mqtt_connected,
         () => { return true; });
 
     // Subscribe to MQTT topic and turn on LED
@@ -60,11 +60,11 @@ export function main(): void {
 
     // Subscribe to button interrupt
     wd.interrupt_on(BUTTON, wd.CHANGED, toggle_led);
-   
+
     while (true) {
         until_connected(
             () => { wd.mqtt_connect(CLIENT_ID); wd.mqtt_loop(); },
-            () => { return wd.mqtt_connected(); },
+            wd.mqtt_connected,
             () => { return true; });
 
         wd.sleep(5); // Sleep for 5 seconds
