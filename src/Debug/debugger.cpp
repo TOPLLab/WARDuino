@@ -5,6 +5,8 @@
 #include <cstring>
 #ifndef ARDUINO
 #include <nlohmann/json.hpp>
+#else
+#include "../../lib/json/single_include/nlohmann/json.hpp"
 #endif
 
 #include "../Memory/mem.h"
@@ -997,8 +999,9 @@ void Debugger::disconnect_drone() {
     pthread_mutex_unlock(&this->push_mutex);
     pthread_join(this->push_debugging_threadid, (void **)&ptr);
 }
+#endif
 
-void Debugger::updateCallbackmapping(Module *m, const char *data) const {
+void Debugger::updateCallbackmapping(Module *m, const char *data) {
     nlohmann::basic_json<> parsed = nlohmann::json::parse(data);
     CallbackHandler::clear_callbacks();
     nlohmann::basic_json<> callbacks = *parsed.find("callbacks");
@@ -1010,4 +1013,3 @@ void Debugger::updateCallbackmapping(Module *m, const char *data) const {
         }
     }
 }
-#endif
