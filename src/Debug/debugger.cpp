@@ -10,6 +10,7 @@
 #endif
 
 #include "../Memory/mem.h"
+#include "../RFC/SocketServer.h"
 #include "../RFC/proxy_server.h"
 #include "../RFC/rfc.h"
 #include "../Utils//util.h"
@@ -232,9 +233,23 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
         } break;
 #endif
+#ifdef ARDUINO
         case interruptDronify:
-            // TODO Dronify
+            // 0x65 the wifi ssid  \0  wifipass  \0
+            //  1   |____len_____|  1
+            char *ssid = (char *)(interruptData + 1);
+            size_t ssid_len = strlen(ssid);
+            char *pass = (char *)(interruptData + 1 + ssid_len + 1);
+            ServerCredentials serverCredentials = {ssid, pass};
+            SocketServer::createServer(
+                8080, 8081, [m](size_t len, uint8_t *buff) {
+                    m->warduino->handleInterrupt(len, buff);
+                });
+            auto server = SocketServer::getServer();
+            server->connect2Wifi(&serverCredentials);
+            *program_state = WARDUINOdrone;
             break;
+#endif
         case interruptDUMPAllEvents:
             printf("InterruptDUMPEvents\n");
             size = (long)CallbackHandler::event_count();

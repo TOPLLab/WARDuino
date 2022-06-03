@@ -1536,10 +1536,13 @@ bool interpret(Module *m) {
                 // check if call completes
                 if (callee->callCompleted(m)) {
                     callee->returnResult(m);
+
+                    // TODO: this is likley no longer needed
                     callee->restoreExecutionState(m,
                                                   &m->warduino->program_state);
                     RFC::removeRFCallee();
                     callee = nullptr;
+                    m->warduino->program_state = WARDUINODrone;
                 }
             }
         }
@@ -1549,7 +1552,9 @@ bool interpret(Module *m) {
         // no event currently resolving
         CallbackHandler::resolve_event();
 
-        if (m->warduino->program_state == WARDUINOpause) {
+        // Skip the main loop if paused or drone
+        if (m->warduino->program_state == WARDUINOpause ||
+            m->warduino->program_state == WARDUINODrone) {
             continue;
         }
 

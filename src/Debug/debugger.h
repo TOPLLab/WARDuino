@@ -17,7 +17,12 @@ enum RunningState {
     WARDUINOrun,
     WARDUINOpause,
     WARDUINOstep,
-    WARDuinoProxyRun
+    WARDuinoProxyRun,  // Running state used when executing a proxy call. During
+                       // this state the call is set up and executed by the main
+                       // loop. After execution, the state is restored to
+                       // WARDUINODrone
+    WARDUINODrone  // Do not run the program (program runs on computer, which
+                   // sends messages for primitives, do forward interupts)
 };
 
 enum InterruptTypes {
@@ -40,7 +45,7 @@ enum InterruptTypes {
     interruptRecvState = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
-    interruptDronify = 0x65,
+    interruptDronify = 0x65,  // wifi SSID \0 wifi PASS \0
 
     // Push Debugging
     interruptDUMPAllEvents = 0x70,
