@@ -62,6 +62,7 @@ Or simply run `idf.py flash`.
 ### Build for Arduino
 
 First, install the [arduino-cli](https://arduino.github.io/arduino-cli/0.21/installation/).
+You will also need python3 with the pyserial pacakge.
 
 Second, create the config file:
 
@@ -75,16 +76,20 @@ If you need additional boards, such as the esp32 boards, you can add them in the
 Thirdly, make sure you install the `PubSubClient` and `Adafruit NeoPixel` library. (used for MQTT and pixel primitives)
 
 ```bash
-arduino-cli lib install "PubSubClient"
-arduino-cli lib install "Adafruit NeoPixel"
+arduino-cli lib install "PubSubClient" # for MQTT
+arduino-cli lib install "Adafruit NeoPixel" # for some primitives
 ```
 
-To build for Arduino with WIFI support you need to also install the following third-party libraries
+To build for Arduino with WIFI support you need to also install the following third-party libraries.
+(Wou might need to set `enable_unsafe_install` to `true` in your arduino config ) <!-- Todo remove one day  ---!>
 
 ```bash
 arduino-cli lib install FreeRTOS
 arduino-cli lib install --git-url https://github.com/me-no-dev/AsyncTCP.git
 ```
+
+If you haven't done so already, clone (or symlink) this repository to `~/Arduino/libraries` to make WARDuino availible to Arduino.
+
 
 After this initial installation steps you can start using WARDuino with the Arduino toolchain.
 You can upload the example file as follows, starting from the project root:
