@@ -251,11 +251,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptPUSHEvent:
             this->handlePushedEvent(m, reinterpret_cast<char *>(interruptData));
             break;
+#endif
         case interruptRecvCallbackmapping:
             Debugger::updateCallbackmapping(
                 m, reinterpret_cast<const char *>(interruptData + 2));
             break;
-#endif
         case interruptDUMPCallbackmapping:
             this->dumpCallbackmapping();
             break;
