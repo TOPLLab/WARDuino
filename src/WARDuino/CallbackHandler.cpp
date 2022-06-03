@@ -16,7 +16,7 @@ bool CallbackHandler::resolving_event = false;
 #ifdef ARDUINO
 size_t CallbackHandler::pushed_cursor = 0;
 
-bool should_push_event(SocketServer *server) {
+bool should_push_event(SocketServer *server) {  // TODO replace with WARDuinoDrone RunningState check
     return server != nullptr && server->hasPushClient() &&
            CallbackHandler::pushed_cursor < CallbackHandler::event_count();
 }
