@@ -49,6 +49,9 @@ uint8_t *Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
             case 'A' ... 'F':
                 r = buff[i] - 'A' + 10;
                 break;
+            case 'a' ... 'f':
+                r = buff[i] - 'a' + 10;
+                break;
             default:
                 success = false;
         }
