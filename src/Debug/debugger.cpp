@@ -102,7 +102,7 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end();
 }
 
-void Debugger::notifyBreakpoint(uint8_t *pc_ptr) {
+void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
     dprintf(this->socket, "AT %p!\n", (void *)pc_ptr);
 }
 
@@ -200,9 +200,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptRecvState:
             if (!this->receivingData) {
-                debug("paused program execution\n");
                 *program_state = WARDUINOpause;
+                debug("paused program execution\n");
                 CallbackHandler::manual_event_resolution = true;
+                dbg_info("Manual event resolution is on.");
                 this->receivingData = true;
                 this->freeState(m, interruptData);
                 free(interruptData);
@@ -251,7 +252,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handlePushedEvent(m, reinterpret_cast<char *>(interruptData));
             break;
         case interruptRecvCallbackmapping:
-            this->updateCallbackmapping(
+            Debugger::updateCallbackmapping(
                 m, reinterpret_cast<const char *>(interruptData + 2));
             break;
 #endif
@@ -415,7 +416,7 @@ void Debugger::dumpLocals(Module *m) const {
     }
     Frame *f = &m->callstack[firstFunFramePtr];
     dprintf(this->socket, R"({"count":%u,"locals":[)", 0);
-    //    fflush(stdout);  // FIXME: this is needed for ESP to propery print
+    //    fflush(stdout);  // FIXME: this is needed for ESP to properly print
     char _value_str[256];
     for (uint32_t i = 0; i < f->block->local_count; i++) {
         auto v = &m->stack[m->fp + i];
@@ -592,13 +593,11 @@ void Debugger::woodDump(Module *m) {
     dprintf(this->socket, "DUMP!\n");
     dprintf(this->socket, "{");
 
-    // printf("asked for pc\n");
     // current PC
     dprintf(this->socket, R"("pc":"%p",)", (void *)m->pc_ptr);
 
     // start of bytes
     dprintf(this->socket, R"("start":["%p"],)", (void *)m->bytes);
-    // printf("asked for bps\n");
 
     dprintf(this->socket, "\"breakpoints\":[");
     size_t i = 0;
@@ -608,7 +607,6 @@ void Debugger::woodDump(Module *m) {
     }
     dprintf(this->socket, "],");
 
-    // printf("asked for stack\n");
     // stack
     dprintf(this->socket, "\"stack\":[");
     for (int j = 0; j <= m->sp; j++) {
@@ -630,8 +628,7 @@ void Debugger::woodDump(Module *m) {
             static_cast<void *>(f->ra_ptr), j, (j < m->csp) ? "," : "");
     }
 
-    // printf("asked for globals\n");
-    // GLobals
+    // Globals
     dprintf(this->socket, "],\"globals\":[");
     for (uint32_t j = 0; j < m->global_count; j++) {
         auto v = m->globals + j;
@@ -639,7 +636,6 @@ void Debugger::woodDump(Module *m) {
     }
     dprintf(this->socket, "]");  // closing globals
 
-    // printf("asked for table\n");
     dprintf(this->socket, R"(,"table":{"max":%d, "init":%d, "elements":[)",
             m->table.maximum, m->table.initial);
 
@@ -649,7 +645,6 @@ void Debugger::woodDump(Module *m) {
     }
     dprintf(this->socket, "]}");  // closing table
 
-    // printf("asked for mem\n");
     // memory
     uint32_t total_elems =
         m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
@@ -662,7 +657,6 @@ void Debugger::woodDump(Module *m) {
     }
     dprintf(this->socket, "]}");  // closing memory
 
-    // printf("asked for br_table\n");
     dprintf(this->socket, R"(,"br_table":{"size":"0x%x","labels":[)",
             BR_TABLE_SIZE);
     for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
