@@ -234,7 +234,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         } break;
 #endif
 #ifdef ARDUINO
-        case interruptDronify:
+        case interruptDronify: {
             // 0x65 the wifi ssid  \0  wifipass  \0
             //  1   |____len_____|  1
             char *ssid = (char *)(interruptData + 1);
@@ -247,8 +247,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 });
             auto server = SocketServer::getServer();
             server->connect2Wifi(&serverCredentials);
-            *program_state = WARDUINOdrone;
+            *program_state = WARDUINODrone;
             break;
+        }
 #endif
         case interruptDUMPAllEvents:
             printf("InterruptDUMPEvents\n");

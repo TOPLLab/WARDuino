@@ -8,7 +8,7 @@
 SocketServer *SocketServer::socketServer = nullptr;
 
 SocketServer::SocketServer(uint16_t t_pullport, uint16_t t_pushport,
-                           void (*t_handler)(size_t, uint8_t *))
+                           std::function<void(size_t, uint8_t *)> t_handler)
     : pull_portno(t_pullport), push_portno(t_pushport) {
     this->pullServer = new AsyncServer(t_pullport);
     this->pushServer = new AsyncServer(t_pushport);
@@ -17,8 +17,9 @@ SocketServer::SocketServer(uint16_t t_pullport, uint16_t t_pushport,
     this->handler = t_handler;
 }
 
-void SocketServer::createServer(uint16_t t_pullport, uint16_t t_pushport,
-                                void (*t_handler)(size_t, uint8_t *)) {
+void SocketServer::createServer(
+    uint16_t t_pullport, uint16_t t_pushport,
+    std::function<void(size_t, uint8_t *)> t_handler) {
     if (socketServer == nullptr)
         socketServer = new SocketServer(t_pullport, t_pushport, t_handler);
 }
@@ -74,7 +75,7 @@ void SocketServer::registerClient(AsyncClient *new_client,
         return;
     }
 
-    void (*handler)(size_t, uint8_t *) = this->handler;
+    std::function<void(size_t, uint8_t *)> _handler = this->handler;
     SocketServer *thisServer = this;
     new_client->onError(
         [thisServer](void *r, AsyncClient *t_client, int8_t error) {
@@ -93,9 +94,11 @@ void SocketServer::registerClient(AsyncClient *new_client,
             thisServer->unregisterClient(t_client);
         },
         NULL);
-    new_client->onData([handler](void *r, AsyncClient *t_client, void *buf,
-                                 size_t len) { handler(len, (uint8_t *)buf); },
-                       NULL);
+    new_client->onData(
+        [_handler](void *r, AsyncClient *t_client, void *buf, size_t len) {
+            _handler(len, (uint8_t *)buf);
+        },
+        NULL);
 }
 
 void SocketServer::unregisterClient(AsyncClient *t_client) {

@@ -25,12 +25,12 @@ class SocketServer {
     AsyncServer *pushServer;
 
     // handler for client's received data
-    void (*handler)(size_t, uint8_t *);
+    std::function<void(size_t, uint8_t *)> handler;
 
     // singleton
     static SocketServer *socketServer;
     SocketServer(uint16_t t_pullport, uint16_t t_pushport,
-                 void (*t_handler)(size_t, uint8_t *));
+                 std::function<void(size_t, uint8_t *)> t_handler);
 
     void registerClient(AsyncClient *new_client, AsyncClient **current_client);
     void unregisterClient(AsyncClient *t_client);
@@ -47,6 +47,6 @@ class SocketServer {
 
     static SocketServer *getServer(void);
     static void createServer(uint16_t t_pullport, uint16_t t_pushport,
-                             void (*t_handler)(size_t, uint8_t *));
+                             std::function<void(size_t, uint8_t *)> t_handler);
 };
 #endif
