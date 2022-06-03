@@ -18,9 +18,9 @@ to_csv() {
   sed -i -n '0~2{N;s/\n/,/p}' $1
 }
 
-sleep 5
-./espruino_bench.sh $tmpdir/espruino
-to_csv $tmpdir/espruino
+#sleep 5
+#./espruino_bench.sh $tmpdir/espruino
+#to_csv $tmpdir/espruino
 
 sleep 5
 ./warduino_bench.sh $tmpdir/warduino

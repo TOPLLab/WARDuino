@@ -11,7 +11,8 @@ make -C tasks all
 
 cat bench.list | while read l; do
   echo $l | tee -a $1
-  ../scripts/upload ${BOARD:-ESP32WROVER} ./tasks/$l/wast/warduino/warduino.ino -p /dev/ttyUSB0 2>&1 >"$tmpfile"
+  arduino-cli compile --fqbn "esp32:esp32:esp32wrover:FlashFreq=80,UploadSpeed=921600,DebugLevel=none" ./tasks/$l/wast/warduino/warduino.ino 2>&1 >"$tmpfile"
+  arduino-cli upload --fqbn "esp32:esp32:esp32wrover:FlashFreq=80,UploadSpeed=921600,DebugLevel=none" ./tasks/$l/wast/warduino/warduino.ino -p /dev/ttyUSB0 2>&1 >"$tmpfile"
   if [ "$?" -eq "0" ]; then
     echo "flashed"
     python3 flash_and_check.py | tee -a $1
