@@ -296,7 +296,8 @@ void RFC::deserializeRFCResult() {
 
     // Retreive new callbackmapping
     std::string message = std::to_string(interruptDUMPCallbackmapping) + "\n";
-    ProxyServer::getServer()->send((char *) message.c_str(), (int) message.length());
+    ProxyServer::getServer()->send((char *)message.c_str(),
+                                   (int)message.length());
 }
 
 void RFC::call(StackValue *arguments) {
