@@ -250,6 +250,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 });
             auto server = SocketServer::getServer();
             server->connect2Wifi(&serverCredentials);
+            server->begin();
             *program_state = WARDUINODrone;
             break;
         }
