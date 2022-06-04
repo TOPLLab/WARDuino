@@ -36,9 +36,10 @@ void startDebuggerStd(void* pvParameter) {
                 buffer[buff_len++] = (int8_t)Serial.read();
             }
             if (buff_len) {
+                buffer[buff_len] = '\0';
                 write(fileno(stdout), "Reading message ..... \n", 19);
                 fflush(stdout);
-                wac->handleInterrupt(valread - 1, buffer);
+                wac->handleInterrupt(buff_len, buffer);
                 write(fileno(stdout), buffer, valread);
                 fflush(stdout);
             }
