@@ -16,9 +16,9 @@ bool CallbackHandler::resolving_event = false;
 #ifdef ARDUINO
 size_t CallbackHandler::pushed_cursor = 0;
 
-bool should_push_event(SocketServer *server) {
-    return server != nullptr && server->hasPushClient() &&
-           CallbackHandler::pushed_cursor < CallbackHandler::event_count();
+bool should_push_event() {
+    return WARDuino::instance()->program_state == WARDuinoProxyRun ||
+           WARDuino::instance()->program_state == WARDUINODrone;
 }
 #endif
 
@@ -79,7 +79,7 @@ bool CallbackHandler::resolve_event(bool force) {
 
 #ifdef ARDUINO
     SocketServer *server = SocketServer::getServer();
-    if (should_push_event(server)) {
+    if (should_push_event()) {
         Event e = CallbackHandler::events->at(CallbackHandler::pushed_cursor++);
         server->printf2Client(server->pushClient,
                               R"({"topic":"%s","payload":"%s"})",
