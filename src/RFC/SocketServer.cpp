@@ -116,10 +116,14 @@ void SocketServer::write2Client(AsyncClient *client, const char *buf,
                                 size_t size_buf) {
     if (client == nullptr) return;
     size_t space_left = client->space();
-    client->add(buf, size_buf > space_left ? space_left : size_buf);
-    client->send();
-    if (size_buf <= space_left) return;
-    write2Client(client, buf + space_left, size_buf - space_left);
+    // Send upto limit
+    do {
+        size_t send_size = size_buf > space_left ? space_left : size_buf;
+        client->add(buf, send_size);
+        client->send();
+        buf += send_size;
+        size_buf -= send_size;
+    } while (size_buf > 0);
 }
 
 void SocketServer::printf2Client(AsyncClient *client, const char *format, ...) {
