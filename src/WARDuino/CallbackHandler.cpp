@@ -72,18 +72,34 @@ void CallbackHandler::push_event(Event *event) {
 }
 
 bool CallbackHandler::resolve_event(bool force) {
-    if (CallbackHandler::resolving_event || CallbackHandler::events->empty()) {
+#ifdef ARDUINO
+    SocketServer *server = SocketServer::getServer();
+#endif
+    if ((!force && CallbackHandler::resolving_event) ||
+        CallbackHandler::events->empty()) {
+        if (force) {
+            printf("No events to be processed!\n");
+#ifdef ARDUINO
+            server->printf2Client(server->pushClient,
+                                  "no events to be processed");
+#endif
+        }
         return false;
     }
     Event event = CallbackHandler::events->front();
 
 #ifdef ARDUINO
-    SocketServer *server = SocketServer::getServer();
     if (should_push_event()) {
         Event e = CallbackHandler::events->at(CallbackHandler::pushed_cursor++);
         server->printf2Client(server->pushClient,
                               R"({"topic":"%s","payload":"%s"})",
                               e.topic.c_str(), e.payload.c_str());
+
+        CallbackHandler::events->pop_front();
+        CallbackHandler::pushed_cursor--;
+        CallbackHandler::resolving_event = false;
+        return !CallbackHandler::events->empty();
+        // no further execution if drone
     }
 #endif
 
