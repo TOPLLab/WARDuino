@@ -476,7 +476,6 @@ void Debugger::dumpEvents(long start, long size) const {
     if (size > EVENTS_SIZE) {
         size = EVENTS_SIZE;
     }
-    dbg_info("Printing event queue (%lu, %lu) ...\n", start, size);
 
     dprintf(this->socket, R"("events": [)");
     long index = start, end = start + size;
