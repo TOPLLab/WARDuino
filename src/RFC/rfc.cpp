@@ -294,10 +294,6 @@ void RFC::deserializeRFCResult() {
     }
     delete[] call_result;
 
-    // Retreive new callbackmapping
-    std::string message = std::to_string(interruptDUMPCallbackmapping) + "\n";
-    ProxyServer::getServer()->send((char *)message.c_str(),
-                                   (int)message.length());
 }
 
 void RFC::call(StackValue *arguments) {
@@ -313,8 +309,15 @@ void RFC::call(StackValue *arguments) {
 
         delete[] rfc_request->raw;
         delete rfc_request;
+        printf("sent FAILED \n");
         return;
     }
+    // Fetch new callback mapping
+    // convert message to hex TODO: move to proxyserver
+    char cmdBuffer[10] = "";
+    int cmdBufferLen = 0;
+    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
+    ProxyServer::getServer()->send(cmdBuffer, cmdBufferLen);
     this->deserializeRFCResult();
 }
 
