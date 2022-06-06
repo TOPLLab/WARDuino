@@ -45,7 +45,7 @@ jobs:
 
     compile-with-arduino:
         name: (Arduino) Compile on ${{matrix.board.platform-name}}
-        needs: [formatting-check, fill-out-template]
+        needs: [formatting-check]
         runs-on: ubuntu-latest
         env:
             SKETCHES_REPORTS_PATH: sketches-reports
