@@ -472,6 +472,7 @@ void Debugger::dumpLocals(Module *m) const {
 }
 
 void Debugger::dumpEvents(long start, long size) const {
+    bool previous = CallbackHandler::resolving_event;
     CallbackHandler::resolving_event = true;
     if (size > EVENTS_SIZE) {
         size = EVENTS_SIZE;
@@ -491,7 +492,7 @@ void Debugger::dumpEvents(long start, long size) const {
                   });
     dprintf(this->socket, "]");
 
-    CallbackHandler::resolving_event = false;
+    CallbackHandler::resolving_event = previous;
 }
 
 void Debugger::dumpCallbackmapping() const {
