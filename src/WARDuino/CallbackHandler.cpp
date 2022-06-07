@@ -146,7 +146,7 @@ bool CallbackHandler::resolve_event(bool force) {
         push_guard(module);
     } else {
         // TODO handle error: event for non-existing iterator
-        printf("No handler found for %s (in %lu items)!\n", event.topic.c_str(),
+        printf("No handler found for %s (in %u items)!\n", event.topic.c_str(),
                CallbackHandler::callbacks->size());
     }
     return !CallbackHandler::events->empty();
