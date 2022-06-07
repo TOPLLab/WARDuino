@@ -52,9 +52,8 @@ class CallbackHandler {
 };
 
 class Callback {
-   private:
-    Module *module;  // reference to module
    public:
+    Module *module;  // reference to module
     std::string topic;
     uint32_t table_index{};
 

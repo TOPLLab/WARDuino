@@ -34,6 +34,12 @@ Block *pop_block(Module *m) {
     Frame *frame = &m->callstack[m->csp--];
     Type *t = frame->block->type;
 
+    if (frame->block->block_type == 0xff) {
+        CallbackHandler::resolving_event = false;
+        frame = &m->callstack[m->csp--];
+        t = frame->block->type;
+    }
+
     // TODO: validate return value if there is one
 
     m->fp = frame->fp;  // Restore frame pointer

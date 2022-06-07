@@ -9,6 +9,24 @@
 #endif
 #include "../Utils/macros.h"
 
+void push_guard(Module *m) {
+    if (m == nullptr) {
+        return;
+    }
+    auto *guard = (Block *)malloc(sizeof(struct Block));
+    guard->block_type = 255;
+    guard->type = nullptr;
+    guard->local_value_type = nullptr;
+    guard->start_ptr = nullptr;
+    guard->end_ptr = nullptr;
+    guard->else_ptr = nullptr;
+    guard->export_name = nullptr;
+    guard->import_field = nullptr;
+    guard->import_module = nullptr;
+    guard->func_ptr = nullptr;
+    push_block(m, guard, m->sp);
+}
+
 // CallbackHandler class
 
 bool CallbackHandler::manual_event_resolution = false;
@@ -119,16 +137,18 @@ bool CallbackHandler::resolve_event(bool force) {
 
     auto iterator = CallbackHandler::callbacks->find(event.topic);
     if (iterator != CallbackHandler::callbacks->end()) {
+        Module *module = nullptr;
         std::string key = iterator->first;
         for (Callback cbs : *iterator->second) {
             cbs.resolve_event(event);
+            module = cbs.module;
         }
+        push_guard(module);
     } else {
         // TODO handle error: event for non-existing iterator
         printf("No handler found for %s (in %lu items)!\n", event.topic.c_str(),
                CallbackHandler::callbacks->size());
     }
-    CallbackHandler::resolving_event = false;
     return !CallbackHandler::events->empty();
 }
 
