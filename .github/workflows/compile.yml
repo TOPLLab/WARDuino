@@ -5,9 +5,6 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true  # Cancel in-flight jobs for the same branch or PR
 
-env:
-    INO_SOCKET_CACHE: "template-socket"
-
 jobs:
     formatting-check:
         name: Formatting Check
@@ -72,26 +69,11 @@ jobs:
                           source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
                       sketches: |
                         - platforms/Arduino
-                        - platforms/Arduino-socket
         steps:
             - name: Checkout
               uses: actions/checkout@v2
               with:
                   submodules: 'recursive'
-
-            - name: Retrieve version
-              id: version
-              run: |
-                echo "::set-output name=HASH::$(sha1sum Arduino-socket.ino.template | grep '^[^ ]*' -o)"
-              working-directory: platforms/Arduino-socket
-
-            - name: Get Template Cache
-              id: cache-ino
-              uses: actions/cache@v2
-              with:
-                path: |
-                    platforms/Arduino-socket
-                key: ${{ env.INO_SOCKET_CACHE }}-${{ steps.version.outputs.HASH }}
 
             - name: Compile sketches
               uses: arduino/compile-sketches@v1
