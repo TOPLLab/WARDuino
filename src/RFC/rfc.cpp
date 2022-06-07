@@ -293,7 +293,6 @@ void RFC::deserializeRFCResult() {
             FATAL("Deserialization RFCResult\n");
     }
     delete[] call_result;
-
 }
 
 void RFC::call(StackValue *arguments) {
