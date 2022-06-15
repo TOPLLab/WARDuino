@@ -40,7 +40,7 @@ if (BUILD_EMULATOR)
             src/Primitives/emulated.cpp
             src/Interpreter/instructions.cpp
             src/RFC/rfc.cpp
-            src/RFC/proxy_server.cpp
+            src/RFC/proxy_supervisor.cpp
             src/RFC/SocketServer.cpp
             src/Utils/sockets.cpp)
 

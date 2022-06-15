@@ -11,7 +11,7 @@
 
 #include "../Memory/mem.h"
 #include "../RFC/SocketServer.h"
-#include "../RFC/proxy_server.h"
+#include "../RFC/proxy_supervisor.h"
 #include "../RFC/rfc.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
@@ -992,11 +992,11 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
 #else
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     RFC::registerRFCs(m, &interruptData);
-    if (ProxyServer::registerMCUHost(&interruptData)) {
+    if (ProxySupervisor::registerMCUHost(&interruptData)) {
         this->connected_to_drone = true;
         pthread_mutex_init(&this->push_mutex, nullptr);
         pthread_mutex_lock(&this->push_mutex);
-        ProxyServer *mcuhost = ProxyServer::getServer();
+        ProxySupervisor *mcuhost = ProxySupervisor::getServer();
         this->push_debugging_threadid =
             mcuhost->openConnections(&this->push_mutex);
     }

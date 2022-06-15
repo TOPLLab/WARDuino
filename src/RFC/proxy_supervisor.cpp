@@ -1,5 +1,5 @@
 #ifndef ARDUINO
-#include "proxy_server.h"
+#include "proxy_supervisor.h"
 /* #include <asm-generic/errno-base.h> */  // Might be needed
 #include <netdb.h>
 #include <netinet/in.h>
@@ -77,7 +77,7 @@ bool continuing(pthread_mutex_t *mutex) {
 void *readSocket(void *input) {
     // Print value received as argument:
     dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
-    ProxyServer::startPushDebuggerSocket((struct Socket *)input);
+    ProxySupervisor::startPushDebuggerSocket((struct Socket *)input);
     pthread_exit(nullptr);
 }
 
@@ -89,24 +89,24 @@ Event *parseJSON(char *buff) {
     return new Event(*parsed.find("topic"), payload);
 }
 
-ProxyServer *ProxyServer::proxyServer = nullptr;
+ProxySupervisor *ProxySupervisor::proxyServer = nullptr;
 
-ProxyServer *ProxyServer::getServer() {
-    if (proxyServer == nullptr) proxyServer = new ProxyServer();
+ProxySupervisor *ProxySupervisor::getServer() {
+    if (proxyServer == nullptr) proxyServer = new ProxySupervisor();
     return proxyServer;
 }
 
-bool ProxyServer::registerMCUHost(uint8_t **data) {
+bool ProxySupervisor::registerMCUHost(uint8_t **data) {
     int pull = (int)read_B32(data);
     int push = pull + 1;
     auto hostsize = (uint8_t)(*data)[0];
     char *hostname = new char[hostsize + 1];
     memcpy((void *)hostname, ++(*data), hostsize);
     hostname[hostsize] = '\0';
-    return ProxyServer::getServer()->registerAddresses(hostname, pull, push);
+    return ProxySupervisor::getServer()->registerAddresses(hostname, pull, push);
 }
 
-bool ProxyServer::registerAddresses(char *_host, int _pull_port,
+bool ProxySupervisor::registerAddresses(char *_host, int _pull_port,
                                     int _push_port) {
     if (this->host != nullptr) {
         if (this->pull_port == _pull_port && strcmp(_host, this->host) == 0) {
@@ -123,7 +123,7 @@ bool ProxyServer::registerAddresses(char *_host, int _pull_port,
     return true;
 }
 
-void ProxyServer::updateExcpMsg(const char *msg) {
+void ProxySupervisor::updateExcpMsg(const char *msg) {
     delete[] this->exceptionMsg;
     auto msg_len = strlen(msg);
     this->exceptionMsg = new char[(msg_len + 1) / sizeof(char)];
@@ -131,7 +131,7 @@ void ProxyServer::updateExcpMsg(const char *msg) {
     memcpy(this->exceptionMsg, msg, msg_len);
 }
 
-ProxyServer::ProxyServer() {
+ProxySupervisor::ProxySupervisor() {
     host = exceptionMsg = nullptr;
     pull_port = 0;
     push_port = 0;
@@ -141,7 +141,7 @@ ProxyServer::ProxyServer() {
     addressPush = (struct Address *)malloc(sizeof(struct Address));
 }
 
-void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
+void ProxySupervisor::startPushDebuggerSocket(struct Socket *arg) {
     int socket = arg->fileDescriptor;
 
     char _char;
@@ -177,7 +177,7 @@ void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
     }
 }
 
-pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
+pthread_t ProxySupervisor::openConnections(pthread_mutex_t *mutex) {
     if (this->host == nullptr) {
         this->updateExcpMsg(NO_HOST_ERR);
         FATAL("problem opening socket to MCU: %s\n", this->exceptionMsg);
@@ -220,7 +220,7 @@ pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
     return id;
 }
 
-void ProxyServer::closeConnections() {
+void ProxySupervisor::closeConnections() {
     if (this->pull_socket != -1) {
         if (close(this->pull_socket) == -1) {
             if (errno == EINTR) close(this->pull_socket);
@@ -229,7 +229,7 @@ void ProxyServer::closeConnections() {
     }
 }
 
-bool ProxyServer::send(void *buffer, int size) {
+bool ProxySupervisor::send(void *buffer, int size) {
     int n = write(this->pull_socket, buffer, size);
     if (n == size) return true;
 
@@ -244,7 +244,7 @@ bool ProxyServer::send(void *buffer, int size) {
     return this->send((void *)buf, size - n);
 }
 
-char *ProxyServer::readReply(short int amount) {
+char *ProxySupervisor::readReply(short int amount) {
     char *buffer = new char[amount + 1];
     bzero(buffer, amount + 1);
     int n = read(this->pull_socket, buffer, amount);

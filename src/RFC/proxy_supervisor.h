@@ -8,10 +8,10 @@
 
 struct Address;
 
-class ProxyServer {
+class ProxySupervisor {
    private:
     // for singleton
-    static ProxyServer *proxyServer;
+    static ProxySupervisor *proxyServer;
 
     char *host;
     int pull_port, push_port, pull_socket, push_socket;
@@ -20,7 +20,7 @@ class ProxyServer {
     struct Address *addressPush;
 
     // private constructor for singleton
-    ProxyServer();
+    ProxySupervisor();
 
    public:
     char *exceptionMsg;
@@ -35,5 +35,5 @@ class ProxyServer {
     char *readReply(short int amount = 1024);
 
     static bool registerMCUHost(uint8_t **data);
-    static ProxyServer *getServer();
+    static ProxySupervisor *getServer();
 };

@@ -9,7 +9,7 @@
 
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
-#include "proxy_server.h"
+#include "proxy_supervisor.h"
 #ifdef ARDUINO
 #include "SocketServer.h"
 #endif
@@ -247,7 +247,7 @@ void arguments_copy(unsigned char *dest, StackValue *args,
 }
 
 void RFC::deserializeRFCResult() {
-    ProxyServer *host = ProxyServer::getServer();
+    ProxySupervisor *host = ProxySupervisor::getServer();
 
     auto *call_result = (uint8_t *)host->readReply();
     this->succes = (uint8_t)call_result[0] == 1;
@@ -299,7 +299,7 @@ void RFC::call(StackValue *arguments) {
     this->args = arguments;
     struct SerializeData *rfc_request = this->serializeRFC();
 
-    ProxyServer *host = ProxyServer::getServer();
+    ProxySupervisor *host = ProxySupervisor::getServer();
     printf("making the RFC call\n");
     bool sent = host->send((void *)rfc_request->raw, rfc_request->size);
     if (!sent) {
@@ -316,7 +316,7 @@ void RFC::call(StackValue *arguments) {
     char cmdBuffer[10] = "";
     int cmdBufferLen = 0;
     sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
-    ProxyServer::getServer()->send(cmdBuffer, cmdBufferLen);
+    ProxySupervisor::getServer()->send(cmdBuffer, cmdBufferLen);
     this->deserializeRFCResult();
 }
 
