@@ -3,17 +3,12 @@
 #include <cmath>
 #include <cstring>
 
-#include "../Debug/debugger.h"
 #include "../Memory/mem.h"
 #include "../RFC/rfc.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../Utils/util_arduino.h"
 
-#ifndef ARDUINO
-// performs proxy calls to an MCU
-bool proxy_call(uint32_t fidx, Module *m);
-#endif
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
 uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,  // loads
@@ -80,15 +75,16 @@ void setup_call(Module *m, uint32_t fidx) {
     // Push current frame on the call stack
     push_block(m, func, m->sp - type->param_count);
 
-    if (TRACE) {
-        dbg_warn("  >> fn0x%x(%d) %s(", fidx, fidx,
-                 func->export_name ? func->export_name : "");
-        for (int p = ((int)type->param_count) - 1; p >= 0; p--) {
-            dbg_warn("%s%s", value_repr(&m->stack[m->sp - p]), p ? " " : "");
-        }
-        dbg_warn("), %d locals, %d results\n", func->local_count,
-                 type->result_count);
+#if TRACE
+    dbg_warn("  >> fn0x%x(%d) %s(", fidx, fidx,
+             func->export_name
+                 ? func->export_name
+                 : "") for (int p = ((int)type->param_count) - 1; p >= 0; p--) {
+        dbg_warn("%s%s", value_repr(&m->stack[m->sp - p]), p ? " " : "");
     }
+    dbg_warn("), %d locals, %d results\n", func->local_count,
+             type->result_count);
+#endif
 
     // Push locals (dropping extras)
     m->fp = m->sp - ((int)type->param_count) + 1;
@@ -104,6 +100,28 @@ void setup_call(Module *m, uint32_t fidx) {
     // Set program counter to start of function
     m->pc_ptr = func->start_ptr;
 }
+
+#ifndef ARDUINO
+// performs proxy calls to an MCU
+bool proxy_call(uint32_t fidx, Module *m) {
+    printf("Remote Function Call %d\n", fidx);
+    RFC *rf = RFC::getRFC(fidx);
+    StackValue *args = nullptr;
+    if (rf->type->param_count > 0) {
+        m->sp -= rf->type->param_count;
+        args = &m->stack[m->sp + 1];
+    }
+
+    rf->call(args);
+    if (!rf->succes) {
+        // TODO exception bugger might be too small and msg not null terminated?
+        memcpy(&exception, rf->exceptionMsg, strlen(rf->exceptionMsg));
+        return false;
+    }
+    if (rf->type->result_count > 0) m->stack[++m->sp] = *rf->result;
+    return true;
+}
+#endif
 
 /*
  * WebAssembly Instructions
@@ -210,10 +228,10 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
         }
     }
     // if true, keep going
-    if (TRACE) {
-        debug("      - cond: 0x%x jump to 0x%x, block: %s\n", cond,
-              (uint32_t)(m->pc_ptr - m->bytes), block_repr(block));
-    }
+#if TRACE
+    debug("      - cond: 0x%x jump to 0x%x, block: %s\n", cond,
+          (uint32_t)(m->pc_ptr - m->bytes), block_repr(block));
+#endif
     return true;
 }
 
@@ -223,9 +241,9 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
 bool i_instr_else(Module *m) {
     Block *block = m->callstack[m->csp].block;
     m->pc_ptr = block->br_ptr;
-    if (TRACE) {
-        debug("      - of %s jump to 0x%p\n", block_repr(block), m->pc_ptr);
-    }
+#if TRACE
+    debug("      - of %s jump to 0x%p\n", block_repr(block), m->pc_ptr);
+#endif
     return true;
 }
 
@@ -237,17 +255,16 @@ bool i_instr_end(Module *m, bool *prog_done) {
     if (block == nullptr) {
         return false;  // an exception (set by pop_block)
     }
-    if (TRACE) {
-        debug("      - of %s\n", block_repr(block));
-    }
+#if TRACE
+    debug("      - of %s\n", block_repr(block));
+#endif
     if (block->block_type == 0x00) {  // Function
-        if (TRACE) {
-            dbg_warn("  << fn0x%x(%d) %s = %s\n", block->fidx, block->fidx,
-                     block->export_name ? block->export_name : "",
-                     block->type->result_count > 0
-                         ? value_repr(&m->stack[m->sp])
-                         : "_");
-        }
+#if TRACE
+        dbg_warn(
+            "  << fn0x%x(%d) %s = %s\n", block->fidx, block->fidx,
+            block->export_name ? block->export_name : "",
+            block->type->result_count > 0 ? value_repr(&m->stack[m->sp]) : "_");
+#endif
         if (m->csp == -1) {
             // Return to top-level
             *prog_done = true;
@@ -272,9 +289,9 @@ bool i_instr_br(Module *m) {
     m->csp -= depth;
     // set to end for pop_block
     m->pc_ptr = m->callstack[m->csp].block->br_ptr;
-    if (TRACE) {
-        debug("      - to: 0x%p\n", m->pc_ptr);
-    }
+#if TRACE
+    debug("      - to: 0x%p\n", m->pc_ptr);
+#endif
     return true;
 }
 
@@ -290,11 +307,10 @@ bool i_instr_br_if(Module *m) {
         // set to end for pop_block
         m->pc_ptr = m->callstack[m->csp].block->br_ptr;
     }
-    if (TRACE) {
-        debug("      - depth: 0x%x, cond: 0x%x, to: 0x%p\n", depth, cond,
-              m->pc_ptr);
-    }
-
+#if TRACE
+    debug("      - depth: 0x%x, cond: 0x%x, to: 0x%p\n", depth, cond,
+          m->pc_ptr);
+#endif
     return true;
 }
 
@@ -322,10 +338,9 @@ bool i_instr_br_table(Module *m) {
     m->csp -= depth;
     // set to end for pop_block
     m->pc_ptr = m->callstack[m->csp].block->br_ptr;
-    if (TRACE) {
-        debug("      - count: %d, didx: %d, to: 0x%p\n", count, didx,
-              m->pc_ptr);
-    }
+#if TRACE
+    debug("      - count: %d, didx: %d, to: 0x%p\n", count, didx, m->pc_ptr);
+#endif
     return true;
 }
 
@@ -339,9 +354,9 @@ bool i_instr_return(Module *m) {
     // Set the program count to the end of the function
     // The actual pop_block and return is handled by the end opcode.
     m->pc_ptr = m->callstack[0].block->end_ptr;
-    if (TRACE) {
-        debug("      - to: 0x%p\n", m->pc_ptr);
-    }
+#if TRACE
+    debug("      - to: 0x%p\n", m->pc_ptr);
+#endif
     return true;
 }
 
@@ -351,7 +366,9 @@ bool i_instr_return(Module *m) {
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
 #ifndef ARDUINO
-    if (RFC::isRFC(fidx)) return proxy_call(fidx, m);
+    if (RFC::isRFC(fidx)) {
+        return proxy_call(fidx, m);
+    }
 #endif
     if (fidx < m->import_count) {
         return ((Primitive)m->functions[fidx].func_ptr)(m);
@@ -361,34 +378,12 @@ bool i_instr_call(Module *m) {
             return false;
         }
         setup_call(m, fidx);  // regular function call
-        if (TRACE) {
-            debug("      - calling function fidx: %d at: 0x%p\n", fidx,
-                  m->pc_ptr);
-        }
-    }
-    return true;
-}
-
-#ifndef ARDUINO
-bool proxy_call(uint32_t fidx, Module *m) {
-    printf("Remote Function Call %d\n", fidx);
-    RFC *rf = RFC::getRFC(fidx);
-    StackValue *args = nullptr;
-    if (rf->type->param_count > 0) {
-        m->sp -= rf->type->param_count;
-        args = &m->stack[m->sp + 1];
-    }
-
-    rf->call(args);
-    if (!rf->succes) {
-        // TODO exception bugger might be too small and msg not null terminated?
-        memcpy(&exception, rf->exceptionMsg, strlen(rf->exceptionMsg));
-        return false;
-    }
-    if (rf->type->result_count > 0) m->stack[++m->sp] = *rf->result;
-    return true;
-}
+#if TRACE
+        debug("      - calling function fidx: %d at: 0x%p\n", fidx, m->pc_ptr);
 #endif
+    }
+    return true;
+}
 
 /**
  * 0x11 call_indirect
@@ -401,11 +396,11 @@ bool i_instr_call_indirect(Module *m) {
     if (m->options.mangle_table_index) {
         // val is the table address + the index (not sized for the
         // pointer size) so get the actual (sized) index
-        if (TRACE) {
-            debug("      - entries: %p, original val: 0x%x, new val: 0x%x\n",
-                  m->table.entries, val,
-                  (uint32_t)((uint64_t)m->table.entries) - val);
-        }
+#if TRACE
+        debug("      - entries: %p, original val: 0x%x, new val: 0x%x\n",
+              m->table.entries, val,
+              (uint32_t)((uint64_t)m->table.entries) - val);
+#endif
         // val = val - (uint32_t)((uint64_t)m->table.entries & 0xFFFFFFFF);
         val = val - (uint32_t)((uint64_t)m->table.entries);
     }
@@ -416,13 +411,15 @@ bool i_instr_call_indirect(Module *m) {
     }
 
     uint32_t fidx = m->table.entries[val];
-    if (TRACE) {
-        debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx,
-              val, fidx);
-    }
+#if TRACE
+    debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx, val,
+          fidx);
+#endif
 
 #ifndef ARDUINO
-    if (RFC::isRFC(fidx)) return proxy_call(fidx, m);
+    if (RFC::isRFC(fidx)) {
+        return proxy_call(fidx, m);
+    }
 #endif
 
     if (fidx < m->import_count) {
@@ -459,12 +456,12 @@ bool i_instr_call_indirect(Module *m) {
             }
         }
 
-        if (TRACE) {
-            debug(
-                "      - tidx: %d, table idx: %d, "
-                "calling function fidx: %d at: 0x%p\n",
-                tidx, val, fidx, m->pc_ptr);
-        }
+#if TRACE
+        debug(
+            "      - tidx: %d, table idx: %d, "
+            "calling function fidx: %d at: 0x%p\n",
+            tidx, val, fidx, m->pc_ptr);
+#endif
     }
     return true;
 }
@@ -502,10 +499,10 @@ bool i_instr_select(Module *m) {
  */
 bool i_instr_get_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
-    if (TRACE) {
-        debug("      - arg: 0x%x, got %s\n", arg,
-              value_repr(&m->stack[m->fp + arg]));
-    }
+#if TRACE
+    debug("      - arg: 0x%x, got %s\n", arg,
+          value_repr(&m->stack[m->fp + arg]));
+#endif
     m->stack[++m->sp] = m->stack[m->fp + arg];
     return true;
 }
@@ -516,10 +513,10 @@ bool i_instr_get_local(Module *m) {
 bool i_instr_set_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp--];
-    if (TRACE) {
-        debug("      - arg: 0x%x, to %s (stack loc: %d)\n", arg,
-              value_repr(&m->stack[m->sp + 1]), m->fp + arg);
-    }
+#if TRACE
+    debug("      - arg: 0x%x, to %s (stack loc: %d)\n", arg,
+          value_repr(&m->stack[m->sp + 1]), m->fp + arg);
+#endif
     return true;
 }
 
@@ -529,9 +526,9 @@ bool i_instr_set_local(Module *m) {
 bool i_instr_tee_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp];
-    if (TRACE) {
-        debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
-    }
+#if TRACE
+    debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
+#endif
     return true;
 }
 
@@ -540,9 +537,9 @@ bool i_instr_tee_local(Module *m) {
  */
 bool i_instr_get_global(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
-    if (TRACE) {
-        debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
-    }
+#if TRACE
+    debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
+#endif
     m->stack[++m->sp] = m->globals[arg];
     return true;
 }
@@ -553,10 +550,9 @@ bool i_instr_get_global(Module *m) {
 bool i_instr_set_global(Module *m) {
     uint32_t arg = read_LEB_32(&m->pc_ptr);
     m->globals[arg] = m->stack[m->sp--];
-    if (TRACE) {
-        debug("      - arg: 0x%x, got %s\n", arg,
-              value_repr(&m->stack[m->sp + 1]));
-    }
+#if TRACE
+    debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->stack[m->sp + 1]));
+#endif
     return true;
 }
 
@@ -1515,7 +1511,7 @@ bool interpret(Module *m) {
 
         while (m->warduino->debugger->checkDebugMessages(
             m, &m->warduino->program_state)) {
-        };
+        }
         fflush(stdout);
         reset_wdt();
 
@@ -1769,7 +1765,7 @@ bool interpret(Module *m) {
                 return false;
         }
         if (m->warduino->program_state == WARDuinoProxyRun && !success) {
-            // RFC was unsuccesful
+            // RFC was unsuccessful
             RFC::currentCallee()->succes = false;
             // TODO copy exceptionMsg
             success = true;

@@ -33,7 +33,7 @@ struct Address {
 struct Socket {
     int port;
     int fileDescriptor;
-    struct sockaddr_in adress;
+    struct sockaddr_in address;
     pthread_mutex_t *mutex;
 };
 
@@ -65,11 +65,10 @@ const char *createConnection(int socketfd, char *host, int port,
 
 bool continuing(pthread_mutex_t *mutex) {
     switch (pthread_mutex_trylock(mutex)) {
-        case 0: /* if we got the lock, unlock and return true */
+        case 0: /* if we got the lock, unlock and return false */
             pthread_mutex_unlock(mutex);
             return false;
-        case EBUSY: /* return false if the mutex was locked */
-            return true;
+        case EBUSY: /* return true if the mutex was locked */
         default:
             return true;
     }
@@ -87,7 +86,7 @@ Event *parseJSON(char *buff) {
     nlohmann::basic_json<> parsed = nlohmann::json::parse(buff);
     printf("parseJSON: %s\n", parsed.dump().c_str());
     std::string payload = *parsed.find("payload");
-    return new Event(*parsed.find("topic"), payload.c_str());
+    return new Event(*parsed.find("topic"), payload);
 }
 
 ProxyServer *ProxyServer::proxyServer = nullptr;
@@ -125,7 +124,7 @@ bool ProxyServer::registerAddresses(char *_host, int _pull_port,
 }
 
 void ProxyServer::updateExcpMsg(const char *msg) {
-    if (this->exceptionMsg != nullptr) delete[] this->exceptionMsg;
+    delete[] this->exceptionMsg;
     auto msg_len = strlen(msg);
     this->exceptionMsg = new char[(msg_len + 1) / sizeof(char)];
     this->exceptionMsg[msg_len] = '\0';
@@ -164,7 +163,7 @@ void ProxyServer::startPushDebuggerSocket(struct Socket *arg) {
                        current_size);
             }
             buffer[buf_idx++] = _char;
-            // manual nulltermination is needed because parseJSON does not use
+            // manual null-termination is needed because parseJSON does not use
             // first len argument
             buffer[buf_idx] = '\0';
             try {
@@ -214,7 +213,7 @@ pthread_t ProxyServer::openConnections(pthread_mutex_t *mutex) {
     args->port = this->push_port;
     args->fileDescriptor = this->push_socket;
     args->mutex = mutex;
-    args->adress = this->addressPush->aserv_addr;
+    args->address = this->addressPush->aserv_addr;
 
     pthread_create(&id, nullptr, readSocket, args);
 
