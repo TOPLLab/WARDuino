@@ -103,11 +103,12 @@ bool ProxySupervisor::registerMCUHost(uint8_t **data) {
     char *hostname = new char[hostsize + 1];
     memcpy((void *)hostname, ++(*data), hostsize);
     hostname[hostsize] = '\0';
-    return ProxySupervisor::getServer()->registerAddresses(hostname, pull, push);
+    return ProxySupervisor::getServer()->registerAddresses(hostname, pull,
+                                                           push);
 }
 
 bool ProxySupervisor::registerAddresses(char *_host, int _pull_port,
-                                    int _push_port) {
+                                        int _push_port) {
     if (this->host != nullptr) {
         if (this->pull_port == _pull_port && strcmp(_host, this->host) == 0) {
             return false;
