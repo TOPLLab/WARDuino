@@ -35,9 +35,9 @@ void print_help() {
     fprintf(stdout, "Usage:\n");
     fprintf(stdout, "    warduino [options] <file>\n");
     fprintf(stdout, "Options:\n");
-    fprintf(
-        stdout,
-        "    --loop         Let the runtime loop infinitely on exceptions\n");
+    fprintf(stdout,
+            "    --loop         Let the runtime loop infinitely on exceptions "
+            "(default: false)\n");
     fprintf(stdout,
             "    --asserts      Name of file containing asserts to run against "
             "loaded module\n");
@@ -49,6 +49,9 @@ void print_help() {
     fprintf(stdout,
             "    --no-socket    Run without socket "
             "(default: false)\n");
+    fprintf(stdout,
+            "    --paused       Pause program on entry (default: false)\n");
+    fprintf(stdout, "    --proxy        Proxy VM to connect to\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -117,16 +120,10 @@ void startDebuggerSocket(WARDuino *wac, Module *m) {
     while (true) {
         int socket = listenForIncomingConnection(socket_fd, address);
         wac->debugger->setChannel(socket);
-        //        wac->debugger->socket = fileno(stdout); // todo remove
         while ((valread = read(socket, buffer, 1024)) != -1) {
             write(socket, "got a message ... \n", 19);
             wac->handleInterrupt(valread - 1, buffer);
-            // runningstate program_state = warduinorun;
             write(socket, buffer, valread);
-            // while (checkdebugmessages(m, &program_state)) {
-            //				printf("checkdebugmessages \n");
-            //};
-            // fflush(stdout);
         }
     }
 }
@@ -147,7 +144,9 @@ int main(int argc, const char *argv[]) {
     bool return_exception = true;
     bool run_tests = false;
     bool no_socket = false;
+    bool paused = false;
     const char *file_name = nullptr;
+    const char *proxy = nullptr;
 
     const char *asserts_file = nullptr;
     const char *watcompiler = "wat2wasm";
@@ -174,6 +173,10 @@ int main(int argc, const char *argv[]) {
             ARGV_GET(watcompiler);
         } else if (!strcmp("--no-socket", arg)) {
             no_socket = true;
+        } else if (!strcmp("--paused", arg)) {
+            wac->program_state = WARDUINOpause;
+        } else if (!strcmp("--proxy", arg)) {
+            ARGV_GET(proxy);  // /dev/ttyUSB0
         }
     }
 
@@ -199,11 +202,18 @@ int main(int argc, const char *argv[]) {
     }
 
     if (m) {
-        pthread_t id;
-        uint8_t command[] = {'0', '3', '\n'};
-        // wac.handleInterrupt(3, command);
         m->warduino = wac;
+
+        // Run Wasm module
+        pthread_t id;
         pthread_create(&id, nullptr, runWAC, nullptr);
+
+        // Connect to proxy device
+        if (proxy) {
+            wac->debugger->startProxySupervisor(proxy);
+        }
+
+        // Start debugger
         if (no_socket) {
             startDebuggerStd(wac, m);
         } else {

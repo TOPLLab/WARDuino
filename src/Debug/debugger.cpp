@@ -241,6 +241,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
 #endif
         case interruptDronify: {
             *program_state = WARDUINODrone;
+            printf("Dronified.\n");
             break;
         }
         case interruptDUMPAllEvents:
@@ -977,26 +978,30 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
 #ifndef ARDUINO
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     Proxy::registerRFCs(m, &interruptData);
-    if (ProxySupervisor::registerMCUHost(&interruptData)) {
-        this->connected_to_drone = true;
-        pthread_mutex_init(&this->push_mutex, nullptr);
-        pthread_mutex_lock(&this->push_mutex);
-        ProxySupervisor *mcuhost = ProxySupervisor::getServer();
-        this->push_debugging_threadid =
-            mcuhost->openConnections(&this->push_mutex);
-    }
     this->channel->write("done!\n");
 }
 
-bool Debugger::drone_connected() const { return this->connected_to_drone; }
+void Debugger::startProxySupervisor(const char *proxy) {
+    this->connected_to_proxy = true;
+    pthread_mutex_init(&this->supervisor_mutex, nullptr);
+    pthread_mutex_lock(&this->supervisor_mutex);
 
-void Debugger::disconnect_drone() {
-    if (this->drone_connected()) {
+    FILE *serial = fopen(proxy, "rw+");
+    int proxy_address = fileno(serial);
+    this->supervisor = new ProxySupervisor(proxy_address, &this->supervisor_mutex);
+    printf("Connected to proxy.\n");
+}
+
+bool Debugger::proxy_connected() const { return this->connected_to_proxy; }
+
+void Debugger::disconnect_proxy() {
+    if (this->proxy_connected()) {
         return;
     }
     int *ptr;
-    pthread_mutex_unlock(&this->push_mutex);
-    pthread_join(this->push_debugging_threadid, (void **)&ptr);
+    // TODO close file
+    pthread_mutex_unlock(&this->supervisor_mutex);
+    pthread_join(this->supervisor->getThreadID(), (void **)&ptr);
 }
 #endif
 

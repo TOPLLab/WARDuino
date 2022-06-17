@@ -240,7 +240,7 @@ void arguments_copy(unsigned char *dest, StackValue *args,
 }
 
 void Proxy::deserializeRFCResult() {
-    ProxySupervisor *host = ProxySupervisor::getServer();
+    ProxySupervisor *host = WARDuino::instance()->debugger->supervisor;
 
     auto *call_result = (uint8_t *)host->readReply();
     this->succes = (uint8_t)call_result[0] == 1;
@@ -292,7 +292,7 @@ void Proxy::call(StackValue *arguments) {
     this->args = arguments;
     struct SerializeData *rfc_request = this->serializeRFC();
 
-    ProxySupervisor *host = ProxySupervisor::getServer();
+    ProxySupervisor *host = WARDuino::instance()->debugger->supervisor;
     printf("making the Proxy call\n");
     bool sent = host->send((void *)rfc_request->raw, rfc_request->size);
     if (!sent) {
@@ -309,7 +309,7 @@ void Proxy::call(StackValue *arguments) {
     char cmdBuffer[10] = "";
     int cmdBufferLen = 0;
     sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
-    ProxySupervisor::getServer()->send(cmdBuffer, cmdBufferLen);
+    WARDuino::instance()->debugger->supervisor->send(cmdBuffer, cmdBufferLen);
     this->deserializeRFCResult();
 }
 

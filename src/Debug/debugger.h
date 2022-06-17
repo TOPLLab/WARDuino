@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../RFC/proxy_supervisor.h"
 #include "../Utils/sockets.h"
 
 #ifndef ARDUINO
@@ -74,9 +75,8 @@ class Debugger {
     bool receivingData = false;
 
 #ifndef ARDUINO
-    bool connected_to_drone = false;
-    pthread_mutex_t push_mutex;
-    pthread_t push_debugging_threadid;
+    bool connected_to_proxy = false;
+    pthread_mutex_t supervisor_mutex;
 #endif
 
     // Private methods
@@ -129,6 +129,7 @@ class Debugger {
    public:
     // Public fields
     Channel *channel;
+    ProxySupervisor *supervisor;
 
     std::set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
     uint8_t *skipBreakpoint =
@@ -163,10 +164,13 @@ class Debugger {
 
     void handleProxyCall(Module *m, RunningState *program_state,
                          uint8_t *interruptData);
-#ifndef ARDUINO
-    bool drone_connected() const;
 
-    void disconnect_drone();
+#ifndef ARDUINO
+    void startProxySupervisor(const char *proxy);
+
+    bool proxy_connected() const;
+
+    void disconnect_proxy();
 
     // Pull-based
 
