@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg"></a>
   <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml/badge.svg"></a>
-  <a href="https://github.com/TOPLLab/WARDuino/blob/cleanup/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
+  <a href="https://github.com/TOPLLab/WARDuino/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
 </p>
 
 This project is released under the Mozilla Public License 2.0, and is being developed as part of an active research project at the University of Ghent's [TOPL](https://github.com/TOPLLab) lab.
