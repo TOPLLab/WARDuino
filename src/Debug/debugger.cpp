@@ -988,7 +988,8 @@ void Debugger::startProxySupervisor(const char *proxy) {
 
     FILE *serial = fopen(proxy, "rw+");
     int proxy_address = fileno(serial);
-    this->supervisor = new ProxySupervisor(proxy_address, &this->supervisor_mutex);
+    this->supervisor =
+        new ProxySupervisor(proxy_address, &this->supervisor_mutex);
     printf("Connected to proxy.\n");
 }
 

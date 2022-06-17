@@ -1,5 +1,6 @@
 #ifndef ARDUINO
 #include "proxy_supervisor.h"
+
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -69,7 +70,7 @@ bool continuing(pthread_mutex_t *mutex) {
 void *readSocket(void *input) {
     // Print value received as argument:
     dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
-    auto *supervisor = (ProxySupervisor *) input;
+    auto *supervisor = (ProxySupervisor *)input;
     supervisor->startPushDebuggerSocket();
     pthread_exit(nullptr);
 }
