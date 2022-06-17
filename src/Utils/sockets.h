@@ -11,3 +11,12 @@ struct sockaddr_in createAddress(int port);
 void startListening(int socket_fd);
 
 int listenForIncomingConnection(int socket_fd, struct sockaddr_in address);
+
+class Channel {
+   private:
+    int socket;
+   public:
+    explicit Channel(int socket);
+
+    void write(char const *fmt, ...) const;
+};

@@ -18,9 +18,14 @@
 
 // Debugger
 
-Debugger::Debugger(int socket) { this->socket = socket; }
+Debugger::Debugger(int address) { this->channel = new Channel(address); }
 
 // Public methods
+
+void Debugger::setChannel(int address) {
+    delete this->channel;
+    this->channel = new Channel(address);
+}
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     uint8_t *data = this->parseDebugBuffer(len, buff);
@@ -107,7 +112,7 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
 }
 
 void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
-    dprintf(this->socket, "AT %p!\n", (void *)pc_ptr);
+    this->channel->write("AT %p!\n", (void *)pc_ptr);
 }
 
 /**
@@ -138,7 +143,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         return false;
     }
 
-    dprintf(this->socket, "Interrupt: %x\n", *interruptData);
+    this->channel->write("Interrupt: %x\n", *interruptData);
 
     long start = 0, size = 0;
     switch (*interruptData) {
@@ -147,16 +152,16 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptHALT:
-            dprintf(this->socket, "STOP!\n");
+            this->channel->write("STOP!\n");
             free(interruptData);
             exit(0);
         case interruptPAUSE:
             *program_state = WARDUINOpause;
-            dprintf(this->socket, "PAUSE!\n");
+            this->channel->write("PAUSE!\n");
             free(interruptData);
             break;
         case interruptSTEP:
-            dprintf(this->socket, "STEP!\n");
+            this->channel->write("STEP!\n");
             *program_state = WARDUINOstep;
             this->skipBreakpoint = m->pc_ptr;
             free(interruptData);
@@ -182,14 +187,14 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptUPDATEFun:
-            dprintf(this->socket, "CHANGE function!\n");
+            this->channel->write("CHANGE function!\n");
             Debugger::handleChangedFunction(m, interruptData);
             //  do not free(interruptData);
             // we need it to run that code
             // TODO: free double replacements
             break;
         case interruptUPDATELocal:
-            dprintf(this->socket, "CHANGE local!\n");
+            this->channel->write("CHANGE local!\n");
             this->handleChangedLocal(m, interruptData);
             free(interruptData);
             break;
@@ -200,7 +205,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptOffset:
             free(interruptData);
-            dprintf(this->socket, "{\"offset\":\"%p\"}\n", (void *)m->bytes);
+            this->channel->write("{\"offset\":\"%p\"}\n", (void *)m->bytes);
             break;
         case interruptRecvState:
             if (!this->receivingData) {
@@ -211,14 +216,14 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 this->receivingData = true;
                 this->freeState(m, interruptData);
                 free(interruptData);
-                dprintf(this->socket, "ack!\n");
+                this->channel->write("ack!\n");
             } else {
                 printf("receiving state\n");
                 debug("receiving state\n");
                 receivingData = !this->saveState(m, interruptData);
                 free(interruptData);
                 debug("sending %s!\n", receivingData ? "ack" : "done");
-                dprintf(this->socket, "%s!\n", receivingData ? "ack" : "done");
+                this->channel->write("%s!\n", receivingData ? "ack" : "done");
                 if (!this->receivingData) {
                     debug("receiving state done\n");
                 }
@@ -260,9 +265,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             size = (long)CallbackHandler::event_count();
         case interruptDUMPEvents:
             // TODO get start and size from message
-            dprintf(this->socket, "{");
+            this->channel->write("{");
             this->dumpEvents(start, size);
-            dprintf(this->socket, "}\n");
+            this->channel->write("}\n");
             break;
         case interruptPOPEvent:
             CallbackHandler::resolve_event(true);
@@ -281,7 +286,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         default:
             // handle later
-            dprintf(this->socket, "COULD not parse interrupt data!\n");
+            this->channel->write("COULD not parse interrupt data!\n");
             free(interruptData);
             break;
     }
@@ -312,7 +317,7 @@ void Debugger::printValue(StackValue *v, uint32_t idx, bool end = false) const {
             snprintf(buff, 255, R"("type":"%02x","value":"%)" PRIx64 "\"",
                      v->value_type, v->value.uint64);
     }
-    dprintf(this->socket, R"({"idx":%d,%s}%s)", idx, buff, end ? "" : ",");
+    this->channel->write(R"({"idx":%d,%s}%s)", idx, buff, end ? "" : ",");
 }
 
 uint8_t *Debugger::findOpcode(Module *m, Block *block) {
@@ -333,7 +338,7 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
 }
 
 void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
-    dprintf(this->socket, "GO!\n");
+    this->channel->write("GO!\n");
     if (*program_state == WARDUINOpause && this->isBreakpoint(m->pc_ptr)) {
         this->skipBreakpoint = m->pc_ptr;
     }
@@ -349,7 +354,7 @@ void Debugger::handleInterruptBP(const uint8_t *interruptData) {
         bp |= interruptData[i + 2];
     }
     auto *bpt = (uint8_t *)bp;
-    dprintf(this->socket, "BP %p!\n", static_cast<void *>(bpt));
+    this->channel->write("BP %p!\n", static_cast<void *>(bpt));
 
     if (*interruptData == 0x06) {
         this->addBreakpoint(bpt);
@@ -359,13 +364,13 @@ void Debugger::handleInterruptBP(const uint8_t *interruptData) {
 }
 
 void Debugger::dump(Module *m, bool full) const {
-    dprintf(this->socket, "{");
+    this->channel->write("{");
 
     // current PC
-    dprintf(this->socket, R"("pc":"%p",)", (void *)m->pc_ptr);
+    this->channel->write(R"("pc":"%p",)", (void *)m->pc_ptr);
 
     // start of bytes
-    dprintf(this->socket, R"("start":["%p"],)", (void *)m->bytes);
+    this->channel->write(R"("start":["%p"],)", (void *)m->bytes);
 
     this->dumpBreakpoints(m);
 
@@ -374,37 +379,37 @@ void Debugger::dump(Module *m, bool full) const {
     this->dumpCallstack(m);
 
     if (full) {
-        dprintf(this->socket, R"(, "locals": )");
+        this->channel->write(R"(, "locals": )");
         this->dumpLocals(m);
-        dprintf(this->socket, ", ");
+        this->channel->write(", ");
         this->dumpEvents(0, CallbackHandler::event_count());
     }
 
-    dprintf(this->socket, "}\n\n");
+    this->channel->write("}\n\n");
     //    fflush(stdout);
 }
 
 void Debugger::dumpBreakpoints(Module *m) const {
-    dprintf(this->socket, "\"breakpoints\":[");
+    this->channel->write("\"breakpoints\":[");
     {
         size_t i = 0;
         for (auto bp : this->breakpoints) {
-            dprintf(this->socket, R"("%p"%s)", bp,
-                    (++i < this->breakpoints.size()) ? "," : "");
+            this->channel->write(R"("%p"%s)", bp,
+                                (++i < this->breakpoints.size()) ? "," : "");
         }
     }
-    dprintf(this->socket, "],");
+    this->channel->write("],");
 }
 
 void Debugger::dumpFunctions(Module *m) const {
-    dprintf(this->socket, "\"functions\":[");
+    this->channel->write("\"functions\":[");
 
     for (size_t i = m->import_count; i < m->function_count; i++) {
-        dprintf(this->socket, R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
-                m->functions[i].fidx,
-                static_cast<void *>(m->functions[i].start_ptr),
-                static_cast<void *>(m->functions[i].end_ptr),
-                (i < m->function_count - 1) ? "," : "],");
+        this->channel->write(R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
+                            m->functions[i].fidx,
+                            static_cast<void *>(m->functions[i].start_ptr),
+                            static_cast<void *>(m->functions[i].end_ptr),
+                            (i < m->function_count - 1) ? "," : "],");
     }
 }
 
@@ -412,12 +417,11 @@ void Debugger::dumpFunctions(Module *m) const {
  * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
  */
 void Debugger::dumpCallstack(Module *m) const {
-    dprintf(this->socket, "\"callstack\":[");
+    this->channel->write("\"callstack\":[");
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
         uint8_t *callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
-        dprintf(
-            this->socket,
+        this->channel->write(
             R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"start":"%p","ra":"%p","callsite":"%p"}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp,
             f->block->start_ptr, static_cast<void *>(f->ra_ptr),
@@ -435,7 +439,7 @@ void Debugger::dumpLocals(Module *m) const {
         }
     }
     Frame *f = &m->callstack[firstFunFramePtr];
-    dprintf(this->socket, R"({"count":%u,"locals":[)", 0);
+    this->channel->write(R"({"count":%u,"locals":[)", 0);
     //    fflush(stdout);  // FIXME: this is needed for ESP to properly print
     char _value_str[256];
     for (uint32_t i = 0; i < f->block->local_count; i++) {
@@ -463,11 +467,11 @@ void Debugger::dumpLocals(Module *m) const {
                          v->value_type, v->value.uint64);
         }
 
-        dprintf(this->socket, "{%s, \"index\":%u}%s", _value_str,
-                i + f->block->type->param_count,
-                (i + 1 < f->block->local_count) ? "," : "");
+        this->channel->write("{%s, \"index\":%u}%s", _value_str,
+                            i + f->block->type->param_count,
+                            (i + 1 < f->block->local_count) ? "," : "");
     }
-    dprintf(this->socket, "]}");
+    this->channel->write("]}");
     //    fflush(stdout);
 }
 
@@ -478,25 +482,24 @@ void Debugger::dumpEvents(long start, long size) const {
         size = EVENTS_SIZE;
     }
 
-    dprintf(this->socket, R"("events": [)");
+    this->channel->write(R"("events": [)");
     long index = start, end = start + size;
     std::for_each(CallbackHandler::event_begin() + start,
                   CallbackHandler::event_begin() + end,
                   [this, &index, &end](const Event &e) {
-                      dprintf(this->socket,
-                              R"({"topic": "%s", "payload": "%s"})",
-                              e.topic.c_str(), e.payload.c_str());
+                      this->channel->write(R"({"topic": "%s", "payload": "%s"})",
+                                          e.topic.c_str(), e.payload.c_str());
                       if (++index < end) {
-                          dprintf(this->socket, ", ");
+                          this->channel->write(", ");
                       }
                   });
-    dprintf(this->socket, "]");
+    this->channel->write("]");
 
     CallbackHandler::resolving_event = previous;
 }
 
 void Debugger::dumpCallbackmapping() const {
-    dprintf(this->socket, "%s\n", CallbackHandler::dump_callbacks().c_str());
+    this->channel->write("%s\n", CallbackHandler::dump_callbacks().c_str());
 }
 
 /**
@@ -568,10 +571,10 @@ bool Debugger::handleChangedFunction(Module *m, uint8_t *bytes) {
 bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
     if (*bytes != interruptUPDATELocal) return false;
     uint8_t *pos = bytes + 1;
-    dprintf(this->socket, "Local updates: %x\n", *pos);
+    this->channel->write("Local updates: %x\n", *pos);
     uint32_t localId = read_LEB_32(&pos);
 
-    dprintf(this->socket, "Local %u being changed\n", localId);
+    this->channel->write("Local %u being changed\n", localId);
     auto v = &m->stack[m->fp + localId];
     switch (v->value_type) {
         case I32:
@@ -587,13 +590,13 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
             memcpy(&v->value.uint64, pos, 8);
             break;
     }
-    dprintf(this->socket, "Local %u changed to %u\n", localId, v->value.uint32);
+    this->channel->write("Local %u changed to %u\n", localId, v->value.uint32);
     return true;
 }
 
 #ifndef ARDUINO
 void Debugger::notifyPushedEvent() const {
-    dprintf(this->socket, "new pushed event");
+    this->channel->write("new pushed event");
 }
 
 bool Debugger::handlePushedEvent(Module *m, char *bytes) const {
@@ -610,80 +613,78 @@ bool Debugger::handlePushedEvent(Module *m, char *bytes) const {
 void Debugger::woodDump(Module *m) {
     debug("asked for doDump\n");
     printf("asked for woodDump\n");
-    dprintf(this->socket, "DUMP!\n");
-    dprintf(this->socket, "{");
+    this->channel->write("DUMP!\n");
+    this->channel->write("{");
 
     // current PC
-    dprintf(this->socket, R"("pc":"%p",)", (void *)m->pc_ptr);
+    this->channel->write(R"("pc":"%p",)", (void *)m->pc_ptr);
 
     // start of bytes
-    dprintf(this->socket, R"("start":["%p"],)", (void *)m->bytes);
+    this->channel->write(R"("start":["%p"],)", (void *)m->bytes);
 
-    dprintf(this->socket, "\"breakpoints\":[");
+    this->channel->write("\"breakpoints\":[");
     size_t i = 0;
     for (auto bp : this->breakpoints) {
-        dprintf(this->socket, R"("%p"%s)", bp,
-                (++i < this->breakpoints.size()) ? "," : "");
+        this->channel->write(R"("%p"%s)", bp,
+                            (++i < this->breakpoints.size()) ? "," : "");
     }
-    dprintf(this->socket, "],");
+    this->channel->write("],");
 
     // stack
-    dprintf(this->socket, "\"stack\":[");
+    this->channel->write("\"stack\":[");
     for (int j = 0; j <= m->sp; j++) {
         auto v = &m->stack[j];
         printValue(v, j, j == m->sp);
     }
-    dprintf(this->socket, "],");
+    this->channel->write("],");
 
     // Callstack
-    dprintf(this->socket, "\"callstack\":[");
+    this->channel->write("\"callstack\":[");
     for (int j = 0; j <= m->csp; j++) {
         Frame *f = &m->callstack[j];
         uint8_t *block_key =
             f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
-        dprintf(
-            this->socket,
+        this->channel->write(
             R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
             static_cast<void *>(f->ra_ptr), j, (j < m->csp) ? "," : "");
     }
 
     // Globals
-    dprintf(this->socket, "],\"globals\":[");
+    this->channel->write("],\"globals\":[");
     for (uint32_t j = 0; j < m->global_count; j++) {
         auto v = m->globals + j;
         printValue(v, j, j == (m->global_count - 1));
     }
-    dprintf(this->socket, "]");  // closing globals
+    this->channel->write("]");  // closing globals
 
-    dprintf(this->socket, R"(,"table":{"max":%d, "init":%d, "elements":[)",
-            m->table.maximum, m->table.initial);
+    this->channel->write(R"(,"table":{"max":%d, "init":%d, "elements":[)",
+                        m->table.maximum, m->table.initial);
 
     for (uint32_t j = 0; j < m->table.size; j++) {
-        dprintf(this->socket, "%" PRIu32 "%s", m->table.entries[j],
-                (j + 1) == m->table.size ? "" : ",");
+        this->channel->write("%" PRIu32 "%s", m->table.entries[j],
+                            (j + 1) == m->table.size ? "" : ",");
     }
-    dprintf(this->socket, "]}");  // closing table
+    this->channel->write("]}");  // closing table
 
     // memory
     uint32_t total_elems =
         m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
-    dprintf(this->socket,
-            R"(,"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
-            m->memory.pages, m->memory.maximum, m->memory.initial);
+    this->channel->write(R"(,"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
+                        m->memory.pages, m->memory.maximum, m->memory.initial);
     for (uint32_t j = 0; j < total_elems; j++) {
-        dprintf(this->socket, "%" PRIu8 "%s", m->memory.bytes[j],
-                (j + 1) == total_elems ? "" : ",");
+        this->channel->write("%" PRIu8 "%s", m->memory.bytes[j],
+                            (j + 1) == total_elems ? "" : ",");
     }
-    dprintf(this->socket, "]}");  // closing memory
+    this->channel->write("]}");  // closing memory
 
-    dprintf(this->socket, R"(,"br_table":{"size":"0x%x","labels":[)",
-            BR_TABLE_SIZE);
+    this->channel->write(R"(,"br_table":{"size":"0x%x","labels":[)",
+                        BR_TABLE_SIZE);
     for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
-        dprintf(this->socket, "%" PRIu32 "%s", m->br_table[j],
-                (j + 1) == BR_TABLE_SIZE ? "" : ",");
+        this->channel->write("%" PRIu32 "%s", m->br_table[j],
+                            (j + 1) == BR_TABLE_SIZE ? "" : ",");
     }
-    dprintf(this->socket, "]}}\n");
+    this->channel->write("]}}\n");
 }
 
 enum ReceiveState {
@@ -1000,7 +1001,7 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
         this->push_debugging_threadid =
             mcuhost->openConnections(&this->push_mutex);
     }
-    dprintf(this->socket, "done!\n");
+    this->channel->write("done!\n");
 }
 
 bool Debugger::drone_connected() const { return this->connected_to_drone; }

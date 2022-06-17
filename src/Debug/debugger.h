@@ -8,6 +8,8 @@
 #include <vector>
 #ifndef ARDUINO
 #include <thread>
+
+#include "../Utils/sockets.h"
 #endif
 struct Module;
 struct Block;
@@ -39,7 +41,7 @@ enum InterruptTypes {
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
 
-    // WOOD Pull Debugging
+    // Pull Debugging
     interruptWOODDUMP = 0x60,
     interruptOffset = 0x61,
     interruptRecvState = 0x62,
@@ -59,6 +61,8 @@ enum InterruptTypes {
 class Debugger {
    private:
     std::deque<uint8_t *> debugMessages = {};
+
+    Channel *channel;
 
     // Help variables
 
@@ -126,14 +130,14 @@ class Debugger {
    public:
     // Public fields
 
-    int socket;
-
     std::set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
     uint8_t *skipBreakpoint =
         nullptr;  // Breakpoint to skip in the next interpretation step
 
     // Constructor
-    explicit Debugger(int socket);
+    explicit Debugger(int address);
+
+    void setChannel(int address);
 
     // Interrupts
 

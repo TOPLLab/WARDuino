@@ -30,7 +30,7 @@ Module* m;
 void startDebuggerStd(void* pvParameter) {
     int valread;
     uint8_t buffer[1024] = {0};
-    wac->debugger->socket = fileno(stdout);
+    wac->debugger->setChannel(fileno(stdout));
     while (true) {
         taskYIELD();
         vTaskDelay(1000 / portTICK_PERIOD_MS);

@@ -94,7 +94,7 @@ error:
 void startDebuggerStd(WARDuino *wac, Module *m) {
     int valread;
     uint8_t buffer[1024] = {0};
-    wac->debugger->socket = fileno(stdout);
+    wac->debugger->setChannel(fileno(stdout));
     while (true) {
         debug("waiting for debug command\n");
         while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
@@ -116,7 +116,7 @@ void startDebuggerSocket(WARDuino *wac, Module *m) {
     uint8_t buffer[1024] = {0};
     while (true) {
         int socket = listenForIncomingConnection(socket_fd, address);
-        wac->debugger->socket = socket;
+        wac->debugger->setChannel(socket);
         //        wac->debugger->socket = fileno(stdout); // todo remove
         while ((valread = read(socket, buffer, 1024)) != -1) {
             write(socket, "got a message ... \n", 19);

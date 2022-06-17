@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 
@@ -56,4 +57,13 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
         exit(EXIT_FAILURE);
     }
     return new_socket;
+}
+
+Channel::Channel(int socket) { this->socket = socket; }
+
+void Channel::write(const char *fmt, ...) const {
+    va_list args;
+    va_start(args, fmt);
+    vdprintf(this->socket, fmt, args);
+    va_end(args);
 }
