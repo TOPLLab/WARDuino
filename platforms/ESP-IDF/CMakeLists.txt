@@ -9,7 +9,6 @@ set(SOURCE_FILES
         ../../src/Interpreter/instructions.cpp
         ../../src/RFC/proxy.cpp
         ../../src/RFC/proxy_supervisor.cpp
-        ../../src/RFC/SocketServer.cpp
         ../../src/WARDuino/CallbackHandler.cpp
         )
 

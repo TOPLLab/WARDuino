@@ -10,7 +10,6 @@
 #endif
 
 #include "../Memory/mem.h"
-#include "../RFC/SocketServer.h"
 #include "../RFC/proxy.h"
 #include "../RFC/proxy_supervisor.h"
 #include "../Utils//util.h"
