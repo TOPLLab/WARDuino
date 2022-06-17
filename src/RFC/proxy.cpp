@@ -10,9 +10,6 @@
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "proxy_supervisor.h"
-#ifdef ARDUINO
-#include "SocketServer.h"
-#endif
 
 // TODO tests with exceptions
 ////TODO test with many args proxy
