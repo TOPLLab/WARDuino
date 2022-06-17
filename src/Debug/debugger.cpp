@@ -378,7 +378,7 @@ void Debugger::dumpBreakpoints(Module *m) const {
         size_t i = 0;
         for (auto bp : this->breakpoints) {
             this->channel->write(R"("%p"%s)", bp,
-                                (++i < this->breakpoints.size()) ? "," : "");
+                                 (++i < this->breakpoints.size()) ? "," : "");
         }
     }
     this->channel->write("],");
@@ -389,10 +389,10 @@ void Debugger::dumpFunctions(Module *m) const {
 
     for (size_t i = m->import_count; i < m->function_count; i++) {
         this->channel->write(R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
-                            m->functions[i].fidx,
-                            static_cast<void *>(m->functions[i].start_ptr),
-                            static_cast<void *>(m->functions[i].end_ptr),
-                            (i < m->function_count - 1) ? "," : "],");
+                             m->functions[i].fidx,
+                             static_cast<void *>(m->functions[i].start_ptr),
+                             static_cast<void *>(m->functions[i].end_ptr),
+                             (i < m->function_count - 1) ? "," : "],");
     }
 }
 
@@ -451,8 +451,8 @@ void Debugger::dumpLocals(Module *m) const {
         }
 
         this->channel->write("{%s, \"index\":%u}%s", _value_str,
-                            i + f->block->type->param_count,
-                            (i + 1 < f->block->local_count) ? "," : "");
+                             i + f->block->type->param_count,
+                             (i + 1 < f->block->local_count) ? "," : "");
     }
     this->channel->write("]}");
     //    fflush(stdout);
@@ -470,8 +470,9 @@ void Debugger::dumpEvents(long start, long size) const {
     std::for_each(CallbackHandler::event_begin() + start,
                   CallbackHandler::event_begin() + end,
                   [this, &index, &end](const Event &e) {
-                      this->channel->write(R"({"topic": "%s", "payload": "%s"})",
-                                          e.topic.c_str(), e.payload.c_str());
+                      this->channel->write(
+                          R"({"topic": "%s", "payload": "%s"})",
+                          e.topic.c_str(), e.payload.c_str());
                       if (++index < end) {
                           this->channel->write(", ");
                       }
@@ -609,7 +610,7 @@ void Debugger::woodDump(Module *m) {
     size_t i = 0;
     for (auto bp : this->breakpoints) {
         this->channel->write(R"("%p"%s)", bp,
-                            (++i < this->breakpoints.size()) ? "," : "");
+                             (++i < this->breakpoints.size()) ? "," : "");
     }
     this->channel->write("],");
 
@@ -642,30 +643,31 @@ void Debugger::woodDump(Module *m) {
     this->channel->write("]");  // closing globals
 
     this->channel->write(R"(,"table":{"max":%d, "init":%d, "elements":[)",
-                        m->table.maximum, m->table.initial);
+                         m->table.maximum, m->table.initial);
 
     for (uint32_t j = 0; j < m->table.size; j++) {
         this->channel->write("%" PRIu32 "%s", m->table.entries[j],
-                            (j + 1) == m->table.size ? "" : ",");
+                             (j + 1) == m->table.size ? "" : ",");
     }
     this->channel->write("]}");  // closing table
 
     // memory
     uint32_t total_elems =
         m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
-    this->channel->write(R"(,"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
-                        m->memory.pages, m->memory.maximum, m->memory.initial);
+    this->channel->write(
+        R"(,"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
+        m->memory.pages, m->memory.maximum, m->memory.initial);
     for (uint32_t j = 0; j < total_elems; j++) {
         this->channel->write("%" PRIu8 "%s", m->memory.bytes[j],
-                            (j + 1) == total_elems ? "" : ",");
+                             (j + 1) == total_elems ? "" : ",");
     }
     this->channel->write("]}");  // closing memory
 
     this->channel->write(R"(,"br_table":{"size":"0x%x","labels":[)",
-                        BR_TABLE_SIZE);
+                         BR_TABLE_SIZE);
     for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
         this->channel->write("%" PRIu32 "%s", m->br_table[j],
-                            (j + 1) == BR_TABLE_SIZE ? "" : ",");
+                             (j + 1) == BR_TABLE_SIZE ? "" : ",");
     }
     this->channel->write("]}}\n");
 }

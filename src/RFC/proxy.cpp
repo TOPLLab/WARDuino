@@ -61,7 +61,7 @@ Proxy *Proxy::getRFC(uint32_t fid) {
  */
 
 Proxy *Proxy::registerRFCallee(uint32_t t_fid, Type *t_type, StackValue *t_args,
-                           ExecutionState *t_executionState) {
+                               ExecutionState *t_executionState) {
     auto *rfc = new Proxy(t_fid, t_type, t_args, t_executionState);
     callees.push(rfc);
     return rfc;
@@ -78,7 +78,7 @@ void Proxy::removeRFCallee() { callees.pop(); }
  */
 
 Proxy::Proxy(uint32_t t_fid, Type *t_type, StackValue *t_args,
-         ExecutionState *t_exState)
+             ExecutionState *t_exState)
     : fid(t_fid), args(t_args), type(t_type), executionState(t_exState) {
     this->exceptionMsg = nullptr;
     this->excpMsgSize = 0;
@@ -106,7 +106,8 @@ void Proxy::returnResult(Module *m) {
     WARDuino::instance()->debugger->channel->write(data);
 }
 
-void Proxy::restoreExecutionState(Module *m, RunningState *program_state) const {
+void Proxy::restoreExecutionState(Module *m,
+                                  RunningState *program_state) const {
     // restoring the original execution state
     *program_state = this->executionState->program_state;
     m->csp = this->executionState->csp;

@@ -15,6 +15,7 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address);
 class Channel {
    private:
     int socket;
+
    public:
     explicit Channel(int socket);
 
