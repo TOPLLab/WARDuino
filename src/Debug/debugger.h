@@ -6,10 +6,11 @@
 #include <set>
 #include <unordered_map>
 #include <vector>
-#ifndef ARDUINO
-#include <thread>
 
 #include "../Utils/sockets.h"
+
+#ifndef ARDUINO
+#include <thread>
 #endif
 struct Module;
 struct Block;
@@ -61,8 +62,6 @@ enum InterruptTypes {
 class Debugger {
    private:
     std::deque<uint8_t *> debugMessages = {};
-
-    Channel *channel;
 
     // Help variables
 
@@ -129,6 +128,7 @@ class Debugger {
 
    public:
     // Public fields
+    Channel *channel;
 
     std::set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
     uint8_t *skipBreakpoint =
@@ -161,10 +161,9 @@ class Debugger {
 
     void woodDump(Module *m);
 
-#ifdef ARDUINO
     void handleProxyCall(Module *m, RunningState *program_state,
                          uint8_t *interruptData);
-#else
+#ifndef ARDUINO
     bool drone_connected() const;
 
     void disconnect_drone();
@@ -175,9 +174,7 @@ class Debugger {
 
     // Push-based
 
-#ifndef ARDUINO
     void notifyPushedEvent() const;
-#endif
 
     bool handlePushedEvent(Module *m, char *bytes) const;
 #endif

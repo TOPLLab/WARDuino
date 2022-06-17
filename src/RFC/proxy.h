@@ -36,11 +36,9 @@ class Proxy {
     const ExecutionState *executionState;
 
     Proxy(uint32_t t_fid, Type *t_type, StackValue *t_args = nullptr,
-        ExecutionState *t_exState = nullptr);
+          ExecutionState *t_exState = nullptr);
     void call(StackValue *args);
-#ifdef ARDUINO
     void returnResult(Module *m);
-#endif  // ARDUINO
     void restoreExecutionState(Module *m, RunningState *program_state) const;
     bool callCompleted(Module *m) const;
 
@@ -54,8 +52,8 @@ class Proxy {
 
     // Server side
     static Proxy *registerRFCallee(uint32_t t_fid, Type *t_type,
-                                 StackValue *t_args,
-                                 ExecutionState *t_executionState);
+                                   StackValue *t_args,
+                                   ExecutionState *t_executionState);
     static bool hasRFCallee();
     static Proxy *currentCallee();
     static void removeRFCallee();

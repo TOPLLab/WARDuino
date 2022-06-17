@@ -29,9 +29,8 @@ std::queue<Proxy *> callees;
 /*
  * Proxy Manager Client Side
  */
-
 Proxy *Proxy::registerRFC(uint32_t t_fid, Type *t_type) {
-    Proxy *rfc = new Proxy(t_fid, t_type);
+    auto *rfc = new Proxy(t_fid, t_type);
     functions[t_fid] = rfc;
     return rfc;
 }
@@ -63,7 +62,7 @@ Proxy *Proxy::getRFC(uint32_t fid) {
 
 Proxy *Proxy::registerRFCallee(uint32_t t_fid, Type *t_type, StackValue *t_args,
                            ExecutionState *t_executionState) {
-    Proxy *rfc = new Proxy(t_fid, t_type, t_args, t_executionState);
+    auto *rfc = new Proxy(t_fid, t_type, t_args, t_executionState);
     callees.push(rfc);
     return rfc;
 }
@@ -90,7 +89,7 @@ Proxy::Proxy(uint32_t t_fid, Type *t_type, StackValue *t_args,
         this->result->value_type = t_type->results[0];
     }
 }
-#ifdef ARDUINO
+
 void Proxy::returnResult(Module *m) {
     // reading result from stack
     if (this->succes && this->type->result_count > 0) {
@@ -104,11 +103,8 @@ void Proxy::returnResult(Module *m) {
     // returning the result to the client
     struct SerializeData *rfc_result = this->serializeRFCallee();
     const char *data = (const char *)rfc_result->raw;
-    size_t data_size = (size_t)rfc_result->size;
-    SocketServer *server = SocketServer::getServer();
-    server->write2Client(server->pullClient, data, data_size);
+    WARDuino::instance()->debugger->channel->write(data);
 }
-#endif
 
 void Proxy::restoreExecutionState(Module *m, RunningState *program_state) const {
     // restoring the original execution state
@@ -130,7 +126,6 @@ bool Proxy::callCompleted(Module *m) const {
  * Output is also transformed to hexa
  *
  */
-
 struct Proxy::SerializeData *Proxy::serializeRFC() {
     const unsigned short serializationSize = sizeSerializationRFC(this->type);
     auto *buffer = new unsigned char[serializationSize];

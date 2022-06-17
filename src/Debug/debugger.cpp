@@ -229,37 +229,21 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 }
             }
             break;
-#ifdef ARDUINO
         case interruptProxyCall: {
             this->handleProxyCall(m, program_state, interruptData + 1);
             free(interruptData);
         } break;
-#else
+#ifndef ARDUINO
         case interruptMonitorProxies: {
             printf("receiving functions list to proxy\n");
             this->handleMonitorProxies(m, interruptData + 1);
             free(interruptData);
         } break;
 #endif
-#ifdef ARDUINO
         case interruptDronify: {
-            // 0x65 the wifi ssid  \0  wifipass  \0
-            //  1   |____len_____|  1
-            char *ssid = (char *)(interruptData + 1);
-            size_t ssid_len = strlen(ssid);
-            char *pass = (char *)(interruptData + 1 + ssid_len + 1);
-            ServerCredentials serverCredentials = {ssid, pass};
-            SocketServer::createServer(
-                8080, 8081, [m](size_t len, uint8_t *buff) {
-                    m->warduino->handleInterrupt(len, buff);
-                });
-            auto server = SocketServer::getServer();
-            server->connect2Wifi(&serverCredentials);
-            server->begin();
             *program_state = WARDUINODrone;
             break;
         }
-#endif
         case interruptDUMPAllEvents:
             printf("InterruptDUMPEvents\n");
             size = (long)CallbackHandler::event_count();
@@ -969,7 +953,6 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
     return bp;
 }
 
-#ifdef ARDUINO
 void Debugger::handleProxyCall(Module *m, RunningState *program_state,
                                uint8_t *interruptData) {
     uint8_t *data = interruptData;
@@ -990,7 +973,7 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
 
     *program_state = WARDuinoProxyRun;
 }
-#else
+#ifndef ARDUINO
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     Proxy::registerRFCs(m, &interruptData);
     if (ProxySupervisor::registerMCUHost(&interruptData)) {
