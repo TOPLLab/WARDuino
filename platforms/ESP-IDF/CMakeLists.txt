@@ -7,7 +7,7 @@ set(SOURCE_FILES
         ../../src/WARDuino/WARDuino.cpp
         ../../src/Primitives/idf.cpp
         ../../src/Interpreter/instructions.cpp
-        ../../src/RFC/rfc.cpp
+        ../../src/RFC/proxy.cpp
         ../../src/RFC/proxy_supervisor.cpp
         ../../src/RFC/SocketServer.cpp
         ../../src/WARDuino/CallbackHandler.cpp

@@ -1,4 +1,4 @@
-#include "rfc.h"
+#include "proxy.h"
 
 #include <cinttypes>
 #include <cstdio>
@@ -20,39 +20,39 @@
 
 unsigned short int sizeof_valuetype(uint32_t);
 unsigned short int sizeSerializationRFC(const Type *);
-unsigned short int sizeSerializationRFCallee(RFC *);
+unsigned short int sizeSerializationRFCallee(Proxy *);
 void arguments_copy(unsigned char *, StackValue *, uint32_t);
 
-std::map<uint32_t, RFC *> functions;
-std::queue<RFC *> callees;
+std::map<uint32_t, Proxy *> functions;
+std::queue<Proxy *> callees;
 
 /*
  * Proxy Manager Client Side
  */
 
-RFC *RFC::registerRFC(uint32_t t_fid, Type *t_type) {
-    RFC *rfc = new RFC(t_fid, t_type);
+Proxy *Proxy::registerRFC(uint32_t t_fid, Type *t_type) {
+    Proxy *rfc = new Proxy(t_fid, t_type);
     functions[t_fid] = rfc;
     return rfc;
 }
 
-void RFC::unregisterRFC(uint32_t fid) {
+void Proxy::unregisterRFC(uint32_t fid) {
     auto it = functions.find(fid);
     if (it != functions.end()) functions.erase(it);
 }
 
-void RFC::clearRFCs() {
-    std::map<uint32_t, RFC *>::iterator it;
+void Proxy::clearRFCs() {
+    std::map<uint32_t, Proxy *>::iterator it;
     for (it = functions.begin(); it != functions.end(); it++) delete it->second;
     functions.clear();
 }
 
-bool RFC::isRFC(uint32_t fid) {
+bool Proxy::isRFC(uint32_t fid) {
     auto it = functions.find(fid);
     return it != functions.end();
 }
 
-RFC *RFC::getRFC(uint32_t fid) {
+Proxy *Proxy::getRFC(uint32_t fid) {
     auto it = functions.find(fid);
     return it->second;
 }
@@ -61,24 +61,24 @@ RFC *RFC::getRFC(uint32_t fid) {
  * Proxy Manager Server Side
  */
 
-RFC *RFC::registerRFCallee(uint32_t t_fid, Type *t_type, StackValue *t_args,
+Proxy *Proxy::registerRFCallee(uint32_t t_fid, Type *t_type, StackValue *t_args,
                            ExecutionState *t_executionState) {
-    RFC *rfc = new RFC(t_fid, t_type, t_args, t_executionState);
+    Proxy *rfc = new Proxy(t_fid, t_type, t_args, t_executionState);
     callees.push(rfc);
     return rfc;
 }
 
-bool RFC::hasRFCallee() { return !callees.empty(); }
+bool Proxy::hasRFCallee() { return !callees.empty(); }
 
-RFC *RFC::currentCallee() { return callees.front(); }
+Proxy *Proxy::currentCallee() { return callees.front(); }
 
-void RFC::removeRFCallee() { callees.pop(); }
+void Proxy::removeRFCallee() { callees.pop(); }
 
 /*
- * RFC methods
+ * Proxy methods
  */
 
-RFC::RFC(uint32_t t_fid, Type *t_type, StackValue *t_args,
+Proxy::Proxy(uint32_t t_fid, Type *t_type, StackValue *t_args,
          ExecutionState *t_exState)
     : fid(t_fid), args(t_args), type(t_type), executionState(t_exState) {
     this->exceptionMsg = nullptr;
@@ -91,7 +91,7 @@ RFC::RFC(uint32_t t_fid, Type *t_type, StackValue *t_args,
     }
 }
 #ifdef ARDUINO
-void RFC::returnResult(Module *m) {
+void Proxy::returnResult(Module *m) {
     // reading result from stack
     if (this->succes && this->type->result_count > 0) {
         this->result->value_type = m->stack[m->sp].value_type;
@@ -110,7 +110,7 @@ void RFC::returnResult(Module *m) {
 }
 #endif
 
-void RFC::restoreExecutionState(Module *m, RunningState *program_state) const {
+void Proxy::restoreExecutionState(Module *m, RunningState *program_state) const {
     // restoring the original execution state
     *program_state = this->executionState->program_state;
     m->csp = this->executionState->csp;
@@ -118,7 +118,7 @@ void RFC::restoreExecutionState(Module *m, RunningState *program_state) const {
     m->pc_ptr = this->executionState->pc_ptr;
 }
 
-bool RFC::callCompleted(Module *m) const {
+bool Proxy::callCompleted(Module *m) const {
     return !this->succes || this->executionState->csp == m->csp;
 }
 
@@ -131,7 +131,7 @@ bool RFC::callCompleted(Module *m) const {
  *
  */
 
-struct RFC::SerializeData *RFC::serializeRFC() {
+struct Proxy::SerializeData *Proxy::serializeRFC() {
     const unsigned short serializationSize = sizeSerializationRFC(this->type);
     auto *buffer = new unsigned char[serializationSize];
 
@@ -156,7 +156,7 @@ struct RFC::SerializeData *RFC::serializeRFC() {
     return ser;
 }
 
-struct RFC::SerializeData *RFC::serializeRFCallee() {
+struct Proxy::SerializeData *Proxy::serializeRFCallee() {
     const unsigned short serializationSize = sizeSerializationRFCallee(this);
     auto *raw = new unsigned char[serializationSize];
     uint8_t suc = this->succes ? 1 : 0;
@@ -181,7 +181,7 @@ struct RFC::SerializeData *RFC::serializeRFCallee() {
 }
 
 /*
- * returns the quantity of bytes needed to serialize a RFC.
+ * returns the quantity of bytes needed to serialize a Proxy.
  * The size includes: Interrupt + Id of the function + parameters
  */
 unsigned short int sizeSerializationRFC(const Type *type) {
@@ -192,7 +192,7 @@ unsigned short int sizeSerializationRFC(const Type *type) {
     return 1 + sizeof(uint32_t) + paramSize;
 }
 
-unsigned short int sizeSerializationRFCallee(RFC *callee) {
+unsigned short int sizeSerializationRFCallee(Proxy *callee) {
     if (!callee->succes) return 1 + sizeof(uint16_t) + callee->excpMsgSize;
 
     if (callee->type->result_count > 0)
@@ -246,7 +246,7 @@ void arguments_copy(unsigned char *dest, StackValue *args,
     }
 }
 
-void RFC::deserializeRFCResult() {
+void Proxy::deserializeRFCResult() {
     ProxySupervisor *host = ProxySupervisor::getServer();
 
     auto *call_result = (uint8_t *)host->readReply();
@@ -295,12 +295,12 @@ void RFC::deserializeRFCResult() {
     delete[] call_result;
 }
 
-void RFC::call(StackValue *arguments) {
+void Proxy::call(StackValue *arguments) {
     this->args = arguments;
     struct SerializeData *rfc_request = this->serializeRFC();
 
     ProxySupervisor *host = ProxySupervisor::getServer();
-    printf("making the RFC call\n");
+    printf("making the Proxy call\n");
     bool sent = host->send((void *)rfc_request->raw, rfc_request->size);
     if (!sent) {
         this->succes = false;
@@ -320,20 +320,20 @@ void RFC::call(StackValue *arguments) {
     this->deserializeRFCResult();
 }
 
-void RFC::registerRFCs(Module *m, uint8_t **data) {
+void Proxy::registerRFCs(Module *m, uint8_t **data) {
     printf("registering_rfc_functions\n");
-    RFC::clearRFCs();
+    Proxy::clearRFCs();
     uint32_t amount_funcs = read_B32(data);
     printf("funcs_total %" PRIu32 "\n", amount_funcs);
     for (uint32_t i = 0; i < amount_funcs; i++) {
         uint32_t fid = read_B32(data);
         printf("registering fid=%" PRIu32 "\n", fid);
         Type *type = (m->functions[fid]).type;
-        RFC::registerRFC(fid, type);
+        Proxy::registerRFC(fid, type);
     }
 }
 
-StackValue *RFC::readRFCArgs(Block *func, uint8_t *data) {
+StackValue *Proxy::readRFCArgs(Block *func, uint8_t *data) {
     if (func->type->param_count == 0) {
         printf("ProxyFunc %" PRIu32 "takes no arg\n", func->fidx);
         return nullptr;
@@ -381,7 +381,7 @@ StackValue *RFC::readRFCArgs(Block *func, uint8_t *data) {
     return args;
 }
 
-void RFC::setupCalleeArgs(Module *m, RFC *callee) {
+void Proxy::setupCalleeArgs(Module *m, Proxy *callee) {
     // adding arguments to the stack
     StackValue *args = callee->args;
     for (uint32_t i = 0; i < callee->type->param_count; i++)

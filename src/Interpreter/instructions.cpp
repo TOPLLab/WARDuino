@@ -4,7 +4,7 @@
 #include <cstring>
 
 #include "../Memory/mem.h"
-#include "../RFC/rfc.h"
+#include "../RFC/proxy.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../Utils/util_arduino.h"
@@ -105,7 +105,7 @@ void setup_call(Module *m, uint32_t fidx) {
 // performs proxy calls to an MCU
 bool proxy_call(uint32_t fidx, Module *m) {
     printf("Remote Function Call %d\n", fidx);
-    RFC *rf = RFC::getRFC(fidx);
+    Proxy *rf = Proxy::getRFC(fidx);
     StackValue *args = nullptr;
     if (rf->type->param_count > 0) {
         m->sp -= rf->type->param_count;
@@ -366,7 +366,7 @@ bool i_instr_return(Module *m) {
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
 #ifndef ARDUINO
-    if (RFC::isRFC(fidx)) {
+    if (Proxy::isRFC(fidx)) {
         return proxy_call(fidx, m);
     }
 #endif
@@ -417,7 +417,7 @@ bool i_instr_call_indirect(Module *m) {
 #endif
 
 #ifndef ARDUINO
-    if (RFC::isRFC(fidx)) {
+    if (Proxy::isRFC(fidx)) {
         return proxy_call(fidx, m);
     }
 #endif
@@ -1502,8 +1502,8 @@ bool interpret(Module *m) {
     // TODO: this is actually a property of warduino
     m->warduino->program_state = WARDUINOrun;
 
-    // needed for RFC
-    RFC *callee = nullptr;
+    // needed for Proxy
+    Proxy *callee = nullptr;
     while (!program_done && success) {
         if (m->warduino->program_state == WARDUINOstep) {
             m->warduino->program_state = WARDUINOpause;
@@ -1516,21 +1516,21 @@ bool interpret(Module *m) {
         reset_wdt();
 
 #ifdef ARDUINO
-        // handle RFC requested by emulator
+        // handle Proxy requested by emulator
         if (m->warduino->program_state == WARDuinoProxyRun) {
-            if (callee == nullptr) {  // TODO maybe use RFC::hasRFCallee()
+            if (callee == nullptr) {  // TODO maybe use Proxy::hasRFCallee()
                 // call happens for the first time
-                callee = RFC::currentCallee();
-                RFC::setupCalleeArgs(m, callee);
+                callee = Proxy::currentCallee();
+                Proxy::setupCalleeArgs(m, callee);
 
-                // Primitive function RFC happen instantly
+                // Primitive function proxy call happen instantly
                 if (callee->fid < m->import_count) {
                     callee->succes =
                         ((Primitive)m->functions[callee->fid].func_ptr)(m);
                     callee->returnResult(m);
                     callee->restoreExecutionState(m,
                                                   &m->warduino->program_state);
-                    RFC::removeRFCallee();
+                    Proxy::removeRFCallee();
                     callee = nullptr;
                 } else
                     setup_call(m, callee->fid);
@@ -1542,7 +1542,7 @@ bool interpret(Module *m) {
                     // TODO: this is likley no longer needed
                     callee->restoreExecutionState(m,
                                                   &m->warduino->program_state);
-                    RFC::removeRFCallee();
+                    Proxy::removeRFCallee();
                     callee = nullptr;
                     m->warduino->program_state = WARDUINODrone;
                 }
@@ -1765,8 +1765,8 @@ bool interpret(Module *m) {
                 return false;
         }
         if (m->warduino->program_state == WARDuinoProxyRun && !success) {
-            // RFC was unsuccessful
-            RFC::currentCallee()->succes = false;
+            // Proxy call was unsuccessful
+            Proxy::currentCallee()->succes = false;
             // TODO copy exceptionMsg
             success = true;
         }

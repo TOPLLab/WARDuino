@@ -11,8 +11,8 @@
 
 #include "../Memory/mem.h"
 #include "../RFC/SocketServer.h"
+#include "../RFC/proxy.h"
 #include "../RFC/proxy_supervisor.h"
-#include "../RFC/rfc.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 
@@ -976,7 +976,7 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
     printf("Call func %" PRIu32 "\n", fidx);
 
     Block *func = &m->functions[fidx];
-    StackValue *args = RFC::readRFCArgs(func, data);
+    StackValue *args = Proxy::readRFCArgs(func, data);
     printf("Registering %" PRIu32 "as Callee\n", func->fidx);
 
     // preserving execution state of call that got interrupted
@@ -985,13 +985,13 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
     executionState->sp = m->sp;
     executionState->pc_ptr = m->pc_ptr;
     executionState->csp = m->csp;
-    RFC::registerRFCallee(fidx, func->type, args, executionState);
+    Proxy::registerRFCallee(fidx, func->type, args, executionState);
 
     *program_state = WARDuinoProxyRun;
 }
 #else
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
-    RFC::registerRFCs(m, &interruptData);
+    Proxy::registerRFCs(m, &interruptData);
     if (ProxySupervisor::registerMCUHost(&interruptData)) {
         this->connected_to_drone = true;
         pthread_mutex_init(&this->push_mutex, nullptr);

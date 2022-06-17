@@ -5,7 +5,7 @@
 #include "../Debug/debugger.h"
 #include "../Interpreter/instructions.h"
 #ifdef ARDUINO
-#include "../RFC/SocketServer.h"
+#include "../Proxy/SocketServer.h"
 #endif
 #include "../Utils/macros.h"
 

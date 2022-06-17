@@ -11,7 +11,7 @@
 #include "Debug/debugger.h"
 #include "WARDuino/CallbackHandler.h"
 #ifdef ARDUINO
-#include "RFC/SocketServer.h"
+#include "Proxy/SocketServer.h"
 #endif
 
 // Constants

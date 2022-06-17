@@ -13,7 +13,7 @@ typedef struct {
     RunningState program_state;
 } ExecutionState;
 
-class RFC {
+class Proxy {
    private:
     // short unsigned serializationSize;
     struct SerializeData {
@@ -35,7 +35,7 @@ class RFC {
     uint16_t excpMsgSize;
     const ExecutionState *executionState;
 
-    RFC(uint32_t t_fid, Type *t_type, StackValue *t_args = nullptr,
+    Proxy(uint32_t t_fid, Type *t_type, StackValue *t_args = nullptr,
         ExecutionState *t_exState = nullptr);
     void call(StackValue *args);
 #ifdef ARDUINO
@@ -45,20 +45,20 @@ class RFC {
     bool callCompleted(Module *m) const;
 
     // Client side
-    static RFC *registerRFC(uint32_t t_fid, Type *t_type);
+    static Proxy *registerRFC(uint32_t t_fid, Type *t_type);
     static void registerRFCs(Module *m, uint8_t **data);
     static void unregisterRFC(uint32_t fid);
     static bool isRFC(uint32_t fid);
-    static RFC *getRFC(uint32_t fid);
+    static Proxy *getRFC(uint32_t fid);
     static void clearRFCs();
 
     // Server side
-    static RFC *registerRFCallee(uint32_t t_fid, Type *t_type,
+    static Proxy *registerRFCallee(uint32_t t_fid, Type *t_type,
                                  StackValue *t_args,
                                  ExecutionState *t_executionState);
     static bool hasRFCallee();
-    static RFC *currentCallee();
+    static Proxy *currentCallee();
     static void removeRFCallee();
     static StackValue *readRFCArgs(Block *func, uint8_t *data);
-    static void setupCalleeArgs(Module *m, RFC *callee);
+    static void setupCalleeArgs(Module *m, Proxy *callee);
 };
