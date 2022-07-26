@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../RFC/proxy.h"
 #include "../RFC/proxy_supervisor.h"
 #include "../Utils/sockets.h"
 
@@ -49,7 +50,7 @@ enum InterruptTypes {
     interruptRecvState = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
-    interruptDronify = 0x65,  // wifi SSID \0 wifi PASS \0
+    interruptProxify = 0x65,  // wifi SSID \0 wifi PASS \0
 
     // Push Debugging
     interruptDUMPAllEvents = 0x70,
@@ -73,6 +74,8 @@ class Debugger {
     std::vector<uint8_t> interruptBuffer;
     long interruptSize{};
     bool receivingData = false;
+
+    Proxy *proxy = nullptr;  // proxy module for debugger
 
 #ifndef ARDUINO
     bool connected_to_proxy = false;

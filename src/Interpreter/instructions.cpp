@@ -101,27 +101,29 @@ void setup_call(Module *m, uint32_t fidx) {
     m->pc_ptr = func->start_ptr;
 }
 
-#ifndef ARDUINO
 // performs proxy calls to an MCU
-bool proxy_call(uint32_t fidx, Module *m) {
-    printf("Remote Function Call %d\n", fidx);
-    Proxy *rf = Proxy::getRFC(fidx);
-    StackValue *args = nullptr;
-    if (rf->type->param_count > 0) {
-        m->sp -= rf->type->param_count;
-        args = &m->stack[m->sp + 1];
+bool proxy_call(Module *m, uint32_t fidx) {
+    dbg_info("Remote Function Call %d\n", fidx);
+    ProxySupervisor *supervisor = m->warduino->debugger->supervisor;
+    RFC *rfc;
+    Type * type = m->functions[fidx].type;
+    if (type->param_count > 0) {
+        m->sp -= type->param_count;
+        StackValue *args = &m->stack[m->sp + 1];
+        rfc = new RFC(fidx, type, args);
+    } else {
+        rfc = new RFC(fidx, type);
     }
 
-    rf->call(args);
-    if (!rf->succes) {
+    bool success = supervisor->call(rfc);
+    if (!rfc->success) {
         // TODO exception bugger might be too small and msg not null terminated?
-        memcpy(&exception, rf->exceptionMsg, strlen(rf->exceptionMsg));
+        memcpy(&exception, rfc->exception, strlen(rfc->exception));
         return false;
     }
-    if (rf->type->result_count > 0) m->stack[++m->sp] = *rf->result;
+    if (rfc->type->result_count > 0) m->stack[++m->sp] = *rfc->result;
     return true;
 }
-#endif
 
 /*
  * WebAssembly Instructions
@@ -365,11 +367,7 @@ bool i_instr_return(Module *m) {
  */
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
-#ifndef ARDUINO
-    if (Proxy::isRFC(fidx)) {
-        return proxy_call(fidx, m);
-    }
-#endif
+
     if (fidx < m->import_count) {
         return ((Primitive)m->functions[fidx].func_ptr)(m);
     } else {
@@ -414,12 +412,6 @@ bool i_instr_call_indirect(Module *m) {
 #if TRACE
     debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx, val,
           fidx);
-#endif
-
-#ifndef ARDUINO
-    if (Proxy::isRFC(fidx)) {
-        return proxy_call(fidx, m);
-    }
 #endif
 
     if (fidx < m->import_count) {
@@ -1499,11 +1491,8 @@ bool interpret(Module *m) {
     // set to true when finishes successfully
     bool program_done = false;
 
-    // TODO: this is actually a property of warduino
     m->warduino->program_state = WARDUINOrun;
 
-    // needed for Proxy
-    Proxy *callee = nullptr;
     while (!program_done && success) {
         if (m->warduino->program_state == WARDUINOstep) {
             m->warduino->program_state = WARDUINOpause;
@@ -1514,41 +1503,6 @@ bool interpret(Module *m) {
         }
         fflush(stdout);
         reset_wdt();
-
-#ifdef ARDUINO
-        // handle Proxy requested by emulator
-        if (m->warduino->program_state == WARDuinoProxyRun) {
-            if (callee == nullptr) {  // TODO maybe use Proxy::hasRFCallee()
-                // call happens for the first time
-                callee = Proxy::currentCallee();
-                Proxy::setupCalleeArgs(m, callee);
-
-                // Primitive function proxy call happen instantly
-                if (callee->fid < m->import_count) {
-                    callee->succes =
-                        ((Primitive)m->functions[callee->fid].func_ptr)(m);
-                    callee->returnResult(m);
-                    callee->restoreExecutionState(m,
-                                                  &m->warduino->program_state);
-                    Proxy::removeRFCallee();
-                    callee = nullptr;
-                } else
-                    setup_call(m, callee->fid);
-            } else {
-                // check if call completes
-                if (callee->callCompleted(m)) {
-                    callee->returnResult(m);
-
-                    // TODO: this is likley no longer needed
-                    callee->restoreExecutionState(m,
-                                                  &m->warduino->program_state);
-                    Proxy::removeRFCallee();
-                    callee = nullptr;
-                    m->warduino->program_state = WARDUINODrone;
-                }
-            }
-        }
-#endif
 
         // Resolve 1 callback event if queue is not empty and VM not paused, and
         // no event currently resolving
@@ -1624,13 +1578,23 @@ bool interpret(Module *m) {
                 // Call operators
                 //
             case 0x10: {  // call
-                success &= i_instr_call(m);
+                uint32_t fidx = read_LEB_32(&m->pc_ptr);
+                if (m->warduino->debugger->supervisor->isRFC(fidx)) {
+                    success &= proxy_call(m, fidx);
+                } else {
+                    success &= i_instr_call(m);
+                }
                 continue;
             }
-            case 0x11:  // call_indirect
-                success &= i_instr_call_indirect(m);
+            case 0x11: {  // call_indirect
+                uint32_t fidx = read_LEB_32(&m->pc_ptr);
+                if (m->warduino->debugger->supervisor->isRFC(fidx)) {
+                    success &= proxy_call(m, fidx);
+                } else {
+                    success &= i_instr_call_indirect(m);
+                }
                 continue;
-
+            }
                 //
                 // Parametric operators
                 //

@@ -5,6 +5,7 @@ set(SOURCE_FILES
         ../../src/Primitives/idf.cpp
         ../../src/RFC/proxy.cpp
         ../../src/RFC/proxy_supervisor.cpp
+        ../../src/RFC/RFC.cpp
         ../../src/Utils/macros.cpp
         ../../src/Utils/sockets.cpp
         ../../src/Utils/util.cpp

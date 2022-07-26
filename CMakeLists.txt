@@ -42,7 +42,7 @@ if (BUILD_EMULATOR)
             src/Debug/debugger.cpp
             src/RFC/proxy.cpp
             src/RFC/proxy_supervisor.cpp
-            )
+            src/RFC/RFC.cpp)
 
     set(TEST_FRAMEWORK
             tests/integration/wasm_tests.cpp

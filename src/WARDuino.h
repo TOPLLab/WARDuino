@@ -68,8 +68,9 @@ typedef union FuncPtr {
 
 // A block or function
 typedef struct Block {
-    uint8_t block_type;  // 0x00: function, 0x01: init_exp
-    // 0x02: block, 0x03: loop, 0x04: if, 0xff: cbk guard
+    uint8_t block_type;         // 0x00: function, 0x01: init_exp, 0x02: block,
+                                // 0x03: loop, 0x04: if, 0xfe: proxy guard,
+                                // 0xff: cbk guard
     uint32_t fidx;              // function only (index)
     Type *type;                 // params/results type
     uint32_t local_count;       // function only

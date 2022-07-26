@@ -239,9 +239,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
         } break;
 #endif
-        case interruptDronify: {
+        case interruptProxify: {
             *program_state = WARDUINODrone;
-            printf("Dronified.\n");
+            this->proxy = new Proxy();  // TODO delete
+            printf("Converting to proxy settings.\n");
             break;
         }
         case interruptDUMPAllEvents:
@@ -959,22 +960,19 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
                                uint8_t *interruptData) {
     uint8_t *data = interruptData;
     uint32_t fidx = read_L32(&data);
-    printf("Call func %" PRIu32 "\n", fidx);
+    dbg_info("Proxycall func %" PRIu32 "\n", fidx);
 
     Block *func = &m->functions[fidx];
     StackValue *args = Proxy::readRFCArgs(func, data);
-    printf("Registering %" PRIu32 "as Callee\n", func->fidx);
+    dbg_trace("Enqueuing callee %" PRIu32 "\n", func->fidx);
 
-    // preserving execution state of call that got interrupted
-    ExecutionState *executionState = new ExecutionState;
-    executionState->program_state = *program_state;
-    executionState->sp = m->sp;
-    executionState->pc_ptr = m->pc_ptr;
-    executionState->csp = m->csp;
-    Proxy::registerRFCallee(fidx, func->type, args, executionState);
+    auto *rfc = new RFC(fidx, func->type, args);
+    this->proxy->pushRFC(m, rfc);
 
     *program_state = WARDuinoProxyRun;
+    dbg_trace("Program state: ProxyRun");
 }
+
 #ifndef ARDUINO
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     Proxy::registerRFCs(m, &interruptData);

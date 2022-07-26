@@ -2,6 +2,7 @@
 
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include <cstdarg>
 #include <cstdio>
@@ -61,9 +62,14 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
 
 Channel::Channel(int socket) { this->socket = socket; }
 
-void Channel::write(const char *fmt, ...) const {
+int Channel::write(const char *fmt, ...) const {
     va_list args;
     va_start(args, fmt);
-    vdprintf(this->socket, fmt, args);
+    int written = vdprintf(this->socket, fmt, args);
     va_end(args);
+    return written;
+}
+
+ssize_t Channel::read(void *out, size_t size) {
+    return ::read(this->socket, out, size);
 }

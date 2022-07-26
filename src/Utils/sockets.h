@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio>
 void setFileDescriptorOptions(int socket_fd);
 
 int createSocketFileDescriptor();
@@ -19,5 +20,6 @@ class Channel {
    public:
     explicit Channel(int socket);
 
-    void write(char const *fmt, ...) const;
+    int write(char const *fmt, ...) const;
+    ssize_t read(void *out, size_t size);
 };

@@ -7,6 +7,7 @@
 #include <map>
 #include <queue>
 
+#include "../Interpreter/instructions.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "proxy_supervisor.h"
@@ -16,84 +17,36 @@
 ////TODO test with no return proxy
 
 unsigned short int sizeof_valuetype(uint32_t);
-unsigned short int sizeSerializationRFC(const Type *);
 unsigned short int sizeSerializationRFCallee(Proxy *);
 void arguments_copy(unsigned char *, StackValue *, uint32_t);
-
-std::map<uint32_t, Proxy *> functions;
-std::queue<Proxy *> callees;
-
-/*
- * Proxy Manager Client Side
- */
-Proxy *Proxy::registerRFC(uint32_t t_fid, Type *t_type) {
-    auto *rfc = new Proxy(t_fid, t_type);
-    functions[t_fid] = rfc;
-    return rfc;
-}
-
-void Proxy::unregisterRFC(uint32_t fid) {
-    auto it = functions.find(fid);
-    if (it != functions.end()) functions.erase(it);
-}
-
-void Proxy::clearRFCs() {
-    std::map<uint32_t, Proxy *>::iterator it;
-    for (it = functions.begin(); it != functions.end(); it++) delete it->second;
-    functions.clear();
-}
-
-bool Proxy::isRFC(uint32_t fid) {
-    auto it = functions.find(fid);
-    return it != functions.end();
-}
-
-Proxy *Proxy::getRFC(uint32_t fid) {
-    auto it = functions.find(fid);
-    return it->second;
-}
-
-/*
- * Proxy Manager Server Side
- */
-
-Proxy *Proxy::registerRFCallee(uint32_t t_fid, Type *t_type, StackValue *t_args,
-                               ExecutionState *t_executionState) {
-    auto *rfc = new Proxy(t_fid, t_type, t_args, t_executionState);
-    callees.push(rfc);
-    return rfc;
-}
-
-bool Proxy::hasRFCallee() { return !callees.empty(); }
-
-Proxy *Proxy::currentCallee() { return callees.front(); }
-
-void Proxy::removeRFCallee() { callees.pop(); }
 
 /*
  * Proxy methods
  */
 
-Proxy::Proxy(uint32_t t_fid, Type *t_type, StackValue *t_args,
-             ExecutionState *t_exState)
-    : fid(t_fid), args(t_args), type(t_type), executionState(t_exState) {
+Proxy::Proxy() {
     this->exceptionMsg = nullptr;
     this->excpMsgSize = 0;
     this->succes = true;
     this->result = nullptr;
-    if (t_type->result_count > 0) {
-        this->result = new StackValue;
-        this->result->value_type = t_type->results[0];
-    }
 }
 
-void Proxy::returnResult(Module *m) {
+void Proxy::pushRFC(Module *m, RFC *rfc) {
+    // push proxy guard block to stack
+    this->pushProxyGuard(m);
+    // push RFC arguments to stack
+    this->setupCalleeArgs(m, rfc);
+    // push function to stack
+    setup_call(m, rfc->fidx);
+}
+
+void Proxy::returnResult(Module *m, RFC *rfc) {
     // reading result from stack
-    if (this->succes && this->type->result_count > 0) {
+    if (this->succes && rfc->type->result_count > 0) {
         this->result->value_type = m->stack[m->sp].value_type;
         this->result->value = m->stack[m->sp].value;
     } else if (!this->succes) {
-        printf("some exeception will be returned\n");
+        printf("some exception will be returned\n");
         // TODO exception msg
     }
 
@@ -103,59 +56,13 @@ void Proxy::returnResult(Module *m) {
     WARDuino::instance()->debugger->channel->write(data);
 }
 
-void Proxy::restoreExecutionState(Module *m,
-                                  RunningState *program_state) const {
-    // restoring the original execution state
-    *program_state = this->executionState->program_state;
-    m->csp = this->executionState->csp;
-    m->sp = this->executionState->sp;
-    m->pc_ptr = this->executionState->pc_ptr;
-}
-
-bool Proxy::callCompleted(Module *m) const {
-    return !this->succes || this->executionState->csp == m->csp;
-}
-
-/*
- *
- * output:  1 byte  | 4 bytes | sizeof(arg1.value_type) bytes |
- * sizeof(arg2.value_type) bytes | ... interrupt | funID   | arg1.value
- *
- * Output is also transformed to hexa
- *
- */
-struct Proxy::SerializeData *Proxy::serializeRFC() {
-    const unsigned short serializationSize = sizeSerializationRFC(this->type);
-    auto *buffer = new unsigned char[serializationSize];
-
-    // write to array: interrupt, function identifier and arguments
-    const unsigned char interrupt = interruptProxyCall;
-    memcpy(buffer, &interrupt, sizeof(unsigned char));
-    memcpy(buffer + 1, &fid, sizeof(uint32_t));
-    arguments_copy(buffer + 5, args, type->param_count);
-
-    // array as hexa
-    const uint32_t hexa_size = serializationSize * 2;
-    auto *hexa =
-        new unsigned char[hexa_size + 2];  //+2 for '\n' and '0' termination
-    chars_as_hexa(hexa, buffer, serializationSize);
-    hexa[hexa_size] = '\n';
-    hexa[hexa_size + 1] = '\0';  // TODO remove zero termination and +2 above
-
-    delete[] buffer;
-    auto *ser = new SerializeData;
-    ser->size = hexa_size + 1;
-    ser->raw = hexa;
-    return ser;
-}
-
-struct Proxy::SerializeData *Proxy::serializeRFCallee() {
+struct SerializeData *Proxy::serializeRFCallee(RFC *callee) {
     const unsigned short serializationSize = sizeSerializationRFCallee(this);
     auto *raw = new unsigned char[serializationSize];
     uint8_t suc = this->succes ? 1 : 0;
 
     memcpy(raw, &suc, sizeof(uint8_t));
-    if (this->succes && this->type->result_count > 0) {
+    if (this->succes && callee->type->result_count > 0) {
         printf("serializeRFCallee: success value size=%u \n",
                sizeof_valuetype(this->result->value_type));
         memcpy(raw + 1, &this->result->value,
@@ -173,20 +80,8 @@ struct Proxy::SerializeData *Proxy::serializeRFCallee() {
     return ser;
 }
 
-/*
- * returns the quantity of bytes needed to serialize a Proxy.
- * The size includes: Interrupt + Id of the function + parameters
- */
-unsigned short int sizeSerializationRFC(const Type *type) {
-    short unsigned int paramSize = 0;
-    for (uint32_t i = 0; i < type->param_count; i++)
-        paramSize += sizeof_valuetype(type->params[i]);
-
-    return 1 + sizeof(uint32_t) + paramSize;
-}
-
-unsigned short int sizeSerializationRFCallee(Proxy *callee) {
-    if (!callee->succes) return 1 + sizeof(uint16_t) + callee->excpMsgSize;
+unsigned short int sizeSerializationRFCallee(RFC *callee) {
+    if (!callee->success) return 1 + sizeof(uint16_t) + callee->exception_size;
 
     if (callee->type->result_count > 0)
         return 1 + sizeof_valuetype(callee->type->results[0]);
@@ -204,125 +99,6 @@ unsigned short int sizeof_valuetype(uint32_t vt) {
             return sizeof(float);
         default:
             return sizeof(double);
-    }
-}
-
-void arguments_copy(unsigned char *dest, StackValue *args,
-                    uint32_t param_count) {
-    uint32_t offset = 0;
-    for (uint32_t i = 0; i < param_count; i++) {
-        switch (args[i].value_type) {
-            case I32: {
-                memcpy(dest + offset, &args[i].value.uint32, sizeof(uint32_t));
-                offset += sizeof(uint32_t);
-                break;
-            }
-            case F32: {
-                memcpy(dest + offset, &args[i].value.f32, sizeof(float));
-                offset += sizeof(float);
-                break;
-            }
-            case I64: {
-                memcpy(dest + offset, &args[i].value.uint64, sizeof(uint64_t));
-                offset += sizeof(uint64_t);
-                break;
-            }
-            case F64: {
-                memcpy(dest + offset, &args[i].value.f64, sizeof(double));
-                offset += sizeof(double);
-                break;
-            }
-            default:
-                FATAL("incorrect StackValue type\n");
-                break;
-        }
-    }
-}
-
-void Proxy::deserializeRFCResult() {
-    ProxySupervisor *host = WARDuino::instance()->debugger->supervisor;
-
-    auto *call_result = (uint8_t *)host->readReply();
-    this->succes = (uint8_t)call_result[0] == 1;
-
-    if (!this->succes) {
-        uint16_t msg_size = 0;
-        memcpy(&msg_size, call_result + 1, sizeof(uint16_t));
-        if (msg_size > this->excpMsgSize) {
-            delete[] this->exceptionMsg;
-            this->exceptionMsg = new char[msg_size];
-            this->excpMsgSize = msg_size;
-        }
-        memcpy(this->exceptionMsg, call_result + 1 + sizeof(uint16_t),
-               msg_size);
-        delete[] call_result;
-        return;
-    }
-
-    if (this->type->result_count == 0) {
-        delete[] call_result;
-        return;
-    }
-
-    this->result->value.uint64 = 0;
-    switch (this->result->value_type) {
-        case I32:
-            memcpy(&result->value.uint32, call_result + 1, sizeof(uint32_t));
-            dbg_info("deserialized U32 %" PRIu32 "\n", result->value.uint32);
-            break;
-        case F32:
-            memcpy(&result->value.f32, call_result + 1, sizeof(float));
-            dbg_info("deserialized f32 %f \n", result->value.f32);
-            break;
-        case I64:
-            memcpy(&result->value.uint64, call_result + 1, sizeof(uint64_t));
-            dbg_info("deserialized I64 %" PRIu64 "\n", result->value.uint64);
-            break;
-        case F64:
-            memcpy(&result->value.f64, call_result + 1, sizeof(double));
-            dbg_info("deserialized f32 %f \n", result->value.f64);
-            break;
-        default:
-            FATAL("Deserialization RFCResult\n");
-    }
-    delete[] call_result;
-}
-
-void Proxy::call(StackValue *arguments) {
-    this->args = arguments;
-    struct SerializeData *rfc_request = this->serializeRFC();
-
-    ProxySupervisor *host = WARDuino::instance()->debugger->supervisor;
-    printf("making the Proxy call\n");
-    bool sent = host->send((void *)rfc_request->raw, rfc_request->size);
-    if (!sent) {
-        this->succes = false;
-        this->exceptionMsg = host->exceptionMsg;
-
-        delete[] rfc_request->raw;
-        delete rfc_request;
-        printf("sent FAILED \n");
-        return;
-    }
-    // Fetch new callback mapping
-    // convert message to hex TODO: move to proxyserver
-    char cmdBuffer[10] = "";
-    int cmdBufferLen = 0;
-    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
-    WARDuino::instance()->debugger->supervisor->send(cmdBuffer, cmdBufferLen);
-    this->deserializeRFCResult();
-}
-
-void Proxy::registerRFCs(Module *m, uint8_t **data) {
-    printf("registering_rfc_functions\n");
-    Proxy::clearRFCs();
-    uint32_t amount_funcs = read_B32(data);
-    printf("funcs_total %" PRIu32 "\n", amount_funcs);
-    for (uint32_t i = 0; i < amount_funcs; i++) {
-        uint32_t fid = read_B32(data);
-        printf("registering fid=%" PRIu32 "\n", fid);
-        Type *type = (m->functions[fid]).type;
-        Proxy::registerRFC(fid, type);
     }
 }
 
@@ -374,9 +150,19 @@ StackValue *Proxy::readRFCArgs(Block *func, uint8_t *data) {
     return args;
 }
 
-void Proxy::setupCalleeArgs(Module *m, Proxy *callee) {
+void Proxy::setupCalleeArgs(Module *m, RFC *callee) {
     // adding arguments to the stack
     StackValue *args = callee->args;
     for (uint32_t i = 0; i < callee->type->param_count; i++)
         m->stack[++m->sp] = args[i];
 }
+
+void Proxy::pushProxyGuard(Module *m) {
+    if (m == nullptr) {
+        return;
+    }
+    auto *guard = new Block();
+    guard->block_type = 255; // 0xfe proxy guard
+    push_block(m, guard, m->sp);
+}
+

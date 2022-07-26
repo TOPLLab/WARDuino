@@ -114,6 +114,7 @@ void startDebuggerSocket(WARDuino *wac, Module *m) {
     struct sockaddr_in address = createAddress(8192);
     bindSocketToAddress(socket_fd, address);
     startListening(socket_fd);
+    dbg_info("Listening on port 172.0.0.1:8192\n");
 
     int valread;
     uint8_t buffer[1024] = {0};
