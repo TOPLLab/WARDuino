@@ -162,7 +162,6 @@ void Proxy::pushProxyGuard(Module *m) {
         return;
     }
     auto *guard = new Block();
-    guard->block_type = 255; // 0xfe proxy guard
+    guard->block_type = 255;  // 0xfe proxy guard
     push_block(m, guard, m->sp);
 }
-

@@ -106,7 +106,7 @@ bool proxy_call(Module *m, uint32_t fidx) {
     dbg_info("Remote Function Call %d\n", fidx);
     ProxySupervisor *supervisor = m->warduino->debugger->supervisor;
     RFC *rfc;
-    Type * type = m->functions[fidx].type;
+    Type *type = m->functions[fidx].type;
     if (type->param_count > 0) {
         m->sp -= type->param_count;
         StackValue *args = &m->stack[m->sp + 1];

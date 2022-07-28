@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../WARDuino.h"
-// short unsigned serializationSize;
+
 struct SerializeData {
     const unsigned char *raw;
     uint32_t size;

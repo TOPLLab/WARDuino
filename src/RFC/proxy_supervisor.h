@@ -4,7 +4,6 @@
 #include <csignal>
 
 #include "../Utils/sockets.h"
-#include "../WARDuino.h"
 #include "RFC.h"
 #include "pthread.h"
 #include "sys/types.h"
@@ -18,6 +17,7 @@ class ProxySupervisor {
 
     struct SerializeData *serializeRFC(RFC *callee);
     void deserializeRFCResult(RFC *rfc);
+
    public:
     ProxySupervisor(int socket, pthread_mutex_t *mutex);
 

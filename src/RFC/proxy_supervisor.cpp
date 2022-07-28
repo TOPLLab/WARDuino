@@ -219,8 +219,7 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
             rfc->exception = new char[msg_size];
             rfc->exception_size = msg_size;
         }
-        memcpy(rfc->exception, call_result + 1 + sizeof(uint16_t),
-               msg_size);
+        memcpy(rfc->exception, call_result + 1 + sizeof(uint16_t), msg_size);
         delete[] call_result;
         return;
     }
@@ -233,7 +232,8 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
     rfc->result->value.uint64 = 0;
     switch (rfc->result->value_type) {
         case I32:
-            memcpy(&rfc->result->value.uint32, call_result + 1, sizeof(uint32_t));
+            memcpy(&rfc->result->value.uint32, call_result + 1,
+                   sizeof(uint32_t));
             dbg_info("deserialized U32 %" PRIu32 "\n", result->value.uint32);
             break;
         case F32:
@@ -241,7 +241,8 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
             dbg_info("deserialized f32 %f \n", result->value.f32);
             break;
         case I64:
-            memcpy(&rfc->result->value.uint64, call_result + 1, sizeof(uint64_t));
+            memcpy(&rfc->result->value.uint64, call_result + 1,
+                   sizeof(uint64_t));
             dbg_info("deserialized I64 %" PRIu64 "\n", result->value.uint64);
             break;
         case F64:

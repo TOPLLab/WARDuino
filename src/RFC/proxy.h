@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "../WARDuino.h"
+#include "RFC.h"
 
 class Proxy {
    private:
