@@ -31,8 +31,8 @@ bool CallbackHandler::resolving_event = false;
 size_t CallbackHandler::pushed_cursor = 0;
 
 bool should_push_event() {
-    return WARDuino::instance()->program_state == WARDuinoProxyRun ||
-           WARDuino::instance()->program_state == WARDUINODrone;
+    return WARDuino::instance()->program_state == PROXYrun ||
+           WARDuino::instance()->program_state == PROXYhalt;
 }
 
 std::unordered_map<std::string, std::vector<Callback> *>

@@ -28,7 +28,6 @@ Proxy::Proxy() {
     this->exceptionMsg = nullptr;
     this->excpMsgSize = 0;
     this->succes = true;
-    this->result = nullptr;
 }
 
 void Proxy::pushRFC(Module *m, RFC *rfc) {
@@ -38,20 +37,25 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
     this->setupCalleeArgs(m, rfc);
     // push function to stack
     setup_call(m, rfc->fidx);
+    // keep RFC in queue
+    this->calls->push(rfc);
 }
 
-void Proxy::returnResult(Module *m, RFC *rfc) {
+void Proxy::returnResult(Module *m) {
+    RFC *rfc = this->calls->top();
     // reading result from stack
     if (this->succes && rfc->type->result_count > 0) {
-        this->result->value_type = m->stack[m->sp].value_type;
-        this->result->value = m->stack[m->sp].value;
+        rfc->result->value_type = m->stack[m->sp].value_type;
+        rfc->result->value = m->stack[m->sp].value;
     } else if (!this->succes) {
         printf("some exception will be returned\n");
         // TODO exception msg
     }
+    // remove call from lifo queue
+    calls->pop();
 
-    // returning the result to the client
-    struct SerializeData *rfc_result = this->serializeRFCallee();
+    // send the result to the client
+    struct SerializeData *rfc_result = this->serializeRFCallee(rfc);
     const char *data = (const char *)rfc_result->raw;
     WARDuino::instance()->debugger->channel->write(data);
 }
@@ -64,9 +68,9 @@ struct SerializeData *Proxy::serializeRFCallee(RFC *callee) {
     memcpy(raw, &suc, sizeof(uint8_t));
     if (this->succes && callee->type->result_count > 0) {
         printf("serializeRFCallee: success value size=%u \n",
-               sizeof_valuetype(this->result->value_type));
-        memcpy(raw + 1, &this->result->value,
-               sizeof_valuetype(this->result->value_type));
+               sizeof_valuetype(callee->result->value_type));
+        memcpy(raw + 1, &callee->result->value,
+               sizeof_valuetype(callee->result->value_type));
     } else if (!this->succes) {
         printf("serializeRFCallee: serializing exception\n");
         memcpy(raw + 1, &this->excpMsgSize, sizeof(uint16_t));

@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include <cstdint>
+#include <stack>
 
 #include "RFC.h"
 struct Module;
@@ -10,13 +11,13 @@ struct Block;
 
 class Proxy {
    private:
-    struct SerializeData *serializeRFCallee(RFC *callee);
+    std::stack<RFC *> *calls = new std::stack<RFC *>();  // lifo queue
 
+    struct SerializeData *serializeRFCallee(RFC *callee);
     void setupCalleeArgs(Module *m, RFC *callee);
     void pushProxyGuard(Module *m);
 
    public:
-    StackValue *result;
     bool succes;
     char *exceptionMsg;
     uint16_t excpMsgSize;
@@ -24,7 +25,7 @@ class Proxy {
     Proxy();
 
     void pushRFC(Module *m, RFC *rfc);
-    void returnResult(Module *m, RFC *rfc);
+    void returnResult(Module *m);
 
     // Server side ( arduino side )
     static StackValue *readRFCArgs(Block *func, uint8_t *data);

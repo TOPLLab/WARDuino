@@ -35,6 +35,13 @@ Block *pop_block(Module *m) {
         t = frame->block->type;
     }
 
+    if (frame->block->block_type == 0xfe) {
+        m->warduino->program_state = PROXYhalt;
+        m->warduino->debugger->sendProxyCallResult(m);
+        frame = &m->callstack[m->csp--];
+        t = frame->block->type;
+    }
+
     // TODO: validate return value if there is one
 
     m->fp = frame->fp;  // Restore frame pointer
@@ -115,7 +122,10 @@ bool proxy_call(Module *m, uint32_t fidx) {
         rfc = new RFC(fidx, type);
     }
 
-    bool success = supervisor->call(rfc);
+    if (!supervisor->call(rfc)) {
+        dbg_info(": FAILED TO SEND\n", fidx);
+        return false;
+    }
     if (!rfc->success) {
         // TODO exception bugger might be too small and msg not null terminated?
         memcpy(&exception, rfc->exception, strlen(rfc->exception));
@@ -460,7 +470,7 @@ bool i_instr_call_indirect(Module *m) {
 
 /**
  * 0x1a drop
- * remvove a value from the stack
+ * remove a value from the stack
  */
 bool i_instr_drop(Module *m) {
     m->sp--;
@@ -1510,7 +1520,7 @@ bool interpret(Module *m) {
 
         // Skip the main loop if paused or drone
         if (m->warduino->program_state == WARDUINOpause ||
-            m->warduino->program_state == WARDUINODrone) {
+            m->warduino->program_state == PROXYhalt) {
             continue;
         }
 
@@ -1519,7 +1529,7 @@ bool interpret(Module *m) {
         // If BP and not the one we just unpaused
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
             m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
-            m->warduino->program_state != WARDuinoProxyRun) {
+            m->warduino->program_state != PROXYrun) {
             m->warduino->program_state = WARDUINOpause;
             m->warduino->debugger->notifyBreakpoint(m->pc_ptr);
             continue;
@@ -1728,9 +1738,10 @@ bool interpret(Module *m) {
                 }
                 return false;
         }
-        if (m->warduino->program_state == WARDuinoProxyRun && !success) {
+        // TODO replace following with guard handle
+        if (m->warduino->program_state == PROXYrun && !success) {
             // Proxy call was unsuccessful
-            Proxy::currentCallee()->succes = false;
+//            Proxy::currentCallee()->succes = false;
             // TODO copy exceptionMsg
             success = true;
         }

@@ -22,12 +22,12 @@ enum RunningState {
     WARDUINOrun,
     WARDUINOpause,
     WARDUINOstep,
-    WARDuinoProxyRun,  // Running state used when executing a proxy call. During
-                       // this state the call is set up and executed by the main
-                       // loop. After execution, the state is restored to
-                       // WARDUINODrone
-    WARDUINODrone  // Do not run the program (program runs on computer, which
-                   // sends messages for primitives, do forward interupts)
+    PROXYrun,  // Running state used when executing a proxy call. During
+               // this state the call is set up and executed by the main
+               // loop. After execution, the state is restored to
+               // PROXYhalt
+    PROXYhalt  // Do not run the program (program runs on computer, which
+               // sends messages for primitives, do forward interrupts)
 };
 
 enum InterruptTypes {
@@ -167,6 +167,8 @@ class Debugger {
 
     void handleProxyCall(Module *m, RunningState *program_state,
                          uint8_t *interruptData);
+
+    void sendProxyCallResult(Module *m);
 
 #ifndef ARDUINO
     void startProxySupervisor(const char *proxy);

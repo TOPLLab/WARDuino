@@ -240,9 +240,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         } break;
 #endif
         case interruptProxify: {
-            *program_state = WARDUINODrone;
+            dbg_info("Converting to proxy settings.\n");
+            *program_state = PROXYhalt;
             this->proxy = new Proxy();  // TODO delete
-            printf("Converting to proxy settings.\n");
             break;
         }
         case interruptDUMPAllEvents:
@@ -969,13 +969,20 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
     auto *rfc = new RFC(fidx, func->type, args);
     this->proxy->pushRFC(m, rfc);
 
-    *program_state = WARDuinoProxyRun;
+    *program_state = PROXYrun;
     dbg_trace("Program state: ProxyRun");
+}
+
+void Debugger::sendProxyCallResult(Module *m) {
+    if (proxy == nullptr) {
+        return;
+    }
+    this->proxy->returnResult(m);
 }
 
 #ifndef ARDUINO
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
-    Proxy::registerRFCs(m, &interruptData);
+    ProxySupervisor::registerRFCs(m, &interruptData);
     this->channel->write("done!\n");
 }
 
