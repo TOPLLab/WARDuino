@@ -5,6 +5,8 @@
 #include <cstdint>
 
 #include "RFC.h"
+struct Module;
+struct Block;
 
 class Proxy {
    private:

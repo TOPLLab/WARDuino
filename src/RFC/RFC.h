@@ -1,6 +1,8 @@
 #pragma once
 
-#include "../WARDuino.h"
+#include <cstdint>
+struct StackValue;
+struct Type;
 
 struct SerializeData {
     const unsigned char *raw;

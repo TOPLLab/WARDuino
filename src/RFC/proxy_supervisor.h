@@ -2,6 +2,7 @@
 
 #include <cinttypes>
 #include <csignal>
+#include <map>
 
 #include "../Utils/sockets.h"
 #include "RFC.h"
