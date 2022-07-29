@@ -973,6 +973,13 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
     dbg_trace("Program state: ProxyRun");
 }
 
+RFC *Debugger::topProxyCall() {
+    if (proxy == nullptr) {
+        return nullptr;
+    }
+    return this->proxy->topRFC();
+}
+
 void Debugger::sendProxyCallResult(Module *m) {
     if (proxy == nullptr) {
         return;

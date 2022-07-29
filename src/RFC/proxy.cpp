@@ -5,12 +5,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
-#include <queue>
 
 #include "../Interpreter/instructions.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
-#include "proxy_supervisor.h"
 
 // TODO tests with exceptions
 ////TODO test with many args proxy
@@ -23,11 +21,7 @@ void arguments_copy(unsigned char *, StackValue *, uint32_t);
  * Proxy methods
  */
 
-Proxy::Proxy() {
-    this->exceptionMsg = nullptr;
-    this->excpMsgSize = 0;
-    this->succes = true;
-}
+Proxy::Proxy() = default;
 
 void Proxy::pushRFC(Module *m, RFC *rfc) {
     // push proxy guard block to stack
@@ -40,13 +34,15 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
     this->calls->push(rfc);
 }
 
+RFC *Proxy::topRFC() { return this->calls->top(); }
+
 void Proxy::returnResult(Module *m) {
     RFC *rfc = this->calls->top();
     // reading result from stack
-    if (this->succes && rfc->type->result_count > 0) {
+    if (rfc->success && rfc->type->result_count > 0) {
         rfc->result->value_type = m->stack[m->sp].value_type;
         rfc->result->value = m->stack[m->sp].value;
-    } else if (!this->succes) {
+    } else if (!rfc->success) {
         printf("some exception will be returned\n");
         // TODO exception msg
     }
@@ -62,19 +58,19 @@ void Proxy::returnResult(Module *m) {
 struct SerializeData *Proxy::serializeRFCallee(RFC *callee) {
     const unsigned short serializationSize = sizeSerializationRFCallee(callee);
     auto *raw = new unsigned char[serializationSize];
-    uint8_t suc = this->succes ? 1 : 0;
+    uint8_t suc = callee->success ? 1 : 0;
 
     memcpy(raw, &suc, sizeof(uint8_t));
-    if (this->succes && callee->type->result_count > 0) {
+    if (callee->success && callee->type->result_count > 0) {
         printf("serializeRFCallee: success value size=%u \n",
                sizeof_valuetype(callee->result->value_type));
         memcpy(raw + 1, &callee->result->value,
                sizeof_valuetype(callee->result->value_type));
-    } else if (!this->succes) {
+    } else if (!callee->success) {
         printf("serializeRFCallee: serializing exception\n");
-        memcpy(raw + 1, &this->excpMsgSize, sizeof(uint16_t));
-        memcpy(raw + 1 + sizeof(uint16_t), this->exceptionMsg,
-               this->excpMsgSize);
+        memcpy(raw + 1, &callee->exception_size, sizeof(uint16_t));
+        memcpy(raw + 1 + sizeof(uint16_t), callee->exception,
+               callee->exception_size);
     }
 
     auto *ser = new struct SerializeData;

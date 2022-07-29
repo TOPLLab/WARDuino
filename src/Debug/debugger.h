@@ -168,6 +168,8 @@ class Debugger {
     void handleProxyCall(Module *m, RunningState *program_state,
                          uint8_t *interruptData);
 
+    RFC *topProxyCall();
+
     void sendProxyCallResult(Module *m);
 
 #ifndef ARDUINO

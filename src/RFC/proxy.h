@@ -18,13 +18,10 @@ class Proxy {
     void pushProxyGuard(Module *m);
 
    public:
-    bool succes;
-    char *exceptionMsg;
-    uint16_t excpMsgSize;
-
     Proxy();
 
     void pushRFC(Module *m, RFC *rfc);
+    RFC *topRFC();
     void returnResult(Module *m);
 
     // Server side ( arduino side )

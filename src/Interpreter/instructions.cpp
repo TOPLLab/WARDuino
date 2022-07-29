@@ -1738,13 +1738,15 @@ bool interpret(Module *m) {
                 }
                 return false;
         }
-        // TODO replace following with guard handle
-        if (m->warduino->program_state == PROXYrun && !success) {
-            // Proxy call was unsuccessful
-            //            Proxy::currentCallee()->succes = false;
-            // TODO copy exceptionMsg
-            success = true;
-        }
+    }
+
+    if (m->warduino->program_state == PROXYrun) {
+        dbg_info("Trap was thrown during proxy call.\n");
+        RFC *rfc = m->warduino->debugger->topProxyCall();
+        rfc->success = false;
+        rfc->exception = strdup(exception);
+        rfc->exception_size = strlen(exception);
+        m->warduino->debugger->sendProxyCallResult(m);
     }
 
     // Resolve all unhandled callback events

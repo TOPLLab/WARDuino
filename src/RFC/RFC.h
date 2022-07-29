@@ -16,7 +16,7 @@ class RFC {
     const Type *type;
     StackValue *result;
 
-    bool success;
+    bool success = true;
     char *exception;
     uint16_t exception_size;
 
