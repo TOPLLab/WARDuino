@@ -114,19 +114,6 @@ char *ProxySupervisor::readReply(short int amount) {
 
 pthread_t ProxySupervisor::getThreadID() { return this->threadid; }
 
-unsigned short int sizeof_valuetype(uint32_t vt) {
-    switch (vt) {
-        case I32:
-            return 4;
-        case I64:
-            return 8;
-        case F32:
-            return sizeof(float);
-        default:
-            return sizeof(double);
-    }
-}
-
 /*
  * returns the quantity of bytes needed to serialize a Proxy.
  * The size includes: Interrupt + Id of the function + parameters
@@ -276,4 +263,19 @@ bool ProxySupervisor::call(RFC *callee) {
     this->deserializeRFCResult(callee);
     return true;
 }
+
+void ProxySupervisor::registerProxiedCall(uint32_t fidx) {
+    this->proxied->insert(fidx);
+}
+
+void ProxySupervisor::unregisterProxiedCall(uint32_t fidx) {
+    this->proxied->erase(fidx);
+}
+
+void ProxySupervisor::unregisterAllProxiedCalls() { this->proxied->clear(); }
+
+bool ProxySupervisor::isProxied(uint32_t fidx) {
+    return this->proxied->count(fidx) > 0;
+}
+
 #endif

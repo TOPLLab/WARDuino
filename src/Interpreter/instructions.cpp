@@ -1589,7 +1589,7 @@ bool interpret(Module *m) {
                 //
             case 0x10: {  // call
                 uint32_t fidx = read_LEB_32(&m->pc_ptr);
-                if (m->warduino->debugger->supervisor->isRFC(fidx)) {
+                if (m->warduino->debugger->supervisor->isProxied(fidx)) {
                     success &= proxy_call(m, fidx);
                 } else {
                     success &= i_instr_call(m);
@@ -1598,7 +1598,7 @@ bool interpret(Module *m) {
             }
             case 0x11: {  // call_indirect
                 uint32_t fidx = read_LEB_32(&m->pc_ptr);
-                if (m->warduino->debugger->supervisor->isRFC(fidx)) {
+                if (m->warduino->debugger->supervisor->isProxied(fidx)) {
                     success &= proxy_call(m, fidx);
                 } else {
                     success &= i_instr_call_indirect(m);
@@ -1741,7 +1741,7 @@ bool interpret(Module *m) {
         // TODO replace following with guard handle
         if (m->warduino->program_state == PROXYrun && !success) {
             // Proxy call was unsuccessful
-//            Proxy::currentCallee()->succes = false;
+            //            Proxy::currentCallee()->succes = false;
             // TODO copy exceptionMsg
             success = true;
         }

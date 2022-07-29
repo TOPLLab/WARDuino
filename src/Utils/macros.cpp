@@ -240,11 +240,10 @@ char *block_repr(Block *b) {
                  b->type->param_count, b->local_count, b->type->result_count);
     } else {
         snprintf(_block_str, 1023, "%s<0/0->%d>",
-                 b->block_type == 0x01
-                     ? "init"
-                     : b->block_type == 0x02
-                           ? "block"
-                           : b->block_type == 0x03 ? "loop" : "if",
+                 b->block_type == 0x01   ? "init"
+                 : b->block_type == 0x02 ? "block"
+                 : b->block_type == 0x03 ? "loop"
+                                         : "if",
                  b->type->result_count);
     }
     return _block_str;

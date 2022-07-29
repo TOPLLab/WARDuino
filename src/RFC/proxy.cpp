@@ -16,8 +16,7 @@
 ////TODO test with many args proxy
 ////TODO test with no return proxy
 
-unsigned short int sizeof_valuetype(uint32_t);
-unsigned short int sizeSerializationRFCallee(Proxy *);
+unsigned short int sizeSerializationRFCallee(RFC *);
 void arguments_copy(unsigned char *, StackValue *, uint32_t);
 
 /*
@@ -61,7 +60,7 @@ void Proxy::returnResult(Module *m) {
 }
 
 struct SerializeData *Proxy::serializeRFCallee(RFC *callee) {
-    const unsigned short serializationSize = sizeSerializationRFCallee(this);
+    const unsigned short serializationSize = sizeSerializationRFCallee(callee);
     auto *raw = new unsigned char[serializationSize];
     uint8_t suc = this->succes ? 1 : 0;
 
@@ -91,19 +90,6 @@ unsigned short int sizeSerializationRFCallee(RFC *callee) {
         return 1 + sizeof_valuetype(callee->type->results[0]);
     else
         return 1;
-}
-
-unsigned short int sizeof_valuetype(uint32_t vt) {
-    switch (vt) {
-        case I32:
-            return 4;
-        case I64:
-            return 8;
-        case F32:
-            return sizeof(float);
-        default:
-            return sizeof(double);
-    }
 }
 
 StackValue *Proxy::readRFCArgs(Block *func, uint8_t *data) {

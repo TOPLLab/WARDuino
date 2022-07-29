@@ -982,7 +982,16 @@ void Debugger::sendProxyCallResult(Module *m) {
 
 #ifndef ARDUINO
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
-    ProxySupervisor::registerRFCs(m, &interruptData);
+    uint32_t amount_funcs = read_B32(&interruptData);
+    printf("funcs_total %" PRIu32 "\n", amount_funcs);
+
+    m->warduino->debugger->supervisor->unregisterAllProxiedCalls();
+    for (uint32_t i = 0; i < amount_funcs; i++) {
+        uint32_t fidx = read_B32(&interruptData);
+        printf("registering fid=%" PRIu32 "\n", fidx);
+        m->warduino->debugger->supervisor->registerProxiedCall(fidx);
+    }
+
     this->channel->write("done!\n");
 }
 
