@@ -1596,7 +1596,6 @@ bool interpret(Module *m) {
                 continue;
             }
             case 0x11: {  // call_indirect
-                uint32_t tidx = read_LEB_32(&m->pc_ptr);
                 success &= i_instr_call_indirect(m);
                 continue;
             }
