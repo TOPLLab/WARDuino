@@ -95,7 +95,7 @@ class Debugger {
 
     void dumpLocals(Module *m) const;
 
-    void dumpBreakpoints(Module *m) const;
+    void dumpBreakpoints() const;
 
     void dumpFunctions(Module *m) const;
 
@@ -175,6 +175,6 @@ class Debugger {
     void notifyPushedEvent() const;
 #endif
 
-    bool handlePushedEvent(Module *m, char *bytes) const;
+    bool handlePushedEvent(char *bytes) const;
 #endif
 };

@@ -269,7 +269,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
 #ifndef ARDUINO
         case interruptPUSHEvent:
-            this->handlePushedEvent(m, reinterpret_cast<char *>(interruptData));
+            this->handlePushedEvent(reinterpret_cast<char *>(interruptData));
             break;
 #endif
         case interruptRecvCallbackmapping:
@@ -367,7 +367,7 @@ void Debugger::dump(Module *m, bool full) const {
     // start of bytes
     dprintf(this->socket, R"("start":["%p"],)", (void *)m->bytes);
 
-    this->dumpBreakpoints(m);
+    this->dumpBreakpoints();
 
     this->dumpFunctions(m);
 
@@ -384,7 +384,7 @@ void Debugger::dump(Module *m, bool full) const {
     //    fflush(stdout);
 }
 
-void Debugger::dumpBreakpoints(Module *m) const {
+void Debugger::dumpBreakpoints() const {
     dprintf(this->socket, "\"breakpoints\":[");
     {
         size_t i = 0;
@@ -596,7 +596,7 @@ void Debugger::notifyPushedEvent() const {
     dprintf(this->socket, "new pushed event");
 }
 
-bool Debugger::handlePushedEvent(Module *m, char *bytes) const {
+bool Debugger::handlePushedEvent(char *bytes) const {
     if (*bytes != interruptPUSHEvent) return false;
     auto parsed = nlohmann::json::parse(bytes);
     printf("handle pushed event: %s", bytes);

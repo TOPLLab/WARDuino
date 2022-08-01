@@ -307,7 +307,6 @@ def_prim(wifi_connected, NoneToOneU32) {
 
 def_prim(wifi_localip, twoToOneU32) {
     uint32_t buff = arg1.uint32;
-    uint32_t size = arg0.uint32;
     IPAddress ip = WiFi.localIP();
 
     String ipString = String(ip[0]);
