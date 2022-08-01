@@ -171,16 +171,13 @@ std::string CallbackHandler::dump_callbacks() {
     auto iterator = CallbackHandler::callbacks->begin();
     while (iterator != CallbackHandler::callbacks->end()) {
         repr += R"({")" + iterator->first + R"(": [)";
-        for (const auto &value : *iterator->second) {
-            auto callback = std::begin(*iterator->second);
-            while (callback != std::end(*iterator->second)) {
-                repr += std::to_string(callback->table_index);
-                repr += (++callback != iterator->second->end()) ? ", " : "";
-            }
+        auto callback = std::begin(*iterator->second);
+        while (callback != std::end(*iterator->second)) {
+            repr += std::to_string(callback->table_index);
+            repr += (++callback != iterator->second->end()) ? ", " : "";
         }
-        iterator++;
         repr += "]}";
-        repr += (iterator != CallbackHandler::callbacks->end()) ? ", " : "";
+        repr += (++iterator != CallbackHandler::callbacks->end()) ? ", " : "";
     }
     repr += "]}";
     return repr;
