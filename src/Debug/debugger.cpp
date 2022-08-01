@@ -232,13 +232,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleProxyCall(m, program_state, interruptData + 1);
             free(interruptData);
         } break;
-#ifndef ARDUINO
         case interruptMonitorProxies: {
             printf("receiving functions list to proxy\n");
             this->handleMonitorProxies(m, interruptData + 1);
             free(interruptData);
         } break;
-#endif
         case interruptProxify: {
             dbg_info("Converting to proxy settings.\n");
             *program_state = PROXYhalt;
@@ -257,11 +255,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptPOPEvent:
             CallbackHandler::resolve_event(true);
             break;
-#ifndef ARDUINO
         case interruptPUSHEvent:
             this->handlePushedEvent(reinterpret_cast<char *>(interruptData));
             break;
-#endif
         case interruptRecvCallbackmapping:
             Debugger::updateCallbackmapping(
                 m, reinterpret_cast<const char *>(interruptData + 2));
@@ -580,7 +576,6 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
     return true;
 }
 
-#ifndef ARDUINO
 void Debugger::notifyPushedEvent() const {
     this->channel->write("new pushed event");
 }
@@ -594,7 +589,6 @@ bool Debugger::handlePushedEvent(char *bytes) const {
     this->notifyPushedEvent();
     return true;
 }
-#endif
 
 void Debugger::woodDump(Module *m) {
     debug("asked for doDump\n");
@@ -996,7 +990,6 @@ bool Debugger::isProxied(uint32_t fidx) const {
     return this->supervisor != nullptr && this->supervisor->isProxied(fidx);
 }
 
-#ifndef ARDUINO
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     uint32_t amount_funcs = read_B32(&interruptData);
     printf("funcs_total %" PRIu32 "\n", amount_funcs);
@@ -1034,7 +1027,6 @@ void Debugger::disconnect_proxy() {
     pthread_mutex_unlock(&this->supervisor_mutex);
     pthread_join(this->supervisor->getThreadID(), (void **)&ptr);
 }
-#endif
 
 void Debugger::updateCallbackmapping(Module *m, const char *data) {
     nlohmann::basic_json<> parsed = nlohmann::json::parse(data);

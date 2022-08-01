@@ -1,4 +1,3 @@
-#ifndef ARDUINO
 #include "proxy_supervisor.h"
 
 #include <netinet/in.h>
@@ -8,7 +7,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#ifndef ARDUINO
 #include <nlohmann/json.hpp>
+#else
+#include "../../lib/json/single_include/nlohmann/json.hpp"
+#endif
 
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
@@ -277,5 +280,3 @@ void ProxySupervisor::unregisterAllProxiedCalls() { this->proxied->clear(); }
 bool ProxySupervisor::isProxied(uint32_t fidx) {
     return this->proxied->count(fidx) > 0;
 }
-
-#endif

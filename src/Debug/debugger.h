@@ -77,10 +77,8 @@ class Debugger {
 
     Proxy *proxy = nullptr;  // proxy module for debugger
 
-#ifndef ARDUINO
     bool connected_to_proxy = false;
     pthread_mutex_t supervisor_mutex;
-#endif
 
     // Private methods
 
@@ -174,7 +172,6 @@ class Debugger {
 
     bool isProxied(uint32_t fidx) const;
 
-#ifndef ARDUINO
     void startProxySupervisor(const char *proxy);
 
     bool proxy_connected() const;
@@ -190,5 +187,4 @@ class Debugger {
     void notifyPushedEvent() const;
 
     bool handlePushedEvent(char *bytes) const;
-#endif
 };
