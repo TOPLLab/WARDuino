@@ -51,8 +51,11 @@ void print_help() {
             "    --no-socket    Run without socket "
             "(default: false)\n");
     fprintf(stdout,
+            "    --socket       Run without socket "
+            "(default: 8192)\n");
+    fprintf(stdout,
             "    --paused       Pause program on entry (default: false)\n");
-    fprintf(stdout, "    --proxy        Proxy VM to connect to\n");
+    fprintf(stdout, "    --proxy        Connect to proxy device\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -110,12 +113,12 @@ void startDebuggerStd(WARDuino *wac, Module *m) {
     }
 }
 
-void startDebuggerSocket(WARDuino *wac, Module *m) {
+void startDebuggerSocket(WARDuino *wac, Module *m, int port = 8192) {
     int socket_fd = createSocketFileDescriptor();
-    struct sockaddr_in address = createAddress(8192);
+    struct sockaddr_in address = createAddress(port);
     bindSocketToAddress(socket_fd, address);
     startListening(socket_fd);
-    dbg_info("Listening on port 172.0.0.1:8192\n");
+    printf("Listening on port 172.0.0.1:%i\n", port);
 
     int valread;
     uint8_t buffer[1024] = {0};
@@ -146,6 +149,7 @@ int main(int argc, const char *argv[]) {
     bool return_exception = true;
     bool run_tests = false;
     bool no_socket = false;
+    const char *socket = "8192";
     bool paused = false;
     const char *file_name = nullptr;
     const char *proxy = nullptr;
@@ -175,6 +179,8 @@ int main(int argc, const char *argv[]) {
             ARGV_GET(watcompiler);
         } else if (!strcmp("--no-socket", arg)) {
             no_socket = true;
+        } else if (!strcmp("--socket", arg)) {
+            ARGV_GET(socket);
         } else if (!strcmp("--paused", arg)) {
             wac->program_state = WARDUINOpause;
         } else if (!strcmp("--proxy", arg)) {
@@ -219,7 +225,7 @@ int main(int argc, const char *argv[]) {
         if (no_socket) {
             startDebuggerStd(wac, m);
         } else {
-            startDebuggerSocket(wac, m);
+            startDebuggerSocket(wac, m, std::stoi(socket));
         }
         int *ptr;
         pthread_join(id, (void **)&ptr);
