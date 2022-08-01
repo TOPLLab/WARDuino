@@ -130,7 +130,7 @@ class Debugger {
    public:
     // Public fields
     Channel *channel;
-    ProxySupervisor *supervisor;
+    ProxySupervisor *supervisor = nullptr;
 
     std::set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
     uint8_t *skipBreakpoint =
