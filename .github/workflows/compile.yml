@@ -110,7 +110,7 @@ jobs:
                   submodules: 'recursive'
 
             - name: Build WARDuino for ESP-IDF
-              uses: espressif/esp-idf-ci-action@main
+              uses: espressif/esp-idf-ci-action@v1
               with:
                   esp_idf_version: latest
                   target: esp32
