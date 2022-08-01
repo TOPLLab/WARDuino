@@ -958,6 +958,11 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
 
 void Debugger::handleProxyCall(Module *m, RunningState *program_state,
                                uint8_t *interruptData) {
+    if (this->proxy == nullptr) {
+        dbg_info("No proxy available to send proxy call to.\n");
+        // TODO how to handle this error?
+        return;
+    }
     uint8_t *data = interruptData;
     uint32_t fidx = read_L32(&data);
     dbg_info("Proxycall func %" PRIu32 "\n", fidx);
@@ -985,6 +990,10 @@ void Debugger::sendProxyCallResult(Module *m) {
         return;
     }
     this->proxy->returnResult(m);
+}
+
+bool Debugger::isProxied(uint32_t fidx) const {
+    return this->supervisor != nullptr && this->supervisor->isProxied(fidx);
 }
 
 #ifndef ARDUINO

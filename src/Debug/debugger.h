@@ -172,6 +172,8 @@ class Debugger {
 
     void sendProxyCallResult(Module *m);
 
+    bool isProxied(uint32_t fidx) const;
+
 #ifndef ARDUINO
     void startProxySupervisor(const char *proxy);
 

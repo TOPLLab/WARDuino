@@ -378,6 +378,10 @@ bool i_instr_return(Module *m) {
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
 
+    if (m->warduino->debugger->isProxied(fidx)) {
+        return proxy_call(m, fidx);
+    }
+
     if (fidx < m->import_count) {
         return ((Primitive)m->functions[fidx].func_ptr)(m);
     } else {
@@ -1588,21 +1592,12 @@ bool interpret(Module *m) {
                 // Call operators
                 //
             case 0x10: {  // call
-                uint32_t fidx = read_LEB_32(&m->pc_ptr);
-                if (m->warduino->debugger->supervisor->isProxied(fidx)) {
-                    success &= proxy_call(m, fidx);
-                } else {
-                    success &= i_instr_call(m);
-                }
+                success &= i_instr_call(m);
                 continue;
             }
             case 0x11: {  // call_indirect
-                uint32_t fidx = read_LEB_32(&m->pc_ptr);
-                if (m->warduino->debugger->supervisor->isProxied(fidx)) {
-                    success &= proxy_call(m, fidx);
-                } else {
-                    success &= i_instr_call_indirect(m);
-                }
+                uint32_t tidx = read_LEB_32(&m->pc_ptr);
+                success &= i_instr_call_indirect(m);
                 continue;
             }
                 //
