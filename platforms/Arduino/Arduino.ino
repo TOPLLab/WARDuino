@@ -21,7 +21,6 @@ Module* m;
 #define UART_PIN 3
 
 void startDebuggerStd(void* pvParameter) {
-    int valread;
     uint8_t buffer[1024] = {0};
     wac->debugger->setChannel(fileno(stdout));
     write(fileno(stdout), "Got a message ... \n", 19);
@@ -40,7 +39,7 @@ void startDebuggerStd(void* pvParameter) {
                 write(fileno(stdout), "Reading message ..... \n", 19);
                 fflush(stdout);
                 wac->handleInterrupt(buff_len, buffer);
-                write(fileno(stdout), buffer, valread);
+                write(fileno(stdout), buffer, buff_len);
                 fflush(stdout);
             }
         }

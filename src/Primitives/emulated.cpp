@@ -225,6 +225,14 @@ def_prim(abort, NoneToNoneU32) {
     return false;
 }
 
+def_prim(millis, NoneToOneU64) {
+    struct timeval tv {};
+    gettimeofday(&tv, nullptr);
+    unsigned long millis = 1000 * tv.tv_sec + tv.tv_usec;
+    pushUInt64(millis);
+    return true;
+}
+
 def_prim(micros, NoneToOneU64) {
     struct timeval tv {};
     gettimeofday(&tv, nullptr);
@@ -430,6 +438,11 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t mode = arg0.uint32;
 
     debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, fidx, mode);
+    std::string topic = "interrupt";
+    topic.append(std::to_string(pin));
+
+    Callback c = Callback(m, topic, fidx);
+    CallbackHandler::add_callback(c);
     pop_args(3);
     return true;
 }
@@ -468,25 +481,31 @@ void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(abort);
+    install_primitive(millis);
     install_primitive(micros);
-    install_primitive(test);
+
     install_primitive(print_int);
     install_primitive(print_string);
+
     install_primitive(wifi_connect);
     install_primitive(wifi_status);
     install_primitive(wifi_connected);
     install_primitive(wifi_localip);
+
     install_primitive(http_get);
     install_primitive(http_post);
+
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_delay);
     install_primitive(chip_digital_read);
     install_primitive(chip_analog_read);
     install_primitive(chip_delay_us);
+
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
     install_primitive(write_spi_bytes_16);
+
     install_primitive(subscribe_interrupt);
 
     install_primitive(init_pixels);
