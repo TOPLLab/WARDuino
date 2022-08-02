@@ -9,9 +9,9 @@
 #include "../../lib/json/single_include/nlohmann/json.hpp"
 #endif
 
+#include "../Edward/proxy.h"
+#include "../Edward/proxy_supervisor.h"
 #include "../Memory/mem.h"
-#include "../RFC/proxy.h"
-#include "../RFC/proxy_supervisor.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 
@@ -1009,8 +1009,7 @@ void Debugger::startProxySupervisor(int socket) {
     pthread_mutex_init(&this->supervisor_mutex, nullptr);
     pthread_mutex_lock(&this->supervisor_mutex);
 
-    this->supervisor =
-        new ProxySupervisor(socket, &this->supervisor_mutex);
+    this->supervisor = new ProxySupervisor(socket, &this->supervisor_mutex);
     printf("Connected to proxy.\n");
 }
 

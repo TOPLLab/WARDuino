@@ -51,7 +51,7 @@ void print_help() {
             "    --no-socket    Run without socket "
             "(default: false)\n");
     fprintf(stdout,
-            "    --socket       Run without socket "
+            "    --socket       The port number to attach the socket on"
             "(default: 8192)\n");
     fprintf(stdout,
             "    --paused       Pause program on entry (default: false)\n");

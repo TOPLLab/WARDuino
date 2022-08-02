@@ -40,9 +40,9 @@ if (BUILD_EMULATOR)
             src/Utils/macros.cpp
             src/Utils/sockets.cpp
             src/Debug/debugger.cpp
-            src/RFC/proxy.cpp
-            src/RFC/proxy_supervisor.cpp
-            src/RFC/RFC.cpp)
+            src/Edward/proxy.cpp
+            src/Edward/proxy_supervisor.cpp
+            src/Edward/RFC.cpp)
 
     set(TEST_FRAMEWORK
             tests/integration/wasm_tests.cpp

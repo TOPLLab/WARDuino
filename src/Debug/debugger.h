@@ -7,8 +7,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../RFC/proxy.h"
-#include "../RFC/proxy_supervisor.h"
+#include "../Edward/proxy.h"
+#include "../Edward/proxy_supervisor.h"
 #include "../Utils/sockets.h"
 
 #ifndef ARDUINO

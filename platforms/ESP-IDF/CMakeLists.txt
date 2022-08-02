@@ -3,9 +3,9 @@ set(SOURCE_FILES
         ../../src/Interpreter/instructions.cpp
         ../../src/Memory/mem.cpp
         ../../src/Primitives/idf.cpp
-        ../../src/RFC/proxy.cpp
-        ../../src/RFC/proxy_supervisor.cpp
-        ../../src/RFC/RFC.cpp
+        ../../src/Edward/proxy.cpp
+        ../../src/Edward/proxy_supervisor.cpp
+        ../../src/Edward/RFC.cpp
         ../../src/Utils/macros.cpp
         ../../src/Utils/sockets.cpp
         ../../src/Utils/util.cpp
