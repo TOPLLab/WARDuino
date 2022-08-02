@@ -32,7 +32,7 @@
     }
 
 void print_help() {
-    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.1.1\n\n");
+    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.2.1\n\n");
     fprintf(stdout, "Usage:\n");
     fprintf(stdout, "    warduino [options] <file>\n");
     fprintf(stdout, "Options:\n");
@@ -120,7 +120,7 @@ void startDebuggerSocket(WARDuino *wac, Module *m, int port = 8192) {
     startListening(socket_fd);
     printf("Listening on port 172.0.0.1:%i\n", port);
 
-    int valread;
+    ssize_t valread;
     uint8_t buffer[1024] = {0};
     while (true) {
         int socket = listenForIncomingConnection(socket_fd, address);
