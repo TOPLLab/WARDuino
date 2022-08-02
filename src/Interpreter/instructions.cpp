@@ -4,7 +4,6 @@
 #include <cstring>
 
 #include "../Memory/mem.h"
-#include "../RFC/rfc.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../Utils/util_arduino.h"
@@ -31,6 +30,13 @@ Block *pop_block(Module *m) {
 
     if (frame->block->block_type == 0xff) {
         CallbackHandler::resolving_event = false;
+        frame = &m->callstack[m->csp--];
+        t = frame->block->type;
+    }
+
+    if (frame->block->block_type == 0xfe) {
+        m->warduino->program_state = PROXYhalt;
+        m->warduino->debugger->sendProxyCallResult(m);
         frame = &m->callstack[m->csp--];
         t = frame->block->type;
     }
@@ -101,27 +107,32 @@ void setup_call(Module *m, uint32_t fidx) {
     m->pc_ptr = func->start_ptr;
 }
 
-#ifndef ARDUINO
 // performs proxy calls to an MCU
-bool proxy_call(uint32_t fidx, Module *m) {
-    printf("Remote Function Call %d\n", fidx);
-    RFC *rf = RFC::getRFC(fidx);
-    StackValue *args = nullptr;
-    if (rf->type->param_count > 0) {
-        m->sp -= rf->type->param_count;
-        args = &m->stack[m->sp + 1];
+bool proxy_call(Module *m, uint32_t fidx) {
+    dbg_info("Remote Function Call %d\n", fidx);
+    ProxySupervisor *supervisor = m->warduino->debugger->supervisor;
+    RFC *rfc;
+    Type *type = m->functions[fidx].type;
+    if (type->param_count > 0) {
+        m->sp -= type->param_count;
+        StackValue *args = &m->stack[m->sp + 1];
+        rfc = new RFC(fidx, type, args);
+    } else {
+        rfc = new RFC(fidx, type);
     }
 
-    rf->call(args);
-    if (!rf->succes) {
-        // TODO exception bugger might be too small and msg not null terminated?
-        memcpy(&exception, rf->exceptionMsg, strlen(rf->exceptionMsg));
+    if (!supervisor->call(rfc)) {
+        dbg_info(": FAILED TO SEND\n", fidx);
         return false;
     }
-    if (rf->type->result_count > 0) m->stack[++m->sp] = *rf->result;
+    if (!rfc->success) {
+        // TODO exception bugger might be too small and msg not null terminated?
+        memcpy(&exception, rfc->exception, strlen(rfc->exception));
+        return false;
+    }
+    if (rfc->type->result_count > 0) m->stack[++m->sp] = *rfc->result;
     return true;
 }
-#endif
 
 /*
  * WebAssembly Instructions
@@ -365,11 +376,11 @@ bool i_instr_return(Module *m) {
  */
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
-#ifndef ARDUINO
-    if (RFC::isRFC(fidx)) {
-        return proxy_call(fidx, m);
+
+    if (m->warduino->debugger->isProxied(fidx)) {
+        return proxy_call(m, fidx);
     }
-#endif
+
     if (fidx < m->import_count) {
         return ((Primitive)m->functions[fidx].func_ptr)(m);
     } else {
@@ -414,12 +425,6 @@ bool i_instr_call_indirect(Module *m) {
 #if TRACE
     debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx, val,
           fidx);
-#endif
-
-#ifndef ARDUINO
-    if (RFC::isRFC(fidx)) {
-        return proxy_call(fidx, m);
-    }
 #endif
 
     if (fidx < m->import_count) {
@@ -468,7 +473,7 @@ bool i_instr_call_indirect(Module *m) {
 
 /**
  * 0x1a drop
- * remvove a value from the stack
+ * remove a value from the stack
  */
 bool i_instr_drop(Module *m) {
     m->sp--;
@@ -1499,11 +1504,8 @@ bool interpret(Module *m) {
     // set to true when finishes successfully
     bool program_done = false;
 
-    // TODO: this is actually a property of warduino
     m->warduino->program_state = WARDUINOrun;
 
-    // needed for RFC
-    RFC *callee = nullptr;
     while (!program_done && success) {
         if (m->warduino->program_state == WARDUINOstep) {
             m->warduino->program_state = WARDUINOpause;
@@ -1515,48 +1517,13 @@ bool interpret(Module *m) {
         fflush(stdout);
         reset_wdt();
 
-#ifdef ARDUINO
-        // handle RFC requested by emulator
-        if (m->warduino->program_state == WARDuinoProxyRun) {
-            if (callee == nullptr) {  // TODO maybe use RFC::hasRFCallee()
-                // call happens for the first time
-                callee = RFC::currentCallee();
-                RFC::setupCalleeArgs(m, callee);
-
-                // Primitive function RFC happen instantly
-                if (callee->fid < m->import_count) {
-                    callee->succes =
-                        ((Primitive)m->functions[callee->fid].func_ptr)(m);
-                    callee->returnResult(m);
-                    callee->restoreExecutionState(m,
-                                                  &m->warduino->program_state);
-                    RFC::removeRFCallee();
-                    callee = nullptr;
-                } else
-                    setup_call(m, callee->fid);
-            } else {
-                // check if call completes
-                if (callee->callCompleted(m)) {
-                    callee->returnResult(m);
-
-                    // TODO: this is likley no longer needed
-                    callee->restoreExecutionState(m,
-                                                  &m->warduino->program_state);
-                    RFC::removeRFCallee();
-                    callee = nullptr;
-                    m->warduino->program_state = WARDUINODrone;
-                }
-            }
-        }
-#endif
-
         // Resolve 1 callback event if queue is not empty and VM not paused, and
         // no event currently resolving
         CallbackHandler::resolve_event();
 
         // Skip the main loop if paused or drone
         if (m->warduino->program_state == WARDUINOpause ||
-            m->warduino->program_state == WARDUINODrone) {
+            m->warduino->program_state == PROXYhalt) {
             continue;
         }
 
@@ -1565,7 +1532,7 @@ bool interpret(Module *m) {
         // If BP and not the one we just unpaused
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
             m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
-            m->warduino->program_state != WARDuinoProxyRun) {
+            m->warduino->program_state != PROXYrun) {
             m->warduino->program_state = WARDUINOpause;
             m->warduino->debugger->notifyBreakpoint(m->pc_ptr);
             continue;
@@ -1627,10 +1594,10 @@ bool interpret(Module *m) {
                 success &= i_instr_call(m);
                 continue;
             }
-            case 0x11:  // call_indirect
+            case 0x11: {  // call_indirect
                 success &= i_instr_call_indirect(m);
                 continue;
-
+            }
                 //
                 // Parametric operators
                 //
@@ -1764,12 +1731,15 @@ bool interpret(Module *m) {
                 }
                 return false;
         }
-        if (m->warduino->program_state == WARDuinoProxyRun && !success) {
-            // RFC was unsuccessful
-            RFC::currentCallee()->succes = false;
-            // TODO copy exceptionMsg
-            success = true;
-        }
+    }
+
+    if (m->warduino->program_state == PROXYrun) {
+        dbg_info("Trap was thrown during proxy call.\n");
+        RFC *rfc = m->warduino->debugger->topProxyCall();
+        rfc->success = false;
+        rfc->exception = strdup(exception);
+        rfc->exception_size = strlen(exception);
+        m->warduino->debugger->sendProxyCallResult(m);
     }
 
     // Resolve all unhandled callback events

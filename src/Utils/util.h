@@ -75,4 +75,6 @@ uint32_t read_L32(uint8_t **bytes);
 void chars_as_hexa(unsigned char *dest, unsigned char *source,
                    uint32_t len_source);
 
+unsigned short int sizeof_valuetype(uint32_t);
+
 #endif

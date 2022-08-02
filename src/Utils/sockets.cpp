@@ -1,10 +1,14 @@
 #include "sockets.h"
 
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 // Socket Debugger Interface
 void setFileDescriptorOptions(int socket_fd) {
@@ -40,6 +44,15 @@ struct sockaddr_in createAddress(int port) {
     return address;
 }
 
+struct sockaddr_in createLocalhostAddress(int port) {
+    struct sockaddr_in address = createAddress(port);
+    const char hostname[] = "localhost";
+    struct hostent *resolvedhost = gethostbyname(hostname);
+    memcpy(&address.sin_addr, resolvedhost->h_addr_list[0],
+           resolvedhost->h_length);
+    return address;
+}
+
 void startListening(int socket_fd) {
     if (listen(socket_fd, 1) < 0) {
         perror("listen");
@@ -56,4 +69,18 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
         exit(EXIT_FAILURE);
     }
     return new_socket;
+}
+
+Channel::Channel(int socket) { this->socket = socket; }
+
+int Channel::write(const char *fmt, ...) const {
+    va_list args;
+    va_start(args, fmt);
+    int written = vdprintf(this->socket, fmt, args);
+    va_end(args);
+    return written;
+}
+
+ssize_t Channel::read(void *out, size_t size) {
+    return ::read(this->socket, out, size);
 }

@@ -30,19 +30,19 @@ if (BUILD_EMULATOR)
     find_package(Threads REQUIRED)
 
     set(SOURCE_FILES
-            src/Memory/mem.cpp
-            src/Utils/util.cpp
-            src/Utils/util_arduino.cpp
-            src/Debug/debugger.cpp
-            src/Utils/macros.cpp
             src/WARDuino/WARDuino.cpp
             src/WARDuino/CallbackHandler.cpp
             src/Primitives/emulated.cpp
             src/Interpreter/instructions.cpp
-            src/RFC/rfc.cpp
-            src/RFC/proxy_supervisor.cpp
-            src/RFC/SocketServer.cpp
-            src/Utils/sockets.cpp)
+            src/Memory/mem.cpp
+            src/Utils/util.cpp
+            src/Utils/util_arduino.cpp
+            src/Utils/macros.cpp
+            src/Utils/sockets.cpp
+            src/Debug/debugger.cpp
+            src/Edward/proxy.cpp
+            src/Edward/proxy_supervisor.cpp
+            src/Edward/RFC.cpp)
 
     set(TEST_FRAMEWORK
             tests/integration/wasm_tests.cpp

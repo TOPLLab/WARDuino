@@ -22,7 +22,7 @@ Module* m;
 
 void startDebuggerStd(void* pvParameter) {
     uint8_t buffer[1024] = {0};
-    wac->debugger->socket = fileno(stdout);
+    wac->debugger->setChannel(fileno(stdout));
     write(fileno(stdout), "Got a message ... \n", 19);
     while (true) {
         // taskYIELD();

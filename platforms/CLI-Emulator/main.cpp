@@ -12,6 +12,7 @@
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
 #include "../../src/Utils/sockets.h"
+#include "../../src/WARDuino.h"
 #include "../../tests/integration/wasm_tests.h"
 
 // Constants
@@ -31,13 +32,13 @@
     }
 
 void print_help() {
-    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.1.1\n\n");
+    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.2.1\n\n");
     fprintf(stdout, "Usage:\n");
     fprintf(stdout, "    warduino [options] <file>\n");
     fprintf(stdout, "Options:\n");
-    fprintf(
-        stdout,
-        "    --loop         Let the runtime loop infinitely on exceptions\n");
+    fprintf(stdout,
+            "    --loop         Let the runtime loop infinitely on exceptions "
+            "(default: false)\n");
     fprintf(stdout,
             "    --asserts      Name of file containing asserts to run against "
             "loaded module\n");
@@ -49,6 +50,12 @@ void print_help() {
     fprintf(stdout,
             "    --no-socket    Run without socket "
             "(default: false)\n");
+    fprintf(stdout,
+            "    --socket       The port number to attach the socket on"
+            "(default: 8192)\n");
+    fprintf(stdout,
+            "    --paused       Pause program on entry (default: false)\n");
+    fprintf(stdout, "    --proxy        Port of proxy to connect to\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -94,7 +101,7 @@ error:
 void startDebuggerStd(WARDuino *wac, Module *m) {
     int valread;
     uint8_t buffer[1024] = {0};
-    wac->debugger->socket = fileno(stdout);
+    wac->debugger->setChannel(fileno(stdout));
     while (true) {
         debug("waiting for debug command\n");
         while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
@@ -106,29 +113,48 @@ void startDebuggerStd(WARDuino *wac, Module *m) {
     }
 }
 
-void startDebuggerSocket(WARDuino *wac, Module *m) {
+void startDebuggerSocket(WARDuino *wac, Module *m, int port = 8192) {
     int socket_fd = createSocketFileDescriptor();
-    struct sockaddr_in address = createAddress(8192);
+    struct sockaddr_in address = createAddress(port);
     bindSocketToAddress(socket_fd, address);
     startListening(socket_fd);
+    printf("Listening on port 172.0.0.1:%i\n", port);
 
-    int valread;
+    ssize_t valread;
     uint8_t buffer[1024] = {0};
     while (true) {
         int socket = listenForIncomingConnection(socket_fd, address);
-        wac->debugger->socket = socket;
-        //        wac->debugger->socket = fileno(stdout); // todo remove
+        wac->debugger->setChannel(socket);
         while ((valread = read(socket, buffer, 1024)) != -1) {
             write(socket, "got a message ... \n", 19);
             wac->handleInterrupt(valread - 1, buffer);
-            // runningstate program_state = warduinorun;
             write(socket, buffer, valread);
-            // while (checkdebugmessages(m, &program_state)) {
-            //				printf("checkdebugmessages \n");
-            //};
-            // fflush(stdout);
         }
     }
+}
+
+// Connect to proxy via a web socket
+int connectToProxySocket(int proxy) {
+    int channel;
+    struct sockaddr_in address = createLocalhostAddress(proxy);
+
+    if ((channel = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        dbg_info("Socket creation error\n");
+        return -1;
+    }
+
+    if (connect(channel, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        dbg_info("Connection failed\n");
+        return -1;
+    }
+
+    return channel;
+}
+
+// Connect to proxy via file descriptor
+int connectToProxyFd(const char *proxyfd) {
+    FILE *serial = fopen(proxyfd, "rw+");
+    return fileno(serial);
 }
 
 WARDuino *wac = WARDuino::instance();
@@ -147,7 +173,10 @@ int main(int argc, const char *argv[]) {
     bool return_exception = true;
     bool run_tests = false;
     bool no_socket = false;
+    const char *socket = "8192";
+    bool paused = false;
     const char *file_name = nullptr;
+    const char *proxy = nullptr;
 
     const char *asserts_file = nullptr;
     const char *watcompiler = "wat2wasm";
@@ -174,6 +203,12 @@ int main(int argc, const char *argv[]) {
             ARGV_GET(watcompiler);
         } else if (!strcmp("--no-socket", arg)) {
             no_socket = true;
+        } else if (!strcmp("--socket", arg)) {
+            ARGV_GET(socket);
+        } else if (!strcmp("--paused", arg)) {
+            wac->program_state = WARDUINOpause;
+        } else if (!strcmp("--proxy", arg)) {
+            ARGV_GET(proxy);  // /dev/ttyUSB0
         }
     }
 
@@ -199,15 +234,23 @@ int main(int argc, const char *argv[]) {
     }
 
     if (m) {
-        pthread_t id;
-        uint8_t command[] = {'0', '3', '\n'};
-        // wac.handleInterrupt(3, command);
         m->warduino = wac;
+
+        // Run Wasm module
+        pthread_t id;
         pthread_create(&id, nullptr, runWAC, nullptr);
+
+        // Connect to proxy device
+        if (proxy) {
+            int connection = connectToProxySocket(std::stoi(proxy));
+            wac->debugger->startProxySupervisor(connection);
+        }
+
+        // Start debugger
         if (no_socket) {
             startDebuggerStd(wac, m);
         } else {
-            startDebuggerSocket(wac, m);
+            startDebuggerSocket(wac, m, std::stoi(socket));
         }
         int *ptr;
         pthread_join(id, (void **)&ptr);

@@ -27,9 +27,7 @@ class CallbackHandler {
     CallbackHandler() = default;  // Disallow creation
 
    public:
-#ifdef ARDUINO
     static size_t pushed_cursor;
-#endif
 
     static size_t event_count();
     static std::deque<Event>::const_iterator event_begin();

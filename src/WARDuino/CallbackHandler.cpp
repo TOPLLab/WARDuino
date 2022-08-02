@@ -4,9 +4,6 @@
 
 #include "../Debug/debugger.h"
 #include "../Interpreter/instructions.h"
-#ifdef ARDUINO
-#include "../RFC/SocketServer.h"
-#endif
 #include "../Utils/macros.h"
 
 void push_guard(Module *m) {
@@ -31,14 +28,12 @@ void push_guard(Module *m) {
 
 bool CallbackHandler::manual_event_resolution = false;
 bool CallbackHandler::resolving_event = false;
-#ifdef ARDUINO
 size_t CallbackHandler::pushed_cursor = 0;
 
 bool should_push_event() {
-    return WARDuino::instance()->program_state == WARDuinoProxyRun ||
-           WARDuino::instance()->program_state == WARDUINODrone;
+    return WARDuino::instance()->program_state == PROXYrun ||
+           WARDuino::instance()->program_state == PROXYhalt;
 }
-#endif
 
 std::unordered_map<std::string, std::vector<Callback> *>
     *CallbackHandler::callbacks =
@@ -90,28 +85,22 @@ void CallbackHandler::push_event(Event *event) {
 }
 
 bool CallbackHandler::resolve_event(bool force) {
-#ifdef ARDUINO
-    SocketServer *server = SocketServer::getServer();
-#endif
     if ((!force && CallbackHandler::resolving_event) ||
         CallbackHandler::events->empty()) {
         if (force) {
             printf("No events to be processed!\n");
-#ifdef ARDUINO
-            server->printf2Client(server->pushClient,
-                                  "no events to be processed");
-#endif
+            WARDuino::instance()->debugger->channel->write(
+                "no events to be processed");
         }
         return false;
     }
     Event event = CallbackHandler::events->front();
 
-#ifdef ARDUINO
     if (should_push_event()) {
         Event e = CallbackHandler::events->at(CallbackHandler::pushed_cursor++);
-        server->printf2Client(server->pushClient,
-                              R"({"topic":"%s","payload":"%s"})",
-                              e.topic.c_str(), e.payload.c_str());
+        WARDuino::instance()->debugger->channel->write(
+            R"({"topic":"%s","payload":"%s"})", e.topic.c_str(),
+            e.payload.c_str());
 
         CallbackHandler::events->pop_front();
         CallbackHandler::pushed_cursor--;
@@ -119,7 +108,6 @@ bool CallbackHandler::resolve_event(bool force) {
         return !CallbackHandler::events->empty();
         // no further execution if drone
     }
-#endif
 
     if (!force && (CallbackHandler::manual_event_resolution ||
                    WARDuino::instance()->program_state == WARDUINOpause)) {
@@ -128,9 +116,7 @@ bool CallbackHandler::resolve_event(bool force) {
 
     CallbackHandler::resolving_event = true;
     CallbackHandler::events->pop_front();
-#ifdef ARDUINO
     CallbackHandler::pushed_cursor--;
-#endif
 
     debug("Resolving an event. (%lu remaining)\n",
           CallbackHandler::events->size());

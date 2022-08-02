@@ -201,3 +201,16 @@ void chars_as_hexa(unsigned char *dest, unsigned char *source,
         dest[i * 2 + 1] = c2 > 9 ? (c2 - 10 + 'A') : (c2 + '0');
     }
 }
+
+unsigned short int sizeof_valuetype(uint32_t vt) {
+    switch (vt) {
+        case I32:
+            return 4;
+        case I64:
+            return 8;
+        case F32:
+            return sizeof(float);
+        default:
+            return sizeof(double);
+    }
+}

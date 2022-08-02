@@ -6,6 +6,11 @@
 #include <set>
 #include <unordered_map>
 #include <vector>
+
+#include "../Edward/proxy.h"
+#include "../Edward/proxy_supervisor.h"
+#include "../Utils/sockets.h"
+
 #ifndef ARDUINO
 #include <thread>
 #endif
@@ -17,12 +22,12 @@ enum RunningState {
     WARDUINOrun,
     WARDUINOpause,
     WARDUINOstep,
-    WARDuinoProxyRun,  // Running state used when executing a proxy call. During
-                       // this state the call is set up and executed by the main
-                       // loop. After execution, the state is restored to
-                       // WARDUINODrone
-    WARDUINODrone  // Do not run the program (program runs on computer, which
-                   // sends messages for primitives, do forward interupts)
+    PROXYrun,  // Running state used when executing a proxy call. During
+               // this state the call is set up and executed by the main
+               // loop. After execution, the state is restored to
+               // PROXYhalt
+    PROXYhalt  // Do not run the program (program runs on computer, which
+               // sends messages for primitives, do forward interrupts)
 };
 
 enum InterruptTypes {
@@ -39,13 +44,13 @@ enum InterruptTypes {
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
 
-    // WOOD Pull Debugging
+    // Pull Debugging
     interruptWOODDUMP = 0x60,
     interruptOffset = 0x61,
     interruptRecvState = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
-    interruptDronify = 0x65,  // wifi SSID \0 wifi PASS \0
+    interruptProxify = 0x65,  // wifi SSID \0 wifi PASS \0
 
     // Push Debugging
     interruptDUMPAllEvents = 0x70,
@@ -70,11 +75,10 @@ class Debugger {
     long interruptSize{};
     bool receivingData = false;
 
-#ifndef ARDUINO
-    bool connected_to_drone = false;
-    pthread_mutex_t push_mutex;
-    pthread_t push_debugging_threadid;
-#endif
+    Proxy *proxy = nullptr;  // proxy module for debugger
+
+    bool connected_to_proxy = false;
+    pthread_mutex_t supervisor_mutex;
 
     // Private methods
 
@@ -125,15 +129,17 @@ class Debugger {
 
    public:
     // Public fields
-
-    int socket;
+    Channel *channel;
+    ProxySupervisor *supervisor = nullptr;
 
     std::set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
     uint8_t *skipBreakpoint =
         nullptr;  // Breakpoint to skip in the next interpretation step
 
     // Constructor
-    explicit Debugger(int socket);
+    explicit Debugger(int address);
+
+    void setChannel(int address);
 
     // Interrupts
 
@@ -157,13 +163,20 @@ class Debugger {
 
     void woodDump(Module *m);
 
-#ifdef ARDUINO
     void handleProxyCall(Module *m, RunningState *program_state,
                          uint8_t *interruptData);
-#else
-    bool drone_connected() const;
 
-    void disconnect_drone();
+    RFC *topProxyCall();
+
+    void sendProxyCallResult(Module *m);
+
+    bool isProxied(uint32_t fidx) const;
+
+    void startProxySupervisor(int socket);
+
+    bool proxy_connected() const;
+
+    void disconnect_proxy();
 
     // Pull-based
 
@@ -171,10 +184,7 @@ class Debugger {
 
     // Push-based
 
-#ifndef ARDUINO
     void notifyPushedEvent() const;
-#endif
 
     bool handlePushedEvent(char *bytes) const;
-#endif
 };
