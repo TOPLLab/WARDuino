@@ -1,7 +1,6 @@
 //
 // WARDuino - WebAssembly interpreter for embedded devices.
 //
-#include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -56,7 +55,7 @@ void print_help() {
             "(default: 8192)\n");
     fprintf(stdout,
             "    --paused       Pause program on entry (default: false)\n");
-    fprintf(stdout, "    --proxy        Connect to proxy device\n");
+    fprintf(stdout, "    --proxy        Port of proxy to connect to\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -134,31 +133,28 @@ void startDebuggerSocket(WARDuino *wac, Module *m, int port = 8192) {
     }
 }
 
-int connect_to_proxy(int proxy) {
-    int sock = 0;
-    struct sockaddr_in address = createAddress(proxy);
-    const char hostname[] = "localhost";
-    struct hostent *resolvedhost = gethostbyname(hostname);
-    /* resolve hostname */
-    if (resolvedhost == nullptr) {
-        return -1; /* error */
-    }
+// Connect to proxy via a web socket
+int connectToProxySocket(int proxy) {
+    int channel;
+    struct sockaddr_in address = createLocalhostAddress(proxy);
 
-    /* copy the network address to sockaddr_in structure */
-    memcpy(&address.sin_addr, resolvedhost->h_addr_list[0],
-           resolvedhost->h_length);
-
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("\n Socket creation error \n");
+    if ((channel = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        dbg_info("Socket creation error\n");
         return -1;
     }
 
-    if (connect(sock, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        printf("\nConnection Failed \n");
+    if (connect(channel, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        dbg_info("Connection failed\n");
         return -1;
     }
 
-    return sock;
+    return channel;
+}
+
+// Connect to proxy via file descriptor
+int connectToProxyFd(const char *proxyfd) {
+    FILE *serial = fopen(proxyfd, "rw+");
+    return fileno(serial);
 }
 
 WARDuino *wac = WARDuino::instance();
@@ -246,8 +242,8 @@ int main(int argc, const char *argv[]) {
 
         // Connect to proxy device
         if (proxy) {
-            int socket = connect_to_proxy(std::stoi(proxy));
-            wac->debugger->startProxySupervisor(socket);
+            int connection = connectToProxySocket(std::stoi(proxy));
+            wac->debugger->startProxySupervisor(connection);
         }
 
         // Start debugger

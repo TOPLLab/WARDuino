@@ -1,5 +1,6 @@
 #include "sockets.h"
 
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -7,6 +8,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 // Socket Debugger Interface
 void setFileDescriptorOptions(int socket_fd) {
@@ -39,6 +41,15 @@ struct sockaddr_in createAddress(int port) {
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
+    return address;
+}
+
+struct sockaddr_in createLocalhostAddress(int port) {
+    struct sockaddr_in address = createAddress(port);
+    const char hostname[] = "localhost";
+    struct hostent *resolvedhost = gethostbyname(hostname);
+    memcpy(&address.sin_addr, resolvedhost->h_addr_list[0],
+           resolvedhost->h_length);
     return address;
 }
 

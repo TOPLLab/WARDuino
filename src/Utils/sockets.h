@@ -9,6 +9,8 @@ void bindSocketToAddress(int socket_fd, struct sockaddr_in address);
 
 struct sockaddr_in createAddress(int port);
 
+struct sockaddr_in createLocalhostAddress(int port);
+
 void startListening(int socket_fd);
 
 int listenForIncomingConnection(int socket_fd, struct sockaddr_in address);
