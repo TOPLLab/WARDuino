@@ -1,6 +1,7 @@
 //
 // WARDuino - WebAssembly interpreter for embedded devices.
 //
+#include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -133,6 +134,33 @@ void startDebuggerSocket(WARDuino *wac, Module *m, int port = 8192) {
     }
 }
 
+int connect_to_proxy(int proxy) {
+    int sock = 0;
+    struct sockaddr_in address = createAddress(proxy);
+    const char hostname[] = "localhost";
+    struct hostent *resolvedhost = gethostbyname(hostname);
+    /* resolve hostname */
+    if (resolvedhost == nullptr) {
+        return -1; /* error */
+    }
+
+    /* copy the network address to sockaddr_in structure */
+    memcpy(&address.sin_addr, resolvedhost->h_addr_list[0],
+           resolvedhost->h_length);
+
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        printf("\n Socket creation error \n");
+        return -1;
+    }
+
+    if (connect(sock, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        printf("\nConnection Failed \n");
+        return -1;
+    }
+
+    return sock;
+}
+
 WARDuino *wac = WARDuino::instance();
 Module *m;
 
@@ -218,7 +246,8 @@ int main(int argc, const char *argv[]) {
 
         // Connect to proxy device
         if (proxy) {
-            wac->debugger->startProxySupervisor(proxy);
+            int socket = connect_to_proxy(std::stoi(proxy));
+            wac->debugger->startProxySupervisor(socket);
         }
 
         // Start debugger

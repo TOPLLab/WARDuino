@@ -4,7 +4,6 @@
 #include <cstring>
 
 #include "../Memory/mem.h"
-#include "../RFC/proxy.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../Utils/util_arduino.h"

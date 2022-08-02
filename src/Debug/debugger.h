@@ -172,7 +172,9 @@ class Debugger {
 
     bool isProxied(uint32_t fidx) const;
 
-    void startProxySupervisor(const char *proxy);
+    void connectToFdProxy(const char *proxy);
+
+    void startProxySupervisor(int socket);
 
     bool proxy_connected() const;
 

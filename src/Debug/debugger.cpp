@@ -1004,13 +1004,21 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     this->channel->write("done!\n");
 }
 
-void Debugger::startProxySupervisor(const char *proxy) {
+void Debugger::connectToFdProxy(const char *proxyfd) {
     this->connected_to_proxy = true;
     pthread_mutex_init(&this->supervisor_mutex, nullptr);
     pthread_mutex_lock(&this->supervisor_mutex);
 
-    FILE *serial = fopen(proxy, "rw+");
+    FILE *serial = fopen(proxyfd, "rw+");
     int proxy_address = fileno(serial);
+    this->startProxySupervisor(proxy_address);
+}
+
+void Debugger::startProxySupervisor(int proxy_address) {
+    this->connected_to_proxy = true;
+    pthread_mutex_init(&this->supervisor_mutex, nullptr);
+    pthread_mutex_lock(&this->supervisor_mutex);
+
     this->supervisor =
         new ProxySupervisor(proxy_address, &this->supervisor_mutex);
     printf("Connected to proxy.\n");
