@@ -55,7 +55,12 @@ void print_help() {
             "(default: 8192)\n");
     fprintf(stdout,
             "    --paused       Pause program on entry (default: false)\n");
-    fprintf(stdout, "    --proxy        Port of proxy to connect to\n");
+    fprintf(stdout,
+            "    --proxy        Port of proxy to connect to (ignored if mode "
+            "is 'proxy')\n");
+    fprintf(stdout,
+            "    --mode         The mode to run in: interpreter, proxy "
+            "(default: interpreter)\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -177,6 +182,7 @@ int main(int argc, const char *argv[]) {
     bool paused = false;
     const char *file_name = nullptr;
     const char *proxy = nullptr;
+    const char *mode = "interpreter";
 
     const char *asserts_file = nullptr;
     const char *watcompiler = "wat2wasm";
@@ -209,6 +215,8 @@ int main(int argc, const char *argv[]) {
             wac->program_state = WARDUINOpause;
         } else if (!strcmp("--proxy", arg)) {
             ARGV_GET(proxy);  // /dev/ttyUSB0
+        } else if (!strcmp("--mode", arg)) {
+            ARGV_GET(mode);
         }
     }
 
@@ -236,15 +244,19 @@ int main(int argc, const char *argv[]) {
     if (m) {
         m->warduino = wac;
 
-        // Run Wasm module
-        pthread_t id;
-        pthread_create(&id, nullptr, runWAC, nullptr);
-
+        // Run in proxy mode
+        if (strcmp(mode, "proxy") == 0) {
+            wac->debugger->proxify();
+        }
         // Connect to proxy device
-        if (proxy) {
+        else if (proxy) {
             int connection = connectToProxySocket(std::stoi(proxy));
             wac->debugger->startProxySupervisor(connection);
         }
+
+        // Run Wasm module
+        pthread_t id;
+        pthread_create(&id, nullptr, runWAC, nullptr);
 
         // Start debugger
         if (no_socket) {

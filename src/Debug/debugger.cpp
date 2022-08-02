@@ -239,8 +239,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         } break;
         case interruptProxify: {
             dbg_info("Converting to proxy settings.\n");
-            *program_state = PROXYhalt;
-            this->proxy = new Proxy();  // TODO delete
+            this->proxify();
             break;
         }
         case interruptDUMPAllEvents:
@@ -948,6 +947,11 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
     }
     *data += 1 + len;  // skip pointer
     return bp;
+}
+
+void Debugger::proxify() {
+    WARDuino::instance()->program_state = PROXYhalt;
+    this->proxy = new Proxy();  // TODO delete
 }
 
 void Debugger::handleProxyCall(Module *m, RunningState *program_state,

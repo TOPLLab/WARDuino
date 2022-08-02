@@ -163,6 +163,8 @@ class Debugger {
 
     void woodDump(Module *m);
 
+    void proxify();
+
     void handleProxyCall(Module *m, RunningState *program_state,
                          uint8_t *interruptData);
 
