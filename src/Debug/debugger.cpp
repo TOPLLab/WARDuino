@@ -14,6 +14,7 @@
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
+#include "state.pb.h"
 
 // Debugger
 
@@ -183,6 +184,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptDUMPFull:
             *program_state = WARDUINOpause;
             this->dump(m, true);
+            free(interruptData);
+            break;
+        case interruptDUMPState:
+            *program_state = WARDUINOpause;
+            this->dumpState(m);
             free(interruptData);
             break;
         case interruptUPDATEFun:
@@ -367,6 +373,61 @@ void Debugger::dump(Module *m, bool full) const {
 
     this->channel->write("}\n\n");
     //    fflush(stdout);
+}
+
+void Debugger::dumpState(Module *m) const {
+    uint8_t *start = m->bytes;
+    communication::State state = communication::State();
+    // state
+    state.set_program_counter(m->pc_ptr - start);
+    state.set_state(
+        (communication::State::RunningState)m->warduino->program_state);
+
+    // breakpoints
+    for (auto bp : this->breakpoints) {
+        state.add_breakpoints(reinterpret_cast<const char *>(bp));
+    }
+
+    // functions
+    for (size_t i = m->import_count; i < m->function_count; i++) {
+        communication::Functions *function = state.add_functions();
+        function->set_fidx(m->functions[i].fidx);
+        function->set_from(m->functions[i].start_ptr - start);
+        function->set_to(m->functions[i].end_ptr - start);
+    }
+
+    // callstack
+    for (int i = 0; i <= m->csp; i++) {
+        Frame *f = &m->callstack[i];
+        uint8_t *callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
+        communication::CallstackEntry *entry = state.add_callstack();
+        entry->set_type(f->block->block_type);
+        entry->set_fidx(f->block->fidx);
+        entry->set_sp(f->sp);
+        entry->set_fp(f->fp);
+        entry->set_start(f->block->start_ptr - start);
+        entry->set_ra(f->ra_ptr - start);
+        entry->set_callsite(callsite - start);
+    }
+
+    // locals
+    int firstFunFramePtr = m->csp;
+    while (m->callstack[firstFunFramePtr].block->block_type != 0) {
+        firstFunFramePtr--;
+        if (firstFunFramePtr < 0) {
+            FATAL("Not in a function!");
+        }
+    }
+    Frame *f = &m->callstack[firstFunFramePtr];
+    communication::Locals *locals = state.mutable_locals();
+    locals->set_count(f->block->local_count);
+    for (uint32_t i = 0; i < f->block->local_count; i++) {
+        // TODO add locals
+    }
+
+    // send state
+    std::string message = state.SerializeAsString();
+    this->channel->write(message.c_str());
 }
 
 void Debugger::dumpBreakpoints() const {

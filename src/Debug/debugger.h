@@ -38,9 +38,10 @@ enum InterruptTypes {
     interruptSTEP = 0x04,
     interruptBPAdd = 0x06,
     interruptBPRem = 0x07,
-    interruptDUMP = 0x10,
-    interruptDUMPLocals = 0x11,
-    interruptDUMPFull = 0x12,
+    interruptDUMP = 0x10,        // small dump
+    interruptDUMPLocals = 0x11,  // dump of local variables
+    interruptDUMPFull = 0x12,    // small dump + locals
+    interruptDUMPState = 0x13,   // dump entire state of the vm
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
 
@@ -96,6 +97,8 @@ class Debugger {
     //// Information dumps
 
     void dump(Module *m, bool full = false) const;
+
+    void dumpState(Module *m) const;
 
     void dumpLocals(Module *m) const;
 
