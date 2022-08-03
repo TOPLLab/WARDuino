@@ -34,6 +34,21 @@ uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
     return result;
 }
 
+std::string write_LEB_32(uint32_t value) {
+    auto buffer = new std::vector<char>();
+    do {
+        unsigned char byte = value & 0x7f;
+        value >>= 7;
+        if (value != 0) {
+            byte |= 0x80;  // mark this byte to show that more bytes will follow
+        }
+        buffer->push_back(byte);
+    } while (value != 0);
+    std::string leb(buffer->begin(), buffer->end());
+    delete buffer;
+    return leb;
+}
+
 uint32_t read_LEB_32(uint8_t **pos) {
     return static_cast<uint32_t>(read_LEB(pos, 32));
 }

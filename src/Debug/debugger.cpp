@@ -146,6 +146,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
     this->channel->write("Interrupt: %x\n", *interruptData);
 
     long start = 0, size = 0;
+    uint32_t length;
+    communication::State state;
     switch (*interruptData) {
         case interruptRUN:
             this->handleInterruptRUN(m, program_state);
@@ -427,6 +429,8 @@ void Debugger::dumpState(Module *m) const {
 
     // send state
     std::string message = state.SerializeAsString();
+    std::string size = write_LEB_32(message.length());
+    this->channel->write("%s", size.c_str());
     this->channel->write(message.c_str());
 }
 

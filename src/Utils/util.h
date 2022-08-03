@@ -5,6 +5,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <string>
+#include <vector>
+
+std::string write_LEB_32(uint32_t value);
 
 /**
  * Read a Little endian base value of 32 bits
