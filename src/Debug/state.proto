@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package communication;
+
+message State {
+    uint32 program_counter = 1;
+    enum RunningState {
+        WARDUINOrun = 0;
+        WARDUINOpause = 1;
+        WARDUINOstep = 2;
+        PROXYrun = 3;
+        PROXYhalt = 4;
+    }
+    RunningState state = 2;
+    repeated bytes breakpoints = 3;
+    repeated Functions functions = 4;
+    repeated CallstackEntry callstack = 5;
+    Locals locals = 6;
+}
+
+message Functions {
+    int32 fidx = 1;
+    int32 from = 2;
+    int32 to = 3;
+}
+
+message CallstackEntry {
+    int32 type = 1;
+    int32 fidx = 2;
+    int32 sp = 3;
+    int32 fp = 4;
+    int32 start = 5;
+    int32 ra = 6;
+    int32 callsite = 7;
+}
+
+message Locals {
+    int32 count = 1;
+    repeated Value values = 2;
+}
+
+message Value {
+    string type = 1;
+    bytes value = 2;  // can be any wasm value
+    int32 index = 3;
+}
+

@@ -28,6 +28,9 @@ if (BUILD_EMULATOR)
     set(EXTERNAL_LIB_HEADERS lib/json/single_include)
 
     find_package(Threads REQUIRED)
+    find_package(Protobuf REQUIRED)
+
+    protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS src/Debug/state.proto)
 
     set(SOURCE_FILES
             src/WARDuino/WARDuino.cpp
@@ -63,7 +66,7 @@ if (BUILD_EMULATOR)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
     # WARDuino CLI
-    add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES} ${TEST_FRAMEWORK})
-    target_link_libraries(wdcli PRIVATE Threads::Threads)
+    add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES} ${TEST_FRAMEWORK} ${PROTO_SRCS} ${PROTO_HDRS})
+    target_link_libraries(wdcli PRIVATE Threads::Threads ${Protobuf_LIBRARIES})
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS})
 endif (BUILD_EMULATOR)

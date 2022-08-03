@@ -5,6 +5,10 @@
 *.ipch
 *.o
 
+# Protobuf generated files
+*.pb.h
+*.pb.cc
+
 # Build folders
 build/
 cmake-build-*
