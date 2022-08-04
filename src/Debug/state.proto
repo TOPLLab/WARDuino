@@ -44,4 +44,3 @@ message Value {
     bytes value = 2;  // can be any wasm value
     int32 index = 3;
 }
-
