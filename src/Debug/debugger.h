@@ -20,6 +20,7 @@ struct Module;
 struct Block;
 struct StackValue;
 
+// TODO remove this enum in favor for communication::State::RunningState
 enum RunningState {
     WARDUINOrun,
     WARDUINOpause,
@@ -32,6 +33,7 @@ enum RunningState {
                // sends messages for primitives, do forward interrupts)
 };
 
+// TODO remove this enum in favor for communication::Command
 enum InterruptTypes {
     // Remote Debugging
     interruptRUN = 0x01,
@@ -98,8 +100,6 @@ class Debugger {
     //// Information dumps
 
     void dump(Module *m, bool full = false) const;
-
-    void dumpState(Module *m) const;
 
     communication::Locals *captureLocals(Module *m) const;
 
