@@ -14,7 +14,6 @@
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
-#include "state.pb.h"
 
 // Debugger
 
@@ -146,7 +145,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
     this->channel->write("Interrupt: %x\n", *interruptData);
 
     long start = 0, size = 0;
-    uint32_t length;
+    int32_t length;
     communication::State state;
     switch (*interruptData) {
         case interruptRUN:
@@ -204,6 +203,14 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->channel->write("CHANGE local!\n");
             this->handleChangedLocal(m, interruptData);
             free(interruptData);
+            break;
+        case interruptLOADState:
+            interruptData++;
+//            length = read_LEB_32(&interruptData);
+            printf("loading: size of state ... %zu\n", length);
+            state.ParseFromArray(interruptData, length);
+            printf("loading: state ... ok\n");
+            this->loadState(state);
             break;
         case interruptWOODDUMP:
             *program_state = WARDUINOpause;
@@ -280,6 +287,19 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
     }
     fflush(stdout);
     return true;
+}
+void Debugger::loadState(const communication::State &state) const {
+    printf("loading: program counter... %i\n", state.program_counter());
+    printf("loading: running state... %i\n", state.state());
+    printf("loading: breakpoint count... %i\n", state.breakpoints_size());
+    for (int i = 0; i < state.functions_size(); i++) {
+        printf("loading: function... %i\n", state.functions(i).fidx());
+    }
+    for (int i = 0; i < state.callstack_size(); i++) {
+        printf("loading: callstack entry... (type %i)\n",
+               state.callstack(i).type());
+    }
+    printf("loading: local count... %i\n", state.locals().count());
 }
 
 // Private methods
@@ -392,7 +412,7 @@ void Debugger::dumpState(Module *m) const {
 
     // functions
     for (size_t i = m->import_count; i < m->function_count; i++) {
-        communication::Functions *function = state.add_functions();
+        communication::Function *function = state.add_functions();
         function->set_fidx(m->functions[i].fidx);
         function->set_from(m->functions[i].start_ptr - start);
         function->set_to(m->functions[i].end_ptr - start);
@@ -401,7 +421,6 @@ void Debugger::dumpState(Module *m) const {
     // callstack
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
-        uint8_t *callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
         communication::CallstackEntry *entry = state.add_callstack();
         entry->set_type(f->block->block_type);
         entry->set_fidx(f->block->fidx);
@@ -409,7 +428,6 @@ void Debugger::dumpState(Module *m) const {
         entry->set_fp(f->fp);
         entry->set_start(f->block->start_ptr - start);
         entry->set_ra(f->ra_ptr - start);
-        entry->set_callsite(callsite - start);
     }
 
     // locals
@@ -430,7 +448,7 @@ void Debugger::dumpState(Module *m) const {
     // send state
     std::string message = state.SerializeAsString();
     std::string size = write_LEB_32(message.length());
-    this->channel->write("%s", size.c_str());
+    //    this->channel->write("%s", size.c_str());
     this->channel->write(message.c_str());
 }
 

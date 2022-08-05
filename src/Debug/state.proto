@@ -13,12 +13,12 @@ message State {
     }
     RunningState state = 2;
     repeated bytes breakpoints = 3;
-    repeated Functions functions = 4;
+    repeated Function functions = 4;
     repeated CallstackEntry callstack = 5;
     Locals locals = 6;
 }
 
-message Functions {
+message Function {
     int32 fidx = 1;
     int32 from = 2;
     int32 to = 3;
@@ -31,7 +31,6 @@ message CallstackEntry {
     int32 fp = 4;
     int32 start = 5;
     int32 ra = 6;
-    int32 callsite = 7;
 }
 
 message Locals {
