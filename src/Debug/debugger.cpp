@@ -49,9 +49,10 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     auto *message =
         (DebugMessage *)acalloc(sizeof(DebugMessage), 1, "debug message");
     message->length = len;
-    message->data =
-        (uint8_t *)acalloc(sizeof(uint8_t), message->length, "debug message data");
-    memcpy(message->data + 1, buff + 2, (message->length - 1) * sizeof(uint8_t));
+    message->data = (uint8_t *)acalloc(sizeof(uint8_t), message->length,
+                                       "debug message data");
+    memcpy(message->data + 1, buff + 2,
+           (message->length - 1) * sizeof(uint8_t));
     uint8_t prev = parseCode(buff[0]);
     message->data[0] = (prev << 4u) + parseCode(buff[1]);
     this->debugMessages.push_back(message);

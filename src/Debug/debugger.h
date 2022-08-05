@@ -1,5 +1,7 @@
 #pragma once
 
+#include <state.pb.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <queue>  // std::queue
@@ -10,7 +12,6 @@
 #include "../Edward/proxy.h"
 #include "../Edward/proxy_supervisor.h"
 #include "../Utils/sockets.h"
-#include <state.pb.h>
 
 #ifndef ARDUINO
 #include <thread>
