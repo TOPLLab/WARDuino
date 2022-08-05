@@ -26,77 +26,42 @@ void Debugger::setChannel(int address) {
     this->channel = new Channel(address);
 }
 
+uint8_t parseCode(uint8_t data) {
+    int r;
+    // TODO replace by real binary
+    switch (data) {
+        case '0' ... '9':
+            r = data - '0';
+            break;
+        case 'A' ... 'F':
+            r = data - 'A' + 10;
+            break;
+        case 'a' ... 'f':
+            r = data - 'a' + 10;
+            break;
+        default:
+            r = data;
+    }
+    return r;
+}
+
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
-    uint8_t *data = this->parseDebugBuffer(len, buff);
-    if (data != nullptr && *data == interruptRecvCallbackmapping) {
-        std::string text = (char *)buff;
-        auto *msg =
-            (uint8_t *)acalloc(sizeof(uint8_t), len, "interrupt buffer");
-        memcpy(msg, buff, len * sizeof(uint8_t));
-        *msg = *data;
-        this->debugMessages.push_back(msg);
-    } else if (data != nullptr) {
-        this->debugMessages.push_back(data);
-    }
+    auto *message =
+        (DebugMessage *)acalloc(sizeof(DebugMessage), 1, "debug message");
+    message->length = len;
+    message->data =
+        (uint8_t *)acalloc(sizeof(uint8_t), message->length, "debug message data");
+    memcpy(message->data + 1, buff + 2, (message->length - 1) * sizeof(uint8_t));
+    uint8_t prev = parseCode(buff[0]);
+    message->data[0] = (prev << 4u) + parseCode(buff[1]);
+    this->debugMessages.push_back(message);
 }
 
-uint8_t *Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
-    for (size_t i = 0; i < len; i++) {
-        bool success = true;
-        int r = -1 /*undef*/;
-
-        // TODO replace by real binary
-        switch (buff[i]) {
-            case '0' ... '9':
-                r = buff[i] - '0';
-                break;
-            case 'A' ... 'F':
-                r = buff[i] - 'A' + 10;
-                break;
-            case 'a' ... 'f':
-                r = buff[i] - 'a' + 10;
-                break;
-            default:
-                success = false;
-        }
-
-        if (!success) {
-            if (this->interruptEven) {
-                if (!this->interruptBuffer.empty()) {
-                    // done, send to process
-                    auto *data = (uint8_t *)acalloc(
-                        sizeof(uint8_t), this->interruptBuffer.size(),
-                        "interrupt buffer");
-                    memcpy(data, this->interruptBuffer.data(),
-                           this->interruptBuffer.size() * sizeof(uint8_t));
-                    this->interruptBuffer.clear();
-                    return data;
-                }
-            } else {
-                this->interruptBuffer.clear();
-                this->interruptEven = true;
-                dbg_warn("Dropped interrupt: could not process");
-                return nullptr;
-            }
-        } else {  // good parse
-            if (!this->interruptEven) {
-                this->interruptLastChar =
-                    (this->interruptLastChar << 4u) + (uint8_t)r;
-                this->interruptBuffer.push_back(this->interruptLastChar);
-            } else {
-                this->interruptLastChar = (uint8_t)r;
-            }
-            this->interruptEven = !this->interruptEven;
-        }
-    }
-    return nullptr;
-}
-
-uint8_t *Debugger::getDebugMessage() {
+DebugMessage *Debugger::getDebugMessage() {
     if (!this->debugMessages.empty()) {
-        uint8_t *ret = this->debugMessages.front();
+        DebugMessage *message = this->debugMessages.front();
         this->debugMessages.pop_front();
-        return ret;
+        return message;
     } else {
         return nullptr;
     }
@@ -136,16 +101,16 @@ void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
  *            as payload (immediately following `0x10`), see #readChange
  */
 bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
-    uint8_t *interruptData = this->getDebugMessage();
-    if (interruptData == nullptr) {
+    DebugMessage *message = this->getDebugMessage();
+    if (message == nullptr) {
         fflush(stdout);
         return false;
     }
+    uint8_t *interruptData = message->data;
 
     this->channel->write("Interrupt: %x\n", *interruptData);
 
     long start = 0, size = 0;
-    int32_t length;
     communication::State state;
     switch (*interruptData) {
         case interruptRUN:
@@ -206,10 +171,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptLOADState:
             interruptData++;
-//            length = read_LEB_32(&interruptData);
-            printf("loading: size of state ... %zu\n", length);
-            state.ParseFromArray(interruptData, length);
-            printf("loading: state ... ok\n");
+            dbg_info("loading: size of state ... %zu\n", message->length - 1);
+            state.ParseFromArray(interruptData, message->length - 1);
+            dbg_info("loading: state ... ok\n");
             this->loadState(state);
             break;
         case interruptWOODDUMP:

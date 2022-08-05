@@ -65,18 +65,19 @@ enum InterruptTypes {
     interruptRecvCallbackmapping = 0x75
 };
 
+struct DebugMessage {
+    uint8_t *data;
+    size_t length;
+};
+typedef struct DebugMessage DebugMessage;
+
 class Debugger {
    private:
-    std::deque<uint8_t *> debugMessages = {};
+    std::deque<DebugMessage *> debugMessages = {};
 
     // Help variables
 
-    volatile bool interruptWrite{};
-    volatile bool interruptRead{};
-    bool interruptEven = true;
-    uint8_t interruptLastChar{};
     std::vector<uint8_t> interruptBuffer;
-    long interruptSize{};
     bool receivingData = false;
 
     Proxy *proxy = nullptr;  // proxy module for debugger
@@ -87,9 +88,6 @@ class Debugger {
     // Private methods
 
     void printValue(StackValue *v, uint32_t idx, bool end) const;
-
-    // TODO Move parsing to WARDuino class?
-    uint8_t *parseDebugBuffer(size_t len, const uint8_t *buff);
 
     //// Handle Interrupt Types
 
@@ -151,7 +149,7 @@ class Debugger {
 
     void addDebugMessage(size_t len, const uint8_t *buff);
 
-    uint8_t *getDebugMessage();
+    DebugMessage *getDebugMessage();
 
     bool checkDebugMessages(Module *m, RunningState *program_state);
 
