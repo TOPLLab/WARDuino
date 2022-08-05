@@ -15,7 +15,8 @@ message State {
     repeated bytes breakpoints = 3;
     repeated Function functions = 4;
     repeated CallstackEntry callstack = 5;
-    Locals locals = 6;
+    optional Locals locals = 6;
+    optional EventsQueue queue = 7;
 }
 
 message Function {
@@ -49,4 +50,14 @@ message Value {
     Type type = 1;
     string value = 2;  // can be any wasm value
     int32 index = 3;
+}
+
+message EventsQueue {
+    int32 count = 1;
+    repeated Event events = 2;
+}
+
+message Event {
+    string topic = 1;
+    string payload = 2;
 }
