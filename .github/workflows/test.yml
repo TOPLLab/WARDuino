@@ -19,6 +19,10 @@ jobs:
               with:
                 python-version: "3.x"
 
+            - uses: arduino/setup-protoc@v1
+              with:
+                version: '3.x'
+
             - name: Build warduino cli
               run: cmake . -D BUILD_EMULATOR=ON ; cmake --build .
 

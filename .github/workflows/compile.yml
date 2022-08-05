@@ -16,7 +16,7 @@ jobs:
               uses: jidicula/clang-format-action@v3.5.1
               with:
                 clang-format-version: '11'
-                check-path: '.'
+                check-path: 'src'
                 fallback-style: 'Google'
 
     compile-cli:
@@ -33,13 +33,10 @@ jobs:
               with:
                   submodules: 'recursive'
 
-            - name: Install protoc
+            - name: Setup protoc
               uses: arduino/setup-protoc@v1
               with:
                 version: '3.x'
-
-            - name: Compile .proto
-              run: protoc -I=src/Debug --cpp_out=src/Debug src/Debug/state.proto
 
             - name: Create build folder
               run: mkdir build-emu
@@ -83,13 +80,10 @@ jobs:
               with:
                   submodules: 'recursive'
 
-            - name: Install protoc
+            - name: Setup protoc
               uses: arduino/setup-protoc@v1
               with:
                 version: '3.x'
-
-            - name: Compile .proto
-              run: protoc -I=src/Debug --cpp_out=src/Debug src/Debug/state.proto
 
             - name: Compile sketches
               uses: arduino/compile-sketches@v1
@@ -125,13 +119,10 @@ jobs:
               with:
                   submodules: 'recursive'
 
-            - name: Install protoc
+            - name: Setup protoc
               uses: arduino/setup-protoc@v1
               with:
                 version: '3.x'
-
-            - name: Compile .proto
-              run: protoc -I=src/Debug --cpp_out=src/Debug src/Debug/state.proto
 
             - name: Build WARDuino for ESP-IDF
               uses: espressif/esp-idf-ci-action@v1
