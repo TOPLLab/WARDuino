@@ -109,7 +109,7 @@ class Debugger {
 
     void captureCallstack(Module *m, communication::State *state) const;
 
-    void dumpEvents(long start, long size) const;
+    communication::EventsQueue *captureEventsQueue(long start, long size) const;
 
     void dumpCallbackmapping() const;
 

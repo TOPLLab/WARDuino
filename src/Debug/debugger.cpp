@@ -222,10 +222,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             printf("InterruptDUMPEvents\n");
             size = (long)CallbackHandler::event_count();
         case interruptDUMPEvents:
-            // TODO get start and size from message
-            this->channel->write("{");
-            this->dumpEvents(start, size);
-            this->channel->write("}\n");
+            // TODO get start and size from communication::Range in message
+            this->channel->write(this->captureEventsQueue(start, size)
+                                     ->SerializeAsString()
+                                     .c_str());
             break;
         case interruptPOPEvent:
             CallbackHandler::resolve_event(true);
@@ -352,7 +352,9 @@ void Debugger::dump(Module *m, bool full) const {
     if (full) {
         communication::Locals *locals = this->captureLocals(m);
         state.set_allocated_locals(locals);
-        this->dumpEvents(0, CallbackHandler::event_count());
+        communication::EventsQueue *queue =
+            this->captureEventsQueue(0, CallbackHandler::event_count());
+        state.set_allocated_queue(queue);
     }
 
     // send state
@@ -437,26 +439,34 @@ communication::Locals *Debugger::captureLocals(Module *m) const {
     return locals;
 }
 
-void Debugger::dumpEvents(long start, long size) const {
+communication::EventsQueue *Debugger::captureEventsQueue(long start,
+                                                         long size) const {
+    auto queue = new communication::EventsQueue();
+    queue->set_count(CallbackHandler::event_count());
+
     bool previous = CallbackHandler::resolving_event;
     CallbackHandler::resolving_event = true;
-    if (size > EVENTS_SIZE) {
-        size = EVENTS_SIZE;
+
+    long index = start, end = start + size;
+    if (end > queue->count()) {
+        end = queue->count();
     }
 
-    this->channel->write(R"("events": [)");
-    long index = start, end = start + size;
+    // if not full queue, add range to message
+    if (!(start == 0 && end == queue->count())) {
+        communication::Range *range = queue->mutable_range();
+        range->set_start(index);
+        range->set_end(end);
+    }
+
+    // add events to messages
     std::for_each(CallbackHandler::event_begin() + start,
                   CallbackHandler::event_begin() + end,
-                  [this, &index, &end](const Event &e) {
-                      this->channel->write(
-                          R"({"topic": "%s", "payload": "%s"})",
-                          e.topic.c_str(), e.payload.c_str());
-                      if (++index < end) {
-                          this->channel->write(", ");
-                      }
+                  [&queue](const Event &e) {
+                      communication::Event *event = queue->add_events();
+                      event->set_topic(e.topic);
+                      event->set_payload(e.payload);
                   });
-    this->channel->write("]");
 
     CallbackHandler::resolving_event = previous;
 }
