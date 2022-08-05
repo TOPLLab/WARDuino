@@ -43,7 +43,6 @@ enum InterruptTypes {
     interruptDUMP = 0x10,        // small dump
     interruptDUMPLocals = 0x11,  // dump of local variables
     interruptDUMPFull = 0x12,    // small dump + locals
-    interruptDUMPState = 0x13,   // dump entire state of the vm
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
 
@@ -102,13 +101,13 @@ class Debugger {
 
     void dumpState(Module *m) const;
 
-    void dumpLocals(Module *m) const;
+    communication::Locals *captureLocals(Module *m) const;
 
-    void dumpBreakpoints() const;
+    void captureBreakpoints(communication::State *state) const;
 
-    void dumpFunctions(Module *m) const;
+    void captureFunctions(Module *m, communication::State *state) const;
 
-    void dumpCallstack(Module *m) const;
+    void captureCallstack(Module *m, communication::State *state) const;
 
     void dumpEvents(long start, long size) const;
 

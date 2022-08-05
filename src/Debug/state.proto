@@ -39,7 +39,14 @@ message Locals {
 }
 
 message Value {
-    string type = 1;
-    bytes value = 2;  // can be any wasm value
+    enum Type {
+        i32 = 0;
+        i64 = 1;
+        f32 = 2;
+        f64 = 3;
+        any = 4;
+    }
+    Type type = 1;
+    string value = 2;  // can be any wasm value
     int32 index = 3;
 }

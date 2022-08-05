@@ -145,17 +145,13 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptDUMPLocals:
             *program_state = WARDUINOpause;
-            this->dumpLocals(m);
+            this->channel->write(
+                this->captureLocals(m)->SerializeAsString().c_str());
             free(interruptData);
             break;
         case interruptDUMPFull:
             *program_state = WARDUINOpause;
             this->dump(m, true);
-            free(interruptData);
-            break;
-        case interruptDUMPState:
-            *program_state = WARDUINOpause;
-            this->dumpState(m);
             free(interruptData);
             break;
         case interruptUPDATEFun:
@@ -337,56 +333,54 @@ void Debugger::handleInterruptBP(const uint8_t *interruptData) {
 }
 
 void Debugger::dump(Module *m, bool full) const {
-    this->channel->write("{");
-
-    // current PC
-    this->channel->write(R"("pc":"%p",)", (void *)m->pc_ptr);
-
-    // start of bytes
-    this->channel->write(R"("start":["%p"],)", (void *)m->bytes);
-
-    this->dumpBreakpoints();
-
-    this->dumpFunctions(m);
-
-    this->dumpCallstack(m);
-
-    if (full) {
-        this->channel->write(R"(, "locals": )");
-        this->dumpLocals(m);
-        this->channel->write(", ");
-        this->dumpEvents(0, CallbackHandler::event_count());
-    }
-
-    this->channel->write("}\n\n");
-    //    fflush(stdout);
-}
-
-void Debugger::dumpState(Module *m) const {
     uint8_t *start = m->bytes;
     communication::State state = communication::State();
-    // state
+
+    // current PC
     state.set_program_counter(m->pc_ptr - start);
+
+    // current running state
     state.set_state(
         (communication::State::RunningState)m->warduino->program_state);
 
-    // breakpoints
-    for (auto bp : this->breakpoints) {
-        state.add_breakpoints(reinterpret_cast<const char *>(bp));
+    this->captureBreakpoints(&state);
+
+    this->captureFunctions(m, &state);
+
+    this->captureCallstack(m, &state);
+
+    if (full) {
+        communication::Locals *locals = this->captureLocals(m);
+        state.set_allocated_locals(locals);
+        this->dumpEvents(0, CallbackHandler::event_count());
     }
 
-    // functions
+    // send state
+    std::string message = state.SerializeAsString();
+    this->channel->write(message.c_str());
+}
+
+void Debugger::captureBreakpoints(communication::State *state) const {
+    for (auto bp : this->breakpoints) {
+        state->add_breakpoints(reinterpret_cast<const char *>(bp));
+    }
+}
+
+void Debugger::captureFunctions(Module *m, communication::State *state) const {
+    uint8_t *start = m->bytes;
     for (size_t i = m->import_count; i < m->function_count; i++) {
-        communication::Function *function = state.add_functions();
+        communication::Function *function = state->add_functions();
         function->set_fidx(m->functions[i].fidx);
         function->set_from(m->functions[i].start_ptr - start);
         function->set_to(m->functions[i].end_ptr - start);
     }
+}
 
-    // callstack
+void Debugger::captureCallstack(Module *m, communication::State *state) const {
+    uint8_t *start = m->bytes;
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
-        communication::CallstackEntry *entry = state.add_callstack();
+        communication::CallstackEntry *entry = state->add_callstack();
         entry->set_type(f->block->block_type);
         entry->set_fidx(f->block->fidx);
         entry->set_sp(f->sp);
@@ -394,8 +388,37 @@ void Debugger::dumpState(Module *m) const {
         entry->set_start(f->block->start_ptr - start);
         entry->set_ra(f->ra_ptr - start);
     }
+}
 
-    // locals
+void inflateValue(StackValue *source, int32_t index,
+                  communication::Value *destination) {
+    char _value_str[256];
+    switch (source->value_type) {
+        case I32:
+            snprintf(_value_str, 255, "%" PRIi32, source->value.uint32);
+            destination->set_type(communication::Value_Type_i32);
+            break;
+        case I64:
+            snprintf(_value_str, 255, "%" PRIi64, source->value.uint64);
+            destination->set_type(communication::Value_Type_i64);
+            break;
+        case F32:
+            snprintf(_value_str, 255, "%.7f", source->value.f32);
+            destination->set_type(communication::Value_Type_f32);
+            break;
+        case F64:
+            snprintf(_value_str, 255, "%.7f", source->value.f64);
+            destination->set_type(communication::Value_Type_f64);
+            break;
+        default:
+            snprintf(_value_str, 255, "%" PRIx64, source->value.uint64);
+            destination->set_type(communication::Value_Type_any);
+    }
+    destination->set_value(_value_str);
+    destination->set_index(index);
+}
+
+communication::Locals *Debugger::captureLocals(Module *m) const {
     int firstFunFramePtr = m->csp;
     while (m->callstack[firstFunFramePtr].block->block_type != 0) {
         firstFunFramePtr--;
@@ -404,103 +427,14 @@ void Debugger::dumpState(Module *m) const {
         }
     }
     Frame *f = &m->callstack[firstFunFramePtr];
-    communication::Locals *locals = state.mutable_locals();
+    auto locals = new communication::Locals();
     locals->set_count(f->block->local_count);
     for (uint32_t i = 0; i < f->block->local_count; i++) {
-        // TODO add locals
-    }
-
-    // send state
-    std::string message = state.SerializeAsString();
-    std::string size = write_LEB_32(message.length());
-    //    this->channel->write("%s", size.c_str());
-    this->channel->write(message.c_str());
-}
-
-void Debugger::dumpBreakpoints() const {
-    this->channel->write("\"breakpoints\":[");
-    {
-        size_t i = 0;
-        for (auto bp : this->breakpoints) {
-            this->channel->write(R"("%p"%s)", bp,
-                                 (++i < this->breakpoints.size()) ? "," : "");
-        }
-    }
-    this->channel->write("],");
-}
-
-void Debugger::dumpFunctions(Module *m) const {
-    this->channel->write("\"functions\":[");
-
-    for (size_t i = m->import_count; i < m->function_count; i++) {
-        this->channel->write(R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
-                             m->functions[i].fidx,
-                             static_cast<void *>(m->functions[i].start_ptr),
-                             static_cast<void *>(m->functions[i].end_ptr),
-                             (i < m->function_count - 1) ? "," : "],");
-    }
-}
-
-/*
- * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
- */
-void Debugger::dumpCallstack(Module *m) const {
-    this->channel->write("\"callstack\":[");
-    for (int i = 0; i <= m->csp; i++) {
-        Frame *f = &m->callstack[i];
-        uint8_t *callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
-        this->channel->write(
-            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"start":"%p","ra":"%p","callsite":"%p"}%s)",
-            f->block->block_type, f->block->fidx, f->sp, f->fp,
-            f->block->start_ptr, static_cast<void *>(f->ra_ptr),
-            static_cast<void *>(callsite), (i < m->csp) ? "," : "]");
-    }
-}
-
-void Debugger::dumpLocals(Module *m) const {
-    //    fflush(stdout);
-    int firstFunFramePtr = m->csp;
-    while (m->callstack[firstFunFramePtr].block->block_type != 0) {
-        firstFunFramePtr--;
-        if (firstFunFramePtr < 0) {
-            FATAL("Not in a function!");
-        }
-    }
-    Frame *f = &m->callstack[firstFunFramePtr];
-    this->channel->write(R"({"count":%u,"locals":[)", 0);
-    //    fflush(stdout);  // FIXME: this is needed for ESP to properly print
-    char _value_str[256];
-    for (uint32_t i = 0; i < f->block->local_count; i++) {
+        communication::Value *value = locals->add_values();
         auto v = &m->stack[m->fp + i];
-        switch (v->value_type) {
-            case I32:
-                snprintf(_value_str, 255, R"("type":"i32","value":%)" PRIi32,
-                         v->value.uint32);
-                break;
-            case I64:
-                snprintf(_value_str, 255, R"("type":"i64","value":%)" PRIi64,
-                         v->value.uint64);
-                break;
-            case F32:
-                snprintf(_value_str, 255, R"("type":"F32","value":%.7f)",
-                         v->value.f32);
-                break;
-            case F64:
-                snprintf(_value_str, 255, R"("type":"F64","value":%.7f)",
-                         v->value.f64);
-                break;
-            default:
-                snprintf(_value_str, 255,
-                         R"("type":"%02x","value":"%)" PRIx64 "\"",
-                         v->value_type, v->value.uint64);
-        }
-
-        this->channel->write("{%s, \"index\":%u}%s", _value_str,
-                             i + f->block->type->param_count,
-                             (i + 1 < f->block->local_count) ? "," : "");
+        inflateValue(v, i + f->block->type->param_count, value);
     }
-    this->channel->write("]}");
-    //    fflush(stdout);
+    return locals;
 }
 
 void Debugger::dumpEvents(long start, long size) const {
