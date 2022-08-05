@@ -10,31 +10,42 @@ enum Command {
   step = 3;
   bpadd = 4;
   bprem = 5;
+
   // inspection operations
   dump = 6;
   dumplocals = 7;
-  dumpfull = 8;
+  snapshot = 8;
   dumpevents = 9;
   dumpcallbacks = 10;
+
   // update operations
   updatefunc = 11;
   updatelocal = 12;
+  updatecallbacks = 13;
+
+  // edward debug operations
+  loadsnapshot = 14;
+  proxify = 15;
+  proxycall = 16;
+  popevent = 17;
+  pushevent = 18;
 }
 
 message DebugMessage {
   Command command = 1;
 
   // optional payloads
-  optional State state = 2;
-  optional Locals locals = 3;
-  optional Function function = 4;
-  optional EventsQueue events = 5;
-  optional Range range = 6;
-  optional CallbackMapping callbacks = 7;
-  optional CallbackEntry callback = 8;
+  optional State state = 2;  // dumps
+  optional Locals locals = 3;  // dumplocals
+  optional Function function = 4;  // dumps, updatefunc
+  optional EventsQueue events = 5;  // dumps, event operations
+  optional Range range = 6;  // dump eventsqueue
+  optional CallbackMapping callbacks = 7;  // dump/update callbacks
+  optional CallbackEntry callback = 8;  // dump/update callbacks
 }
 
 message State {
+  // minimal state fields
   uint32 program_counter = 1;
   enum RunningState {
     WARDUINOrun = 0;
@@ -47,6 +58,8 @@ message State {
   repeated bytes breakpoints = 3;
   repeated Function functions = 4;
   repeated CallstackEntry callstack = 5;
+
+  // optional extending state fields
   optional Locals locals = 6;
   optional EventsQueue queue = 7;
   optional CallbackMapping callbacks = 8;
