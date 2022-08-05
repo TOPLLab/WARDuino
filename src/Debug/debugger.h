@@ -1,6 +1,6 @@
 #pragma once
 
-#include <state.pb.h>
+#include <communication.pb.h>
 
 #include <cstddef>
 #include <cstdint>
