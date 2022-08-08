@@ -23,14 +23,15 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     auto coded_input = new google::protobuf::io::CodedInputStream(buff, len);
     auto *message = new communication::DebugMessage();
     bool success = message->ParseFromCodedStream(coded_input);
-    if (success && coded_input->ConsumedEntireMessage()) {
+    if (success && coded_input->ConsumedEntireMessage() &&
+        wellformed(message)) {
         this->debugMessages.push_back(message);
-    }
-    // TODO handle error
-    if (!wellformed(message)) {
-        dbg_info("Debug message is not well formed.\n");
+    } else {
+        dbg_info("Debug message is not well formed. Discarded...\n");
+        // TODO handle error
     }
 }
+
 bool Debugger::wellformed(const communication::DebugMessage *message) const {
     bool wellformed = true;
     switch (message->command()) {
@@ -141,7 +142,7 @@ bool Debugger::checkDebugMessages(Module *m,
     }
 
     // TODO replace notifications with communication::acknowledgement
-    this->channel->write("Interrupt: %x\n", message->command());
+    //    this->channel->write("Interrupt: %x\n", message->command());
 
     switch (message->command()) {
         case communication::run:
