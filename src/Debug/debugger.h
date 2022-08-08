@@ -1,6 +1,6 @@
 #pragma once
 
-#include <communication.pb.h>
+#include <debug.pb.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -22,7 +22,7 @@ struct StackValue;
 
 class Debugger {
    private:
-    std::deque<communication::DebugMessage *> debugMessages = {};
+    std::deque<debug::DebugMessage *> debugMessages = {};
 
     // Help variables
 
@@ -38,37 +38,41 @@ class Debugger {
 
     void printValue(StackValue *v, uint32_t idx, bool end) const;
 
-    StackValue *readRFCArgs(communication::RFC payload);
+    StackValue *readRFCArgs(debug::RFC payload);
+
+    bool wellformed(const debug::DebugMessage *message) const;
 
     //// Handle Interrupt Types
 
-    void handleInterruptRUN(Module *m, communication::State *program_state);
+    void handleInterruptRUN(Module *m, debug::State *program_state);
 
     void handleInterruptBP(std::string breakpoint);
 
     //// Information dumps
 
+    void handleInterruptDumplocals(Module *m) const;
+
+    void handleInterruptDumpevents(const debug::DebugMessage *message) const;
+
     void dump(Module *m, bool snapshot = false) const;
 
-    communication::Locals *captureLocals(Module *m) const;
+    debug::Locals *captureLocals(Module *m) const;
 
-    void captureBreakpoints(communication::Snapshot *snapshot) const;
+    void captureBreakpoints(debug::Snapshot *snapshot) const;
 
-    void captureFunctions(Module *m, communication::Snapshot *snapshot) const;
+    void captureFunctions(Module *m, debug::Snapshot *snapshot) const;
 
-    void captureCallstack(Module *m, communication::Snapshot *snapshot) const;
+    void captureCallstack(Module *m, debug::Snapshot *snapshot) const;
 
-    communication::EventsQueue *captureEventsQueue(
-        const communication::Range &payload) const;
+    debug::EventsQueue *captureEventsQueue(const debug::Range &payload) const;
 
     void dumpCallbackmapping() const;
 
     //// Handle live code update
 
-    static bool handleChangedFunction(Module *m,
-                                      communication::Function payload);
+    static bool handleChangedFunction(Module *m, debug::Function payload);
 
-    bool handleChangedLocal(Module *m, communication::Locals locals) const;
+    bool handleChangedLocal(Module *m, debug::Locals locals) const;
 
     //// Handle out-of-place debugging
 
@@ -80,8 +84,8 @@ class Debugger {
 
     static uintptr_t readPointer(uint8_t **data);
 
-    static void updateCallbackmapping(
-        Module *m, const communication::CallbackMapping &mapping);
+    static void updateCallbackmapping(Module *m,
+                                      const debug::CallbackMapping &mapping);
 
    public:
     // Public fields
@@ -101,9 +105,9 @@ class Debugger {
 
     void addDebugMessage(size_t len, const uint8_t *buff);
 
-    communication::DebugMessage *getDebugMessage();
+    debug::DebugMessage *getDebugMessage();
 
-    bool checkDebugMessages(Module *m, communication::State *program_state);
+    bool checkDebugMessages(Module *m, debug::State *program_state);
 
     // Breakpoints
 
@@ -121,8 +125,8 @@ class Debugger {
 
     // Pull-based
 
-    void handleProxyCall(Module *m, communication::State *program_state,
-                         const communication::RFC &payload);
+    void handleProxyCall(Module *m, debug::State *program_state,
+                         const debug::RFC &payload);
 
     RFC *topProxyCall();
 
@@ -140,11 +144,7 @@ class Debugger {
 
     void notifyPushedEvent() const;
 
-    void handlePushedEvent(communication::Event payload) const;
+    void handlePushedEvent(debug::Event payload) const;
 
-    void loadState(Module *m, const communication::Snapshot &snapshot);
-    void handleInterruptDumplocals(Module *m) const;
-    void handleInterruptDumpevents(
-        const communication::DebugMessage *message) const;
-    bool wellformed(const communication::DebugMessage *message) const;
+    void loadState(Module *m, const debug::Snapshot &snapshot);
 };

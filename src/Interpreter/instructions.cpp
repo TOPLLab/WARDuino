@@ -35,7 +35,7 @@ Block *pop_block(Module *m) {
     }
 
     if (frame->block->block_type == 0xfe) {
-        m->warduino->program_state = communication::PROXYhalt;
+        m->warduino->program_state = debug::PROXYhalt;
         m->warduino->debugger->sendProxyCallResult(m);
         frame = &m->callstack[m->csp--];
         t = frame->block->type;
@@ -1504,11 +1504,11 @@ bool interpret(Module *m) {
     // set to true when finishes successfully
     bool program_done = false;
 
-    m->warduino->program_state = communication::WARDUINOrun;
+    m->warduino->program_state = debug::WARDUINOrun;
 
     while (!program_done && success) {
-        if (m->warduino->program_state == communication::WARDUINOstep) {
-            m->warduino->program_state = communication::WARDUINOpause;
+        if (m->warduino->program_state == debug::WARDUINOstep) {
+            m->warduino->program_state = debug::WARDUINOpause;
         }
 
         while (m->warduino->debugger->checkDebugMessages(
@@ -1522,8 +1522,8 @@ bool interpret(Module *m) {
         CallbackHandler::resolve_event();
 
         // Skip the main loop if paused or drone
-        if (m->warduino->program_state == communication::WARDUINOpause ||
-            m->warduino->program_state == communication::PROXYhalt) {
+        if (m->warduino->program_state == debug::WARDUINOpause ||
+            m->warduino->program_state == debug::PROXYhalt) {
             continue;
         }
 
@@ -1532,8 +1532,8 @@ bool interpret(Module *m) {
         // If BP and not the one we just unpaused
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
             m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
-            m->warduino->program_state != communication::PROXYrun) {
-            m->warduino->program_state = communication::WARDUINOpause;
+            m->warduino->program_state != debug::PROXYrun) {
+            m->warduino->program_state = debug::WARDUINOpause;
             m->warduino->debugger->notifyBreakpoint(m->pc_ptr);
             continue;
         }
@@ -1733,7 +1733,7 @@ bool interpret(Module *m) {
         }
     }
 
-    if (m->warduino->program_state == communication::PROXYrun) {
+    if (m->warduino->program_state == debug::PROXYrun) {
         dbg_info("Trap was thrown during proxy call.\n");
         RFC *rfc = m->warduino->debugger->topProxyCall();
         rfc->success = false;

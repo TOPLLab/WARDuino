@@ -1,8 +1,12 @@
+//// WARDUINO DEBUG API
+
 syntax = "proto3";
 
 option optimize_for = LITE_RUNTIME;
 
-package communication;
+package debug;
+
+////
 
 enum State {
     WARDUINOrun = 0;
@@ -43,12 +47,20 @@ enum Command {
     pushevent = 20;
 }
 
+//// 2 types of messages: DebugMessage or Acknowledgement:
+
 message DebugMessage {
     Command command = 1;
 
     // optional payload
     optional Payload payload = 2;
 }
+
+message Acknowledgement {
+    // TODO
+}
+
+//// content of messages:
 
 message Payload {
     oneof payload {

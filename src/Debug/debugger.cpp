@@ -21,10 +21,10 @@ void Debugger::setChannel(int address) {
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     auto coded_input = new google::protobuf::io::CodedInputStream(buff, len);
-    auto *message = new communication::DebugMessage();
+    auto *message = new debug::DebugMessage();
     bool success = message->ParseFromCodedStream(coded_input);
     if (success && coded_input->ConsumedEntireMessage() &&
-        wellformed(message)) {
+        this->wellformed(message)) {
         this->debugMessages.push_back(message);
     } else {
         dbg_info("Debug message is not well formed. Discarded...\n");
@@ -32,55 +32,55 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     }
 }
 
-bool Debugger::wellformed(const communication::DebugMessage *message) const {
+bool Debugger::wellformed(const debug::DebugMessage *message) const {
     bool wellformed = true;
     switch (message->command()) {
-        case communication::run:
-        case communication::halt:
-        case communication::pause:
-        case communication::step:
-        case communication::dump:
-        case communication::dumplocals:
-        case communication::snapshot:
-        case communication::dumpcallbacks:
-        case communication::proxify:
-        case communication::popevent:
+        case debug::run:
+        case debug::halt:
+        case debug::pause:
+        case debug::step:
+        case debug::dump:
+        case debug::dumplocals:
+        case debug::snapshot:
+        case debug::dumpcallbacks:
+        case debug::proxify:
+        case debug::popevent:
             break;
-        case communication::bpadd:
-        case communication::bprem:
+        case debug::bpadd:
+        case debug::bprem:
             wellformed =
                 message->has_payload() && message->payload().has_breakpoint();
             break;
-        case communication::dumpevents:
+        case debug::dumpevents:
             wellformed =
                 !message->has_payload() || message->payload().has_range();
             break;
-        case communication::updatefunc:
+        case debug::updatefunc:
             wellformed =
                 message->has_payload() && message->payload().has_function();
             break;
-        case communication::updatelocal:
+        case debug::updatelocal:
             wellformed =
                 message->has_payload() && message->payload().has_locals();
             break;
-        case communication::updatecallbacks:
+        case debug::updatecallbacks:
             wellformed =
                 message->has_payload() && message->payload().has_callbacks();
             break;
-        case communication::loadsnapshot:
+        case debug::loadsnapshot:
             wellformed =
                 message->has_payload() && message->payload().has_snapshot();
             break;
-        case communication::proxyadd:
-        case communication::proxyrem:
+        case debug::proxyadd:
+        case debug::proxyrem:
             wellformed =
                 message->has_payload() && message->payload().has_function();
             break;
-        case communication::proxycall:
+        case debug::proxycall:
             wellformed =
                 message->has_payload() && message->payload().has_call();
             break;
-        case communication::pushevent:
+        case debug::pushevent:
             wellformed =
                 message->has_payload() && message->payload().has_event();
             break;
@@ -90,9 +90,9 @@ bool Debugger::wellformed(const communication::DebugMessage *message) const {
     return wellformed;
 }
 
-communication::DebugMessage *Debugger::getDebugMessage() {
+debug::DebugMessage *Debugger::getDebugMessage() {
     if (!this->debugMessages.empty()) {
-        communication::DebugMessage *message = this->debugMessages.front();
+        debug::DebugMessage *message = this->debugMessages.front();
         this->debugMessages.pop_front();
         return message;
     } else {
@@ -134,90 +134,90 @@ void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
  *            as payload (immediately following `0x10`), see #readChange
  */
 bool Debugger::checkDebugMessages(Module *m,
-                                  communication::State *program_state) {
-    communication::DebugMessage *message = this->getDebugMessage();
+                                  debug::State *program_state) {
+    debug::DebugMessage *message = this->getDebugMessage();
     if (message == nullptr) {
         fflush(stdout);
         return false;
     }
 
-    // TODO replace notifications with communication::acknowledgement
+    // TODO replace notifications with debug::acknowledgement
     //    this->channel->write("Interrupt: %x\n", message->command());
 
     switch (message->command()) {
-        case communication::run:
+        case debug::run:
             this->handleInterruptRUN(m, program_state);
             break;
-        case communication::halt:
+        case debug::halt:
             this->channel->write("STOP!\n");
             exit(0);
-        case communication::pause:
-            *program_state = communication::WARDUINOpause;
+        case debug::pause:
+            *program_state = debug::WARDUINOpause;
             this->channel->write("PAUSE!\n");
             break;
-        case communication::step:
+        case debug::step:
             this->channel->write("STEP!\n");
-            *program_state = communication::WARDUINOstep;
+            *program_state = debug::WARDUINOstep;
             this->skipBreakpoint = m->pc_ptr;
             break;
-        case communication::bpadd:  // Breakpoint
-        case communication::bprem:  // Breakpoint remove
+        case debug::bpadd:  // Breakpoint
+        case debug::bprem:  // Breakpoint remove
             this->handleInterruptBP(message->payload().breakpoint());  // TODO
             break;
-        case communication::dump:
-            *program_state = communication::WARDUINOpause;
+        case debug::dump:
+            *program_state = debug::WARDUINOpause;
             this->dump(m);
             break;
-        case communication::dumplocals:
+        case debug::dumplocals:
             handleInterruptDumplocals(m);
             break;
-        case communication::snapshot:
-            *program_state = communication::WARDUINOpause;
+        case debug::snapshot:
+            *program_state = debug::WARDUINOpause;
             this->dump(m, true);
             break;
-        case communication::updatefunc:
+        case debug::updatefunc:
             this->channel->write("CHANGE function!\n");
             Debugger::handleChangedFunction(m, message->payload().function());
             //  do not free(interruptData);
             // we need it to run that code
             // TODO: free double replacements
             break;
-        case communication::updatelocal:
+        case debug::updatelocal:
             this->channel->write("CHANGE local!\n");
             this->handleChangedLocal(m, message->payload().locals());
             break;
-        case communication::loadsnapshot:
+        case debug::loadsnapshot:
             this->loadState(m, message->payload().snapshot());
             break;
-        case communication::proxycall: {
+        case debug::proxycall: {
             this->handleProxyCall(m, program_state, message->payload().call());
         } break;
-        case communication::proxyadd: {
+        case debug::proxyadd: {
             m->warduino->debugger->supervisor->registerProxiedCall(
                 message->payload().function().fidx());
         } break;
-        case communication::proxyrem: {
+        case debug::proxyrem: {
             m->warduino->debugger->supervisor->unregisterProxiedCall(
                 message->payload().function().fidx());
         } break;
-        case communication::proxify: {
+        case debug::proxify: {
             dbg_info("Converting to proxy settings.\n");
             this->proxify();
             break;
         }
-        case communication::dumpevents:
+        case debug::dumpevents:
             handleInterruptDumpevents(message);
             break;
-        case communication::popevent:
+        case debug::popevent:
             CallbackHandler::resolve_event(true);
             break;
-        case communication::pushevent:
+        case debug::pushevent:
             this->handlePushedEvent(message->payload().event());
             break;
-        case communication::updatecallbacks:
+        case debug::updatecallbacks:
             Debugger::updateCallbackmapping(m, message->payload().callbacks());
             break;
-        case communication::dumpcallbacks:
+        case debug::dumpcallbacks:
             this->dumpCallbackmapping();
             break;
         default:
@@ -230,22 +230,22 @@ bool Debugger::checkDebugMessages(Module *m,
 }
 
 void Debugger::handleInterruptDumpevents(
-    const communication::DebugMessage *message) const {
-    communication::EventsQueue *queue =
+    const debug::DebugMessage *message) const {
+    debug::EventsQueue *queue =
         captureEventsQueue(message->payload().range());
     channel->write(queue->SerializeAsString().c_str());
     delete queue;
 }
 
 void Debugger::handleInterruptDumplocals(Module *m) const {
-    m->warduino->program_state = communication::WARDUINOpause;
-    communication::Locals *locals = captureLocals(m);
+    m->warduino->program_state = debug::WARDUINOpause;
+    debug::Locals *locals = captureLocals(m);
     channel->write(locals->SerializeAsString().c_str());
     delete locals;
 }
 
-void Debugger::loadState(Module *m, const communication::Snapshot &snapshot) {
-    m->warduino->program_state = communication::WARDUINOpause;
+void Debugger::loadState(Module *m, const debug::Snapshot &snapshot) {
+    m->warduino->program_state = debug::WARDUINOpause;
     CallbackHandler::manual_event_resolution = true;
     dbg_info("loading: set event resolution... on\n");
     // TODO implement (this->saveState)
@@ -306,13 +306,13 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
 }
 
 void Debugger::handleInterruptRUN(Module *m,
-                                  communication::State *program_state) {
+                                  debug::State *program_state) {
     this->channel->write("GO!\n");
-    if (*program_state == communication::WARDUINOpause &&
+    if (*program_state == debug::WARDUINOpause &&
         this->isBreakpoint(m->pc_ptr)) {
         this->skipBreakpoint = m->pc_ptr;
     }
-    *program_state = communication::WARDUINOrun;
+    *program_state = debug::WARDUINOrun;
 }
 
 void Debugger::handleInterruptBP(std::string breakpoint) {
@@ -336,13 +336,13 @@ void Debugger::handleInterruptBP(std::string breakpoint) {
 
 void Debugger::dump(Module *m, bool full) const {
     uint8_t *start = m->bytes;
-    communication::Snapshot snapshot = communication::Snapshot();
+    debug::Snapshot snapshot = debug::Snapshot();
 
     // current PC
     snapshot.set_program_counter(m->pc_ptr - start);
 
     // current running snapshot
-    snapshot.set_state((communication::State)m->warduino->program_state);
+    snapshot.set_state((debug::State)m->warduino->program_state);
 
     this->captureBreakpoints(&snapshot);
 
@@ -352,12 +352,12 @@ void Debugger::dump(Module *m, bool full) const {
 
     std::string message = snapshot.SerializeAsString();
     if (full) {
-        communication::Locals *locals = this->captureLocals(m);
+        debug::Locals *locals = this->captureLocals(m);
         snapshot.set_allocated_locals(locals);
-        communication::Range range = communication::Range();
+        debug::Range range = debug::Range();
         range.set_start(0);
         range.set_end(CallbackHandler::event_count());
-        communication::EventsQueue *queue = this->captureEventsQueue(range);
+        debug::EventsQueue *queue = this->captureEventsQueue(range);
         snapshot.set_allocated_queue(queue);
 
         message = snapshot.SerializeAsString();
@@ -370,7 +370,7 @@ void Debugger::dump(Module *m, bool full) const {
     this->channel->write(message.c_str());
 }
 
-void Debugger::captureBreakpoints(communication::Snapshot *snapshot) const {
+void Debugger::captureBreakpoints(debug::Snapshot *snapshot) const {
     //    uint8_t *start = m->bytes;  // TODO breakpoints also minus start?
     for (auto bp : this->breakpoints) {
         snapshot->add_breakpoints(reinterpret_cast<const char *>(bp));
@@ -378,23 +378,23 @@ void Debugger::captureBreakpoints(communication::Snapshot *snapshot) const {
 }
 
 void Debugger::captureFunctions(Module *m,
-                                communication::Snapshot *snapshot) const {
+                                debug::Snapshot *snapshot) const {
     uint8_t *start = m->bytes;
     for (size_t i = m->import_count; i < m->function_count; i++) {
-        communication::Function *function = snapshot->add_functions();
+        debug::Function *function = snapshot->add_functions();
         function->set_fidx(m->functions[i].fidx);
-        communication::Range *range = function->mutable_range();
+        debug::Range *range = function->mutable_range();
         range->set_start(m->functions[i].start_ptr - start);
         range->set_end(m->functions[i].end_ptr - start);
     }
 }
 
 void Debugger::captureCallstack(Module *m,
-                                communication::Snapshot *snapshot) const {
+                                debug::Snapshot *snapshot) const {
     uint8_t *start = m->bytes;
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
-        communication::CallstackEntry *entry = snapshot->add_callstack();
+        debug::CallstackEntry *entry = snapshot->add_callstack();
         entry->set_type(f->block->block_type);
         entry->set_fidx(f->block->fidx);
         entry->set_sp(f->sp);
@@ -405,34 +405,34 @@ void Debugger::captureCallstack(Module *m,
 }
 
 void inflateValue(StackValue *source, int32_t index,
-                  communication::Value *destination) {
+                  debug::Value *destination) {
     char _value_str[256];
     switch (source->value_type) {
         case I32:
             snprintf(_value_str, 255, "%" PRIi32, source->value.uint32);
-            destination->set_type(communication::Value_Type_i32);
+            destination->set_type(debug::Value_Type_i32);
             break;
         case I64:
             snprintf(_value_str, 255, "%" PRIi64, source->value.uint64);
-            destination->set_type(communication::Value_Type_i64);
+            destination->set_type(debug::Value_Type_i64);
             break;
         case F32:
             snprintf(_value_str, 255, "%.7f", source->value.f32);
-            destination->set_type(communication::Value_Type_f32);
+            destination->set_type(debug::Value_Type_f32);
             break;
         case F64:
             snprintf(_value_str, 255, "%.7f", source->value.f64);
-            destination->set_type(communication::Value_Type_f64);
+            destination->set_type(debug::Value_Type_f64);
             break;
         default:
             snprintf(_value_str, 255, "%" PRIx64, source->value.uint64);
-            destination->set_type(communication::Value_Type_any);
+            destination->set_type(debug::Value_Type_any);
     }
     destination->set_value(_value_str);
     destination->set_index(index);
 }
 
-communication::Locals *Debugger::captureLocals(Module *m) const {
+debug::Locals *Debugger::captureLocals(Module *m) const {
     int firstFunFramePtr = m->csp;
     while (m->callstack[firstFunFramePtr].block->block_type != 0) {
         firstFunFramePtr--;
@@ -441,23 +441,23 @@ communication::Locals *Debugger::captureLocals(Module *m) const {
         }
     }
     Frame *f = &m->callstack[firstFunFramePtr];
-    auto locals = new communication::Locals();
+    auto locals = new debug::Locals();
     locals->set_count(f->block->local_count);
     for (uint32_t i = 0; i < f->block->local_count; i++) {
-        communication::Value *value = locals->add_values();
+        debug::Value *value = locals->add_values();
         auto v = &m->stack[m->fp + i];
         inflateValue(v, i + f->block->type->param_count, value);
     }
     return locals;
 }
 
-communication::EventsQueue *Debugger::captureEventsQueue(
-    const communication::Range &payload) const {
+debug::EventsQueue *Debugger::captureEventsQueue(
+    const debug::Range &payload) const {
     bool previous = CallbackHandler::resolving_event;
     CallbackHandler::resolving_event = true;
 
     // construct response message
-    auto queue = new communication::EventsQueue();
+    auto queue = new debug::EventsQueue();
     queue->set_count(CallbackHandler::event_count());
 
     long start = payload.start(), end = payload.end();
@@ -465,7 +465,7 @@ communication::EventsQueue *Debugger::captureEventsQueue(
     if (start < 0 || (size_t)start > CallbackHandler::event_count() ||
         end < 0) {
         // return only total count and range (0,0)
-        communication::Range *range = queue->mutable_range();
+        debug::Range *range = queue->mutable_range();
         range->set_start(0);
         range->set_end(0);
         CallbackHandler::resolving_event = previous;
@@ -478,7 +478,7 @@ communication::EventsQueue *Debugger::captureEventsQueue(
 
     // if not full queue, add range to message
     if (!(start == 0 && end == queue->count())) {
-        communication::Range *range = queue->mutable_range();
+        debug::Range *range = queue->mutable_range();
         range->set_start(start);
         range->set_end(end);
     }
@@ -487,7 +487,7 @@ communication::EventsQueue *Debugger::captureEventsQueue(
     std::for_each(CallbackHandler::event_begin() + start,
                   CallbackHandler::event_begin() + end,
                   [&queue](const Event &e) {
-                      communication::Event *event = queue->add_events();
+                      debug::Event *event = queue->add_events();
                       event->set_topic(e.topic);
                       event->set_payload(e.payload);
                   });
@@ -508,7 +508,7 @@ void Debugger::dumpCallbackmapping() const {
  * Where index is the index without imports
  */
 bool Debugger::handleChangedFunction(Module *m,
-                                     communication::Function payload) {
+                                     debug::Function payload) {
     Block *function = &m->functions[m->import_count + payload.fidx()];
     // TODO
 }
@@ -520,7 +520,7 @@ bool Debugger::handleChangedFunction(Module *m,
  * @return
  */
 bool Debugger::handleChangedLocal(Module *m,
-                                  communication::Locals locals) const {
+                                  debug::Locals locals) const {
     //    if (*bytes != interruptUPDATELocal) return false;
     //    uint8_t *pos = bytes + 1;
     //    this->channel->write("Local updates: %x\n", *pos);
@@ -551,7 +551,7 @@ void Debugger::notifyPushedEvent() const {
     this->channel->write("new pushed event");
 }
 
-void Debugger::handlePushedEvent(communication::Event payload) const {
+void Debugger::handlePushedEvent(debug::Event payload) const {
     auto *event = new Event(payload.topic(), payload.payload());
     dbg_info("handle pushed event: %s", event->serialized().c_str());
     CallbackHandler::push_event(event);
@@ -841,12 +841,12 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
 }
 
 void Debugger::proxify() {
-    WARDuino::instance()->program_state = communication::PROXYhalt;
+    WARDuino::instance()->program_state = debug::PROXYhalt;
     this->proxy = new Proxy();  // TODO delete
 }
 
-void Debugger::handleProxyCall(Module *m, communication::State *program_state,
-                               const communication::RFC &payload) {
+void Debugger::handleProxyCall(Module *m, debug::State *program_state,
+                               const debug::RFC &payload) {
     uint32_t fidx = payload.fidx();
     dbg_info("proxycall: func %" PRIu32 "\n", fidx);
 
@@ -857,7 +857,7 @@ void Debugger::handleProxyCall(Module *m, communication::State *program_state,
     auto *rfc = new RFC(fidx, func->type, args);
     this->proxy->pushRFC(m, rfc);
 
-    *program_state = communication::PROXYrun;
+    *program_state = debug::PROXYrun;
     dbg_trace("proxycall: setting running state... ProxyRun\n");
 }
 
@@ -901,7 +901,7 @@ void Debugger::disconnect_proxy() {
 }
 
 void Debugger::updateCallbackmapping(
-    Module *m, const communication::CallbackMapping &mapping) {
+    Module *m, const debug::CallbackMapping &mapping) {
     CallbackHandler::clear_callbacks();
 
     for (int i = 0; i < mapping.entries_size(); ++i) {
@@ -913,7 +913,7 @@ void Debugger::updateCallbackmapping(
     }
 }
 
-StackValue *Debugger::readRFCArgs(communication::RFC payload) {
+StackValue *Debugger::readRFCArgs(debug::RFC payload) {
     // TODO
     return nullptr;
 }

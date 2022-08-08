@@ -212,7 +212,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp("--socket", arg)) {
             ARGV_GET(socket);
         } else if (!strcmp("--paused", arg)) {
-            wac->program_state = communication::WARDUINOpause;
+            wac->program_state = debug::WARDUINOpause;
         } else if (!strcmp("--proxy", arg)) {
             ARGV_GET(proxy);  // /dev/ttyUSB0
         } else if (!strcmp("--mode", arg)) {

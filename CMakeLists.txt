@@ -30,7 +30,7 @@ if (BUILD_EMULATOR)
     find_package(Threads REQUIRED)
     find_package(Protobuf REQUIRED)
 
-    protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS src/Debug/communication.proto)
+    protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS src/Debug/debug.proto)
     set_source_files_properties(${PROTO_SRC} ${PROTO_HDRS} PROPERTIES GENERATED TRUE)
 
     set(SOURCE_FILES
