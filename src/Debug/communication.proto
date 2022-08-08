@@ -47,16 +47,19 @@ message DebugMessage {
     Command command = 1;
 
     // optional payload
+    optional Payload payload = 2;
+}
+
+message Payload {
     oneof payload {
-        Snapshot snapshot = 2;          // dumps
-        Locals locals = 3;              // dumplocals
-        Function function = 4;          // dumps, updatefunc
-        string breakpoint = 5;          // bpadd, bprem
-        Event event = 6;                // dumps, event operations
-        Range range = 7;                // dump eventsqueue
-        CallbackMapping callbacks = 8;  // dump/update callbacks
-        CallbackEntry callback = 9;     // dump/update callbacks
-        RFC call = 10;                  // proxycall
+        Snapshot snapshot = 1;          // dumps
+        Locals locals = 2;              // dumplocals
+        Function function = 3;          // dumps, updatefunc, proxyadd/rem
+        string breakpoint = 4;          // bpadd, bprem
+        Event event = 5;                // dumps, event operations
+        Range range = 6;                // dump eventsqueue
+        CallbackMapping callbacks = 7;  // dump/update callbacks
+        RFC call = 8;                   // proxycall
     }
 }
 

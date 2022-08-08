@@ -3,14 +3,7 @@
 #include <algorithm>
 #include <cinttypes>
 #include <cstring>
-#ifndef ARDUINO
-#include <nlohmann/json.hpp>
-#else
-#include "../../lib/json/single_include/nlohmann/json.hpp"
-#endif
 
-#include "../Edward/proxy.h"
-#include "../Edward/proxy_supervisor.h"
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
@@ -26,26 +19,6 @@ void Debugger::setChannel(int address) {
     this->channel = new Channel(address);
 }
 
-// TODO remove this and use communication::Command
-uint8_t parseCode(uint8_t data) {
-    int r;
-    // TODO replace by real binary
-    switch (data) {
-        case '0' ... '9':
-            r = data - '0';
-            break;
-        case 'A' ... 'F':
-            r = data - 'A' + 10;
-            break;
-        case 'a' ... 'f':
-            r = data - 'a' + 10;
-            break;
-        default:
-            r = data;
-    }
-    return r;
-}
-
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     auto coded_input = new google::protobuf::io::CodedInputStream(buff, len);
     auto *message = new communication::DebugMessage();
@@ -54,7 +27,66 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
         this->debugMessages.push_back(message);
     }
     // TODO handle error
-    // TODO check payloadCase (well formed message)
+    if (!wellformed(message)) {
+        dbg_info("Debug message is not well formed.\n");
+    }
+}
+bool Debugger::wellformed(const communication::DebugMessage *message) const {
+    bool wellformed = true;
+    switch (message->command()) {
+        case communication::run:
+        case communication::halt:
+        case communication::pause:
+        case communication::step:
+        case communication::dump:
+        case communication::dumplocals:
+        case communication::snapshot:
+        case communication::dumpcallbacks:
+        case communication::proxify:
+        case communication::popevent:
+            break;
+        case communication::bpadd:
+        case communication::bprem:
+            wellformed =
+                message->has_payload() && message->payload().has_breakpoint();
+            break;
+        case communication::dumpevents:
+            wellformed =
+                !message->has_payload() || message->payload().has_range();
+            break;
+        case communication::updatefunc:
+            wellformed =
+                message->has_payload() && message->payload().has_function();
+            break;
+        case communication::updatelocal:
+            wellformed =
+                message->has_payload() && message->payload().has_locals();
+            break;
+        case communication::updatecallbacks:
+            wellformed =
+                message->has_payload() && message->payload().has_callbacks();
+            break;
+        case communication::loadsnapshot:
+            wellformed =
+                message->has_payload() && message->payload().has_snapshot();
+            break;
+        case communication::proxyadd:
+        case communication::proxyrem:
+            wellformed =
+                message->has_payload() && message->payload().has_function();
+            break;
+        case communication::proxycall:
+            wellformed =
+                message->has_payload() && message->payload().has_call();
+            break;
+        case communication::pushevent:
+            wellformed =
+                message->has_payload() && message->payload().has_event();
+            break;
+        default:
+            wellformed = false;
+    }
+    return wellformed;
 }
 
 communication::DebugMessage *Debugger::getDebugMessage() {
@@ -108,9 +140,9 @@ bool Debugger::checkDebugMessages(Module *m,
         return false;
     }
 
+    // TODO replace notifications with communication::acknowledgement
     this->channel->write("Interrupt: %x\n", message->command());
 
-    long start = 0, size = 0;
     switch (message->command()) {
         case communication::run:
             this->handleInterruptRUN(m, program_state);
@@ -129,16 +161,14 @@ bool Debugger::checkDebugMessages(Module *m,
             break;
         case communication::bpadd:  // Breakpoint
         case communication::bprem:  // Breakpoint remove
-            this->handleInterruptBP(message->breakpoint());  // TODO
+            this->handleInterruptBP(message->payload().breakpoint());  // TODO
             break;
         case communication::dump:
             *program_state = communication::WARDUINOpause;
             this->dump(m);
             break;
         case communication::dumplocals:
-            *program_state = communication::WARDUINOpause;
-            this->channel->write(
-                this->captureLocals(m)->SerializeAsString().c_str());
+            handleInterruptDumplocals(m);
             break;
         case communication::snapshot:
             *program_state = communication::WARDUINOpause;
@@ -146,29 +176,28 @@ bool Debugger::checkDebugMessages(Module *m,
             break;
         case communication::updatefunc:
             this->channel->write("CHANGE function!\n");
-            Debugger::handleChangedFunction(m, message->function());
+            Debugger::handleChangedFunction(m, message->payload().function());
             //  do not free(interruptData);
             // we need it to run that code
             // TODO: free double replacements
             break;
         case communication::updatelocal:
             this->channel->write("CHANGE local!\n");
-            // TODO replace notifications with communication::acknowledgement
-            this->handleChangedLocal(m, message->locals());
+            this->handleChangedLocal(m, message->payload().locals());
             break;
         case communication::loadsnapshot:
-            this->loadState(m, message->snapshot());
+            this->loadState(m, message->payload().snapshot());
             break;
         case communication::proxycall: {
-            this->handleProxyCall(m, program_state, message->call());
+            this->handleProxyCall(m, program_state, message->payload().call());
         } break;
         case communication::proxyadd: {
             m->warduino->debugger->supervisor->registerProxiedCall(
-                message->function().fidx());
+                message->payload().function().fidx());
         } break;
         case communication::proxyrem: {
             m->warduino->debugger->supervisor->unregisterProxiedCall(
-                message->function().fidx());
+                message->payload().function().fidx());
         } break;
         case communication::proxify: {
             dbg_info("Converting to proxy settings.\n");
@@ -176,20 +205,16 @@ bool Debugger::checkDebugMessages(Module *m,
             break;
         }
         case communication::dumpevents:
-            printf("InterruptDUMPEvents\n");
-            // TODO get start and size from communication::Range in message
-            this->channel->write(this->captureEventsQueue(message->range())
-                                     ->SerializeAsString()
-                                     .c_str());
+            handleInterruptDumpevents(message);
             break;
         case communication::popevent:
             CallbackHandler::resolve_event(true);
             break;
         case communication::pushevent:
-            this->handlePushedEvent(message->event());
+            this->handlePushedEvent(message->payload().event());
             break;
         case communication::updatecallbacks:
-            Debugger::updateCallbackmapping(m, message->callbacks());
+            Debugger::updateCallbackmapping(m, message->payload().callbacks());
             break;
         case communication::dumpcallbacks:
             this->dumpCallbackmapping();
@@ -201,6 +226,21 @@ bool Debugger::checkDebugMessages(Module *m,
     }
     fflush(stdout);
     return true;
+}
+
+void Debugger::handleInterruptDumpevents(
+    const communication::DebugMessage *message) const {
+    communication::EventsQueue *queue =
+        captureEventsQueue(message->payload().range());
+    channel->write(queue->SerializeAsString().c_str());
+    delete queue;
+}
+
+void Debugger::handleInterruptDumplocals(Module *m) const {
+    m->warduino->program_state = communication::WARDUINOpause;
+    communication::Locals *locals = captureLocals(m);
+    channel->write(locals->SerializeAsString().c_str());
+    delete locals;
 }
 
 void Debugger::loadState(Module *m, const communication::Snapshot &snapshot) {
@@ -309,6 +349,7 @@ void Debugger::dump(Module *m, bool full) const {
 
     this->captureCallstack(m, &snapshot);
 
+    std::string message = snapshot.SerializeAsString();
     if (full) {
         communication::Locals *locals = this->captureLocals(m);
         snapshot.set_allocated_locals(locals);
@@ -317,10 +358,14 @@ void Debugger::dump(Module *m, bool full) const {
         range.set_end(CallbackHandler::event_count());
         communication::EventsQueue *queue = this->captureEventsQueue(range);
         snapshot.set_allocated_queue(queue);
+
+        message = snapshot.SerializeAsString();
+
+        delete locals;
+        delete queue;
     }
 
     // send snapshot
-    std::string message = snapshot.SerializeAsString();
     this->channel->write(message.c_str());
 }
 

@@ -143,4 +143,8 @@ class Debugger {
     void handlePushedEvent(communication::Event payload) const;
 
     void loadState(Module *m, const communication::Snapshot &snapshot);
+    void handleInterruptDumplocals(Module *m) const;
+    void handleInterruptDumpevents(
+        const communication::DebugMessage *message) const;
+    bool wellformed(const communication::DebugMessage *message) const;
 };
