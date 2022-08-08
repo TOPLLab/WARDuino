@@ -170,28 +170,30 @@ void arguments_copy(unsigned char *dest, StackValue *args,
  *
  */
 struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
-    const unsigned short serializationSize = sizeSerializationRFC(callee->type);
-    auto *buffer = new unsigned char[serializationSize];
-
-    // write to array: interrupt, function identifier and arguments
-    const unsigned char interrupt = interruptProxyCall;
-    memcpy(buffer, &interrupt, sizeof(unsigned char));
-    memcpy(buffer + 1, &callee->fidx, sizeof(uint32_t));
-    arguments_copy(buffer + 5, callee->args, callee->type->param_count);
-
-    // array as hexa
-    const uint32_t hexa_size = serializationSize * 2;
-    auto *hexa =
-        new unsigned char[hexa_size + 2];  //+2 for '\n' and '0' termination
-    chars_as_hexa(hexa, buffer, serializationSize);
-    hexa[hexa_size] = '\n';
-    hexa[hexa_size + 1] = '\0';  // TODO remove zero termination and +2 above
-
-    delete[] buffer;
-    auto *ser = new SerializeData;
-    ser->size = hexa_size + 1;
-    ser->raw = hexa;
-    return ser;
+    // TODO update to proto
+    return nullptr;
+//    const unsigned short serializationSize = sizeSerializationRFC(callee->type);
+//    auto *buffer = new unsigned char[serializationSize];
+//
+//    // write to array: interrupt, function identifier and arguments
+//    const unsigned char interrupt = interruptProxyCall;
+//    memcpy(buffer, &interrupt, sizeof(unsigned char));
+//    memcpy(buffer + 1, &callee->fidx, sizeof(uint32_t));
+//    arguments_copy(buffer + 5, callee->args, callee->type->param_count);
+//
+//    // array as hexa
+//    const uint32_t hexa_size = serializationSize * 2;
+//    auto *hexa =
+//        new unsigned char[hexa_size + 2];  //+2 for '\n' and '0' termination
+//    chars_as_hexa(hexa, buffer, serializationSize);
+//    hexa[hexa_size] = '\n';
+//    hexa[hexa_size + 1] = '\0';  // TODO remove zero termination and +2 above
+//
+//    delete[] buffer;
+//    auto *ser = new SerializeData;
+//    ser->size = hexa_size + 1;
+//    ser->raw = hexa;
+//    return ser;
 }
 
 void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
@@ -246,25 +248,27 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
 }
 
 bool ProxySupervisor::call(RFC *callee) {
-    struct SerializeData *rfc_request = this->serializeRFC(callee);
-
-    bool sent = this->send((void *)rfc_request->raw, rfc_request->size);
-    if (!sent) {
-        callee->success = false;
-
-        delete[] rfc_request->raw;
-        delete rfc_request;
-        dbg_trace("Sending RFC: FAILED\n");
-        return false;
-    }
-    // Fetch new callback mapping
-    // convert message to hex TODO: move to proxyserver
-    char cmdBuffer[10] = "";
-    int cmdBufferLen = 0;
-    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
-    WARDuino::instance()->debugger->supervisor->send(cmdBuffer, cmdBufferLen);
-    this->deserializeRFCResult(callee);
-    return true;
+    // TODO
+    return false;
+//    struct SerializeData *rfc_request = this->serializeRFC(callee);
+//
+//    bool sent = this->send((void *)rfc_request->raw, rfc_request->size);
+//    if (!sent) {
+//        callee->success = false;
+//
+//        delete[] rfc_request->raw;
+//        delete rfc_request;
+//        dbg_trace("Sending RFC: FAILED\n");
+//        return false;
+//    }
+//    // Fetch new callback mapping
+//    // convert message to hex TODO: move to proxyserver
+//    char cmdBuffer[10] = "";
+//    int cmdBufferLen = 0;
+//    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
+//    WARDuino::instance()->debugger->supervisor->send(cmdBuffer, cmdBufferLen);
+//    this->deserializeRFCResult(callee);
+//    return true;
 }
 
 void ProxySupervisor::registerProxiedCall(uint32_t fidx) {

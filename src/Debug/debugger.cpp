@@ -26,6 +26,7 @@ void Debugger::setChannel(int address) {
     this->channel = new Channel(address);
 }
 
+// TODO remove this and use communication::Command
 uint8_t parseCode(uint8_t data) {
     int r;
     // TODO replace by real binary
@@ -46,21 +47,19 @@ uint8_t parseCode(uint8_t data) {
 }
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
-    auto *message =
-        (DebugMessage *)acalloc(sizeof(DebugMessage), 1, "debug message");
-    message->length = len;
-    message->data = (uint8_t *)acalloc(sizeof(uint8_t), message->length,
-                                       "debug message data");
-    memcpy(message->data + 1, buff + 2,
-           (message->length - 1) * sizeof(uint8_t));
-    uint8_t prev = parseCode(buff[0]);
-    message->data[0] = (prev << 4u) + parseCode(buff[1]);
-    this->debugMessages.push_back(message);
+    auto coded_input = new google::protobuf::io::CodedInputStream(buff, len);
+    auto *message = new communication::DebugMessage();
+    bool success = message->ParseFromCodedStream(coded_input);
+    if (success && coded_input->ConsumedEntireMessage()) {
+        this->debugMessages.push_back(message);
+    }
+    // TODO handle error
+    // TODO check payloadCase (well formed message)
 }
 
-DebugMessage *Debugger::getDebugMessage() {
+communication::DebugMessage *Debugger::getDebugMessage() {
     if (!this->debugMessages.empty()) {
-        DebugMessage *message = this->debugMessages.front();
+        communication::DebugMessage *message = this->debugMessages.front();
         this->debugMessages.pop_front();
         return message;
     } else {
@@ -101,166 +100,125 @@ void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
  * - `0x20` : Replace the content body of a function by a new function given
  *            as payload (immediately following `0x10`), see #readChange
  */
-bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
-    DebugMessage *message = this->getDebugMessage();
+bool Debugger::checkDebugMessages(Module *m,
+                                  communication::State *program_state) {
+    communication::DebugMessage *message = this->getDebugMessage();
     if (message == nullptr) {
         fflush(stdout);
         return false;
     }
-    uint8_t *interruptData = message->data;
 
-    this->channel->write("Interrupt: %x\n", *interruptData);
+    this->channel->write("Interrupt: %x\n", message->command());
 
     long start = 0, size = 0;
-    communication::State state;
-    switch (*interruptData) {
-        case interruptRUN:
+    switch (message->command()) {
+        case communication::run:
             this->handleInterruptRUN(m, program_state);
-            free(interruptData);
             break;
-        case interruptHALT:
+        case communication::halt:
             this->channel->write("STOP!\n");
-            free(interruptData);
             exit(0);
-        case interruptPAUSE:
-            *program_state = WARDUINOpause;
+        case communication::pause:
+            *program_state = communication::WARDUINOpause;
             this->channel->write("PAUSE!\n");
-            free(interruptData);
             break;
-        case interruptSTEP:
+        case communication::step:
             this->channel->write("STEP!\n");
-            *program_state = WARDUINOstep;
+            *program_state = communication::WARDUINOstep;
             this->skipBreakpoint = m->pc_ptr;
-            free(interruptData);
             break;
-        case interruptBPAdd:  // Breakpoint
-        case interruptBPRem:  // Breakpoint remove
-            this->handleInterruptBP(interruptData);
-            free(interruptData);
+        case communication::bpadd:  // Breakpoint
+        case communication::bprem:  // Breakpoint remove
+            this->handleInterruptBP(message->breakpoint());  // TODO
             break;
-        case interruptDUMP:
-            *program_state = WARDUINOpause;
+        case communication::dump:
+            *program_state = communication::WARDUINOpause;
             this->dump(m);
-            free(interruptData);
             break;
-        case interruptDUMPLocals:
-            *program_state = WARDUINOpause;
+        case communication::dumplocals:
+            *program_state = communication::WARDUINOpause;
             this->channel->write(
                 this->captureLocals(m)->SerializeAsString().c_str());
-            free(interruptData);
             break;
-        case interruptDUMPFull:
-            *program_state = WARDUINOpause;
+        case communication::snapshot:
+            *program_state = communication::WARDUINOpause;
             this->dump(m, true);
-            free(interruptData);
             break;
-        case interruptUPDATEFun:
+        case communication::updatefunc:
             this->channel->write("CHANGE function!\n");
-            Debugger::handleChangedFunction(m, interruptData);
+            Debugger::handleChangedFunction(m, message->function());
             //  do not free(interruptData);
             // we need it to run that code
             // TODO: free double replacements
             break;
-        case interruptUPDATELocal:
+        case communication::updatelocal:
             this->channel->write("CHANGE local!\n");
-            this->handleChangedLocal(m, interruptData);
-            free(interruptData);
+            // TODO replace notifications with communication::acknowledgement
+            this->handleChangedLocal(m, message->locals());
             break;
-        case interruptLOADState:
-            interruptData++;
-            dbg_info("loading: size of state ... %zu\n", message->length - 1);
-            state.ParseFromArray(interruptData, message->length - 1);
-            dbg_info("loading: state ... ok\n");
-            this->loadState(state);
+        case communication::loadsnapshot:
+            this->loadState(m, message->snapshot());
             break;
-        case interruptWOODDUMP:
-            *program_state = WARDUINOpause;
-            free(interruptData);
-            woodDump(m);
-            break;
-        case interruptOffset:
-            free(interruptData);
-            this->channel->write("{\"offset\":\"%p\"}\n", (void *)m->bytes);
-            break;
-        case interruptRecvState:
-            if (!this->receivingData) {
-                *program_state = WARDUINOpause;
-                debug("paused program execution\n");
-                CallbackHandler::manual_event_resolution = true;
-                dbg_info("Manual event resolution is on.");
-                this->receivingData = true;
-                this->freeState(m, interruptData);
-                free(interruptData);
-                this->channel->write("ack!\n");
-            } else {
-                printf("receiving state\n");
-                debug("receiving state\n");
-                receivingData = !this->saveState(m, interruptData);
-                free(interruptData);
-                debug("sending %s!\n", receivingData ? "ack" : "done");
-                this->channel->write("%s!\n", receivingData ? "ack" : "done");
-                if (!this->receivingData) {
-                    debug("receiving state done\n");
-                }
-            }
-            break;
-        case interruptProxyCall: {
-            this->handleProxyCall(m, program_state, interruptData + 1);
-            free(interruptData);
+        case communication::proxycall: {
+            this->handleProxyCall(m, program_state, message->call());
         } break;
-        case interruptMonitorProxies: {
-            printf("receiving functions list to proxy\n");
-            this->handleMonitorProxies(m, interruptData + 1);
-            free(interruptData);
+        case communication::proxyadd: {
+            m->warduino->debugger->supervisor->registerProxiedCall(
+                message->function().fidx());
         } break;
-        case interruptProxify: {
+        case communication::proxyrem: {
+            m->warduino->debugger->supervisor->unregisterProxiedCall(
+                message->function().fidx());
+        } break;
+        case communication::proxify: {
             dbg_info("Converting to proxy settings.\n");
             this->proxify();
             break;
         }
-        case interruptDUMPAllEvents:
+        case communication::dumpevents:
             printf("InterruptDUMPEvents\n");
-            size = (long)CallbackHandler::event_count();
-        case interruptDUMPEvents:
             // TODO get start and size from communication::Range in message
-            this->channel->write(this->captureEventsQueue(start, size)
+            this->channel->write(this->captureEventsQueue(message->range())
                                      ->SerializeAsString()
                                      .c_str());
             break;
-        case interruptPOPEvent:
+        case communication::popevent:
             CallbackHandler::resolve_event(true);
             break;
-        case interruptPUSHEvent:
-            this->handlePushedEvent(reinterpret_cast<char *>(interruptData));
+        case communication::pushevent:
+            this->handlePushedEvent(message->event());
             break;
-        case interruptRecvCallbackmapping:
-            Debugger::updateCallbackmapping(
-                m, reinterpret_cast<const char *>(interruptData + 2));
+        case communication::updatecallbacks:
+            Debugger::updateCallbackmapping(m, message->callbacks());
             break;
-        case interruptDUMPCallbackmapping:
+        case communication::dumpcallbacks:
             this->dumpCallbackmapping();
             break;
         default:
             // handle later
             this->channel->write("COULD not parse interrupt data!\n");
-            free(interruptData);
             break;
     }
     fflush(stdout);
     return true;
 }
-void Debugger::loadState(const communication::State &state) const {
-    printf("loading: program counter... %i\n", state.program_counter());
-    printf("loading: running state... %i\n", state.state());
-    printf("loading: breakpoint count... %i\n", state.breakpoints_size());
-    for (int i = 0; i < state.functions_size(); i++) {
-        printf("loading: function... %i\n", state.functions(i).fidx());
+
+void Debugger::loadState(Module *m, const communication::Snapshot &snapshot) {
+    m->warduino->program_state = communication::WARDUINOpause;
+    CallbackHandler::manual_event_resolution = true;
+    dbg_info("loading: set event resolution... on\n");
+    // TODO implement (this->saveState)
+    printf("loading: program counter... %i\n", snapshot.program_counter());
+    printf("loading: running state... %i\n", snapshot.state());
+    printf("loading: breakpoint count... %i\n", snapshot.breakpoints_size());
+    for (int i = 0; i < snapshot.functions_size(); i++) {
+        printf("loading: function... %i\n", snapshot.functions(i).fidx());
     }
-    for (int i = 0; i < state.callstack_size(); i++) {
+    for (int i = 0; i < snapshot.callstack_size(); i++) {
         printf("loading: callstack entry... (type %i)\n",
-               state.callstack(i).type());
+               snapshot.callstack(i).type());
     }
-    printf("loading: local count... %i\n", state.locals().count());
+    printf("loading: local count... %i\n", snapshot.locals().count());
 }
 
 // Private methods
@@ -306,83 +264,91 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
     return opcode;
 }
 
-void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
+void Debugger::handleInterruptRUN(Module *m,
+                                  communication::State *program_state) {
     this->channel->write("GO!\n");
-    if (*program_state == WARDUINOpause && this->isBreakpoint(m->pc_ptr)) {
+    if (*program_state == communication::WARDUINOpause &&
+        this->isBreakpoint(m->pc_ptr)) {
         this->skipBreakpoint = m->pc_ptr;
     }
-    *program_state = WARDUINOrun;
+    *program_state = communication::WARDUINOrun;
 }
 
-void Debugger::handleInterruptBP(const uint8_t *interruptData) {
+void Debugger::handleInterruptBP(std::string breakpoint) {
     // TODO: segfault may happen here!
-    uint8_t len = interruptData[1];
-    uintptr_t bp = 0x0;
-    for (size_t i = 0; i < len; i++) {
-        bp <<= sizeof(uint8_t) * 8;
-        bp |= interruptData[i + 2];
-    }
-    auto *bpt = (uint8_t *)bp;
-    this->channel->write("BP %p!\n", static_cast<void *>(bpt));
-
-    if (*interruptData == 0x06) {
-        this->addBreakpoint(bpt);
-    } else {
-        this->deleteBreakpoint(bpt);
-    }
+    // TODO implement
+    //    uint8_t len = interruptData[1];
+    //    uintptr_t bp = 0x0;
+    //    for (size_t i = 0; i < len; i++) {
+    //        bp <<= sizeof(uint8_t) * 8;
+    //        bp |= interruptData[i + 2];
+    //    }
+    //    auto *bpt = (uint8_t *)bp;
+    //    this->channel->write("BP %p!\n", static_cast<void *>(bpt));
+    //
+    //    if (*interruptData == 0x06) {
+    //        this->addBreakpoint(bpt);
+    //    } else {
+    //        this->deleteBreakpoint(bpt);
+    //    }
 }
 
 void Debugger::dump(Module *m, bool full) const {
     uint8_t *start = m->bytes;
-    communication::State state = communication::State();
+    communication::Snapshot snapshot = communication::Snapshot();
 
     // current PC
-    state.set_program_counter(m->pc_ptr - start);
+    snapshot.set_program_counter(m->pc_ptr - start);
 
-    // current running state
-    state.set_state(
-        (communication::State::RunningState)m->warduino->program_state);
+    // current running snapshot
+    snapshot.set_state((communication::State)m->warduino->program_state);
 
-    this->captureBreakpoints(&state);
+    this->captureBreakpoints(&snapshot);
 
-    this->captureFunctions(m, &state);
+    this->captureFunctions(m, &snapshot);
 
-    this->captureCallstack(m, &state);
+    this->captureCallstack(m, &snapshot);
 
     if (full) {
         communication::Locals *locals = this->captureLocals(m);
-        state.set_allocated_locals(locals);
-        communication::EventsQueue *queue =
-            this->captureEventsQueue(0, CallbackHandler::event_count());
-        state.set_allocated_queue(queue);
+        snapshot.set_allocated_locals(locals);
+        communication::Range range = communication::Range();
+        range.set_start(0);
+        range.set_end(CallbackHandler::event_count());
+        communication::EventsQueue *queue = this->captureEventsQueue(range);
+        snapshot.set_allocated_queue(queue);
     }
 
-    // send state
-    std::string message = state.SerializeAsString();
+    // send snapshot
+    std::string message = snapshot.SerializeAsString();
     this->channel->write(message.c_str());
 }
 
-void Debugger::captureBreakpoints(communication::State *state) const {
+void Debugger::captureBreakpoints(communication::Snapshot *snapshot) const {
+    //    uint8_t *start = m->bytes;  // TODO breakpoints also minus start?
     for (auto bp : this->breakpoints) {
-        state->add_breakpoints(reinterpret_cast<const char *>(bp));
+        snapshot->add_breakpoints(reinterpret_cast<const char *>(bp));
     }
 }
 
-void Debugger::captureFunctions(Module *m, communication::State *state) const {
+void Debugger::captureFunctions(Module *m,
+                                communication::Snapshot *snapshot) const {
     uint8_t *start = m->bytes;
     for (size_t i = m->import_count; i < m->function_count; i++) {
-        communication::Function *function = state->add_functions();
+        communication::Function *function = snapshot->add_functions();
         function->set_fidx(m->functions[i].fidx);
-        function->set_from(m->functions[i].start_ptr - start);
-        function->set_to(m->functions[i].end_ptr - start);
+        communication::Range *range = function->mutable_range();
+        range->set_start(m->functions[i].start_ptr - start);
+        range->set_end(m->functions[i].end_ptr - start);
     }
 }
 
-void Debugger::captureCallstack(Module *m, communication::State *state) const {
+void Debugger::captureCallstack(Module *m,
+                                communication::Snapshot *snapshot) const {
     uint8_t *start = m->bytes;
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
-        communication::CallstackEntry *entry = state->add_callstack();
+        communication::CallstackEntry *entry = snapshot->add_callstack();
         entry->set_type(f->block->block_type);
         entry->set_fidx(f->block->fidx);
         entry->set_sp(f->sp);
@@ -439,15 +405,27 @@ communication::Locals *Debugger::captureLocals(Module *m) const {
     return locals;
 }
 
-communication::EventsQueue *Debugger::captureEventsQueue(long start,
-                                                         long size) const {
-    auto queue = new communication::EventsQueue();
-    queue->set_count(CallbackHandler::event_count());
-
+communication::EventsQueue *Debugger::captureEventsQueue(
+    const communication::Range &payload) const {
     bool previous = CallbackHandler::resolving_event;
     CallbackHandler::resolving_event = true;
 
-    long index = start, end = start + size;
+    // construct response message
+    auto queue = new communication::EventsQueue();
+    queue->set_count(CallbackHandler::event_count());
+
+    long start = payload.start(), end = payload.end();
+    // check for illegal range
+    if (start < 0 || (size_t)start > CallbackHandler::event_count() ||
+        end < 0) {
+        // return only total count and range (0,0)
+        communication::Range *range = queue->mutable_range();
+        range->set_start(0);
+        range->set_end(0);
+        CallbackHandler::resolving_event = previous;
+        return queue;
+    }
+    // clip right-side out-of-bounds range
     if (end > queue->count()) {
         end = queue->count();
     }
@@ -455,7 +433,7 @@ communication::EventsQueue *Debugger::captureEventsQueue(long start,
     // if not full queue, add range to message
     if (!(start == 0 && end == queue->count())) {
         communication::Range *range = queue->mutable_range();
-        range->set_start(index);
+        range->set_start(start);
         range->set_end(end);
     }
 
@@ -469,6 +447,7 @@ communication::EventsQueue *Debugger::captureEventsQueue(long start,
                   });
 
     CallbackHandler::resolving_event = previous;
+    return queue;
 }
 
 void Debugger::dumpCallbackmapping() const {
@@ -482,57 +461,10 @@ void Debugger::dumpCallbackmapping() const {
  * [0x10, index, ... new function body 0x0b]
  * Where index is the index without imports
  */
-bool Debugger::handleChangedFunction(Module *m, uint8_t *bytes) {
-    // Check if this was a change request
-    if (*bytes != interruptUPDATEFun) return false;
-
-    // SKIP the first byte (0x10), type of change
-    uint8_t *pos = bytes + 1;
-
-    uint32_t b = read_LEB_32(&pos);  // read id
-
-    Block *function = &m->functions[m->import_count + b];
-    uint32_t body_size = read_LEB_32(&pos);
-    uint8_t *payload_start = pos;
-    uint32_t local_count = read_LEB_32(&pos);
-    uint8_t *save_pos;
-    uint32_t tidx, lidx, lecount;
-
-    // Local variable handling
-
-    // Get number of locals for alloc
-    save_pos = pos;
-    function->local_count = 0;
-    for (uint32_t l = 0; l < local_count; l++) {
-        lecount = read_LEB_32(&pos);
-        function->local_count += lecount;
-        tidx = read_LEB(&pos, 7);
-        (void)tidx;  // TODO: use tidx?
-    }
-
-    if (function->local_count > 0) {
-        function->local_value_type =
-            (uint8_t *)acalloc(function->local_count, sizeof(uint8_t),
-                               "function->local_value_type");
-    }
-
-    // Restore position and read the locals
-    pos = save_pos;
-    lidx = 0;
-    for (uint32_t l = 0; l < local_count; l++) {
-        lecount = read_LEB_32(&pos);
-        uint8_t vt = read_LEB(&pos, 7);
-        for (uint32_t i = 0; i < lecount; i++) {
-            function->local_value_type[lidx++] = vt;
-        }
-    }
-
-    function->start_ptr = pos;
-    function->end_ptr = payload_start + body_size - 1;
-    function->br_ptr = function->end_ptr;
-    ASSERT(*function->end_ptr == 0x0b, "Code section did not end with 0x0b\n");
-    pos = function->end_ptr + 1;
-    return true;
+bool Debugger::handleChangedFunction(Module *m,
+                                     communication::Function payload) {
+    Block *function = &m->functions[m->import_count + payload.fidx()];
+    // TODO
 }
 
 /**
@@ -541,29 +473,31 @@ bool Debugger::handleChangedFunction(Module *m, uint8_t *bytes) {
  * @param bytes
  * @return
  */
-bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
-    if (*bytes != interruptUPDATELocal) return false;
-    uint8_t *pos = bytes + 1;
-    this->channel->write("Local updates: %x\n", *pos);
-    uint32_t localId = read_LEB_32(&pos);
-
-    this->channel->write("Local %u being changed\n", localId);
-    auto v = &m->stack[m->fp + localId];
-    switch (v->value_type) {
-        case I32:
-            v->value.uint32 = read_LEB_signed(&pos, 32);
-            break;
-        case I64:
-            v->value.int64 = read_LEB_signed(&pos, 64);
-            break;
-        case F32:
-            memcpy(&v->value.uint32, pos, 4);
-            break;
-        case F64:
-            memcpy(&v->value.uint64, pos, 8);
-            break;
-    }
-    this->channel->write("Local %u changed to %u\n", localId, v->value.uint32);
+bool Debugger::handleChangedLocal(Module *m,
+                                  communication::Locals locals) const {
+    //    if (*bytes != interruptUPDATELocal) return false;
+    //    uint8_t *pos = bytes + 1;
+    //    this->channel->write("Local updates: %x\n", *pos);
+    //    uint32_t localId = read_LEB_32(&pos);
+    //
+    //    this->channel->write("Local %u being changed\n", localId);
+    //    auto v = &m->stack[m->fp + localId];
+    //    switch (v->value_type) {
+    //        case I32:
+    //            v->value.uint32 = read_LEB_signed(&pos, 32);
+    //            break;
+    //        case I64:
+    //            v->value.int64 = read_LEB_signed(&pos, 64);
+    //            break;
+    //        case F32:
+    //            memcpy(&v->value.uint32, pos, 4);
+    //            break;
+    //        case F64:
+    //            memcpy(&v->value.uint64, pos, 8);
+    //            break;
+    //    }
+    //    this->channel->write("Local %u changed to %u\n", localId,
+    //    v->value.uint32);
     return true;
 }
 
@@ -571,92 +505,11 @@ void Debugger::notifyPushedEvent() const {
     this->channel->write("new pushed event");
 }
 
-bool Debugger::handlePushedEvent(char *bytes) const {
-    if (*bytes != interruptPUSHEvent) return false;
-    auto parsed = nlohmann::json::parse(bytes);
-    printf("handle pushed event: %s", bytes);
-    auto *event = new Event(*parsed.find("topic"), *parsed.find("payload"));
+void Debugger::handlePushedEvent(communication::Event payload) const {
+    auto *event = new Event(payload.topic(), payload.payload());
+    dbg_info("handle pushed event: %s", event->serialized().c_str());
     CallbackHandler::push_event(event);
     this->notifyPushedEvent();
-    return true;
-}
-
-void Debugger::woodDump(Module *m) {
-    debug("asked for doDump\n");
-    printf("asked for woodDump\n");
-    this->channel->write("DUMP!\n");
-    this->channel->write("{");
-
-    // current PC
-    this->channel->write(R"("pc":"%p",)", (void *)m->pc_ptr);
-
-    // start of bytes
-    this->channel->write(R"("start":["%p"],)", (void *)m->bytes);
-
-    this->channel->write("\"breakpoints\":[");
-    size_t i = 0;
-    for (auto bp : this->breakpoints) {
-        this->channel->write(R"("%p"%s)", bp,
-                             (++i < this->breakpoints.size()) ? "," : "");
-    }
-    this->channel->write("],");
-
-    // stack
-    this->channel->write("\"stack\":[");
-    for (int j = 0; j <= m->sp; j++) {
-        auto v = &m->stack[j];
-        printValue(v, j, j == m->sp);
-    }
-    this->channel->write("],");
-
-    // Callstack
-    this->channel->write("\"callstack\":[");
-    for (int j = 0; j <= m->csp; j++) {
-        Frame *f = &m->callstack[j];
-        uint8_t *block_key =
-            f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
-        this->channel->write(
-            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
-            f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
-            static_cast<void *>(f->ra_ptr), j, (j < m->csp) ? "," : "");
-    }
-
-    // Globals
-    this->channel->write("],\"globals\":[");
-    for (uint32_t j = 0; j < m->global_count; j++) {
-        auto v = m->globals + j;
-        printValue(v, j, j == (m->global_count - 1));
-    }
-    this->channel->write("]");  // closing globals
-
-    this->channel->write(R"(,"table":{"max":%d, "init":%d, "elements":[)",
-                         m->table.maximum, m->table.initial);
-
-    for (uint32_t j = 0; j < m->table.size; j++) {
-        this->channel->write("%" PRIu32 "%s", m->table.entries[j],
-                             (j + 1) == m->table.size ? "" : ",");
-    }
-    this->channel->write("]}");  // closing table
-
-    // memory
-    uint32_t total_elems =
-        m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
-    this->channel->write(
-        R"(,"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
-        m->memory.pages, m->memory.maximum, m->memory.initial);
-    for (uint32_t j = 0; j < total_elems; j++) {
-        this->channel->write("%" PRIu8 "%s", m->memory.bytes[j],
-                             (j + 1) == total_elems ? "" : ",");
-    }
-    this->channel->write("]}");  // closing memory
-
-    this->channel->write(R"(,"br_table":{"size":"0x%x","labels":[)",
-                         BR_TABLE_SIZE);
-    for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
-        this->channel->write("%" PRIu32 "%s", m->br_table[j],
-                             (j + 1) == BR_TABLE_SIZE ? "" : ",");
-    }
-    this->channel->write("]}}\n");
 }
 
 enum ReceiveState {
@@ -942,30 +795,24 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
 }
 
 void Debugger::proxify() {
-    WARDuino::instance()->program_state = PROXYhalt;
+    WARDuino::instance()->program_state = communication::PROXYhalt;
     this->proxy = new Proxy();  // TODO delete
 }
 
-void Debugger::handleProxyCall(Module *m, RunningState *program_state,
-                               uint8_t *interruptData) {
-    if (this->proxy == nullptr) {
-        dbg_info("No proxy available to send proxy call to.\n");
-        // TODO how to handle this error?
-        return;
-    }
-    uint8_t *data = interruptData;
-    uint32_t fidx = read_L32(&data);
-    dbg_info("Proxycall func %" PRIu32 "\n", fidx);
+void Debugger::handleProxyCall(Module *m, communication::State *program_state,
+                               const communication::RFC &payload) {
+    uint32_t fidx = payload.fidx();
+    dbg_info("proxycall: func %" PRIu32 "\n", fidx);
 
     Block *func = &m->functions[fidx];
-    StackValue *args = Proxy::readRFCArgs(func, data);
-    dbg_trace("Enqueuing callee %" PRIu32 "\n", func->fidx);
+    StackValue *args = this->readRFCArgs(payload);
+    dbg_trace("proxycall: enqueuing callee... %" PRIu32 "\n", func->fidx);
 
     auto *rfc = new RFC(fidx, func->type, args);
     this->proxy->pushRFC(m, rfc);
 
-    *program_state = PROXYrun;
-    dbg_trace("Program state: ProxyRun");
+    *program_state = communication::PROXYrun;
+    dbg_trace("proxycall: setting running state... ProxyRun\n");
 }
 
 RFC *Debugger::topProxyCall() {
@@ -984,20 +831,6 @@ void Debugger::sendProxyCallResult(Module *m) {
 
 bool Debugger::isProxied(uint32_t fidx) const {
     return this->supervisor != nullptr && this->supervisor->isProxied(fidx);
-}
-
-void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
-    uint32_t amount_funcs = read_B32(&interruptData);
-    printf("funcs_total %" PRIu32 "\n", amount_funcs);
-
-    m->warduino->debugger->supervisor->unregisterAllProxiedCalls();
-    for (uint32_t i = 0; i < amount_funcs; i++) {
-        uint32_t fidx = read_B32(&interruptData);
-        printf("registering fid=%" PRIu32 "\n", fidx);
-        m->warduino->debugger->supervisor->registerProxiedCall(fidx);
-    }
-
-    this->channel->write("done!\n");
 }
 
 void Debugger::startProxySupervisor(int socket) {
@@ -1021,15 +854,20 @@ void Debugger::disconnect_proxy() {
     pthread_join(this->supervisor->getThreadID(), (void **)&ptr);
 }
 
-void Debugger::updateCallbackmapping(Module *m, const char *data) {
-    nlohmann::basic_json<> parsed = nlohmann::json::parse(data);
+void Debugger::updateCallbackmapping(Module *m,
+                                     const communication::CallbackMapping& mapping) {
     CallbackHandler::clear_callbacks();
-    nlohmann::basic_json<> callbacks = *parsed.find("callbacks");
-    for (auto &array : callbacks.items()) {
-        auto callback = array.value().begin();
-        for (auto &functions : callback.value().items()) {
+
+    for (int i = 0; i < mapping.entries_size(); ++i) {
+        const auto &entry = mapping.entries(i);
+        for (int j = 0; j < entry.tidx_size(); ++j) {
             CallbackHandler::add_callback(
-                Callback(m, callback.key(), functions.value()));
+                Callback(m, entry.topic(), entry.tidx(j)));
         }
     }
+}
+
+StackValue *Debugger::readRFCArgs(communication::RFC payload) {
+    // TODO
+    return nullptr;
 }

@@ -25,5 +25,5 @@ class Proxy {
     void returnResult(Module *m);
 
     // Server side ( arduino side )
-    static StackValue *readRFCArgs(Block *func, uint8_t *data);
+    static StackValue *readRFCArgs(Block *func, uint8_t *data);  // TODO remove
 };

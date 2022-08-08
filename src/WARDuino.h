@@ -189,7 +189,7 @@ class WARDuino {
 
    public:
     Debugger *debugger;
-    RunningState program_state;
+    communication::State program_state;
 
     static WARDuino *instance();
 

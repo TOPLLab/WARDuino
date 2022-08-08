@@ -2,6 +2,14 @@ syntax = "proto3";
 
 package communication;
 
+enum State {
+  WARDUINOrun = 0;
+  WARDUINOpause = 1;
+  WARDUINOstep = 2;
+  PROXYrun = 3;
+  PROXYhalt = 4;
+}
+
 enum Command {
   // standard debug operations
   run = 0;
@@ -26,36 +34,35 @@ enum Command {
   // edward debug operations
   loadsnapshot = 14;
   proxify = 15;
-  proxycall = 16;
-  popevent = 17;
-  pushevent = 18;
+  proxyadd = 16;
+  proxyrem = 17;
+  proxycall = 18;
+  popevent = 19;
+  pushevent = 20;
 }
 
 message DebugMessage {
   Command command = 1;
 
-  // optional payloads
-  optional State state = 2;  // dumps
-  optional Locals locals = 3;  // dumplocals
-  optional Function function = 4;  // dumps, updatefunc
-  optional EventsQueue events = 5;  // dumps, event operations
-  optional Range range = 6;  // dump eventsqueue
-  optional CallbackMapping callbacks = 7;  // dump/update callbacks
-  optional CallbackEntry callback = 8;  // dump/update callbacks
+  // optional payload
+  oneof payload {
+    Snapshot snapshot = 2;  // dumps
+    Locals locals = 3;  // dumplocals
+    Function function = 4;  // dumps, updatefunc
+    string breakpoint = 5;  // bpadd, bprem
+    Event event = 6;  // dumps, event operations
+    Range range = 7;  // dump eventsqueue
+    CallbackMapping callbacks = 8;  // dump/update callbacks
+    CallbackEntry callback = 9;  // dump/update callbacks
+    RFC call = 10;  // proxycall
+  }
 }
 
-message State {
+message Snapshot {
   // minimal state fields
   uint32 program_counter = 1;
-  enum RunningState {
-    WARDUINOrun = 0;
-    WARDUINOpause = 1;
-    WARDUINOstep = 2;
-    PROXYrun = 3;
-    PROXYhalt = 4;
-  }
-  RunningState state = 2;
-  repeated bytes breakpoints = 3;
+  State state = 2;
+  repeated string breakpoints = 3;
   repeated Function functions = 4;
   repeated CallstackEntry callstack = 5;
 
@@ -67,9 +74,17 @@ message State {
 
 message Function {
   int32 fidx = 1;
-  int32 from = 2;
-  int32 to = 3;
-  optional bytes instructions = 4;  // implementation
+
+  // optional fields for updating:
+  Range range = 2;  // from, to
+  Locals locals = 3;
+  bytes instructions = 4;  // implementation
+}
+
+message RFC {  // Remote Function Call
+  int32 fidx = 1;
+  int32 argcount = 2;
+  repeated Value args = 3;
 }
 
 message CallstackEntry {
@@ -100,7 +115,7 @@ message Value {
 }
 
 message CallbackMapping {
-  repeated CallbackEntry mapping = 1;
+  repeated CallbackEntry entries = 1;
 }
 
 message CallbackEntry {
