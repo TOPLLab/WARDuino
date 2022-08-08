@@ -5,6 +5,10 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true  # Cancel in-flight jobs for the same branch or PR
 
+env:
+  PROTOBUF_VERSION: v21.4
+  PROTOBUF_BUILD_FOLDER: ${{ github.workspace }}/protobuf
+
 jobs:
     test:
         name: Run official testsuite
@@ -19,16 +23,29 @@ jobs:
               with:
                 python-version: "3.x"
 
-            - name: Setup protoc
+            - name: Cache protobuf
+              id: cache-protobuf
+              uses: actions/cache@v3
+              with:
+                path: ${{ env.PROTOBUF_BUILD_FOLDER }}
+                key: ${{ runner.os }}-protobuf${{ env.PROTOBUF_VERSION }}
+
+            - name: Build protobuf
+              if: steps.cache-protobuf.outputs.cache-hit != 'true'
               run: |
-                mkdir -p $HOME/tmp/protobuf
-                cd $HOME/tmp/protobuf
+                mkdir -p ${{ env.PROTOBUF_BUILD_FOLDER }}
+                cd ${{ env.PROTOBUF_BUILD_FOLDER }}
                 git clone https://github.com/protocolbuffers/protobuf.git .
+                git checkout ${{ env.PROTOBUF_VERSION }}
                 git submodule update --init --recursive
                 ./autogen.sh
                 ./configure
                 make -j$(nproc) # $(nproc) ensures it uses all cores for compilation
                 make check
+
+            - name: Setup protobuf
+              run: |
+                cd ${{ env.PROTOBUF_BUILD_FOLDER }}
                 sudo make install
                 sudo ldconfig # refresh shared library cache.
 

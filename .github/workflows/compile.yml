@@ -7,6 +7,7 @@ concurrency:
 
 env:
   PROTOBUF_VERSION: v21.4
+  PROTOBUF_BUILD_FOLDER: ${{ github.workspace }}/protobuf
 
 jobs:
     formatting-check:
@@ -44,15 +45,14 @@ jobs:
               id: cache-protobuf
               uses: actions/cache@v3
               with:
-                path: $HOME/tmp/protobuf
+                path: ${{ env.PROTOBUF_BUILD_FOLDER }}
                 key: ${{ matrix.os }}-protobuf${{ env.PROTOBUF_VERSION }}
 
-            - name: Setup protobuf
+            - name: Build protobuf
               if: steps.cache-protobuf.outputs.cache-hit != 'true'
               run: |
-                export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH" # add ccache
-                mkdir -p $HOME/tmp/protobuf
-                cd $HOME/tmp/protobuf
+                mkdir -p ${{ env.PROTOBUF_BUILD_FOLDER }}
+                cd ${{ env.PROTOBUF_BUILD_FOLDER }}
                 git clone https://github.com/protocolbuffers/protobuf.git .
                 git checkout ${{ env.PROTOBUF_VERSION }}
                 git submodule update --init --recursive
@@ -60,6 +60,10 @@ jobs:
                 ./configure
                 make -j$(nproc) # $(nproc) ensures it uses all cores for compilation
                 make check
+
+            - name: Setup protobuf
+              run: |
+                cd ${{ env.PROTOBUF_BUILD_FOLDER }}
                 sudo make install
                 sudo ldconfig # refresh shared library cache.
 
@@ -148,14 +152,14 @@ jobs:
               id: cache-protobuf
               uses: actions/cache@v3
               with:
-                path: $HOME/tmp/protobuf
-                key: esp-protobuf${{ env.PROTOBUF_VERSION }}
+                path: ${{ env.PROTOBUF_BUILD_FOLDER }}
+                key: ${{ runner.os }}-protobuf${{ env.PROTOBUF_VERSION }}
 
-            - name: Setup protobuf
+            - name: Build protobuf
               if: steps.cache-protobuf.outputs.cache-hit != 'true'
               run: |
-                mkdir -p $HOME/tmp/protobuf
-                cd $HOME/tmp/protobuf
+                mkdir -p ${{ env.PROTOBUF_BUILD_FOLDER }}
+                cd ${{ env.PROTOBUF_BUILD_FOLDER }}
                 git clone https://github.com/protocolbuffers/protobuf.git .
                 git checkout ${{ env.PROTOBUF_VERSION }}
                 git submodule update --init --recursive
@@ -163,6 +167,10 @@ jobs:
                 ./configure
                 make -j$(nproc) # $(nproc) ensures it uses all cores for compilation
                 make check
+
+            - name: Setup protobuf
+              run: |
+                cd ${{ env.PROTOBUF_BUILD_FOLDER }}
                 sudo make install
                 sudo ldconfig # refresh shared library cache.
 
