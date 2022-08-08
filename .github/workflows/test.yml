@@ -19,9 +19,18 @@ jobs:
               with:
                 python-version: "3.x"
 
-            - uses: arduino/setup-protoc@v1
-              with:
-                version: '3.x'
+            - name: Setup protoc
+              run: |
+                mkdir -p $HOME/tmp/protobuf
+                cd $HOME/tmp/protobuf
+                git clone https://github.com/protocolbuffers/protobuf.git .
+                git submodule update --init --recursive
+                ./autogen.sh
+                ./configure
+                make -j$(nproc) # $(nproc) ensures it uses all cores for compilation
+                make check
+                sudo make install
+                sudo ldconfig # refresh shared library cache.
 
             - name: Build warduino cli
               run: cmake . -D BUILD_EMULATOR=ON ; cmake --build .
