@@ -5,138 +5,138 @@ option optimize_for = LITE_RUNTIME;
 package communication;
 
 enum State {
-  WARDUINOrun = 0;
-  WARDUINOpause = 1;
-  WARDUINOstep = 2;
-  PROXYrun = 3;
-  PROXYhalt = 4;
+    WARDUINOrun = 0;
+    WARDUINOpause = 1;
+    WARDUINOstep = 2;
+    PROXYrun = 3;
+    PROXYhalt = 4;
 }
 
 enum Command {
-  // standard debug operations
-  run = 0;
-  halt = 1;
-  pause = 2;
-  step = 3;
-  bpadd = 4;
-  bprem = 5;
+    // standard debug operations
+    run = 0;
+    halt = 1;
+    pause = 2;
+    step = 3;
+    bpadd = 4;
+    bprem = 5;
 
-  // inspection operations
-  dump = 6;
-  dumplocals = 7;
-  snapshot = 8;
-  dumpevents = 9;
-  dumpcallbacks = 10;
+    // inspection operations
+    dump = 6;
+    dumplocals = 7;
+    snapshot = 8;
+    dumpevents = 9;
+    dumpcallbacks = 10;
 
-  // update operations
-  updatefunc = 11;
-  updatelocal = 12;
-  updatecallbacks = 13;
+    // update operations
+    updatefunc = 11;
+    updatelocal = 12;
+    updatecallbacks = 13;
 
-  // edward debug operations
-  loadsnapshot = 14;
-  proxify = 15;
-  proxyadd = 16;
-  proxyrem = 17;
-  proxycall = 18;
-  popevent = 19;
-  pushevent = 20;
+    // edward debug operations
+    loadsnapshot = 14;
+    proxify = 15;
+    proxyadd = 16;
+    proxyrem = 17;
+    proxycall = 18;
+    popevent = 19;
+    pushevent = 20;
 }
 
 message DebugMessage {
-  Command command = 1;
+    Command command = 1;
 
-  // optional payload
-  oneof payload {
-    Snapshot snapshot = 2;  // dumps
-    Locals locals = 3;  // dumplocals
-    Function function = 4;  // dumps, updatefunc
-    string breakpoint = 5;  // bpadd, bprem
-    Event event = 6;  // dumps, event operations
-    Range range = 7;  // dump eventsqueue
-    CallbackMapping callbacks = 8;  // dump/update callbacks
-    CallbackEntry callback = 9;  // dump/update callbacks
-    RFC call = 10;  // proxycall
-  }
+    // optional payload
+    oneof payload {
+        Snapshot snapshot = 2;          // dumps
+        Locals locals = 3;              // dumplocals
+        Function function = 4;          // dumps, updatefunc
+        string breakpoint = 5;          // bpadd, bprem
+        Event event = 6;                // dumps, event operations
+        Range range = 7;                // dump eventsqueue
+        CallbackMapping callbacks = 8;  // dump/update callbacks
+        CallbackEntry callback = 9;     // dump/update callbacks
+        RFC call = 10;                  // proxycall
+    }
 }
 
 message Snapshot {
-  // minimal state fields
-  uint32 program_counter = 1;
-  State state = 2;
-  repeated string breakpoints = 3;
-  repeated Function functions = 4;
-  repeated CallstackEntry callstack = 5;
+    // minimal state fields
+    uint32 program_counter = 1;
+    State state = 2;
+    repeated string breakpoints = 3;
+    repeated Function functions = 4;
+    repeated CallstackEntry callstack = 5;
 
-  // optional extending state fields
-  optional Locals locals = 6;
-  optional EventsQueue queue = 7;
-  optional CallbackMapping callbacks = 8;
+    // optional extending state fields
+    optional Locals locals = 6;
+    optional EventsQueue queue = 7;
+    optional CallbackMapping callbacks = 8;
 }
 
 message Function {
-  int32 fidx = 1;
+    int32 fidx = 1;
 
-  // optional fields for updating:
-  Range range = 2;  // from, to
-  Locals locals = 3;
-  bytes instructions = 4;  // implementation
+    // optional fields for updating:
+    Range range = 2;  // from, to
+    Locals locals = 3;
+    bytes instructions = 4;  // implementation
 }
 
 message RFC {  // Remote Function Call
-  int32 fidx = 1;
-  int32 argcount = 2;
-  repeated Value args = 3;
+    int32 fidx = 1;
+    int32 argcount = 2;
+    repeated Value args = 3;
 }
 
 message CallstackEntry {
-  int32 type = 1;
-  int32 fidx = 2;
-  int32 sp = 3;
-  int32 fp = 4;
-  int32 start = 5;
-  int32 ra = 6;
+    int32 type = 1;
+    int32 fidx = 2;
+    int32 sp = 3;
+    int32 fp = 4;
+    int32 start = 5;
+    int32 ra = 6;
 }
 
 message Locals {
-  int32 count = 1;
-  repeated Value values = 2;
+    int32 count = 1;
+    repeated Value values = 2;
 }
 
 message Value {
-  enum Type {
-    i32 = 0;
-    i64 = 1;
-    f32 = 2;
-    f64 = 3;
-    any = 4;
-  }
-  Type type = 1;
-  string value = 2;  // can be any wasm value
-  int32 index = 3;
+    enum Type {
+        i32 = 0;
+        i64 = 1;
+        f32 = 2;
+        f64 = 3;
+        any = 4;
+    }
+    Type type = 1;
+    string value = 2;  // can be any wasm value
+    int32 index = 3;
 }
 
 message CallbackMapping {
-  repeated CallbackEntry entries = 1;
+    repeated CallbackEntry entries = 1;
 }
 
 message CallbackEntry {
-  string topic = 1;
-  repeated int32 tidx = 2;
+    string topic = 1;
+    repeated int32 tidx = 2;
 }
 
 message EventsQueue {
-  int32 count = 1;  // total count of events in queue
-  repeated Event events = 2;  // slice of events
-  optional Range range = 3;  // range of returned slice
+    int32 count = 1;            // total count of events in queue
+    repeated Event events = 2;  // slice of events
+    optional Range range = 3;   // range of returned slice
 }
 
 message Event {
-  string topic = 1;
-  string payload = 2;
+    string topic = 1;
+    string payload = 2;
 }
 
 message Range {
-  int32 start = 1;  // start index
-  int32 end = 2;  // end index
+    int32 start = 1;  // start index
+    int32 end = 2;    // end index
 }

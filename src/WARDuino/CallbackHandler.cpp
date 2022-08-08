@@ -109,8 +109,9 @@ bool CallbackHandler::resolve_event(bool force) {
         // no further execution if drone
     }
 
-    if (!force && (CallbackHandler::manual_event_resolution ||
-                   WARDuino::instance()->program_state == communication::WARDUINOpause)) {
+    if (!force &&
+        (CallbackHandler::manual_event_resolution ||
+         WARDuino::instance()->program_state == communication::WARDUINOpause)) {
         return true;
     }
 

@@ -854,8 +854,8 @@ void Debugger::disconnect_proxy() {
     pthread_join(this->supervisor->getThreadID(), (void **)&ptr);
 }
 
-void Debugger::updateCallbackmapping(Module *m,
-                                     const communication::CallbackMapping& mapping) {
+void Debugger::updateCallbackmapping(
+    Module *m, const communication::CallbackMapping &mapping) {
     CallbackHandler::clear_callbacks();
 
     for (int i = 0; i < mapping.entries_size(); ++i) {
