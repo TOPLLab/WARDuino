@@ -76,7 +76,7 @@ message Notification {  // messages TO frontend
 
         // errors:
         malformed = 12;  // received message was malformed
-        unknown = 13;  // received unknown command
+        unknown = 13;    // received unknown command
     }
 
     Type type = 1;

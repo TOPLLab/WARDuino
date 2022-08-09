@@ -32,9 +32,7 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
         delete message;
 
         // Send error response
-        debug::Notification response = debug::Notification();
-        response.set_type(debug::Notification_Type_malformed);
-        this->channel->write(response.SerializeAsString().c_str());
+        this->sendSimpleNotification(debug::Notification_Type_malformed);
     }
     delete coded_input;
 }
@@ -155,16 +153,12 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
             this->handleInterruptRUN(m, program_state);
             break;
         case debug::halt:
-            this->channel->write("STOP!\n");
-            exit(0);
+            this->handleInterruptHALT();
         case debug::pause:
-            *program_state = debug::WARDUINOpause;
-            this->channel->write("PAUSE!\n");
+            this->handleInterruptPAUSE(m, program_state);
             break;
         case debug::step:
-            this->channel->write("STEP!\n");
-            *program_state = debug::WARDUINOstep;
-            this->skipBreakpoint = m->pc_ptr;
+            this->handleInterruptSTEP(m, program_state);
             break;
         case debug::bpadd:  // Breakpoint
         case debug::bprem:  // Breakpoint remove
@@ -228,7 +222,7 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
             break;
         default:
             // handle later
-            this->handleUnknownInterrupt();
+            this->sendSimpleNotification(debug::Notification_Type_unknown);
             break;
     }
     delete message;
@@ -236,9 +230,9 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
     return true;
 }
 
-void Debugger::handleUnknownInterrupt() {
+void Debugger::sendSimpleNotification(debug::Notification_Type type) {
     debug::Notification response = debug::Notification();
-    response.set_type(debug::Notification_Type_unknown);
+    response.set_type(type);
     this->channel->write(response.SerializeAsString().c_str());
 }
 
@@ -318,12 +312,28 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
 }
 
 void Debugger::handleInterruptRUN(Module *m, debug::State *program_state) {
-    this->channel->write("GO!\n");
     if (*program_state == debug::WARDUINOpause &&
         this->isBreakpoint(m->pc_ptr)) {
         this->skipBreakpoint = m->pc_ptr;
     }
     *program_state = debug::WARDUINOrun;
+    this->sendSimpleNotification(debug::Notification_Type_continued);
+}
+
+void Debugger::handleInterruptHALT() {
+    this->sendSimpleNotification(debug::Notification_Type_halted);
+    exit(0);
+}
+
+void Debugger::handleInterruptPAUSE(Module *m, debug::State *program_state) {
+    *program_state = debug::WARDUINOpause;
+    this->sendSimpleNotification(debug::Notification_Type_paused);
+}
+
+void Debugger::handleInterruptSTEP(Module *m, debug::State *program_state) {
+    *program_state = debug::WARDUINOstep;
+    this->skipBreakpoint = m->pc_ptr;
+    this->sendSimpleNotification(debug::Notification_Type_stepped);
 }
 
 void Debugger::handleInterruptBP(std::string breakpoint) {
