@@ -37,19 +37,16 @@ jobs:
               with:
                   submodules: 'recursive'
 
-            - name: Setup devtools (macos)
-              if: matrix.os == 'macos-latest'
-              run: brew install autoconf automake libtool
-
             - name: Cache protobuf
               id: cache-protobuf
               uses: actions/cache@v3
+              if: matrix.os != 'macos-latest'
               with:
                 path: ${{ env.PROTOBUF_BUILD_FOLDER }}
                 key: ${{ matrix.os }}-protobuf${{ env.PROTOBUF_VERSION }}
 
             - name: Build protobuf
-              if: steps.cache-protobuf.outputs.cache-hit != 'true'
+              if: steps.cache-protobuf.outputs.cache-hit != 'true' && matrix.os != 'macos-latest'
               run: |
                 mkdir -p ${{ env.PROTOBUF_BUILD_FOLDER }}
                 cd ${{ env.PROTOBUF_BUILD_FOLDER }}
@@ -62,10 +59,15 @@ jobs:
                 make check
 
             - name: Setup protobuf
+              if: matrix.os != 'macos-latest'
               run: |
-                cd ${{ env.PROTOBUF_BUILD_FOLDER }}
                 sudo make install
                 sudo ldconfig # refresh shared library cache.
+              working-directory: ${{ env.PROTOBUF_BUILD_FOLDER }}
+
+            - name: Setup protobuf (brew)
+              if: matrix.os == 'macos-latest'
+              run: brew install protobuf
 
             - name: Create build folder
               run: mkdir build-emu
@@ -170,9 +172,9 @@ jobs:
 
             - name: Setup protobuf
               run: |
-                cd ${{ env.PROTOBUF_BUILD_FOLDER }}
                 sudo make install
                 sudo ldconfig # refresh shared library cache.
+              working-directory: ${{ env.PROTOBUF_BUILD_FOLDER }}
 
             - name: Build WARDuino for ESP-IDF
               uses: espressif/esp-idf-ci-action@v1

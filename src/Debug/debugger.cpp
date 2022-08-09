@@ -133,8 +133,7 @@ void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
  * - `0x20` : Replace the content body of a function by a new function given
  *            as payload (immediately following `0x10`), see #readChange
  */
-bool Debugger::checkDebugMessages(Module *m,
-                                  debug::State *program_state) {
+bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
     debug::DebugMessage *message = this->getDebugMessage();
     if (message == nullptr) {
         fflush(stdout);
@@ -231,8 +230,7 @@ bool Debugger::checkDebugMessages(Module *m,
 
 void Debugger::handleInterruptDumpevents(
     const debug::DebugMessage *message) const {
-    debug::EventsQueue *queue =
-        captureEventsQueue(message->payload().range());
+    debug::EventsQueue *queue = captureEventsQueue(message->payload().range());
     channel->write(queue->SerializeAsString().c_str());
     delete queue;
 }
@@ -305,8 +303,7 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
     return opcode;
 }
 
-void Debugger::handleInterruptRUN(Module *m,
-                                  debug::State *program_state) {
+void Debugger::handleInterruptRUN(Module *m, debug::State *program_state) {
     this->channel->write("GO!\n");
     if (*program_state == debug::WARDUINOpause &&
         this->isBreakpoint(m->pc_ptr)) {
@@ -377,8 +374,7 @@ void Debugger::captureBreakpoints(debug::Snapshot *snapshot) const {
     }
 }
 
-void Debugger::captureFunctions(Module *m,
-                                debug::Snapshot *snapshot) const {
+void Debugger::captureFunctions(Module *m, debug::Snapshot *snapshot) const {
     uint8_t *start = m->bytes;
     for (size_t i = m->import_count; i < m->function_count; i++) {
         debug::Function *function = snapshot->add_functions();
@@ -389,8 +385,7 @@ void Debugger::captureFunctions(Module *m,
     }
 }
 
-void Debugger::captureCallstack(Module *m,
-                                debug::Snapshot *snapshot) const {
+void Debugger::captureCallstack(Module *m, debug::Snapshot *snapshot) const {
     uint8_t *start = m->bytes;
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
@@ -507,8 +502,7 @@ void Debugger::dumpCallbackmapping() const {
  * [0x10, index, ... new function body 0x0b]
  * Where index is the index without imports
  */
-bool Debugger::handleChangedFunction(Module *m,
-                                     debug::Function payload) {
+bool Debugger::handleChangedFunction(Module *m, debug::Function payload) {
     Block *function = &m->functions[m->import_count + payload.fidx()];
     // TODO
 }
@@ -519,8 +513,7 @@ bool Debugger::handleChangedFunction(Module *m,
  * @param bytes
  * @return
  */
-bool Debugger::handleChangedLocal(Module *m,
-                                  debug::Locals locals) const {
+bool Debugger::handleChangedLocal(Module *m, debug::Locals locals) const {
     //    if (*bytes != interruptUPDATELocal) return false;
     //    uint8_t *pos = bytes + 1;
     //    this->channel->write("Local updates: %x\n", *pos);
@@ -900,8 +893,8 @@ void Debugger::disconnect_proxy() {
     pthread_join(this->supervisor->getThreadID(), (void **)&ptr);
 }
 
-void Debugger::updateCallbackmapping(
-    Module *m, const debug::CallbackMapping &mapping) {
+void Debugger::updateCallbackmapping(Module *m,
+                                     const debug::CallbackMapping &mapping) {
     CallbackHandler::clear_callbacks();
 
     for (int i = 0; i < mapping.entries_size(); ++i) {
