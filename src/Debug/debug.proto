@@ -58,7 +58,7 @@ message DebugMessage {  // messages FROM frontend
 
 message Notification {  // messages TO frontend
     enum Type {
-        // notifications:
+        // simple notifications:
         continued = 0;
         halted = 1;
         paused = 2;
@@ -67,7 +67,7 @@ message Notification {  // messages TO frontend
         newevent = 5;  // a new event got pushed from proxy
         changeaffected = 11;
 
-        // responses:
+        // payload responses:
         dump = 6;
         dumplocals = 7;
         snapshot = 8;
@@ -91,10 +91,11 @@ message Payload {
         Locals locals = 2;              // dumplocals
         Function function = 3;          // dumps, updatefunc, proxyadd/rem
         string breakpoint = 4;          // bpadd, bprem
-        Event event = 5;                // dumps, event operations
-        Range range = 6;                // dump eventsqueue
-        CallbackMapping callbacks = 7;  // dump/update callbacks
-        RFC call = 8;                   // proxycall
+        EventsQueue queue = 5;          // dumps
+        Event event = 6;                // event operations
+        Range range = 7;                // dump eventsqueue
+        CallbackMapping callbacks = 8;  // dump/update callbacks
+        RFC call = 9;                   // proxycall
     }
 }
 

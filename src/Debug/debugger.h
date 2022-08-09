@@ -44,7 +44,7 @@ class Debugger {
 
     //// Handle Interrupt Types
 
-    void sendSimpleNotification(debug::Notification_Type type);
+    void sendSimpleNotification(debug::Notification_Type type) const;
 
     void handleInterruptRUN(Module *m, debug::State *program_state);
 
@@ -78,7 +78,7 @@ class Debugger {
 
     //// Handle live code update
 
-    static bool handleChangedFunction(Module *m, debug::Function payload);
+    bool handleChangedFunction(Module *m, debug::Function payload);
 
     bool handleChangedLocal(Module *m, debug::Locals locals) const;
 

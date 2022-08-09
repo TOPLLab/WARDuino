@@ -176,14 +176,12 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
             this->dump(m, true);
             break;
         case debug::updatefunc:
-            this->channel->write("CHANGE function!\n");
             Debugger::handleChangedFunction(m, message->payload().function());
             //  do not free(interruptData);
             // we need it to run that code
             // TODO: free double replacements
             break;
         case debug::updatelocal:
-            this->channel->write("CHANGE local!\n");
             this->handleChangedLocal(m, message->payload().locals());
             break;
         case debug::loadsnapshot:
@@ -230,7 +228,7 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
     return true;
 }
 
-void Debugger::sendSimpleNotification(debug::Notification_Type type) {
+void Debugger::sendSimpleNotification(debug::Notification_Type type) const {
     debug::Notification response = debug::Notification();
     response.set_type(type);
     this->channel->write(response.SerializeAsString().c_str());
@@ -238,16 +236,28 @@ void Debugger::sendSimpleNotification(debug::Notification_Type type) {
 
 void Debugger::handleInterruptDumpevents(
     const debug::DebugMessage *message) const {
+    auto response = debug::Notification();
+    auto *payload = new debug::Payload();
     debug::EventsQueue *queue = captureEventsQueue(message->payload().range());
-    channel->write(queue->SerializeAsString().c_str());
+    response.set_type(debug::Notification_Type_dumpevents);
+    payload->set_allocated_queue(queue);
+    response.set_allocated_payload(payload);
+    channel->write(response.SerializeAsString().c_str());
     delete queue;
+    delete payload;
 }
 
 void Debugger::handleInterruptDumplocals(Module *m) const {
     m->warduino->program_state = debug::WARDUINOpause;
+    auto response = debug::Notification();
+    auto *payload = new debug::Payload();
     debug::Locals *locals = captureLocals(m);
-    channel->write(locals->SerializeAsString().c_str());
+    response.set_type(debug::Notification_Type_dumplocals);
+    payload->set_allocated_locals(locals);
+    response.set_allocated_payload(payload);
+    channel->write(response.SerializeAsString().c_str());
     delete locals;
+    delete payload;
 }
 
 void Debugger::loadState(Module *m, const debug::Snapshot &snapshot) {
@@ -357,35 +367,40 @@ void Debugger::handleInterruptBP(std::string breakpoint) {
 
 void Debugger::dump(Module *m, bool full) const {
     uint8_t *start = m->bytes;
-    debug::Snapshot snapshot = debug::Snapshot();
+    debug::Notification response = debug::Notification();
+    debug::Payload *payload = response.mutable_payload();
+    debug::Snapshot *snapshot = payload->mutable_snapshot();
+    response.set_type(debug::Notification_Type_dump);
 
     // current PC
-    snapshot.set_program_counter(m->pc_ptr - start);
+    snapshot->set_program_counter(m->pc_ptr - start);
 
     // current running snapshot
-    snapshot.set_state((debug::State)m->warduino->program_state);
+    snapshot->set_state((debug::State)m->warduino->program_state);
 
-    this->captureBreakpoints(&snapshot);
+    this->captureBreakpoints(snapshot);
 
-    this->captureFunctions(m, &snapshot);
+    this->captureFunctions(m, snapshot);
 
-    this->captureCallstack(m, &snapshot);
+    this->captureCallstack(m, snapshot);
 
-    std::string message = snapshot.SerializeAsString();
+    std::string message = response.SerializeAsString();
     if (full) {
         debug::Locals *locals = this->captureLocals(m);
-        snapshot.set_allocated_locals(locals);
+        snapshot->set_allocated_locals(locals);
         debug::Range range = debug::Range();
         range.set_start(0);
         range.set_end(CallbackHandler::event_count());
         debug::EventsQueue *queue = this->captureEventsQueue(range);
-        snapshot.set_allocated_queue(queue);
+        snapshot->set_allocated_queue(queue);
 
-        message = snapshot.SerializeAsString();
+        message = response.SerializeAsString();
 
         delete locals;
         delete queue;
     }
+    delete snapshot;
+    delete payload;
 
     // send snapshot
     this->channel->write(message.c_str());
@@ -529,6 +544,8 @@ void Debugger::dumpCallbackmapping() const {
 bool Debugger::handleChangedFunction(Module *m, debug::Function payload) {
     Block *function = &m->functions[m->import_count + payload.fidx()];
     // TODO
+    this->sendSimpleNotification(debug::Notification_Type_changeaffected);
+    return true;
 }
 
 /**
@@ -561,6 +578,7 @@ bool Debugger::handleChangedLocal(Module *m, debug::Locals locals) const {
     //    }
     //    this->channel->write("Local %u changed to %u\n", localId,
     //    v->value.uint32);
+    this->sendSimpleNotification(debug::Notification_Type_changeaffected);
     return true;
 }
 
