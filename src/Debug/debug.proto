@@ -47,17 +47,39 @@ enum Command {
     pushevent = 20;
 }
 
-//// 2 types of messages: DebugMessage or Acknowledgement:
+//// 2 types of messages: DebugMessage or Notification:
 
-message DebugMessage {
+message DebugMessage {  // messages FROM frontend
     Command command = 1;
 
     // optional payload
     optional Payload payload = 2;
 }
 
-message Acknowledgement {
-    // TODO
+message Notification {  // messages TO frontend
+    enum Type {
+        // notifications:
+        continued = 0;
+        halted = 1;
+        paused = 2;
+        stepped = 3;
+        hitbreakpoint = 4;
+        newevent = 5;  // a new event got pushed from proxy
+        changeaffected = 11;
+
+        // responses:
+        dump = 6;
+        dumplocals = 7;
+        snapshot = 8;
+        dumpevents = 9;
+        dumpcallbacks = 10;
+
+        // errors:
+        malformed = 12;  // received message was malformed
+    }
+
+    Type type = 1;
+    optional Payload payload = 2;
 }
 
 //// content of messages:
