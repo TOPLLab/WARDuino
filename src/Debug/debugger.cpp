@@ -28,8 +28,10 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
         this->debugMessages.push_back(message);
     } else {
         dbg_info("Debug message is not well formed. Discarded...\n");
+        delete message;
         // TODO handle error
     }
+    delete coded_input;
 }
 
 bool Debugger::wellformed(const debug::DebugMessage *message) const {
@@ -224,6 +226,7 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
             this->channel->write("COULD not parse interrupt data!\n");
             break;
     }
+    delete message;
     fflush(stdout);
     return true;
 }
