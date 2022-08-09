@@ -23,13 +23,18 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     auto coded_input = new google::protobuf::io::CodedInputStream(buff, len);
     auto *message = new debug::DebugMessage();
     bool success = message->ParseFromCodedStream(coded_input);
+
     if (success && coded_input->ConsumedEntireMessage() &&
         this->wellformed(message)) {
         this->debugMessages.push_back(message);
     } else {
         dbg_info("Debug message is not well formed. Discarded...\n");
         delete message;
-        // TODO handle error
+
+        // Send error response
+        debug::Notification response = debug::Notification();
+        response.set_type(debug::Notification_Type_malformed);
+        this->channel->write(response.SerializeAsString().c_str());
     }
     delete coded_input;
 }
@@ -223,12 +228,18 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
             break;
         default:
             // handle later
-            this->channel->write("COULD not parse interrupt data!\n");
+            this->handleUnknownInterrupt();
             break;
     }
     delete message;
     fflush(stdout);
     return true;
+}
+
+void Debugger::handleUnknownInterrupt() {
+    debug::Notification response = debug::Notification();
+    response.set_type(debug::Notification_Type_unknown);
+    this->channel->write(response.SerializeAsString().c_str());
 }
 
 void Debugger::handleInterruptDumpevents(

@@ -44,6 +44,8 @@ class Debugger {
 
     //// Handle Interrupt Types
 
+    void handleUnknownInterrupt();
+
     void handleInterruptRUN(Module *m, debug::State *program_state);
 
     void handleInterruptBP(std::string breakpoint);
