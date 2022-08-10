@@ -150,36 +150,10 @@ jobs:
               with:
                   submodules: 'recursive'
 
-            - name: Cache protobuf
-              id: cache-protobuf
-              uses: actions/cache@v3
-              with:
-                path: ${{ env.PROTOBUF_BUILD_FOLDER }}
-                key: ${{ runner.os }}-protobuf${{ env.PROTOBUF_VERSION }}
-
-            - name: Build protobuf
-              if: steps.cache-protobuf.outputs.cache-hit != 'true'
-              run: |
-                mkdir -p ${{ env.PROTOBUF_BUILD_FOLDER }}
-                cd ${{ env.PROTOBUF_BUILD_FOLDER }}
-                git clone https://github.com/protocolbuffers/protobuf.git .
-                git checkout ${{ env.PROTOBUF_VERSION }}
-                git submodule update --init --recursive
-                ./autogen.sh
-                ./configure
-                make -j$(nproc) # $(nproc) ensures it uses all cores for compilation
-                make check
-
-            - name: Setup protobuf
-              run: |
-                sudo make install
-                sudo ldconfig # refresh shared library cache.
-              working-directory: ${{ env.PROTOBUF_BUILD_FOLDER }}
-
             - name: Build WARDuino for ESP-IDF
               uses: espressif/esp-idf-ci-action@v1
               with:
-                  esp_idf_version: latest
+                  esp_idf_version: v4.4.1
                   target: esp32
                   command: idf.py build -DBUILD_ESP=ON
                   path: .
