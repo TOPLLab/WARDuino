@@ -49,7 +49,7 @@ Event *parseJSON(char *buff) {
     //    printf("parseJSON: %s\n", parsed.dump().c_str());
     //    std::string payload = *parsed.find("payload");
     //    return new Event(*parsed.find("topic"), payload);
-    return new Event("", ""); // TODO
+    return new Event("", "");  // TODO
 }
 
 ProxySupervisor::ProxySupervisor(int socket, pthread_mutex_t *mutex) {
@@ -85,13 +85,13 @@ void ProxySupervisor::startPushDebuggerSocket() {
             // first len argument
             buffer[buf_idx] = '\0';
             // TODO v
-//            try {
-//                Event *event = parseJSON(buffer);
-//                CallbackHandler::push_event(event);
-//                WARDuino::instance()->debugger->notifyPushedEvent();
-//                buf_idx = 0;
-//            } catch (const nlohmann::detail::parse_error &e) {
-//            }
+            //            try {
+            //                Event *event = parseJSON(buffer);
+            //                CallbackHandler::push_event(event);
+            //                WARDuino::instance()->debugger->notifyPushedEvent();
+            //                buf_idx = 0;
+            //            } catch (const nlohmann::detail::parse_error &e) {
+            //            }
         }
     }
 }
