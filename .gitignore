@@ -33,4 +33,5 @@ _deps
 .LSOverride
 
 *.old
+sdkconfig
 
