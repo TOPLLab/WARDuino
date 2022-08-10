@@ -14,7 +14,22 @@ set(SOURCE_FILES
         ../../src/WARDuino/WARDuino.cpp
         )
 
-idf_component_register(SRCS "main.cpp" ${SOURCE_FILES} INCLUDE_DIRS ../../lib/json/single_include/ REQUIRES driver)
+    #add_custom_command(
+    #        OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/debug.pb.h
+    #        COMMAND protoc -I=../../src/Debug --cpp_out=${CMAKE_CURRENT_SOURCE_DIR} ../../src/Debug/debug.proto
+    #        DEPENDS ../../src/Debug/debug.proto
+    #        VERBATIM)
+
+idf_component_register(
+        SRCS
+        "main.cpp"
+        ${SOURCE_FILES}
+        "proto/debug.pb.cc"
+        INCLUDE_DIRS
+        "."
+        "proto"
+        PRIV_REQUIRES protobuf nvs_flash driver
+) # DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/debug.pb.h)
 
 add_definitions(-DINFO=0)
 add_definitions(-DDEBUG=0)

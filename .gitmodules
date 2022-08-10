@@ -4,3 +4,6 @@
 [submodule "lib/json"]
 	path = lib/json
 	url = https://github.com/nlohmann/json
+[submodule "components/protobuf/lib"]
+	path = components/protobuf/lib
+	url = git@github.com:protocolbuffers/protobuf.git

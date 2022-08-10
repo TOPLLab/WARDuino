@@ -1,6 +1,12 @@
 #pragma once
 
+#ifdef ARDUINO
+#include "../../platforms/Arduino/debug.pb.h"
+#elif ESP
+#include "debug.pb.h"
+#else
 #include <debug.pb.h>
+#endif
 
 #include <cstddef>
 #include <cstdint>

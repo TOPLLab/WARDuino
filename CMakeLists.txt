@@ -14,6 +14,8 @@ if (BUILD_ESP)
         message(FATAL_ERROR "Can't find $IDF_PATH/tools/cmake/project.cmake. Make sure ESP-IDF is installed and $IDF_PATH is set.")
     endif ()
 
+    add_definitions(-D__QNX__)
+
     message(VERBOSE "Using ESP-IDF toolchain")
 
     set(EXTRA_COMPONENT_DIRS "platforms/ESP-IDF")
