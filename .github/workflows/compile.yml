@@ -80,6 +80,7 @@ jobs:
         name: (Arduino) Compile on ${{matrix.board.platform-name}}
         needs: [formatting-check]
         runs-on: ubuntu-latest
+        if: false
         env:
             SKETCHES_REPORTS_PATH: sketches-reports
             SKETCHES_REPORTS_ARTIFACT_NAME: sketches-reports
