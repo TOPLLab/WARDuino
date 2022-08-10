@@ -7,11 +7,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#ifndef ARDUINO
-#include <nlohmann/json.hpp>
-#else
-#include "../../lib/json/single_include/nlohmann/json.hpp"
-#endif
 
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
@@ -50,10 +45,11 @@ void *readSocket(void *input) {
 
 Event *parseJSON(char *buff) {
     // TODO duplicate code in Debugger::handlePushedEvent
-    nlohmann::basic_json<> parsed = nlohmann::json::parse(buff);
-    printf("parseJSON: %s\n", parsed.dump().c_str());
-    std::string payload = *parsed.find("payload");
-    return new Event(*parsed.find("topic"), payload);
+    //    nlohmann::basic_json<> parsed = nlohmann::json::parse(buff);
+    //    printf("parseJSON: %s\n", parsed.dump().c_str());
+    //    std::string payload = *parsed.find("payload");
+    //    return new Event(*parsed.find("topic"), payload);
+    return new Event("", ""); // TODO
 }
 
 ProxySupervisor::ProxySupervisor(int socket, pthread_mutex_t *mutex) {
@@ -88,13 +84,14 @@ void ProxySupervisor::startPushDebuggerSocket() {
             // manual null-termination is needed because parseJSON does not use
             // first len argument
             buffer[buf_idx] = '\0';
-            try {
-                Event *event = parseJSON(buffer);
-                CallbackHandler::push_event(event);
-                WARDuino::instance()->debugger->notifyPushedEvent();
-                buf_idx = 0;
-            } catch (const nlohmann::detail::parse_error &e) {
-            }
+            // TODO v
+//            try {
+//                Event *event = parseJSON(buffer);
+//                CallbackHandler::push_event(event);
+//                WARDuino::instance()->debugger->notifyPushedEvent();
+//                buf_idx = 0;
+//            } catch (const nlohmann::detail::parse_error &e) {
+//            }
         }
     }
 }
