@@ -23,7 +23,6 @@ Module* m;
 void startDebuggerStd(void* pvParameter) {
     uint8_t buffer[1024] = {0};
     wac->debugger->setChannel(fileno(stdout));
-    write(fileno(stdout), "Got a message ... \n", 19);
     while (true) {
         // taskYIELD();
         // vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -36,7 +35,6 @@ void startDebuggerStd(void* pvParameter) {
             }
             if (buff_len) {
                 buffer[buff_len] = '\0';
-                write(fileno(stdout), "Reading message ..... \n", 19);
                 fflush(stdout);
                 wac->handleInterrupt(buff_len, buffer);
                 write(fileno(stdout), buffer, buff_len);

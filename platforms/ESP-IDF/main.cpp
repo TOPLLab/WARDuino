@@ -36,7 +36,6 @@ void startDebuggerStd(void* pvParameter) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
         while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
-            write(fileno(stdout), "got a message ... \n", 19);
             wac->handleInterrupt(valread - 1, buffer);
             write(fileno(stdout), buffer, valread);
             fflush(stdout);
