@@ -111,8 +111,6 @@ void startDebuggerStd(WARDuino *wac, Module *m) {
         debug("waiting for debug command\n");
         while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
             wac->handleInterrupt(valread - 1, buffer);
-            write(fileno(stdout), buffer, valread);
-            fflush(stdout);
         }
     }
 }
@@ -131,7 +129,6 @@ void startDebuggerSocket(WARDuino *wac, Module *m, int port = 8192) {
         wac->debugger->setChannel(socket);
         while ((valread = read(socket, buffer, 1024)) != -1) {
             wac->handleInterrupt(valread - 1, buffer);
-            write(socket, buffer, valread);
         }
     }
 }

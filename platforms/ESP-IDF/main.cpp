@@ -37,8 +37,6 @@ void startDebuggerStd(void* pvParameter) {
 
         while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
             wac->handleInterrupt(valread - 1, buffer);
-            write(fileno(stdout), buffer, valread);
-            fflush(stdout);
         }
     }
 }

@@ -37,8 +37,6 @@ void startDebuggerStd(void* pvParameter) {
                 buffer[buff_len] = '\0';
                 fflush(stdout);
                 wac->handleInterrupt(buff_len, buffer);
-                write(fileno(stdout), buffer, buff_len);
-                fflush(stdout);
             }
         }
     }
