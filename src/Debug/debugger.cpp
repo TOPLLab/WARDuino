@@ -114,7 +114,7 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
 }
 
 void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
-    this->channel->write("AT %p!\n", (void *)pc_ptr);
+    this->channel->write("AT %p!\n", (void *)pc_ptr);  // TODO
 }
 
 /**
@@ -399,8 +399,8 @@ void Debugger::dump(Module *m, bool full) const {
         delete locals;
         delete queue;
     }
-    delete snapshot;
-    delete payload;
+    payload->release_snapshot();
+    response.release_payload();
 
     // send snapshot
     this->channel->write(message.c_str());
