@@ -381,10 +381,11 @@ void Debugger::dump(Module *m, bool full) const {
 
     Debugger::captureCallstack(m, snapshot);
 
+    debug::Locals *locals = Debugger::captureLocals(m);
+    snapshot->set_allocated_locals(locals);
+
     std::string message = response.SerializeAsString();
     if (full) {
-        debug::Locals *locals = Debugger::captureLocals(m);
-        snapshot->set_allocated_locals(locals);
         debug::Range range = debug::Range();
         range.set_start(0);
         range.set_end(CallbackHandler::event_count());
@@ -393,9 +394,9 @@ void Debugger::dump(Module *m, bool full) const {
 
         message = response.SerializeAsString();
 
-        delete locals;
         delete queue;
     }
+    delete locals;
     payload->release_snapshot();
     response.release_payload();
 
@@ -528,7 +529,7 @@ debug::EventsQueue *Debugger::captureEventsQueue(
 }
 
 void Debugger::dumpCallbackmapping() const {
-    this->channel->write("%s\n", CallbackHandler::dump_callbacks().c_str());
+    this->channel->write("%s\n", CallbackHandler::dump_callbacks().c_str()); // TODO complete snapshot
 }
 
 /**
