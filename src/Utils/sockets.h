@@ -23,5 +23,8 @@ class Channel {
     explicit Channel(int socket);
 
     int write(char const *fmt, ...) const;
-    ssize_t read(void *out, size_t size);
+
+    ssize_t read(void *out, size_t size) const;
+
+    void flush() const;
 };

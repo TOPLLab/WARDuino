@@ -25,7 +25,7 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     bool success = message->ParseFromCodedStream(coded_input);
 
     if (success && coded_input->ConsumedEntireMessage() &&
-        this->wellformed(message)) {
+        Debugger::wellFormed(message)) {
         this->debugMessages.push_back(message);
     } else {
         dbg_info("Debug message is not well formed. Discarded...\n");
@@ -37,8 +37,8 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     delete coded_input;
 }
 
-bool Debugger::wellformed(const debug::DebugMessage *message) const {
-    bool wellformed = true;
+bool Debugger::wellFormed(const debug::DebugMessage *message) {
+    bool wellFormed = true;
     switch (message->command()) {
         case debug::run:
         case debug::halt:
@@ -53,46 +53,46 @@ bool Debugger::wellformed(const debug::DebugMessage *message) const {
             break;
         case debug::bpadd:
         case debug::bprem:
-            wellformed =
+            wellFormed =
                 message->has_payload() && message->payload().has_breakpoint();
             break;
         case debug::dumpevents:
-            wellformed =
+            wellFormed =
                 !message->has_payload() || message->payload().has_range();
             break;
         case debug::updatefunc:
-            wellformed =
+            wellFormed =
                 message->has_payload() && message->payload().has_function();
             break;
         case debug::updatelocal:
-            wellformed =
+            wellFormed =
                 message->has_payload() && message->payload().has_locals();
             break;
         case debug::updatecallbacks:
-            wellformed =
+            wellFormed =
                 message->has_payload() && message->payload().has_callbacks();
             break;
         case debug::loadsnapshot:
-            wellformed =
+            wellFormed =
                 message->has_payload() && message->payload().has_snapshot();
             break;
         case debug::proxyadd:
         case debug::proxyrem:
-            wellformed =
+            wellFormed =
                 message->has_payload() && message->payload().has_function();
             break;
         case debug::proxycall:
-            wellformed =
+            wellFormed =
                 message->has_payload() && message->payload().has_call();
             break;
         case debug::pushevent:
-            wellformed =
+            wellFormed =
                 message->has_payload() && message->payload().has_event();
             break;
         default:
-            wellformed = false;
+            wellFormed = false;
     }
-    return wellformed;
+    return wellFormed;
 }
 
 debug::DebugMessage *Debugger::getDebugMessage() {
@@ -145,9 +145,6 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
         return false;
     }
 
-    // TODO replace notifications with debug::acknowledgement
-    //    this->channel->write("Interrupt: %x\n", message->command());
-
     switch (message->command()) {
         case debug::run:
             this->handleInterruptRUN(m, program_state);
@@ -185,7 +182,7 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
             this->handleChangedLocal(m, message->payload().locals());
             break;
         case debug::loadsnapshot:
-            this->loadState(m, message->payload().snapshot());
+            Debugger::loadState(m, message->payload().snapshot());
             break;
         case debug::proxycall: {
             this->handleProxyCall(m, program_state, message->payload().call());
@@ -380,18 +377,18 @@ void Debugger::dump(Module *m, bool full) const {
 
     this->captureBreakpoints(snapshot);
 
-    this->captureFunctions(m, snapshot);
+    Debugger::captureFunctions(m, snapshot);
 
-    this->captureCallstack(m, snapshot);
+    Debugger::captureCallstack(m, snapshot);
 
     std::string message = response.SerializeAsString();
     if (full) {
-        debug::Locals *locals = this->captureLocals(m);
+        debug::Locals *locals = Debugger::captureLocals(m);
         snapshot->set_allocated_locals(locals);
         debug::Range range = debug::Range();
         range.set_start(0);
         range.set_end(CallbackHandler::event_count());
-        debug::EventsQueue *queue = this->captureEventsQueue(range);
+        debug::EventsQueue *queue = Debugger::captureEventsQueue(range);
         snapshot->set_allocated_queue(queue);
 
         message = response.SerializeAsString();
@@ -413,7 +410,7 @@ void Debugger::captureBreakpoints(debug::Snapshot *snapshot) const {
     }
 }
 
-void Debugger::captureFunctions(Module *m, debug::Snapshot *snapshot) const {
+void Debugger::captureFunctions(Module *m, debug::Snapshot *snapshot) {
     uint8_t *start = m->bytes;
     for (size_t i = m->import_count; i < m->function_count; i++) {
         debug::Function *function = snapshot->add_functions();
@@ -424,7 +421,7 @@ void Debugger::captureFunctions(Module *m, debug::Snapshot *snapshot) const {
     }
 }
 
-void Debugger::captureCallstack(Module *m, debug::Snapshot *snapshot) const {
+void Debugger::captureCallstack(Module *m, debug::Snapshot *snapshot) {
     uint8_t *start = m->bytes;
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
@@ -466,7 +463,7 @@ void inflateValue(StackValue *source, int32_t index,
     destination->set_index(index);
 }
 
-debug::Locals *Debugger::captureLocals(Module *m) const {
+debug::Locals *Debugger::captureLocals(Module *m) {
     int firstFunFramePtr = m->csp;
     while (m->callstack[firstFunFramePtr].block->block_type != 0) {
         firstFunFramePtr--;
@@ -486,7 +483,7 @@ debug::Locals *Debugger::captureLocals(Module *m) const {
 }
 
 debug::EventsQueue *Debugger::captureEventsQueue(
-    const debug::Range &payload) const {
+    const debug::Range &payload) {
     bool previous = CallbackHandler::resolving_event;
     CallbackHandler::resolving_event = true;
 
@@ -541,7 +538,7 @@ void Debugger::dumpCallbackmapping() const {
  * [0x10, index, ... new function body 0x0b]
  * Where index is the index without imports
  */
-bool Debugger::handleChangedFunction(Module *m, debug::Function payload) {
+bool Debugger::handleChangedFunction(Module *m, const debug::Function& payload) {
     Block *function = &m->functions[m->import_count + payload.fidx()];
     // TODO
     this->sendSimpleNotification(debug::Notification_Type_changeaffected);
@@ -554,7 +551,7 @@ bool Debugger::handleChangedFunction(Module *m, debug::Function payload) {
  * @param bytes
  * @return
  */
-bool Debugger::handleChangedLocal(Module *m, debug::Locals locals) const {
+bool Debugger::handleChangedLocal(Module *m, const debug::Locals& locals) const {
     //    if (*bytes != interruptUPDATELocal) return false;
     //    uint8_t *pos = bytes + 1;
     //    this->channel->write("Local updates: %x\n", *pos);
@@ -586,7 +583,7 @@ void Debugger::notifyPushedEvent() const {
     this->channel->write("new pushed event");
 }
 
-void Debugger::handlePushedEvent(debug::Event payload) const {
+void Debugger::handlePushedEvent(const debug::Event& payload) const {
     auto *event = new Event(payload.topic(), payload.payload());
     dbg_info("handle pushed event: %s", event->serialized().c_str());
     CallbackHandler::push_event(event);
@@ -882,6 +879,9 @@ void Debugger::proxify() {
 
 void Debugger::handleProxyCall(Module *m, debug::State *program_state,
                                const debug::RFC &payload) {
+    if (!this->proxy_connected()) {
+        return ;
+    }
     uint32_t fidx = payload.fidx();
     dbg_info("proxycall: func %" PRIu32 "\n", fidx);
 
@@ -923,7 +923,7 @@ void Debugger::startProxySupervisor(int socket) {
     printf("Connected to proxy.\n");
 }
 
-bool Debugger::proxy_connected() const { return this->connected_to_proxy; }
+bool Debugger::proxy_connected() const { return this->connected_to_proxy && this->proxy != nullptr; }
 
 void Debugger::disconnect_proxy() {
     if (this->proxy_connected()) {

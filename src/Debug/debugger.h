@@ -46,7 +46,7 @@ class Debugger {
 
     StackValue *readRFCArgs(debug::RFC payload);
 
-    bool wellformed(const debug::DebugMessage *message) const;
+    static bool wellFormed(const debug::DebugMessage *message) ;
 
     //// Handle Interrupt Types
 
@@ -70,23 +70,23 @@ class Debugger {
 
     void dump(Module *m, bool snapshot = false) const;
 
-    debug::Locals *captureLocals(Module *m) const;
+    static debug::Locals *captureLocals(Module *m) ;
 
     void captureBreakpoints(debug::Snapshot *snapshot) const;
 
-    void captureFunctions(Module *m, debug::Snapshot *snapshot) const;
+    static void captureFunctions(Module *m, debug::Snapshot *snapshot) ;
 
-    void captureCallstack(Module *m, debug::Snapshot *snapshot) const;
+    static void captureCallstack(Module *m, debug::Snapshot *snapshot) ;
 
-    debug::EventsQueue *captureEventsQueue(const debug::Range &payload) const;
+    static debug::EventsQueue *captureEventsQueue(const debug::Range &payload) ;
 
     void dumpCallbackmapping() const;
 
     //// Handle live code update
 
-    bool handleChangedFunction(Module *m, debug::Function payload);
+    bool handleChangedFunction(Module *m, const debug::Function& payload);
 
-    bool handleChangedLocal(Module *m, debug::Locals locals) const;
+    bool handleChangedLocal(Module *m, const debug::Locals& locals) const;
 
     //// Handle out-of-place debugging
 
@@ -158,7 +158,7 @@ class Debugger {
 
     void notifyPushedEvent() const;
 
-    void handlePushedEvent(debug::Event payload) const;
+    void handlePushedEvent(const debug::Event& payload) const;
 
-    void loadState(Module *m, const debug::Snapshot &snapshot);
+    static void loadState(Module *m, const debug::Snapshot &snapshot);
 };
