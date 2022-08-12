@@ -105,16 +105,29 @@ debug::DebugMessage *Debugger::getDebugMessage() {
     }
 }
 
-void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
+void Debugger::addBreakpoint(Module *m, uint32_t breakpoint) {
+    uint8_t *address = m->bytes + breakpoint;
+    this->breakpoints.insert(address);
+}
 
-void Debugger::deleteBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
+void Debugger::removeBreakpoint(Module *m, uint32_t breakpoint) {
+    uint8_t *address = m->bytes + breakpoint;
+    this->breakpoints.erase(address);
+}
 
 bool Debugger::isBreakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end();
 }
 
-void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
-    this->channel->write("AT %p!\n", (void *)pc_ptr);  // TODO
+void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) const {
+    uint8_t *start = m->bytes;
+    debug::Notification response = debug::Notification();
+    response.set_type(debug::Notification_Type_hitbreakpoint);
+    auto *payload = new debug::Payload();
+    payload->set_breakpoint(pc_ptr - start);
+    response.set_allocated_payload(payload);
+    this->channel->write(response.SerializeAsString().c_str());
+    delete payload;
 }
 
 /**
@@ -157,9 +170,11 @@ bool Debugger::checkDebugMessages(Module *m, debug::State *program_state) {
         case debug::step:
             this->handleInterruptSTEP(m, program_state);
             break;
-        case debug::bpadd:  // Breakpoint
+        case debug::bpadd:  // Breakpoint add
+            this->addBreakpoint(m, message->payload().breakpoint());
+            break;
         case debug::bprem:  // Breakpoint remove
-            this->handleInterruptBP(message->payload().breakpoint());  // TODO
+            this->removeBreakpoint(m, message->payload().breakpoint());
             break;
         case debug::dump:
             *program_state = debug::WARDUINOpause;
@@ -343,7 +358,7 @@ void Debugger::handleInterruptSTEP(Module *m, debug::State *program_state) {
     this->sendSimpleNotification(debug::Notification_Type_stepped);
 }
 
-void Debugger::handleInterruptBP(std::string breakpoint) {
+void Debugger::handleInterruptBP(uint32_t breakpoint) {
     // TODO: segfault may happen here!
     // TODO implement
     //    uint8_t len = interruptData[1];
@@ -375,7 +390,7 @@ void Debugger::dump(Module *m, bool full) const {
     // current running snapshot
     snapshot->set_state((debug::State)m->warduino->program_state);
 
-    this->captureBreakpoints(snapshot);
+    this->captureBreakpoints(m, snapshot);
 
     Debugger::captureFunctions(m, snapshot);
 
@@ -404,10 +419,10 @@ void Debugger::dump(Module *m, bool full) const {
     this->channel->write(message.c_str());
 }
 
-void Debugger::captureBreakpoints(debug::Snapshot *snapshot) const {
-    //    uint8_t *start = m->bytes;  // TODO breakpoints also minus start?
-    for (auto bp : this->breakpoints) {
-        snapshot->add_breakpoints(reinterpret_cast<const char *>(bp));
+void Debugger::captureBreakpoints(Module *m, debug::Snapshot *snapshot) const {
+    uint8_t *start = m->bytes;
+    for (uint8_t *bp : this->breakpoints) {
+        snapshot->add_breakpoints(bp - start);
     }
 }
 
@@ -483,8 +498,7 @@ debug::Locals *Debugger::captureLocals(Module *m) {
     return locals;
 }
 
-debug::EventsQueue *Debugger::captureEventsQueue(
-    const debug::Range &payload) {
+debug::EventsQueue *Debugger::captureEventsQueue(const debug::Range &payload) {
     bool previous = CallbackHandler::resolving_event;
     CallbackHandler::resolving_event = true;
 
@@ -529,7 +543,9 @@ debug::EventsQueue *Debugger::captureEventsQueue(
 }
 
 void Debugger::dumpCallbackmapping() const {
-    this->channel->write("%s\n", CallbackHandler::dump_callbacks().c_str()); // TODO complete snapshot
+    this->channel->write(
+        "%s\n",
+        CallbackHandler::dump_callbacks().c_str());  // TODO complete snapshot
 }
 
 /**
@@ -539,7 +555,8 @@ void Debugger::dumpCallbackmapping() const {
  * [0x10, index, ... new function body 0x0b]
  * Where index is the index without imports
  */
-bool Debugger::handleChangedFunction(Module *m, const debug::Function& payload) {
+bool Debugger::handleChangedFunction(Module *m,
+                                     const debug::Function &payload) {
     Block *function = &m->functions[m->import_count + payload.fidx()];
     // TODO
     this->sendSimpleNotification(debug::Notification_Type_changeaffected);
@@ -552,7 +569,8 @@ bool Debugger::handleChangedFunction(Module *m, const debug::Function& payload) 
  * @param bytes
  * @return
  */
-bool Debugger::handleChangedLocal(Module *m, const debug::Locals& locals) const {
+bool Debugger::handleChangedLocal(Module *m,
+                                  const debug::Locals &locals) const {
     //    if (*bytes != interruptUPDATELocal) return false;
     //    uint8_t *pos = bytes + 1;
     //    this->channel->write("Local updates: %x\n", *pos);
@@ -584,7 +602,7 @@ void Debugger::notifyPushedEvent() const {
     this->channel->write("new pushed event");
 }
 
-void Debugger::handlePushedEvent(const debug::Event& payload) const {
+void Debugger::handlePushedEvent(const debug::Event &payload) const {
     auto *event = new Event(payload.topic(), payload.payload());
     dbg_info("handle pushed event: %s", event->serialized().c_str());
     CallbackHandler::push_event(event);
@@ -710,7 +728,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 debug("receiving breakpoints %" PRIu8 "\n", quantity_bps);
                 for (size_t i = 0; i < quantity_bps; i++) {
                     auto bp = (uint8_t *)readPointer(&program_state);
-                    this->addBreakpoint(bp);
+                    //                    this->addBreakpoint(bp); TODO
                 }
                 break;
             }
@@ -881,7 +899,7 @@ void Debugger::proxify() {
 void Debugger::handleProxyCall(Module *m, debug::State *program_state,
                                const debug::RFC &payload) {
     if (!this->proxy_connected()) {
-        return ;
+        return;
     }
     uint32_t fidx = payload.fidx();
     dbg_info("proxycall: func %" PRIu32 "\n", fidx);
@@ -924,7 +942,9 @@ void Debugger::startProxySupervisor(int socket) {
     printf("Connected to proxy.\n");
 }
 
-bool Debugger::proxy_connected() const { return this->connected_to_proxy && this->proxy != nullptr; }
+bool Debugger::proxy_connected() const {
+    return this->connected_to_proxy && this->proxy != nullptr;
+}
 
 void Debugger::disconnect_proxy() {
     if (this->proxy_connected()) {

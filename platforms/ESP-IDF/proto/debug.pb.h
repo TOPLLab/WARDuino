@@ -759,22 +759,17 @@ class Payload final :
       ::debug::Function* function);
   ::debug::Function* unsafe_arena_release_function();
 
-  // string breakpoint = 4;
+  // uint32 breakpoint = 4;
   bool has_breakpoint() const;
   private:
   bool _internal_has_breakpoint() const;
   public:
   void clear_breakpoint();
-  const std::string& breakpoint() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_breakpoint(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_breakpoint();
-  PROTOBUF_NODISCARD std::string* release_breakpoint();
-  void set_allocated_breakpoint(std::string* breakpoint);
+  uint32_t breakpoint() const;
+  void set_breakpoint(uint32_t value);
   private:
-  const std::string& _internal_breakpoint() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_breakpoint(const std::string& value);
-  std::string* _internal_mutable_breakpoint();
+  uint32_t _internal_breakpoint() const;
+  void _internal_set_breakpoint(uint32_t value);
   public:
 
   // .debug.EventsQueue queue = 5;
@@ -895,7 +890,7 @@ class Payload final :
       ::debug::Snapshot* snapshot_;
       ::debug::Locals* locals_;
       ::debug::Function* function_;
-      ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr breakpoint_;
+      uint32_t breakpoint_;
       ::debug::EventsQueue* queue_;
       ::debug::Event* event_;
       ::debug::Range* range_;
@@ -1023,29 +1018,27 @@ class Snapshot final :
     kProgramCounterFieldNumber = 1,
     kStateFieldNumber = 2,
   };
-  // repeated string breakpoints = 3;
+  // repeated uint32 breakpoints = 3;
   int breakpoints_size() const;
   private:
   int _internal_breakpoints_size() const;
   public:
   void clear_breakpoints();
-  const std::string& breakpoints(int index) const;
-  std::string* mutable_breakpoints(int index);
-  void set_breakpoints(int index, const std::string& value);
-  void set_breakpoints(int index, std::string&& value);
-  void set_breakpoints(int index, const char* value);
-  void set_breakpoints(int index, const char* value, size_t size);
-  std::string* add_breakpoints();
-  void add_breakpoints(const std::string& value);
-  void add_breakpoints(std::string&& value);
-  void add_breakpoints(const char* value);
-  void add_breakpoints(const char* value, size_t size);
-  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>& breakpoints() const;
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>* mutable_breakpoints();
   private:
-  const std::string& _internal_breakpoints(int index) const;
-  std::string* _internal_add_breakpoints();
+  uint32_t _internal_breakpoints(int index) const;
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedField< uint32_t >&
+      _internal_breakpoints() const;
+  void _internal_add_breakpoints(uint32_t value);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedField< uint32_t >*
+      _internal_mutable_breakpoints();
   public:
+  uint32_t breakpoints(int index) const;
+  void set_breakpoints(int index, uint32_t value);
+  void add_breakpoints(uint32_t value);
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedField< uint32_t >&
+      breakpoints() const;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedField< uint32_t >*
+      mutable_breakpoints();
 
   // repeated .debug.Function functions = 4;
   int functions_size() const;
@@ -1165,7 +1158,8 @@ class Snapshot final :
   struct Impl_ {
     ::PROTOBUF_NAMESPACE_ID::internal::HasBits<1> _has_bits_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-    ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> breakpoints_;
+    ::PROTOBUF_NAMESPACE_ID::RepeatedField< uint32_t > breakpoints_;
+    mutable std::atomic<int> _breakpoints_cached_byte_size_;
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::debug::Function > functions_;
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::debug::CallstackEntry > callstack_;
     ::debug::Locals* locals_;
@@ -1999,6 +1993,7 @@ class Value final :
     kValueFieldNumber = 2,
     kTypeFieldNumber = 1,
     kIndexFieldNumber = 3,
+    kMutableFieldNumber = 4,
   };
   // string value = 2;
   void clear_value();
@@ -2032,6 +2027,15 @@ class Value final :
   void _internal_set_index(int32_t value);
   public:
 
+  // bool mutable = 4;
+  void clear_mutable_();
+  bool mutable_() const;
+  void set_mutable_(bool value);
+  private:
+  bool _internal_mutable_() const;
+  void _internal_set_mutable_(bool value);
+  public:
+
   // @@protoc_insertion_point(class_scope:debug.Value)
  private:
   class _Internal;
@@ -2043,6 +2047,7 @@ class Value final :
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr value_;
     int type_;
     int32_t index_;
+    bool mutable__;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -3271,7 +3276,7 @@ inline ::debug::Function* Payload::mutable_function() {
   return _msg;
 }
 
-// string breakpoint = 4;
+// uint32 breakpoint = 4;
 inline bool Payload::_internal_has_breakpoint() const {
   return payload_case() == kBreakpoint;
 }
@@ -3283,69 +3288,30 @@ inline void Payload::set_has_breakpoint() {
 }
 inline void Payload::clear_breakpoint() {
   if (_internal_has_breakpoint()) {
-    _impl_.payload_.breakpoint_.Destroy();
+    _impl_.payload_.breakpoint_ = 0u;
     clear_has_payload();
   }
 }
-inline const std::string& Payload::breakpoint() const {
+inline uint32_t Payload::_internal_breakpoint() const {
+  if (_internal_has_breakpoint()) {
+    return _impl_.payload_.breakpoint_;
+  }
+  return 0u;
+}
+inline void Payload::_internal_set_breakpoint(uint32_t value) {
+  if (!_internal_has_breakpoint()) {
+    clear_payload();
+    set_has_breakpoint();
+  }
+  _impl_.payload_.breakpoint_ = value;
+}
+inline uint32_t Payload::breakpoint() const {
   // @@protoc_insertion_point(field_get:debug.Payload.breakpoint)
   return _internal_breakpoint();
 }
-template <typename ArgT0, typename... ArgT>
-inline void Payload::set_breakpoint(ArgT0&& arg0, ArgT... args) {
-  if (!_internal_has_breakpoint()) {
-    clear_payload();
-    set_has_breakpoint();
-    _impl_.payload_.breakpoint_.InitDefault();
-  }
-  _impl_.payload_.breakpoint_.Set( static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+inline void Payload::set_breakpoint(uint32_t value) {
+  _internal_set_breakpoint(value);
   // @@protoc_insertion_point(field_set:debug.Payload.breakpoint)
-}
-inline std::string* Payload::mutable_breakpoint() {
-  std::string* _s = _internal_mutable_breakpoint();
-  // @@protoc_insertion_point(field_mutable:debug.Payload.breakpoint)
-  return _s;
-}
-inline const std::string& Payload::_internal_breakpoint() const {
-  if (_internal_has_breakpoint()) {
-    return _impl_.payload_.breakpoint_.Get();
-  }
-  return ::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited();
-}
-inline void Payload::_internal_set_breakpoint(const std::string& value) {
-  if (!_internal_has_breakpoint()) {
-    clear_payload();
-    set_has_breakpoint();
-    _impl_.payload_.breakpoint_.InitDefault();
-  }
-  _impl_.payload_.breakpoint_.Set(value, GetArenaForAllocation());
-}
-inline std::string* Payload::_internal_mutable_breakpoint() {
-  if (!_internal_has_breakpoint()) {
-    clear_payload();
-    set_has_breakpoint();
-    _impl_.payload_.breakpoint_.InitDefault();
-  }
-  return _impl_.payload_.breakpoint_.Mutable(      GetArenaForAllocation());
-}
-inline std::string* Payload::release_breakpoint() {
-  // @@protoc_insertion_point(field_release:debug.Payload.breakpoint)
-  if (_internal_has_breakpoint()) {
-    clear_has_payload();
-    return _impl_.payload_.breakpoint_.Release();
-  } else {
-    return nullptr;
-  }
-}
-inline void Payload::set_allocated_breakpoint(std::string* breakpoint) {
-  if (has_payload()) {
-    clear_payload();
-  }
-  if (breakpoint != nullptr) {
-    set_has_breakpoint();
-    _impl_.payload_.breakpoint_.InitAllocated(breakpoint, GetArenaForAllocation());
-  }
-  // @@protoc_insertion_point(field_set_allocated:debug.Payload.breakpoint)
 }
 
 // .debug.EventsQueue queue = 5;
@@ -3771,7 +3737,7 @@ inline void Snapshot::set_state(::debug::State value) {
   // @@protoc_insertion_point(field_set:debug.Snapshot.state)
 }
 
-// repeated string breakpoints = 3;
+// repeated uint32 breakpoints = 3;
 inline int Snapshot::_internal_breakpoints_size() const {
   return _impl_.breakpoints_.size();
 }
@@ -3781,69 +3747,41 @@ inline int Snapshot::breakpoints_size() const {
 inline void Snapshot::clear_breakpoints() {
   _impl_.breakpoints_.Clear();
 }
-inline std::string* Snapshot::add_breakpoints() {
-  std::string* _s = _internal_add_breakpoints();
-  // @@protoc_insertion_point(field_add_mutable:debug.Snapshot.breakpoints)
-  return _s;
-}
-inline const std::string& Snapshot::_internal_breakpoints(int index) const {
+inline uint32_t Snapshot::_internal_breakpoints(int index) const {
   return _impl_.breakpoints_.Get(index);
 }
-inline const std::string& Snapshot::breakpoints(int index) const {
+inline uint32_t Snapshot::breakpoints(int index) const {
   // @@protoc_insertion_point(field_get:debug.Snapshot.breakpoints)
   return _internal_breakpoints(index);
 }
-inline std::string* Snapshot::mutable_breakpoints(int index) {
-  // @@protoc_insertion_point(field_mutable:debug.Snapshot.breakpoints)
-  return _impl_.breakpoints_.Mutable(index);
-}
-inline void Snapshot::set_breakpoints(int index, const std::string& value) {
-  _impl_.breakpoints_.Mutable(index)->assign(value);
+inline void Snapshot::set_breakpoints(int index, uint32_t value) {
+  _impl_.breakpoints_.Set(index, value);
   // @@protoc_insertion_point(field_set:debug.Snapshot.breakpoints)
 }
-inline void Snapshot::set_breakpoints(int index, std::string&& value) {
-  _impl_.breakpoints_.Mutable(index)->assign(std::move(value));
-  // @@protoc_insertion_point(field_set:debug.Snapshot.breakpoints)
+inline void Snapshot::_internal_add_breakpoints(uint32_t value) {
+  _impl_.breakpoints_.Add(value);
 }
-inline void Snapshot::set_breakpoints(int index, const char* value) {
-  GOOGLE_DCHECK(value != nullptr);
-  _impl_.breakpoints_.Mutable(index)->assign(value);
-  // @@protoc_insertion_point(field_set_char:debug.Snapshot.breakpoints)
-}
-inline void Snapshot::set_breakpoints(int index, const char* value, size_t size) {
-  _impl_.breakpoints_.Mutable(index)->assign(
-    reinterpret_cast<const char*>(value), size);
-  // @@protoc_insertion_point(field_set_pointer:debug.Snapshot.breakpoints)
-}
-inline std::string* Snapshot::_internal_add_breakpoints() {
-  return _impl_.breakpoints_.Add();
-}
-inline void Snapshot::add_breakpoints(const std::string& value) {
-  _impl_.breakpoints_.Add()->assign(value);
+inline void Snapshot::add_breakpoints(uint32_t value) {
+  _internal_add_breakpoints(value);
   // @@protoc_insertion_point(field_add:debug.Snapshot.breakpoints)
 }
-inline void Snapshot::add_breakpoints(std::string&& value) {
-  _impl_.breakpoints_.Add(std::move(value));
-  // @@protoc_insertion_point(field_add:debug.Snapshot.breakpoints)
-}
-inline void Snapshot::add_breakpoints(const char* value) {
-  GOOGLE_DCHECK(value != nullptr);
-  _impl_.breakpoints_.Add()->assign(value);
-  // @@protoc_insertion_point(field_add_char:debug.Snapshot.breakpoints)
-}
-inline void Snapshot::add_breakpoints(const char* value, size_t size) {
-  _impl_.breakpoints_.Add()->assign(reinterpret_cast<const char*>(value), size);
-  // @@protoc_insertion_point(field_add_pointer:debug.Snapshot.breakpoints)
-}
-inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>&
-Snapshot::breakpoints() const {
-  // @@protoc_insertion_point(field_list:debug.Snapshot.breakpoints)
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedField< uint32_t >&
+Snapshot::_internal_breakpoints() const {
   return _impl_.breakpoints_;
 }
-inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>*
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedField< uint32_t >&
+Snapshot::breakpoints() const {
+  // @@protoc_insertion_point(field_list:debug.Snapshot.breakpoints)
+  return _internal_breakpoints();
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedField< uint32_t >*
+Snapshot::_internal_mutable_breakpoints() {
+  return &_impl_.breakpoints_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedField< uint32_t >*
 Snapshot::mutable_breakpoints() {
   // @@protoc_insertion_point(field_mutable_list:debug.Snapshot.breakpoints)
-  return &_impl_.breakpoints_;
+  return _internal_mutable_breakpoints();
 }
 
 // repeated .debug.Function functions = 4;
@@ -4814,6 +4752,26 @@ inline void Value::_internal_set_index(int32_t value) {
 inline void Value::set_index(int32_t value) {
   _internal_set_index(value);
   // @@protoc_insertion_point(field_set:debug.Value.index)
+}
+
+// bool mutable = 4;
+inline void Value::clear_mutable_() {
+  _impl_.mutable__ = false;
+}
+inline bool Value::_internal_mutable_() const {
+  return _impl_.mutable__;
+}
+inline bool Value::mutable_() const {
+  // @@protoc_insertion_point(field_get:debug.Value.mutable)
+  return _internal_mutable_();
+}
+inline void Value::_internal_set_mutable_(bool value) {
+  
+  _impl_.mutable__ = value;
+}
+inline void Value::set_mutable_(bool value) {
+  _internal_set_mutable_(value);
+  // @@protoc_insertion_point(field_set:debug.Value.mutable)
 }
 
 // -------------------------------------------------------------------

@@ -46,7 +46,7 @@ class Debugger {
 
     StackValue *readRFCArgs(debug::RFC payload);
 
-    static bool wellFormed(const debug::DebugMessage *message) ;
+    static bool wellFormed(const debug::DebugMessage *message);
 
     //// Handle Interrupt Types
 
@@ -60,7 +60,7 @@ class Debugger {
 
     void handleInterruptSTEP(Module *m, debug::State *program_state);
 
-    void handleInterruptBP(std::string breakpoint);
+    void handleInterruptBP(uint32_t breakpoint);
 
     //// Information dumps
 
@@ -70,23 +70,23 @@ class Debugger {
 
     void dump(Module *m, bool snapshot = false) const;
 
-    static debug::Locals *captureLocals(Module *m) ;
+    static debug::Locals *captureLocals(Module *m);
 
-    void captureBreakpoints(debug::Snapshot *snapshot) const;
+    void captureBreakpoints(Module *m, debug::Snapshot *snapshot) const;
 
-    static void captureFunctions(Module *m, debug::Snapshot *snapshot) ;
+    static void captureFunctions(Module *m, debug::Snapshot *snapshot);
 
-    static void captureCallstack(Module *m, debug::Snapshot *snapshot) ;
+    static void captureCallstack(Module *m, debug::Snapshot *snapshot);
 
-    static debug::EventsQueue *captureEventsQueue(const debug::Range &payload) ;
+    static debug::EventsQueue *captureEventsQueue(const debug::Range &payload);
 
     void dumpCallbackmapping() const;
 
     //// Handle live code update
 
-    bool handleChangedFunction(Module *m, const debug::Function& payload);
+    bool handleChangedFunction(Module *m, const debug::Function &payload);
 
-    bool handleChangedLocal(Module *m, const debug::Locals& locals) const;
+    bool handleChangedLocal(Module *m, const debug::Locals &locals) const;
 
     //// Handle out-of-place debugging
 
@@ -125,13 +125,13 @@ class Debugger {
 
     // Breakpoints
 
-    void addBreakpoint(uint8_t *loc);
+    void addBreakpoint(Module *m, uint32_t breakpoint);
 
-    void deleteBreakpoint(uint8_t *loc);
+    void removeBreakpoint(Module *m, uint32_t breakpoint);
 
     bool isBreakpoint(uint8_t *loc);
 
-    void notifyBreakpoint(uint8_t *pc_ptr) const;
+    void notifyBreakpoint(Module *m, uint8_t *pc_ptr) const;
 
     // Out-of-place debugging
 
@@ -158,7 +158,7 @@ class Debugger {
 
     void notifyPushedEvent() const;
 
-    void handlePushedEvent(const debug::Event& payload) const;
+    void handlePushedEvent(const debug::Event &payload) const;
 
     static void loadState(Module *m, const debug::Snapshot &snapshot);
 };

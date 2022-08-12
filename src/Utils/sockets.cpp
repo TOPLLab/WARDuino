@@ -84,6 +84,4 @@ int Channel::write(const char *fmt, ...) const {
 ssize_t Channel::read(void *out, size_t size) const {
     return ::read(this->socket, out, size);
 }
-void Channel::flush() const {
-    fsync(this->socket);
-}
+void Channel::flush() const { fsync(this->socket); }

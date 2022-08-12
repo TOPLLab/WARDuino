@@ -67,6 +67,7 @@ PROTOBUF_CONSTEXPR Snapshot::Snapshot(
     /*decltype(_impl_._has_bits_)*/{}
   , /*decltype(_impl_._cached_size_)*/{}
   , /*decltype(_impl_.breakpoints_)*/{}
+  , /*decltype(_impl_._breakpoints_cached_byte_size_)*/{0}
   , /*decltype(_impl_.functions_)*/{}
   , /*decltype(_impl_.callstack_)*/{}
   , /*decltype(_impl_.locals_)*/nullptr
@@ -151,6 +152,7 @@ PROTOBUF_CONSTEXPR Value::Value(
     /*decltype(_impl_.value_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.type_)*/0
   , /*decltype(_impl_.index_)*/0
+  , /*decltype(_impl_.mutable__)*/false
   , /*decltype(_impl_._cached_size_)*/{}} {}
 struct ValueDefaultTypeInternal {
   PROTOBUF_CONSTEXPR ValueDefaultTypeInternal()
@@ -1387,7 +1389,7 @@ void Payload::clear_payload() {
       break;
     }
     case kBreakpoint: {
-      _impl_.payload_.breakpoint_.Destroy();
+      // No need to clear
       break;
     }
     case kQueue: {
@@ -1468,13 +1470,11 @@ const char* Payload::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) 
         } else
           goto handle_unusual;
         continue;
-      // string breakpoint = 4;
+      // uint32 breakpoint = 4;
       case 4:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 34)) {
-          auto str = _internal_mutable_breakpoint();
-          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+          _internal_set_breakpoint(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr));
           CHK_(ptr);
-          CHK_(::_pbi::VerifyUTF8(str, nullptr));
         } else
           goto handle_unusual;
         continue;
@@ -1568,14 +1568,10 @@ uint8_t* Payload::_InternalSerialize(
         _Internal::function(this).GetCachedSize(), target, stream);
   }
 
-  // string breakpoint = 4;
+  // uint32 breakpoint = 4;
   if (_internal_has_breakpoint()) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_breakpoint().data(), static_cast<int>(this->_internal_breakpoint().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "debug.Payload.breakpoint");
-    target = stream->WriteStringMaybeAliased(
-        4, this->_internal_breakpoint(), target);
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(4, this->_internal_breakpoint(), target);
   }
 
   // .debug.EventsQueue queue = 5;
@@ -1651,11 +1647,9 @@ size_t Payload::ByteSizeLong() const {
           *_impl_.payload_.function_);
       break;
     }
-    // string breakpoint = 4;
+    // uint32 breakpoint = 4;
     case kBreakpoint: {
-      total_size += 1 +
-        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-          this->_internal_breakpoint());
+      total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_breakpoint());
       break;
     }
     // .debug.EventsQueue queue = 5;
@@ -1837,6 +1831,7 @@ Snapshot::Snapshot(const Snapshot& from)
       decltype(_impl_._has_bits_){from._impl_._has_bits_}
     , /*decltype(_impl_._cached_size_)*/{}
     , decltype(_impl_.breakpoints_){from._impl_.breakpoints_}
+    , /*decltype(_impl_._breakpoints_cached_byte_size_)*/{0}
     , decltype(_impl_.functions_){from._impl_.functions_}
     , decltype(_impl_.callstack_){from._impl_.callstack_}
     , decltype(_impl_.locals_){nullptr}
@@ -1869,6 +1864,7 @@ inline void Snapshot::SharedCtor(
       decltype(_impl_._has_bits_){}
     , /*decltype(_impl_._cached_size_)*/{}
     , decltype(_impl_.breakpoints_){arena}
+    , /*decltype(_impl_._breakpoints_cached_byte_size_)*/{0}
     , decltype(_impl_.functions_){arena}
     , decltype(_impl_.callstack_){arena}
     , decltype(_impl_.locals_){nullptr}
@@ -1890,7 +1886,7 @@ Snapshot::~Snapshot() {
 
 inline void Snapshot::SharedDtor() {
   GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
-  _impl_.breakpoints_.~RepeatedPtrField();
+  _impl_.breakpoints_.~RepeatedField();
   _impl_.functions_.~RepeatedPtrField();
   _impl_.callstack_.~RepeatedPtrField();
   if (this != internal_default_instance()) delete _impl_.locals_;
@@ -1957,18 +1953,14 @@ const char* Snapshot::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx)
         } else
           goto handle_unusual;
         continue;
-      // repeated string breakpoints = 3;
+      // repeated uint32 breakpoints = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
-          ptr -= 1;
-          do {
-            ptr += 1;
-            auto str = _internal_add_breakpoints();
-            ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
-            CHK_(ptr);
-            CHK_(::_pbi::VerifyUTF8(str, nullptr));
-            if (!ctx->DataAvailable(ptr)) break;
-          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<26>(ptr));
+          ptr = ::PROTOBUF_NAMESPACE_ID::internal::PackedUInt32Parser(_internal_mutable_breakpoints(), ptr, ctx);
+          CHK_(ptr);
+        } else if (static_cast<uint8_t>(tag) == 24) {
+          _internal_add_breakpoints(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr));
+          CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
@@ -2065,14 +2057,13 @@ uint8_t* Snapshot::_InternalSerialize(
       2, this->_internal_state(), target);
   }
 
-  // repeated string breakpoints = 3;
-  for (int i = 0, n = this->_internal_breakpoints_size(); i < n; i++) {
-    const auto& s = this->_internal_breakpoints(i);
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      s.data(), static_cast<int>(s.length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "debug.Snapshot.breakpoints");
-    target = stream->WriteString(3, s, target);
+  // repeated uint32 breakpoints = 3;
+  {
+    int byte_size = _impl_._breakpoints_cached_byte_size_.load(std::memory_order_relaxed);
+    if (byte_size > 0) {
+      target = stream->WriteUInt32Packed(
+          3, _internal_breakpoints(), byte_size, target);
+    }
   }
 
   // repeated .debug.Function functions = 4;
@@ -2128,12 +2119,18 @@ size_t Snapshot::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // repeated string breakpoints = 3;
-  total_size += 1 *
-      ::PROTOBUF_NAMESPACE_ID::internal::FromIntSize(_impl_.breakpoints_.size());
-  for (int i = 0, n = _impl_.breakpoints_.size(); i < n; i++) {
-    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-      _impl_.breakpoints_.Get(i));
+  // repeated uint32 breakpoints = 3;
+  {
+    size_t data_size = ::_pbi::WireFormatLite::
+      UInt32Size(this->_impl_.breakpoints_);
+    if (data_size > 0) {
+      total_size += 1 +
+        ::_pbi::WireFormatLite::Int32Size(static_cast<int32_t>(data_size));
+    }
+    int cached_size = ::_pbi::ToCachedSize(data_size);
+    _impl_._breakpoints_cached_byte_size_.store(cached_size,
+                                    std::memory_order_relaxed);
+    total_size += data_size;
   }
 
   // repeated .debug.Function functions = 4;
@@ -3367,6 +3364,7 @@ Value::Value(const Value& from)
       decltype(_impl_.value_){}
     , decltype(_impl_.type_){}
     , decltype(_impl_.index_){}
+    , decltype(_impl_.mutable__){}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
@@ -3379,8 +3377,8 @@ Value::Value(const Value& from)
       _this->GetArenaForAllocation());
   }
   ::memcpy(&_impl_.type_, &from._impl_.type_,
-    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.index_) -
-    reinterpret_cast<char*>(&_impl_.type_)) + sizeof(_impl_.index_));
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.mutable__) -
+    reinterpret_cast<char*>(&_impl_.type_)) + sizeof(_impl_.mutable__));
   // @@protoc_insertion_point(copy_constructor:debug.Value)
 }
 
@@ -3392,6 +3390,7 @@ inline void Value::SharedCtor(
       decltype(_impl_.value_){}
     , decltype(_impl_.type_){0}
     , decltype(_impl_.index_){0}
+    , decltype(_impl_.mutable__){false}
     , /*decltype(_impl_._cached_size_)*/{}
   };
   _impl_.value_.InitDefault();
@@ -3426,8 +3425,8 @@ void Value::Clear() {
 
   _impl_.value_.ClearToEmpty();
   ::memset(&_impl_.type_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&_impl_.index_) -
-      reinterpret_cast<char*>(&_impl_.type_)) + sizeof(_impl_.index_));
+      reinterpret_cast<char*>(&_impl_.mutable__) -
+      reinterpret_cast<char*>(&_impl_.type_)) + sizeof(_impl_.mutable__));
   _internal_metadata_.Clear<std::string>();
 }
 
@@ -3460,6 +3459,14 @@ const char* Value::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
           _impl_.index_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // bool mutable = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+          _impl_.mutable__ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
@@ -3516,6 +3523,12 @@ uint8_t* Value::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteInt32ToArray(3, this->_internal_index(), target);
   }
 
+  // bool mutable = 4;
+  if (this->_internal_mutable_() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(4, this->_internal_mutable_(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(_internal_metadata_.unknown_fields<std::string>(::PROTOBUF_NAMESPACE_ID::internal::GetEmptyString).data(),
         static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::PROTOBUF_NAMESPACE_ID::internal::GetEmptyString).size()), target);
@@ -3550,6 +3563,11 @@ size_t Value::ByteSizeLong() const {
     total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(this->_internal_index());
   }
 
+  // bool mutable = 4;
+  if (this->_internal_mutable_() != 0) {
+    total_size += 1 + 1;
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     total_size += _internal_metadata_.unknown_fields<std::string>(::PROTOBUF_NAMESPACE_ID::internal::GetEmptyString).size();
   }
@@ -3580,6 +3598,9 @@ void Value::MergeFrom(const Value& from) {
   if (from._internal_index() != 0) {
     _this->_internal_set_index(from._internal_index());
   }
+  if (from._internal_mutable_() != 0) {
+    _this->_internal_set_mutable_(from._internal_mutable_());
+  }
   _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
 }
 
@@ -3604,8 +3625,8 @@ void Value::InternalSwap(Value* other) {
       &other->_impl_.value_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(Value, _impl_.index_)
-      + sizeof(Value::_impl_.index_)
+      PROTOBUF_FIELD_OFFSET(Value, _impl_.mutable__)
+      + sizeof(Value::_impl_.mutable__)
       - PROTOBUF_FIELD_OFFSET(Value, _impl_.type_)>(
           reinterpret_cast<char*>(&_impl_.type_),
           reinterpret_cast<char*>(&other->_impl_.type_));
