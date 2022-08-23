@@ -24,16 +24,24 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     auto *message = new debug::DebugMessage();
     bool success = message->ParseFromCodedStream(coded_input);
 
-    if (success && coded_input->ConsumedEntireMessage() &&
-        Debugger::wellFormed(message)) {
-        this->debugMessages.push_back(message);
-    } else {
+    if (!coded_input->ConsumedEntireMessage()) {
+        dbg_info("Debug message is not complete. Discarded...\n");
+        delete message;
+        // TODO handle incomplete message
+    }
+
+    else if (!success) {
         dbg_info("Debug message is not well formed. Discarded...\n");
         delete message;
 
         // Send error response
         this->sendSimpleNotification(debug::Notification_Type_malformed);
     }
+
+    else if (Debugger::wellFormed(message)) {
+        this->debugMessages.push_back(message);
+    }
+
     delete coded_input;
 }
 
