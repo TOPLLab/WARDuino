@@ -68,8 +68,7 @@ size_t CallbackHandler::callback_count(const std::string &topic) {
 
 // WARNING: Push event functions should not use IO functions, since they can be
 // called from ISR callbacks
-void CallbackHandler::push_event(std::string topic,
-                                 const unsigned char *payload,
+void CallbackHandler::push_event(std::string topic, const char *payload,
                                  unsigned int length) {
     char *message = (char *)(malloc(sizeof(char) * length + 1));
     snprintf(message, length + 1, "%s", payload);

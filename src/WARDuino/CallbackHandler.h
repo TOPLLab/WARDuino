@@ -40,7 +40,7 @@ class CallbackHandler {
     static void clear_callbacks();
     static std::string dump_callbacks();
     static size_t callback_count(const std::string &topic);
-    static void push_event(std::string topic, const unsigned char *payload,
+    static void push_event(std::string topic, const char *payload,
                            unsigned int length);
     static void push_event(Event *event);
     static bool resolve_event(bool force = false);

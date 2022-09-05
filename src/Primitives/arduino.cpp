@@ -35,7 +35,7 @@ Adafruit_NeoPixel pixels =
 #include <SPI.h>
 SPIClass *spi = new SPIClass();
 
-// Hardeware SPI
+// Hardware SPI
 void write_spi_byte(unsigned char c) {
     spi->beginTransaction(SPISettings(20000000, MSBFIRST, SPI_MODE0));
     spi->transfer(c);
@@ -52,6 +52,78 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
     spi->endTransaction();
 }
 
+// Hardware Interrupts
+
+#define ALL_ISRS 25  // number of installed ISRs
+
+typedef struct ISREntry {
+    int pin;
+    void (*ISR_callback)();
+} ISREntry;
+
+ISREntry ISRs[ALL_ISRS];
+int isr_index = 0;
+
+/* Private macro to install an ISR */
+#define install_isr(number)                                          \
+    {                                                                \
+        dbg_info("installing isr number: %d  of %d with name: %s\n", \
+                 isr_index + 1, ALL_ISRS, isr_##number);             \
+        if (isr_index < ALL_ISRS) {                                  \
+            ISREntry *p = &ISRs[isr_index];                          \
+            p->pin = number;                                         \
+            p->ISR_callback = &(isr_##number);                       \
+        } else {                                                     \
+            FATAL("isr_index out of bounds");                        \
+        }                                                            \
+    }
+
+/* Private macro to create an ISR for a specific pin*/
+#define def_isr(pin) \
+    void isr_##pin() { CallbackHandler::push_event("interrupt_##pin", "", 0); }
+
+/* Common GPIO pins on ESP32 devices:*/
+def_isr(1);
+def_isr(2);
+def_isr(3);
+def_isr(4);
+def_isr(5);
+def_isr(12);
+def_isr(13);
+def_isr(14);
+def_isr(15);
+def_isr(16);
+def_isr(17);
+def_isr(18);
+def_isr(19);
+def_isr(21);
+def_isr(22);
+def_isr(23);
+def_isr(25);
+def_isr(26);
+def_isr(27);
+def_isr(32);
+def_isr(33);
+def_isr(34);
+def_isr(35);
+def_isr(36);
+def_isr(39);
+
+int resolve_isr(int pin) {
+    debug("Resolve ISR (%d) for %s  \n", ALL_ISRS, pin);
+
+    for (int i = 0; i < ALL_ISRS; i++) {
+        auto &isr = ISRs[i];
+        if (pin == isr.pin) {
+            debug("FOUND ISR\n");
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Primitives
+
 #define NUM_PRIMITIVES 0
 #define NUM_PRIMITIVES_ARDUINO 37
 
@@ -59,8 +131,6 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 // Global index for installing primitives
 int prim_index = 0;
-
-double sensor_emu = 0;
 
 /*
    Private macros to install a primitive
@@ -526,45 +596,20 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
 
 // INTERRUPTS
 
-class Interrupt {
-   public:
-    void setup(uint8_t pin, void (*ISR_callback)(void), uint8_t mode) {
-        this->pin = pin;
-        this->mode = mode;
-        Serial.print("Attaching to ");
-        Serial.print(pin);
-        Serial.println("");
-        attachInterrupt(digitalPinToInterrupt(pin), ISR_callback, mode);
-    }
-
-    void handleInterrupt();
-    uint8_t pin;
-
-   private:
-    uint8_t mode;
-    void (*ISR_callback)();
-};
-
-void Interrupt::handleInterrupt() {
-    String topic = "interrupt";
-    topic += String(pin);
-    auto *empty = reinterpret_cast<const unsigned char *>("");
-    CallbackHandler::push_event(topic.c_str(), empty, 0);
-}
-
-std::vector<Interrupt *> handlers;
-
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t fidx = arg1.uint32;  // Callback function
     uint8_t mode = arg0.uint32;
 
-    Interrupt *handler = new Interrupt();
-    handlers.push_back(handler);
-    handler->setup(
-        pin, [] { handlers.back()->handleInterrupt(); }, mode);
+    int index = resolve_isr(pin);
+    if (index < 0) {
+        dbg_info("subscribe_interrupt: no ISR found for pin %i", pin);
+        return false;
+    }
 
-    String callback_id = "interrupt";
+    attachInterrupt(digitalPinToInterrupt(pin), ISRs[index].ISR_callback, mode);
+
+    String callback_id = "interrupt_";
     callback_id += String(pin);
     Callback c = Callback(m, callback_id.c_str(), fidx);
     CallbackHandler::add_callback(c);
@@ -576,14 +621,7 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 def_prim(unsubscribe_interrupt, oneToNoneU32) {
     uint8_t pin = arg0.uint32;
 
-    auto it = std::remove_if(
-        handlers.begin(), handlers.end(),
-        [pin](Interrupt *handler) { return handler->pin == pin; });
-
-    if (it != handlers.end()) {
-        handlers.erase(it, handlers.end());
-        detachInterrupt(digitalPinToInterrupt(pin));
-    }
+    detachInterrupt(digitalPinToInterrupt(pin));
 
     pop_args(1);
     return true;
@@ -607,7 +645,7 @@ def_prim(mqtt_init, threeToNoneU32) {
     mqttClient.setServer(server, port);
     mqttClient.setCallback([](const char *topic, const unsigned char *payload,
                               unsigned int length) {
-        CallbackHandler::push_event(topic, payload, length);
+        CallbackHandler::push_event(topic, (const char *)payload, length);
     });
 
 #if DEBUG
@@ -900,6 +938,34 @@ void install_primitives() {
     install_primitive(chip_ledc_analog_write);
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
+}
+
+void install_isrs() {
+    install_isr(1);
+    install_isr(2);
+    install_isr(3);
+    install_isr(4);
+    install_isr(5);
+    install_isr(12);
+    install_isr(13);
+    install_isr(14);
+    install_isr(15);
+    install_isr(16);
+    install_isr(17);
+    install_isr(18);
+    install_isr(19);
+    install_isr(21);
+    install_isr(22);
+    install_isr(23);
+    install_isr(25);
+    install_isr(26);
+    install_isr(27);
+    install_isr(32);
+    install_isr(33);
+    install_isr(34);
+    install_isr(35);
+    install_isr(36);
+    install_isr(39);
 }
 
 //------------------------------------------------------

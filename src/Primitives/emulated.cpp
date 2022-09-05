@@ -251,7 +251,7 @@ def_prim(test, oneToNoneU32) {
     Callback c = Callback(m, topic, fidx);
     CallbackHandler::add_callback(c);
     auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
-    CallbackHandler::push_event(topic, payload, 11);
+    CallbackHandler::push_event(topic, (const char *)payload, 11);
     pop_args(1);
     return true;
 }
