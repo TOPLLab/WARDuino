@@ -448,12 +448,12 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 }
 
 // Temporary Primitives needed for analogWrite in ESP32
-def_prim(chip_ledc_analog_write, threeToNoneU32) {
+def_prim(chip_analog_write, threeToNoneU32) {
     uint8_t channel = arg2.uint32;
     uint32_t value = arg1.uint32;
     uint32_t maxValue = arg0.uint32;
     // calculate duty, 4095 from 2 ^ 12 - 1
-    printf("chip_ledc_analog_write(%u, %u, %u)\n", channel, value, maxValue);
+    printf("chip_analog_write(%u, %u, %u)\n", channel, value, maxValue);
     pop_args(3);
     return true;
 }
@@ -514,7 +514,7 @@ void install_primitives() {
     install_primitive(show_pixels);
 
     // temporary mock primitives needed for analogWrite in ESP32
-    install_primitive(chip_ledc_analog_write);
+    install_primitive(chip_analog_write);
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
 }

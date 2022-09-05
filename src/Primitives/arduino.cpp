@@ -560,8 +560,9 @@ def_prim(clear_pixels, NoneToNoneU32) {
     return true;
 }
 
-// Temporary Primitives needed for analogWrite in ESP32
-def_prim(chip_ledc_analog_write, threeToNoneU32) {
+// LED Control primitives
+
+def_prim(chip_analog_write, threeToNoneU32) {
     uint8_t channel = arg2.uint32;
     uint32_t value = arg1.uint32;
     uint32_t maxValue = arg0.uint32;
@@ -935,7 +936,7 @@ void install_primitives() {
     install_primitive(show_pixels);
 
     // temporary primitives needed for analogWrite in ESP32
-    install_primitive(chip_ledc_analog_write);
+    install_primitive(chip_analog_write);
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
 }
