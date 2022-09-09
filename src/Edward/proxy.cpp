@@ -104,27 +104,29 @@ StackValue *Proxy::readRFCArgs(Block *func, uint8_t *data) {
             case I32: {
                 memcpy(&args[i].value.uint32, data, sizeof(uint32_t));
                 data += sizeof(uint32_t);
-                printf("arg %d: i32 value %" PRIu32 "\n", i,
+                printf("arg %" PRIu32 ": i32 value %" PRIu32 "\n", i,
                        args[i].value.uint32);
                 break;
             }
             case F32: {
                 memcpy(&args[i].value.f32, data, sizeof(float));
                 data += sizeof(float);
-                printf("arg %d: F32 value %.7f \n", i, args[i].value.f32);
+                printf("arg %" PRIu32 ": F32 value %.7f \n", i,
+                       args[i].value.f32);
                 break;
             }
             case I64: {
                 memcpy(&args[i].value.uint64, data, sizeof(uint64_t));
                 data += sizeof(uint64_t);
-                printf("arg %d: I64 value %" PRIu64 "\n", i,
+                printf("arg %" PRIu32 ": I64 value %" PRIu64 "\n", i,
                        args[i].value.uint64);
                 break;
             }
             case F64: {
                 memcpy(&args[i].value.f64, data, sizeof(double));
                 data += sizeof(double);
-                printf("arg %d: f64 value %.7f \n", i, args[i].value.f64);
+                printf("arg %" PRIu32 ": f64 value %.7f \n", i,
+                       args[i].value.f64);
                 break;
             }
             default: {

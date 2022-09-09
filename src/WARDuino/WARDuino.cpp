@@ -324,9 +324,9 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     uint8_t *pos = bytes;
     word = read_uint32(&pos);
     debug("Magic number is 0x%x\n", word);
-    ASSERT(word == WA_MAGIC, "Wrong module magic 0x%x\n", word);
+    ASSERT(word == WA_MAGIC, "Wrong module magic 0x%" PRIx32 "\n", word);
     word = read_uint32(&pos);
-    ASSERT(word == WA_VERSION, "Wrong module version 0x%x\n", word);
+    ASSERT(word == WA_VERSION, "Wrong module version 0x%" PRIx32 "\n", word);
     // Read the sections
     uint8_t *bytes_end = bytes + byte_count;
 
@@ -366,7 +366,8 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     Type *type = &m->types[c];
                     type->form = read_LEB(&pos, 7);
                     ASSERT(type->form == FUNC,
-                           "%u-th type def was not a function type", c);
+                           "%" PRIu32 " -th type def was not a function type",
+                           c);
 
                     // read vector params
                     type->param_count = read_LEB_32(&pos);
@@ -719,8 +720,9 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                              m->table.entries, offset);
                     if (!m->options.disable_memory_bounds) {
                         ASSERT(offset + num_elem <= m->table.size,
-                               "table overflow %d+%d > %d\n", offset, num_elem,
-                               m->table.size);
+                               "table overflow %" PRIu32 "+%" PRIu32
+                               " > %" PRIu32 "\n",
+                               offset, num_elem, m->table.size);
                     }
                     for (uint32_t n = 0; n < num_elem; n++) {
                         debug(
@@ -752,7 +754,9 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                     uint32_t size = read_LEB_32(&pos);
                     if (!m->options.disable_memory_bounds) {
                         ASSERT(offset + size <= m->memory.pages * PAGE_SIZE,
-                               "memory overflow %d+%d > %d\n", offset, size,
+                               "memory overflow %" PRIu32 "+%" PRIu32
+                               " > %" PRIu32 "\n",
+                               offset, size,
                                (uint32_t)(m->memory.pages * PAGE_SIZE));
                     }
                     dbg_info(
@@ -816,7 +820,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                 break;
             }
             default:
-                FATAL("Section %d unimplemented\n", id);
+                FATAL("Section %" PRIu32 " unimplemented\n", id);
                 pos += section_len;
         }
     }
@@ -834,7 +838,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
         // dbg_dump_stack(m);
 
         ASSERT(m->functions[fidx].type->result_count == 0,
-               "start function 0x%x must not have arguments!", fidx);
+               "start function 0x%" PRIx32 " must not have arguments!", fidx);
 
         if (fidx < m->import_count) {
             // THUNK thunk_out(m, fidx);     // import/thunk call

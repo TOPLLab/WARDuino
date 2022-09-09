@@ -332,7 +332,7 @@ bool i_instr_br_table(Module *m) {
     uint32_t count = read_LEB_32(&m->pc_ptr);
     if (count > BR_TABLE_SIZE) {
         // TODO: check this prior to runtime
-        sprintf(exception, "br_table size %d exceeds max %d\n", count,
+        sprintf(exception, "br_table size %" PRIu32 " exceeds max %d\n", count,
                 BR_TABLE_SIZE);
         return false;
     }
@@ -416,8 +416,9 @@ bool i_instr_call_indirect(Module *m) {
         val = val - (uint32_t)((uint64_t)m->table.entries);
     }
     if (val >= m->table.maximum) {
-        sprintf(exception, "undefined element 0x%x (max: 0x%x) in table", val,
-                m->table.maximum);
+        sprintf(exception,
+                "undefined element 0x%" PRIx32 " (max: 0x%" PRIx32 ") in table",
+                val, m->table.maximum);
         return false;
     }
 

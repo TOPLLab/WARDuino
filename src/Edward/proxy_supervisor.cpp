@@ -81,7 +81,7 @@ void ProxySupervisor::startPushDebuggerSocket() {
                 free(buffer);
                 buffer = new_buff;
                 current_size += start_size;
-                printf("increasing PushClient's buffer size to %d\n",
+                printf("increasing PushClient's buffer size to %" PRId32 "\n",
                        current_size);
             }
             buffer[buf_idx++] = _char;
