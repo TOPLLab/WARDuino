@@ -1,6 +1,7 @@
 //
 // WARDuino - WebAssembly interpreter for embedded devices.
 //
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -8,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
@@ -48,15 +50,16 @@ void print_help() {
     fprintf(stdout,
             "    --file         Wasm file (module) to load and execute\n");
     fprintf(stdout,
-            "    --no-socket    Run without socket "
+            "    --no-socket    Run debug on stdout"
             "(default: false)\n");
     fprintf(stdout,
-            "    --socket       The port number to attach the socket on"
+            "    --socket       Port number for debug socket (ignored if "
+            "'--no-socket' is true)"
             "(default: 8192)\n");
     fprintf(stdout,
             "    --paused       Pause program on entry (default: false)\n");
     fprintf(stdout,
-            "    --proxy        Port of proxy to connect to (ignored if mode "
+            "    --proxy        Localhost port or serial port (ignored if mode "
             "is 'proxy')\n");
     fprintf(stdout,
             "    --mode         The mode to run in: interpreter, proxy "
@@ -157,10 +160,7 @@ int connectToProxySocket(int proxy) {
 }
 
 // Connect to proxy via file descriptor
-int connectToProxyFd(const char *proxyfd) {
-    FILE *serial = fopen(proxyfd, "rw+");
-    return fileno(serial);
-}
+int connectToProxyFd(const char *proxyfd) { return open(proxyfd, O_RDWR); }
 
 WARDuino *wac = WARDuino::instance();
 Module *m;
@@ -244,17 +244,38 @@ int main(int argc, const char *argv[]) {
     if (m) {
         m->warduino = wac;
 
-        // Run in proxy mode
         if (strcmp(mode, "proxy") == 0) {
+            // Run in proxy mode
             wac->debugger->proxify();
-        }
-        // Connect to proxy device
-        else if (proxy) {
-            int connection = connectToProxySocket(std::stoi(proxy));
+        } else if (proxy) {
+            int connection = -1;
+
+            // Connect to proxy device
+            try {
+                int port = std::stoi(proxy);
+                connection = connectToProxySocket(port);
+            } catch (std::invalid_argument const &ex) {
+                // argument is not a port
+                // treat as filename
+                connection = connectToProxyFd(proxy);
+            } catch (std::out_of_range const &ex) {
+                // argument is an integer but is out of range
+                fprintf(stderr,
+                        "wdcli: out of range integer argument for --proxy\n");
+                return 1;
+            }
+
+            if (connection < 0) {
+                // Failed to connect stop program
+                fprintf(stderr, "wdcli: failed to connect to proxy device\n");
+                return 1;
+            }
+
+            // Start supervising proxy device (new thread)
             wac->debugger->startProxySupervisor(connection);
         }
 
-        // Run Wasm module
+        // Run Wasm module (new thread)
         pthread_t id;
         pthread_create(&id, nullptr, runWAC, nullptr);
 
