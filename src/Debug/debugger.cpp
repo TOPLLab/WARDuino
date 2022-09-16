@@ -240,6 +240,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptProxify: {
             dbg_info("Converting to proxy settings.\n");
             this->proxify();
+            free(interruptData);
             break;
         }
         case interruptDUMPAllEvents:
@@ -250,19 +251,24 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->channel->write("{");
             this->dumpEvents(start, size);
             this->channel->write("}\n");
+            free(interruptData);
             break;
         case interruptPOPEvent:
             CallbackHandler::resolve_event(true);
+            free(interruptData);
             break;
         case interruptPUSHEvent:
             this->handlePushedEvent(reinterpret_cast<char *>(interruptData));
+            free(interruptData);
             break;
         case interruptRecvCallbackmapping:
             Debugger::updateCallbackmapping(
                 m, reinterpret_cast<const char *>(interruptData + 2));
+            free(interruptData);
             break;
         case interruptDUMPCallbackmapping:
             this->dumpCallbackmapping();
+            free(interruptData);
             break;
         default:
             // handle later
