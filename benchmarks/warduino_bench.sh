@@ -1,24 +1,20 @@
 #!/usr/bin/sh
-# Name: Upload all programs in bench.list to arduino (WARDuino) and time
-# By Robbert Gurdeep Singh
+# This scripts takes the name of a benchmark from the tasks folder and uploads
+# it to arduino and times the execution
 ################################################################################
+
 tmpfile="$(mktemp --tmpdir)"
 trap "rm '$tmpfile'" EXIT
 cd "$(dirname "$0")"
-date >$1
-make clean all
-make -C tasks all
+outloc=${2:--}
 
-cat bench.list | while read l; do
-  echo $l | tee -a $1
-  arduino-cli compile --fqbn "esp32:esp32:esp32wrover:FlashFreq=80,UploadSpeed=921600,DebugLevel=none" ./tasks/$l/wast/warduino/warduino.ino 2>&1 >"$tmpfile"
-  arduino-cli upload --fqbn "esp32:esp32:esp32wrover:FlashFreq=80,UploadSpeed=921600,DebugLevel=none" ./tasks/$l/wast/warduino/warduino.ino -p /dev/ttyUSB0 2>&1 >"$tmpfile"
-  if [ "$?" -eq "0" ]; then
-    echo "flashed"
-    python3 flash_and_check.py | tee -a $1
-  else
-    cat $tmpfile
-    echo "FAILED!"
-    exit 1
-  fi
-done
+echo $1 | tee -a $2
+./upload ${BOARD:-ESP32WROVER} ./tasks/$1/wast/warduino/warduino.ino 2>&1 >"$tmpfile"
+if [ "$?" -eq "0" ]; then
+  echo "flashed"
+  python3 flash_and_check.py $1 | tee -a $2
+else
+  cat $tmpfile
+  echo "FAILED!"
+  exit 1
+fi
