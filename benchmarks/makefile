@@ -15,7 +15,7 @@ DEBUGFLAGS = -DDEBUG=$(DEBUG) -DTRACE=$(TRACE) -DINFO=$(INFO) -DWARN=$(WARN)
 CXX       = g++
 CC        = gcc
 CFLAGS    = -g -Wall -c
-CXXFLAGS  = -g -v -std=c++11  -Wall
+CXXFLAGS  = -g -v -std=c++11 -I ../lib/json/single_include -Wall
 
 
 
@@ -35,10 +35,11 @@ CXXSOURCES = \
            ../src/WARDuino/CallbackHandler.cpp \
            ../src/Primitives/emulated.cpp \
            ../src/Interpreter/instructions.cpp \
-           ../src/RFC/rfc.cpp \
-           ../src/RFC/proxy_server.cpp \
-           ../src/RFC/SocketServer.cpp \
+           ../src/Edward/RFC.cpp \
+           ../src/Edward/proxy.cpp \
+           ../src/Edward/proxy_supervisor.cpp \
            ../src/Utils/sockets.cpp \
+	   ../lib/json/single_include/nlohmann/json.hpp \
 	benchmarks.cpp
 
 all: $(OUTPUTDIR)$(TARGET) $(addprefix tasks/,$(addsuffix /wast/impl.wasm, $(TASKS)))
@@ -55,8 +56,8 @@ run: all
 	$(OUTPUTDIR)$(TARGET)
 
 clean: mostlyclean
-	$(MAKE) -C tasks clean
+	-$(MAKE) -C tasks clean
 
 mostlyclean:
-	$(RM) -rf $(OUTPUTDIR)
-	$(RM) $(COBJECTS)
+	-$(RM) -rf $(OUTPUTDIR)
+	-$(RM) $(COBJECTS)

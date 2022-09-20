@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include "../src/Debug/debugger.h"
 #include "../src/Utils/macros.h"
 #include "../src/WARDuino.h"
 #include "timer.h"
