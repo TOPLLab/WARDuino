@@ -1,0 +1,36 @@
+#!/bin/sh
+# Name:
+# By Robbert Gurdeep Singh
+# --pref build.path=/tmp/build
+# The above extra arguments allows specifying a build loc
+################################################################################
+set -x -e
+
+device="$(echo "${1?-Please specify a device type}" | tr '[:lower:]' '[:upper:]')"
+file=${2?-No file to upload}
+shift 2
+
+if [ -n "$USE_TMPDIR" ]; then
+  tmpfile="$(mktemp -d --tmpdir)"
+  trap "rm -rf '$tmpfile'" EXIT
+  cp "$file" "$tmpfile/prog.c"
+  cd "$tmpfile"
+  file="prog.c"
+fi
+
+case "$device" in
+"ESP32")
+  exec arduino --upload "$file" --board "esp32:esp32:esp32doit-devkit-v1:FlashFreq=80,UploadSpeed=921600,DebugLevel=none" "$@"
+  ;;
+"ESP32WROVER")
+  exec arduino --upload "$file" --board "esp32:esp32:esp32wrover:FlashFreq=80,UploadSpeed=921600,DebugLevel=none" "$@"
+  ;;
+"ESP8266")
+  exec arduino --upload "$file" --board "esp8266:esp8266:nodemcu:xtal=80,vt=flash,exception=disabled,ssl=all,eesz=4M,ip=lm2f,dbg=Disabled,lvl=None____,wipe=all,baud=115200" "$@"
+  ;;
+*)
+  echo "Unknown device: $device"
+  exit 1
+esac
+
+echo "done"
