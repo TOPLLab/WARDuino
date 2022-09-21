@@ -50,6 +50,9 @@ void print_help() {
     fprintf(stdout,
             "    --file         Wasm file (module) to load and execute\n");
     fprintf(stdout,
+            "    --no-debug     Run without debug thread"
+            "(default: false)\n");
+    fprintf(stdout,
             "    --no-socket    Run debug on stdout"
             "(default: false)\n");
     fprintf(stdout,
@@ -177,6 +180,7 @@ int main(int argc, const char *argv[]) {
 
     bool return_exception = true;
     bool run_tests = false;
+    bool no_debug = false;
     bool no_socket = false;
     const char *socket = "8192";
     bool paused = false;
@@ -207,7 +211,9 @@ int main(int argc, const char *argv[]) {
             ARGV_GET(asserts_file);
         } else if (!strcmp("--watcompiler", arg)) {
             ARGV_GET(watcompiler);
-        } else if (!strcmp("--no-socket", arg)) {
+        } else if (!strcmp("--no-debug", arg)) {
+            no_debug = true;
+        }  else if (!strcmp("--no-socket", arg)) {
             no_socket = true;
         } else if (!strcmp("--socket", arg)) {
             ARGV_GET(socket);
@@ -280,10 +286,12 @@ int main(int argc, const char *argv[]) {
         pthread_create(&id, nullptr, runWAC, nullptr);
 
         // Start debugger
-        if (no_socket) {
-            startDebuggerStd(wac, m);
-        } else {
-            startDebuggerSocket(wac, m, std::stoi(socket));
+        if (!no_debug) {
+            if (no_socket) {
+                startDebuggerStd(wac, m);
+            } else {
+                startDebuggerSocket(wac, m, std::stoi(socket));
+            }
         }
         int *ptr;
         pthread_join(id, (void **)&ptr);
