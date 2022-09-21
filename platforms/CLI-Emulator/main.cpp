@@ -213,7 +213,7 @@ int main(int argc, const char *argv[]) {
             ARGV_GET(watcompiler);
         } else if (!strcmp("--no-debug", arg)) {
             no_debug = true;
-        }  else if (!strcmp("--no-socket", arg)) {
+        } else if (!strcmp("--no-socket", arg)) {
             no_socket = true;
         } else if (!strcmp("--socket", arg)) {
             ARGV_GET(socket);

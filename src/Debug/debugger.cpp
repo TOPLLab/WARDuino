@@ -1026,7 +1026,7 @@ void Debugger::startProxySupervisor(int socket) {
 bool Debugger::proxy_connected() const { return this->connected_to_proxy; }
 
 void Debugger::disconnect_proxy() {
-    if (this->proxy_connected()) {
+    if (!this->proxy_connected()) {
         return;
     }
     int *ptr;
