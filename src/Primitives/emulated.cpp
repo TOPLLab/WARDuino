@@ -27,7 +27,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES_ARDUINO 31
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -227,19 +227,36 @@ def_prim(abort, NoneToNoneU32) {
     return false;
 }
 
-def_prim(millis, NoneToOneU64) {
+unsigned long get_time(int n) {
     struct timeval tv {};
     gettimeofday(&tv, nullptr);
-    unsigned long millis = 1000 * tv.tv_sec + tv.tv_usec;
+    return n * tv.tv_sec + tv.tv_usec;
+}
+
+def_prim(millis, NoneToOneU64) {
+    unsigned long millis = get_time(1000);
     pushUInt64(millis);
     return true;
 }
 
 def_prim(micros, NoneToOneU64) {
-    struct timeval tv {};
-    gettimeofday(&tv, nullptr);
-    unsigned long micros = 1000000 * tv.tv_sec + tv.tv_usec;
+    unsigned long micros = get_time(1000000);
     pushUInt64(micros);
+    return true;
+}
+
+// Benchmarks
+
+unsigned long bench = 0;
+
+def_prim(bench_start, NoneToNoneU32) {
+    bench = get_time(1000000);
+    return true;
+}
+
+def_prim(bench_finish, NoneToOneU64) {
+    unsigned long micros = get_time(1000000);
+    pushUInt64(micros - bench);
     return true;
 }
 
@@ -497,6 +514,9 @@ void install_primitives() {
     install_primitive(abort);
     install_primitive(millis);
     install_primitive(micros);
+
+    install_primitive(bench_start);
+    install_primitive(bench_finish);
 
     install_primitive(print_int);
     install_primitive(print_string);
