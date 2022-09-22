@@ -124,7 +124,7 @@ void startDebuggerStd(WARDuino *wac, Module *m) {
     }
 }
 
-void startDebuggerSocket(WARDuino *wac, Module *m, int port = 8192) {
+void startDebuggerSocket(WARDuino *wac, int port = 8192) {
     int socket_fd = createSocketFileDescriptor();
     struct sockaddr_in address = createAddress(port);
     bindSocketToAddress(socket_fd, address);
@@ -168,11 +168,23 @@ int connectToProxyFd(const char *proxyfd) { return open(proxyfd, O_RDWR); }
 WARDuino *wac = WARDuino::instance();
 Module *m;
 
-void *runWAC(void *p) {
-    // Print value received as argument:
-    dbg_info("\n=== STARTED INTERPRETATION (in separate thread) ===\n");
-    wac->run_module(m);
-    wac->unload_module(m);
+struct debugger_options {
+    const char *socket;
+    bool no_socket;
+};
+
+void *runDebugger(void *arg) {
+    auto *options = (debugger_options *)arg;
+    dbg_info("\n=== STARTED DEBUGGER (in separate thread) ===\n");
+    // Start debugger
+    if (options->no_socket) {
+        free(arg);
+        startDebuggerStd(wac, m);
+    } else {
+        int port = std::stoi(options->socket);
+        free(arg);
+        startDebuggerSocket(wac, port);
+    }
 }
 
 int main(int argc, const char *argv[]) {
@@ -281,18 +293,22 @@ int main(int argc, const char *argv[]) {
             wac->debugger->startProxySupervisor(connection);
         }
 
-        // Run Wasm module (new thread)
+        // Start debugger (new thread)
         pthread_t id;
-        pthread_create(&id, nullptr, runWAC, nullptr);
-
-        // Start debugger
+        struct debugger_options *options;
         if (!no_debug) {
-            if (no_socket) {
-                startDebuggerStd(wac, m);
-            } else {
-                startDebuggerSocket(wac, m, std::stoi(socket));
-            }
+            options =
+                (debugger_options *)malloc(sizeof(struct debugger_options));
+            options->no_socket = no_socket;
+            options->socket = socket;
+            pthread_create(&id, nullptr, runDebugger, options);
         }
+
+        // Run Wasm module
+        dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
+        wac->run_module(m);
+        wac->unload_module(m);
+
         int *ptr;
         pthread_join(id, (void **)&ptr);
     }
