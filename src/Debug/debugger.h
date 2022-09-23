@@ -137,9 +137,9 @@ class Debugger {
         nullptr;  // Breakpoint to skip in the next interpretation step
 
     // Constructor
-    explicit Debugger(int address);
+    explicit Debugger(Channel *duplex);
 
-    void setChannel(int address);
+    void setChannel(Channel *duplex);
 
     // Interrupts
 

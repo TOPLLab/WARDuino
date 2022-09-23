@@ -17,13 +17,13 @@
 
 // Debugger
 
-Debugger::Debugger(int address) { this->channel = new Channel(address); }
+Debugger::Debugger(Channel *duplex) { this->channel = duplex; }
 
 // Public methods
 
-void Debugger::setChannel(int address) {
+void Debugger::setChannel(Channel *duplex) {
     delete this->channel;
-    this->channel = new Channel(address);
+    this->channel = duplex;
 }
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
@@ -152,6 +152,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptHALT:
             this->channel->write("STOP!\n");
+            this->channel->close();
             free(interruptData);
             exit(0);
         case interruptPAUSE:
