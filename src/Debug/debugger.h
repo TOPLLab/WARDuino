@@ -141,6 +141,10 @@ class Debugger {
 
     void setChannel(Channel *duplex);
 
+    // Public methods
+
+    void stop();
+
     // Interrupts
 
     void addDebugMessage(size_t len, const uint8_t *buff);

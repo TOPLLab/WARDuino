@@ -109,8 +109,12 @@ error:
     return nullptr;
 }
 
-void startDebugger(WARDuino *wac, Channel *duplex) {
-    wac->debugger->setChannel(duplex);
+void *startDebuggerCommunication(void *arg) {
+    Channel *duplex = WARDuino::instance()->debugger->channel;
+    if (duplex == nullptr) {
+        return nullptr;
+    }
+
     duplex->open();
 
     ssize_t valread;
@@ -118,7 +122,7 @@ void startDebugger(WARDuino *wac, Channel *duplex) {
     while (true) {
         while ((valread = duplex->read(buffer, 1024)) != -1) {
             duplex->write("got a message ... \n", 19);
-            wac->handleInterrupt(valread - 1, buffer);
+            WARDuino::instance()->handleInterrupt(valread - 1, buffer);
         }
     }
 }
@@ -152,20 +156,18 @@ struct debugger_options {
     bool no_socket;
 };
 
-void *runDebugger(void *arg) {
-    auto *options = (debugger_options *)arg;
+void *setupDebuggerCommunication(debugger_options *options) {
     dbg_info("\n=== STARTED DEBUGGER (in separate thread) ===\n");
     // Start debugger
     Channel *duplex;
     if (options->no_socket) {
-        free(arg);
         duplex = new Duplex(stdin, stdout);
     } else {
         int port = std::stoi(options->socket);
-        free(arg);
         duplex = new WebSocket(port);
     }
-    startDebugger(wac, duplex);
+
+    wac->debugger->setChannel(duplex);
 }
 
 int main(int argc, const char *argv[]) {
@@ -275,19 +277,22 @@ int main(int argc, const char *argv[]) {
 
         // Start debugger (new thread)
         pthread_t id;
-        struct debugger_options *options;
         if (!no_debug) {
-            options =
+            auto *options =
                 (debugger_options *)malloc(sizeof(struct debugger_options));
             options->no_socket = no_socket;
             options->socket = socket;
-            pthread_create(&id, nullptr, runDebugger, options);
+            setupDebuggerCommunication(options);
+            free(options);
+
+            pthread_create(&id, nullptr, startDebuggerCommunication, nullptr);
         }
 
         // Run Wasm module
         dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
         wac->run_module(m);
         wac->unload_module(m);
+        wac->debugger->stop();
 
         int *ptr;
         pthread_join(id, (void **)&ptr);

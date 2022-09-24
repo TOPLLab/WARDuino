@@ -1048,3 +1048,11 @@ void Debugger::updateCallbackmapping(Module *m, const char *data) {
         }
     }
 }
+
+// Stop the debugger
+void Debugger::stop() {
+    if (this->channel != nullptr) {
+        this->channel->close();
+        this->channel = nullptr;
+    }
+}
