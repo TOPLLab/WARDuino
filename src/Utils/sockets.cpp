@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <csignal>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -85,8 +86,7 @@ int Sink::write(const char *fmt, ...) const {
     return written;
 }
 
-Duplex::Duplex(FILE *inStream, FILE *outStream)
-    : Sink(outStream) {
+Duplex::Duplex(FILE *inStream, FILE *outStream) : Sink(outStream) {
     this->inDescriptor = fileno(inStream);
 }
 
@@ -146,7 +146,15 @@ ssize_t WebSocket::read(void *out, size_t size) {
     return ::read(this->socket, out, size);
 }
 
+void sendAlarm() {
+    struct sigaction sact {};
+    sigemptyset(&sact.sa_mask);
+    sact.sa_flags = 0;
+    sigaction(SIGALRM, &sact, nullptr);
+    alarm(0);
+}
+
 void WebSocket::close() {
-    // TODO stop listenForIncomingConnection
-    shutdown(this->fileDescriptor, SHUT_RDWR);
+    sendAlarm();  // stop possible blocking accept call
+    shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
 }
