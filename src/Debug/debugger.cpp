@@ -1015,7 +1015,7 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     this->channel->write("done!\n");
 }
 
-void Debugger::startProxySupervisor(int socket) {
+void Debugger::startProxySupervisor(Channel *socket) {
     this->connected_to_proxy = true;
     pthread_mutex_init(&this->supervisor_mutex, nullptr);
     pthread_mutex_lock(&this->supervisor_mutex);

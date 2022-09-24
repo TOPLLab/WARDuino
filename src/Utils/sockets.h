@@ -24,9 +24,22 @@ class Channel {
     virtual ~Channel() = default;
 };
 
-class FileDescriptorChannel : Channel {
-   protected:
-    int fileDescriptor;
+class FileChannel : public Channel {
+   private:
+    FILE *outStream;
+    int outDescriptor;
+    int inDescriptor;
+
+   public:
+    explicit FileChannel(FILE *in, FILE *out);
+
+    int write(char const *fmt, ...) const override;
+    ssize_t read(void *out, size_t size) override;
+};
+
+class FileDescriptorChannel : public Channel {
+   private:
+    int fd;
 
    public:
     explicit FileDescriptorChannel(int fileDescriptor);
@@ -35,7 +48,7 @@ class FileDescriptorChannel : Channel {
     ssize_t read(void *out, size_t size) override;
 };
 
-class WebSocket : Channel {
+class WebSocket : public Channel {
    private:
     int port;
     int fileDescriptor;

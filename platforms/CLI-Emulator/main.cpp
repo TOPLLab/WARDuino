@@ -109,37 +109,16 @@ error:
     return nullptr;
 }
 
-void startDebuggerStd(WARDuino *wac, Module *m) {
-    int valread;
-    uint8_t buffer[1024] = {0};
-    wac->debugger->setChannel(fileno(stdout));
-    while (true) {
-        debug("waiting for debug command\n");
-        while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
-            write(fileno(stdout), "got a message ... \n", 19);
-            wac->handleInterrupt(valread - 1, buffer);
-            write(fileno(stdout), buffer, valread);
-            fflush(stdout);
-        }
-    }
-}
-
-void startDebuggerSocket(WARDuino *wac, int port = 8192) {
-    int socket_fd = createSocketFileDescriptor();
-    struct sockaddr_in address = createAddress(port);
-    bindSocketToAddress(socket_fd, address);
-    startListening(socket_fd);
-    printf("Listening on port 172.0.0.1:%i\n", port);
+void startDebugger(WARDuino *wac, Channel *duplex) {
+    wac->debugger->setChannel(duplex);
+    duplex->open();
 
     ssize_t valread;
     uint8_t buffer[1024] = {0};
     while (true) {
-        int socket = listenForIncomingConnection(socket_fd, address);
-        wac->debugger->setChannel(socket);
-        while ((valread = read(socket, buffer, 1024)) != -1) {
-            write(socket, "got a message ... \n", 19);
+        while ((valread = duplex->read(buffer, 1024)) != -1) {
+            duplex->write("got a message ... \n", 19);
             wac->handleInterrupt(valread - 1, buffer);
-            write(socket, buffer, valread);
         }
     }
 }
@@ -177,14 +156,16 @@ void *runDebugger(void *arg) {
     auto *options = (debugger_options *)arg;
     dbg_info("\n=== STARTED DEBUGGER (in separate thread) ===\n");
     // Start debugger
+    Channel *duplex;
     if (options->no_socket) {
         free(arg);
-        startDebuggerStd(wac, m);
+        duplex = new FileChannel(stdin, stdout);
     } else {
         int port = std::stoi(options->socket);
         free(arg);
-        startDebuggerSocket(wac, port);
+        duplex = new WebSocket(port);
     }
+    startDebugger(wac, duplex);
 }
 
 int main(int argc, const char *argv[]) {
@@ -266,16 +247,15 @@ int main(int argc, const char *argv[]) {
             // Run in proxy mode
             wac->debugger->proxify();
         } else if (proxy) {
-            int connection = -1;
-
             // Connect to proxy device
+            Channel *connection = nullptr;
             try {
                 int port = std::stoi(proxy);
-                connection = connectToProxySocket(port);
+                connection = new WebSocket(port);
             } catch (std::invalid_argument const &ex) {
                 // argument is not a port
                 // treat as filename
-                connection = connectToProxyFd(proxy);
+                connection = new FileDescriptorChannel(open(proxy, O_RDWR));
             } catch (std::out_of_range const &ex) {
                 // argument is an integer but is out of range
                 fprintf(stderr,
@@ -283,7 +263,7 @@ int main(int argc, const char *argv[]) {
                 return 1;
             }
 
-            if (connection < 0) {
+            if (connection == nullptr) {
                 // Failed to connect stop program
                 fprintf(stderr, "wdcli: failed to connect to proxy device\n");
                 return 1;

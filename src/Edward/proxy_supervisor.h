@@ -20,7 +20,7 @@ class ProxySupervisor {
     void deserializeRFCResult(RFC *rfc);
 
    public:
-    ProxySupervisor(int socket, pthread_mutex_t *mutex);
+    ProxySupervisor(Channel *duplex, pthread_mutex_t *mutex);
 
     void startPushDebuggerSocket();
 

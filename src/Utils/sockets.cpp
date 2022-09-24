@@ -71,18 +71,39 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     return new_socket;
 }
 
-FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) { this->fileDescriptor = fileDescriptor; }
+FileChannel::FileChannel(FILE *inStream, FILE *outStream) {
+    this->outStream = outStream;
+    this->outDescriptor = fileno(outStream);
+    this->inDescriptor = fileno(inStream);
+}
+
+int FileChannel::write(const char *fmt, ...) const {
+    va_list args;
+    va_start(args, fmt);
+    int written = vdprintf(this->outDescriptor, fmt, args);
+    va_end(args);
+    fflush(this->outStream);
+    return written;
+}
+
+ssize_t FileChannel::read(void *out, size_t size) {
+    return ::read(this->inDescriptor, out, size);
+}
+
+FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) {
+    this->fd = fileDescriptor;
+}
 
 int FileDescriptorChannel::write(const char *fmt, ...) const {
     va_list args;
     va_start(args, fmt);
-    int written = vdprintf(this->fileDescriptor, fmt, args);
+    int written = vdprintf(this->fd, fmt, args);
     va_end(args);
     return written;
 }
 
 ssize_t FileDescriptorChannel::read(void *out, size_t size) {
-    return ::read(this->fileDescriptor, out, size);
+    return ::read(this->fd, out, size);
 }
 
 WebSocket::WebSocket(int port) {
