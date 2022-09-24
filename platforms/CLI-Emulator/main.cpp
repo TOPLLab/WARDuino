@@ -159,7 +159,7 @@ void *runDebugger(void *arg) {
     Channel *duplex;
     if (options->no_socket) {
         free(arg);
-        duplex = new FileChannel(stdin, stdout);
+        duplex = new Duplex(stdin, stdout);
     } else {
         int port = std::stoi(options->socket);
         free(arg);

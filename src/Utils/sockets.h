@@ -24,22 +24,22 @@ class Channel {
     virtual ~Channel() = default;
 };
 
-class OutChannel : public Channel {
+class Sink : public Channel {
    private:
     FILE *outStream;
     int outDescriptor;
 
    public:
-    explicit OutChannel(FILE *out);
+    explicit Sink(FILE *out);
     int write(char const *fmt, ...) const override;
 };
 
-class FileChannel : public OutChannel {
+class Duplex : public Sink {
    private:
     int inDescriptor;
 
    public:
-    explicit FileChannel(FILE *inStream, FILE *outStream);
+    explicit Duplex(FILE *inStream, FILE *outStream);
 
     ssize_t read(void *out, size_t size) override;
 };

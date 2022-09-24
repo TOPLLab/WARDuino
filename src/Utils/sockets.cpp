@@ -71,12 +71,12 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     return new_socket;
 }
 
-OutChannel::OutChannel(FILE *out) {
+Sink::Sink(FILE *out) {
     this->outStream = out;
     this->outDescriptor = fileno(out);
 }
 
-int OutChannel::write(const char *fmt, ...) const {
+int Sink::write(const char *fmt, ...) const {
     va_list args;
     va_start(args, fmt);
     int written = vdprintf(this->outDescriptor, fmt, args);
@@ -85,12 +85,12 @@ int OutChannel::write(const char *fmt, ...) const {
     return written;
 }
 
-FileChannel::FileChannel(FILE *inStream, FILE *outStream)
-    : OutChannel(outStream) {
+Duplex::Duplex(FILE *inStream, FILE *outStream)
+    : Sink(outStream) {
     this->inDescriptor = fileno(inStream);
 }
 
-ssize_t FileChannel::read(void *out, size_t size) {
+ssize_t Duplex::read(void *out, size_t size) {
     return ::read(this->inDescriptor, out, size);
 }
 
