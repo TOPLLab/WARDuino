@@ -28,7 +28,7 @@ WARDuino* wac = WARDuino::instance();
 Module* m;
 
 void startDebuggerStd(void* pvParameter) {
-    Channel* duplex = new FileChannel(stdin, stdout);
+    Channel* duplex = new Duplex(stdin, stdout);
     wac->debugger->setChannel(duplex);
     duplex->open();
 

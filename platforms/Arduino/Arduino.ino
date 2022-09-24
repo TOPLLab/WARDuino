@@ -21,7 +21,7 @@ Module* m;
 #define UART_PIN 3
 
 void startDebuggerStd(void* pvParameter) {
-    Channel* sink = new OutChannel(stdout);
+    Channel* sink = new Sink(stdout);
     wac->debugger->setChannel(sink);
     sink->open();
 
