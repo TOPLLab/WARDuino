@@ -56,9 +56,9 @@ Event *parseJSON(char *buff) {
     return new Event(*parsed.find("topic"), payload);
 }
 
-ProxySupervisor::ProxySupervisor(int socket, pthread_mutex_t *mutex) {
+ProxySupervisor::ProxySupervisor(Channel *duplex, pthread_mutex_t *mutex) {
     printf("Started supervisor.\n");
-    this->channel = new Channel(socket);
+    this->channel = duplex;
     this->mutex = mutex;
 
     pthread_create(&this->threadid, nullptr, readSocket, this);

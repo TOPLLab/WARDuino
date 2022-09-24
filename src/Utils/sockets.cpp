@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <csignal>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -71,9 +72,66 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     return new_socket;
 }
 
-Channel::Channel(int socket) { this->socket = socket; }
+Sink::Sink(FILE *out) {
+    this->outStream = out;
+    this->outDescriptor = fileno(out);
+}
 
-int Channel::write(const char *fmt, ...) const {
+int Sink::write(const char *fmt, ...) const {
+    va_list args;
+    va_start(args, fmt);
+    int written = vdprintf(this->outDescriptor, fmt, args);
+    va_end(args);
+    fflush(this->outStream);
+    return written;
+}
+
+Duplex::Duplex(FILE *inStream, FILE *outStream) : Sink(outStream) {
+    this->inDescriptor = fileno(inStream);
+}
+
+ssize_t Duplex::read(void *out, size_t size) {
+    return ::read(this->inDescriptor, out, size);
+}
+
+FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) {
+    this->fd = fileDescriptor;
+}
+
+int FileDescriptorChannel::write(const char *fmt, ...) const {
+    va_list args;
+    va_start(args, fmt);
+    int written = vdprintf(this->fd, fmt, args);
+    va_end(args);
+    return written;
+}
+
+ssize_t FileDescriptorChannel::read(void *out, size_t size) {
+    return ::read(this->fd, out, size);
+}
+
+WebSocket::WebSocket(int port) {
+    this->port = port;
+    this->fileDescriptor = -1;
+    this->socket = -1;
+}
+
+void WebSocket::open() {
+    // bind socket to address
+    this->fileDescriptor = createSocketFileDescriptor();
+    struct sockaddr_in address = createAddress(this->port);
+    bindSocketToAddress(this->fileDescriptor, address);
+    startListening(this->fileDescriptor);
+    printf("Listening on port 172.0.0.1:%i\n", this->port);
+
+    // block until a connection is established
+    this->socket = listenForIncomingConnection(this->fileDescriptor, address);
+}
+
+int WebSocket::write(const char *fmt, ...) const {
+    if (this->socket < 0) {
+        return 0;
+    }
     va_list args;
     va_start(args, fmt);
     int written = vdprintf(this->socket, fmt, args);
@@ -81,6 +139,22 @@ int Channel::write(const char *fmt, ...) const {
     return written;
 }
 
-ssize_t Channel::read(void *out, size_t size) {
+ssize_t WebSocket::read(void *out, size_t size) {
+    if (this->socket < 0) {
+        return 0;
+    }
     return ::read(this->socket, out, size);
+}
+
+void sendAlarm() {
+    struct sigaction sact {};
+    sigemptyset(&sact.sa_mask);
+    sact.sa_flags = 0;
+    sigaction(SIGALRM, &sact, nullptr);
+    alarm(0);
+}
+
+void WebSocket::close() {
+    sendAlarm();  // stop possible blocking accept call
+    shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
 }

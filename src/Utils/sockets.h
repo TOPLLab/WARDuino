@@ -16,12 +16,56 @@ void startListening(int socket_fd);
 int listenForIncomingConnection(int socket_fd, struct sockaddr_in address);
 
 class Channel {
+   public:
+    virtual void open() {}
+    virtual int write(char const *fmt, ...) const { return 0; }
+    virtual ssize_t read(void *out, size_t size) { return 0; }
+    virtual void close() {}
+    virtual ~Channel() = default;
+};
+
+class Sink : public Channel {
    private:
+    FILE *outStream;
+    int outDescriptor;
+
+   public:
+    explicit Sink(FILE *out);
+    int write(char const *fmt, ...) const override;
+};
+
+class Duplex : public Sink {
+   private:
+    int inDescriptor;
+
+   public:
+    explicit Duplex(FILE *inStream, FILE *outStream);
+
+    ssize_t read(void *out, size_t size) override;
+};
+
+class FileDescriptorChannel : public Channel {
+   private:
+    int fd;
+
+   public:
+    explicit FileDescriptorChannel(int fileDescriptor);
+
+    int write(char const *fmt, ...) const override;
+    ssize_t read(void *out, size_t size) override;
+};
+
+class WebSocket : public Channel {
+   private:
+    int port;
+    int fileDescriptor;
     int socket;
 
    public:
-    explicit Channel(int socket);
+    explicit WebSocket(int port);
 
-    int write(char const *fmt, ...) const;
-    ssize_t read(void *out, size_t size);
+    void open() override;
+    int write(char const *fmt, ...) const override;
+    ssize_t read(void *out, size_t size) override;
+    void close() override;
 };

@@ -17,13 +17,13 @@
 
 // Debugger
 
-Debugger::Debugger(int address) { this->channel = new Channel(address); }
+Debugger::Debugger(Channel *duplex) { this->channel = duplex; }
 
 // Public methods
 
-void Debugger::setChannel(int address) {
+void Debugger::setChannel(Channel *duplex) {
     delete this->channel;
-    this->channel = new Channel(address);
+    this->channel = duplex;
 }
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
@@ -152,6 +152,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptHALT:
             this->channel->write("STOP!\n");
+            this->channel->close();
             free(interruptData);
             exit(0);
         case interruptPAUSE:
@@ -1014,7 +1015,7 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     this->channel->write("done!\n");
 }
 
-void Debugger::startProxySupervisor(int socket) {
+void Debugger::startProxySupervisor(Channel *socket) {
     this->connected_to_proxy = true;
     pthread_mutex_init(&this->supervisor_mutex, nullptr);
     pthread_mutex_lock(&this->supervisor_mutex);
@@ -1026,7 +1027,7 @@ void Debugger::startProxySupervisor(int socket) {
 bool Debugger::proxy_connected() const { return this->connected_to_proxy; }
 
 void Debugger::disconnect_proxy() {
-    if (this->proxy_connected()) {
+    if (!this->proxy_connected()) {
         return;
     }
     int *ptr;
@@ -1045,5 +1046,13 @@ void Debugger::updateCallbackmapping(Module *m, const char *data) {
             CallbackHandler::add_callback(
                 Callback(m, callback.key(), functions.value()));
         }
+    }
+}
+
+// Stop the debugger
+void Debugger::stop() {
+    if (this->channel != nullptr) {
+        this->channel->close();
+        this->channel = nullptr;
     }
 }

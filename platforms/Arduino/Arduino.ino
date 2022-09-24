@@ -21,12 +21,12 @@ Module* m;
 #define UART_PIN 3
 
 void startDebuggerStd(void* pvParameter) {
+    Channel* sink = new Sink(stdout);
+    wac->debugger->setChannel(sink);
+    sink->open();
+
     uint8_t buffer[1024] = {0};
-    wac->debugger->setChannel(fileno(stdout));
-    write(fileno(stdout), "Got a message ... \n", 19);
     while (true) {
-        // taskYIELD();
-        // vTaskDelay(100 / portTICK_PERIOD_MS);
         yield();
 
         while (Serial.available()) {
