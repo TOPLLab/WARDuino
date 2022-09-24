@@ -18,22 +18,29 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address);
 class Channel {
    public:
     virtual void open() {}
-    virtual int write(char const *fmt, ...) const {}
-    virtual ssize_t read(void *out, size_t size) {}
+    virtual int write(char const *fmt, ...) const { return 0; }
+    virtual ssize_t read(void *out, size_t size) { return 0; }
     virtual void close() {}
     virtual ~Channel() = default;
 };
 
-class FileChannel : public Channel {
+class OutChannel : public Channel {
    private:
     FILE *outStream;
     int outDescriptor;
+
+   public:
+    explicit OutChannel(FILE *out);
+    int write(char const *fmt, ...) const override;
+};
+
+class FileChannel : public OutChannel {
+   private:
     int inDescriptor;
 
    public:
-    explicit FileChannel(FILE *in, FILE *out);
+    explicit FileChannel(FILE *inStream, FILE *outStream);
 
-    int write(char const *fmt, ...) const override;
     ssize_t read(void *out, size_t size) override;
 };
 

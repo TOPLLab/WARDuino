@@ -71,19 +71,23 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     return new_socket;
 }
 
-FileChannel::FileChannel(FILE *inStream, FILE *outStream) {
-    this->outStream = outStream;
-    this->outDescriptor = fileno(outStream);
-    this->inDescriptor = fileno(inStream);
+OutChannel::OutChannel(FILE *out) {
+    this->outStream = out;
+    this->outDescriptor = fileno(out);
 }
 
-int FileChannel::write(const char *fmt, ...) const {
+int OutChannel::write(const char *fmt, ...) const {
     va_list args;
     va_start(args, fmt);
     int written = vdprintf(this->outDescriptor, fmt, args);
     va_end(args);
     fflush(this->outStream);
     return written;
+}
+
+FileChannel::FileChannel(FILE *inStream, FILE *outStream)
+    : OutChannel(outStream) {
+    this->inDescriptor = fileno(inStream);
 }
 
 ssize_t FileChannel::read(void *out, size_t size) {

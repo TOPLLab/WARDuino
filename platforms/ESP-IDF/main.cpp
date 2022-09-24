@@ -28,18 +28,19 @@ WARDuino* wac = WARDuino::instance();
 Module* m;
 
 void startDebuggerStd(void* pvParameter) {
+    Channel* duplex = new FileChannel(stdin, stdout);
+    wac->debugger->setChannel(duplex);
+    duplex->open();
+
     int valread;
     uint8_t buffer[1024] = {0};
-    wac->debugger->setChannel(fileno(stdout));
     while (true) {
         taskYIELD();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-        while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
-            write(fileno(stdout), "got a message ... \n", 19);
+        while ((valread = duplex->read(buffer, 1024)) != -1) {
+            duplex->write("got a message ... \n", 19);
             wac->handleInterrupt(valread - 1, buffer);
-            write(fileno(stdout), buffer, valread);
-            fflush(stdout);
         }
     }
 }
