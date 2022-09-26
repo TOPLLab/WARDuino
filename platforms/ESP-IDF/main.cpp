@@ -39,7 +39,6 @@ void startDebuggerStd(void* pvParameter) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
         while ((valread = duplex->read(buffer, 1024)) != -1) {
-            duplex->write("got a message ... \n", 19);
             wac->handleInterrupt(valread - 1, buffer);
         }
     }
