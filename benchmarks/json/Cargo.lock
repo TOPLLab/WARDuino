@@ -3,18 +3,43 @@
 version = 3
 
 [[package]]
+name = "jsmn"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03345f4e6d21355a9d86fccb08e371cfe105ca90e5f3ebcf2a5e1ccfa090fe66"
+
+[[package]]
 name = "json"
 version = "0.1.0"
 dependencies = [
- "tinyjson",
+ "jsmn",
+ "lite-json",
  "warduino",
 ]
 
 [[package]]
-name = "tinyjson"
-version = "2.5.0"
+name = "lite-json"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4b2f023483085707f4f0c1238a8a7baf8b502a1d427b9ed2a243884d3d687bb"
+checksum = "cd0e787ffe1153141a0f6f6d759fdf1cc34b1226e088444523812fd412a5cca2"
+dependencies = [
+ "lite-parser",
+]
+
+[[package]]
+name = "lite-parser"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d5f9dc37c52d889a21fd701983d02bb6a84f852c5140a6c80ef4557f7dc29e"
+dependencies = [
+ "paste",
+]
+
+[[package]]
+name = "paste"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1de2e551fb905ac83f73f7aedf2f0cb4a0da7e35efa24a202a936269f1f18e1"
 
 [[package]]
 name = "warduino"

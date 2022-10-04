@@ -3,7 +3,12 @@ name = "json"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+lto = true
+opt-level = 's'
+
 [dependencies]
-tinyjson = "2"
+jsmn = "0.1.5"
+lite-json = "0.2.0"
 warduino = { path = "src/warduino" }
 
