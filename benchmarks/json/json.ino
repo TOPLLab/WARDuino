@@ -31,10 +31,12 @@ void ICACHE_RAM_ATTR handleInput() {
 void setup() {
     Serial.begin(115200);
     attachInterrupt(D1, handleInput, CHANGE);
-}
 
-void loop() {
+    // only execute ones
     Module *m = wac->load_module(bench_wasm, bench_wasm_len, {});
     wac->run_module(m);
     wac->unload_module(m);
+}
+
+void loop() {
 }
