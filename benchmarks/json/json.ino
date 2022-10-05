@@ -31,7 +31,9 @@ void ICACHE_RAM_ATTR handleInput() {
 void setup() {
     Serial.begin(115200);
     attachInterrupt(D1, handleInput, CHANGE);
+}
 
+void loop() {
     Serial.println("START");
     Serial.flush();
 
@@ -43,7 +45,4 @@ void setup() {
     Serial.println("END");
     Serial.flush();
 
-}
-
-void loop() {
 }
