@@ -27,10 +27,7 @@
 #include "driver/gpio.h"
 #include "primitives.h"
 
-#define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 4
-
-#define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
+#define ALL_PRIMITIVES 9
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -202,6 +199,8 @@ Type NoneToOneU64 = {.form = FUNC,
                      .results = param_I64_arr_len1,
                      .mask = 0x82000};
 
+// Simple IO primitives
+
 def_prim(chip_delay, oneToNoneU32) {
     vTaskDelay(arg0.uint32 / portTICK_PERIOD_MS);
     pop_args(1);
@@ -228,6 +227,55 @@ def_prim(chip_digital_read, oneToOneU32) {
     return true;
 }
 
+
+// Timing primitives
+
+unsigned long get_time(int n) {
+    struct timeval tv {};
+    gettimeofday(&tv, nullptr);
+    return n * tv.tv_sec + tv.tv_usec;
+}
+
+def_prim(millis, NoneToOneU64) {
+    unsigned long millis = get_time(1000);
+    pushUInt64(millis);
+    return true;
+}
+
+def_prim(micros, NoneToOneU64) {
+    unsigned long micros = get_time(1000000);
+    pushUInt64(micros);
+    return true;
+}
+
+// Benchmark primitives
+
+unsigned long bench = 0;
+
+def_prim(bench_start, NoneToNoneU32) {
+    bench = get_time(1000000);
+    return true;
+}
+
+def_prim(bench_finish, NoneToOneU64) {
+    unsigned long micros = get_time(1000000);
+    pushUInt64(micros - bench);
+    return true;
+}
+
+// Printing primitives
+
+def_prim(print_string, twoToNoneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    printf("%s", text.c_str());
+    pop_args(2);
+    return true;
+}
+
+
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -237,6 +285,11 @@ void install_primitives() {
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_digital_read);
+    install_primitive(millis);
+    install_primitive(micros);
+    install_primitive(bench_start);
+    install_primitive(bench_finish);
+    install_primitive(print_string);
 }
 
 //------------------------------------------------------
