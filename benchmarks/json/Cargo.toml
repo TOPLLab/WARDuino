@@ -9,6 +9,5 @@ opt-level = 's'
 
 [dependencies]
 jsmn = "0.1.5"
-lite-json = "0.2.0"
 warduino = { path = "src/warduino" }
 
