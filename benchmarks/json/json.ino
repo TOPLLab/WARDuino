@@ -32,10 +32,17 @@ void setup() {
     Serial.begin(115200);
     attachInterrupt(D1, handleInput, CHANGE);
 
+    Serial.println("START");
+    Serial.flush();
+
     // only execute ones
     Module *m = wac->load_module(bench_wasm, bench_wasm_len, {});
     wac->run_module(m);
     wac->unload_module(m);
+
+    Serial.println("END");
+    Serial.flush();
+
 }
 
 void loop() {
