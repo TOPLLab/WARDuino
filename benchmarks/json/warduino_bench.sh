@@ -21,5 +21,5 @@ arduino-cli compile --fqbn $FQBN json.ino
 arduino-cli upload -p $PORT --fqbn $FQBN json.ino
 
 # monitor device
-arduino-cli monitor -p $PORT -c baudrate=115200
+python3 monitor.py | tee -a $2
 
