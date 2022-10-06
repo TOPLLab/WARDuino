@@ -6,6 +6,7 @@
 
 #include "../Utils/sockets.h"
 #include "RFC.h"
+#include "nlohmann/json.hpp"
 #include "pthread.h"
 #include "sys/types.h"
 
@@ -16,6 +17,8 @@ class ProxySupervisor {
     pthread_mutex_t *mutex;
     std::set<uint32_t> *proxied = new std::set<uint32_t>();
 
+    nlohmann::basic_json<> proxyResult;
+
     struct SerializeData *serializeRFC(RFC *callee);
     void deserializeRFCResult(RFC *rfc);
 
@@ -25,7 +28,7 @@ class ProxySupervisor {
     void startPushDebuggerSocket();
 
     bool send(void *t_buffer, int t_size);
-    char *readReply(short int amount = 1024);
+    char *readReply();
 
     pthread_t getThreadID();
 

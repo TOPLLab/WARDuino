@@ -60,8 +60,17 @@ ProxySupervisor::ProxySupervisor(Channel *duplex, pthread_mutex_t *mutex) {
     printf("Started supervisor.\n");
     this->channel = duplex;
     this->mutex = mutex;
+    this->proxyResult = nullptr;
 
     pthread_create(&this->threadid, nullptr, readSocket, this);
+}
+
+bool isEvent(nlohmann::basic_json<> parsed) {
+    return parsed.find("topic") != parsed.end();
+}
+
+bool isReply(nlohmann::basic_json<> parsed) {
+    return parsed.find("success") != parsed.end();
 }
 
 void ProxySupervisor::startPushDebuggerSocket() {
@@ -89,9 +98,19 @@ void ProxySupervisor::startPushDebuggerSocket() {
             // first len argument
             buffer[buf_idx] = '\0';
             try {
-                Event *event = parseJSON(buffer);
-                CallbackHandler::push_event(event);
-                WARDuino::instance()->debugger->notifyPushedEvent();
+                nlohmann::basic_json<> parsed = nlohmann::json::parse(buffer);
+                debug("parseJSON: %s\n", parsed.dump().c_str());
+
+                if (isEvent(parsed)) {
+                    CallbackHandler::push_event(new Event(
+                        *parsed.find("topic"), *parsed.find("payload")));
+                    WARDuino::instance()->debugger->notifyPushedEvent();
+                }
+
+                if (isReply(parsed)) {
+                    this->proxyResult = parsed;
+                }
+
                 buf_idx = 0;
             } catch (const nlohmann::detail::parse_error &e) {
             }
@@ -105,13 +124,8 @@ bool ProxySupervisor::send(
     return n == size;
 }
 
-char *ProxySupervisor::readReply(short int amount) {
-    char *buffer = new char[amount + 1];
-    bzero(buffer, amount + 1);
-    ssize_t n = this->channel->read(buffer, amount);
-    if (n > 0) return buffer;
-
-    delete[] buffer;
+char *ProxySupervisor::readReply() {
+    // TODO use this->proxyResult
     return nullptr;
 }
 
