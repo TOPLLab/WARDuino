@@ -108,6 +108,7 @@ void ProxySupervisor::startPushDebuggerSocket() {
                 }
 
                 if (isReply(parsed)) {
+                    this->hasReplied = true;
                     this->proxyResult = parsed;
                 }
 
@@ -124,9 +125,10 @@ bool ProxySupervisor::send(
     return n == size;
 }
 
-char *ProxySupervisor::readReply() {
-    // TODO use this->proxyResult
-    return nullptr;
+nlohmann::basic_json<> ProxySupervisor::readReply() {
+    while(!this->hasReplied);
+    this->hasReplied = false;
+    return this->proxyResult;
 }
 
 pthread_t ProxySupervisor::getThreadID() { return this->threadid; }
@@ -209,54 +211,26 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
 }
 
 void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
-    uint8_t *call_result = nullptr;
-    while (call_result == nullptr) {
-        call_result = (uint8_t *)this->readReply();
-    }
-    rfc->success = (uint8_t)call_result[0] == 1;
+    nlohmann::basic_json<> call_result = this->readReply();  // blocking
+    rfc->success = *call_result.find("success") == 1;
 
-    if (!rfc->success) {
-        uint16_t msg_size = 0;
-        memcpy(&msg_size, call_result + 1, sizeof(uint16_t));
-        if (msg_size > rfc->exception_size) {
-            delete[] rfc->exception;
-            rfc->exception = new char[msg_size];
-            rfc->exception_size = msg_size;
-        }
-        memcpy(rfc->exception, call_result + 1 + sizeof(uint16_t), msg_size);
-        delete[] call_result;
-        return;
-    }
+//    if (!rfc->success) {
+//        uint16_t msg_size = 0;
+//        memcpy(&msg_size, call_result + 1, sizeof(uint16_t));
+//        if (msg_size > rfc->exception_size) {
+//            delete[] rfc->exception;
+//            rfc->exception = new char[msg_size];
+//            rfc->exception_size = msg_size;
+//        }
+//        memcpy(rfc->exception, call_result + 1 + sizeof(uint16_t), msg_size);
+//        return;
+//    }
 
-    if (rfc->type->result_count == 0) {
-        delete[] call_result;
-        return;
-    }
-
-    rfc->result->value.uint64 = 0;
-    switch (rfc->result->value_type) {
-        case I32:
-            memcpy(&rfc->result->value.uint32, call_result + 1,
-                   sizeof(uint32_t));
-            dbg_info("deserialized U32 %" PRIu32 "\n", result->value.uint32);
-            break;
-        case F32:
-            memcpy(&rfc->result->value.f32, call_result + 1, sizeof(float));
-            dbg_info("deserialized f32 %f \n", result->value.f32);
-            break;
-        case I64:
-            memcpy(&rfc->result->value.uint64, call_result + 1,
-                   sizeof(uint64_t));
-            dbg_info("deserialized I64 %" PRIu64 "\n", result->value.uint64);
-            break;
-        case F64:
-            memcpy(&rfc->result->value.f64, call_result + 1, sizeof(double));
-            dbg_info("deserialized f32 %f \n", result->value.f64);
-            break;
-        default:
-            FATAL("Deserialization RFCResult\n");
-    }
-    delete[] call_result;
+    uint8_t type = *call_result.find("type");
+    auto *result = (StackValue *)malloc(sizeof (struct StackValue));
+    result->value_type = type;
+    result->value = {*call_result.find("value")};
+    rfc->result = result;
 }
 
 bool ProxySupervisor::call(RFC *callee) {

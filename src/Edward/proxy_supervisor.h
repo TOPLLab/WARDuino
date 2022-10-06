@@ -21,6 +21,7 @@ class ProxySupervisor {
     pthread_mutex_t *mutex;
     std::set<uint32_t> *proxied = new std::set<uint32_t>();
 
+    bool hasReplied = false;
     nlohmann::basic_json<> proxyResult;
 
     struct SerializeData *serializeRFC(RFC *callee);
@@ -32,7 +33,7 @@ class ProxySupervisor {
     void startPushDebuggerSocket();
 
     bool send(void *t_buffer, int t_size);
-    char *readReply();
+    nlohmann::basic_json<>readReply();
 
     pthread_t getThreadID();
 
