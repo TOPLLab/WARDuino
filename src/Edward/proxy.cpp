@@ -59,18 +59,18 @@ char *printValue(StackValue *v) {
     char *buff = (char *)malloc(256);
     switch (v->value_type) {
         case I32:
-            snprintf(buff, 255, R"("type":"i32","value":%)" PRIi32,
+            snprintf(buff, 255, R"("type":%d,"value":%)" PRIi32, I32,
                      v->value.uint32);
             break;
         case I64:
-            snprintf(buff, 255, R"("type":"i64","value":%)" PRIi64,
+            snprintf(buff, 255, R"("type":%d,"value":%)" PRIi64, I64,
                      v->value.uint64);
             break;
         case F32:
-            snprintf(buff, 255, R"("type":"F32","value":%.7f)", v->value.f32);
+            snprintf(buff, 255, R"("type":%d,"value":%.7f)", F32, v->value.f32);
             break;
         case F64:
-            snprintf(buff, 255, R"("type":"F64","value":%.7f)", v->value.f64);
+            snprintf(buff, 255, R"("type":%d,"value":%.7f)", F64, v->value.f64);
             break;
         default:
             snprintf(buff, 255, R"("type":"%02x","value":"%)" PRIx64 "\"",
