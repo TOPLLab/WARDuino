@@ -6,7 +6,11 @@
 
 #include "../Utils/sockets.h"
 #include "RFC.h"
-#include "nlohmann/json.hpp"
+#ifndef ARDUINO
+#include <nlohmann/json.hpp>
+#else
+#include "../../lib/json/single_include/nlohmann/json.hpp"
+#endif
 #include "pthread.h"
 #include "sys/types.h"
 
