@@ -14,9 +14,8 @@
 ////TODO test with many args proxy
 ////TODO test with no return proxy
 
-unsigned short int sizeSerializationRFCallee(RFC *);
 void arguments_copy(unsigned char *, StackValue *, uint32_t);
-
+char *printValue(StackValue *v);
 /*
  * Proxy methods
  */
@@ -50,42 +49,34 @@ void Proxy::returnResult(Module *m) {
     calls->pop();
 
     // send the result to the client
-    struct SerializeData *rfc_result = this->serializeRFCallee(rfc);
-    const char *data = (const char *)rfc_result->raw;
-    WARDuino::instance()->debugger->channel->write(data);
+    char *val = printValue(rfc->result);
+    WARDuino::instance()->debugger->channel->write(R"({"success":"%d",%s})",
+                                                   rfc->success ? 1 : 0, val);
+    free(val);
 }
 
-struct SerializeData *Proxy::serializeRFCallee(RFC *callee) {
-    const unsigned short serializationSize = sizeSerializationRFCallee(callee);
-    auto *raw = new unsigned char[serializationSize];
-    uint8_t suc = callee->success ? 1 : 0;
-
-    memcpy(raw, &suc, sizeof(uint8_t));
-    if (callee->success && callee->type->result_count > 0) {
-        printf("serializeRFCallee: success value size=%u \n",
-               sizeof_valuetype(callee->result->value_type));
-        memcpy(raw + 1, &callee->result->value,
-               sizeof_valuetype(callee->result->value_type));
-    } else if (!callee->success) {
-        printf("serializeRFCallee: serializing exception\n");
-        memcpy(raw + 1, &callee->exception_size, sizeof(uint16_t));
-        memcpy(raw + 1 + sizeof(uint16_t), callee->exception,
-               callee->exception_size);
+char *printValue(StackValue *v) {
+    char *buff = (char *)malloc(256);
+    switch (v->value_type) {
+        case I32:
+            snprintf(buff, 255, R"("type":"i32","value":%)" PRIi32,
+                     v->value.uint32);
+            break;
+        case I64:
+            snprintf(buff, 255, R"("type":"i64","value":%)" PRIi64,
+                     v->value.uint64);
+            break;
+        case F32:
+            snprintf(buff, 255, R"("type":"F32","value":%.7f)", v->value.f32);
+            break;
+        case F64:
+            snprintf(buff, 255, R"("type":"F64","value":%.7f)", v->value.f64);
+            break;
+        default:
+            snprintf(buff, 255, R"("type":"%02x","value":"%)" PRIx64 "\"",
+                     v->value_type, v->value.uint64);
     }
-
-    auto *ser = new struct SerializeData;
-    ser->raw = raw;
-    ser->size = serializationSize;
-    return ser;
-}
-
-unsigned short int sizeSerializationRFCallee(RFC *callee) {
-    if (!callee->success) return 1 + sizeof(uint16_t) + callee->exception_size;
-
-    if (callee->type->result_count > 0)
-        return 1 + sizeof_valuetype(callee->type->results[0]);
-    else
-        return 1;
+    return buff;
 }
 
 StackValue *Proxy::readRFCArgs(Block *func, uint8_t *data) {

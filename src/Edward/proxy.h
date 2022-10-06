@@ -13,7 +13,6 @@ class Proxy {
    private:
     std::stack<RFC *> *calls = new std::stack<RFC *>();  // lifo queue
 
-    struct SerializeData *serializeRFCallee(RFC *callee);
     void setupCalleeArgs(Module *m, RFC *callee);
     void pushProxyGuard(Module *m);
 
