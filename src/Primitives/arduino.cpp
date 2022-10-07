@@ -70,7 +70,7 @@ int isr_index = 0;
         dbg_info("installing isr number: %d  of %d with name: %s\n", \
                  isr_index + 1, ALL_ISRS, isr_##number);             \
         if (isr_index < ALL_ISRS) {                                  \
-            ISREntry *p = &ISRs[isr_index];                          \
+            ISREntry *p = &ISRs[isr_index++];                        \
             p->pin = number;                                         \
             p->ISR_callback = &(isr_##number);                       \
         } else {                                                     \
@@ -79,8 +79,10 @@ int isr_index = 0;
     }
 
 /* Private macro to create an ISR for a specific pin*/
+#define topic(pin) "interrupt_" #pin
+
 #define def_isr(pin) \
-    void isr_##pin() { CallbackHandler::push_event("interrupt_##pin", "", 0); }
+    void isr_##pin() { CallbackHandler::push_event(#pin, "", 0); }
 
 /* Common GPIO pins on ESP32 devices:*/
 def_isr(1);
@@ -110,10 +112,11 @@ def_isr(36);
 def_isr(39);
 
 int resolve_isr(int pin) {
-    debug("Resolve ISR (%d) for %s  \n", ALL_ISRS, pin);
+    debug("Resolve ISR (%d) for %i \n", ALL_ISRS, pin);
 
     for (int i = 0; i < ALL_ISRS; i++) {
         auto &isr = ISRs[i];
+        debug("Checking entry %i of %i: pin = %i \n", i, ALL_ISRS, isr.pin);
         if (pin == isr.pin) {
             debug("FOUND ISR\n");
             return i;
@@ -887,11 +890,38 @@ int32_t http_post_request(Module *m, const String url, const String body,
 }
 
 //------------------------------------------------------
-// Installing all the primitives
+// Installing all the primitives & ISRs
 //------------------------------------------------------
+void install_isrs() {
+    install_isr(1);
+    install_isr(2);
+    install_isr(3);
+    install_isr(4);
+    install_isr(5);
+    install_isr(12);
+    install_isr(13);
+    install_isr(14);
+    install_isr(15);
+    install_isr(16);
+    install_isr(17);
+    install_isr(18);
+    install_isr(19);
+    install_isr(21);
+    install_isr(22);
+    install_isr(23);
+    install_isr(25);
+    install_isr(26);
+    install_isr(27);
+    install_isr(32);
+    install_isr(33);
+    install_isr(34);
+    install_isr(35);
+    install_isr(36);
+    install_isr(39);
+}
+
 void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
-    dbg_info("INSTALLING ARDUINO\n");
     install_primitive(abort);
     install_primitive(millis);
     install_primitive(micros);
@@ -939,34 +969,9 @@ void install_primitives() {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
-}
 
-void install_isrs() {
-    install_isr(1);
-    install_isr(2);
-    install_isr(3);
-    install_isr(4);
-    install_isr(5);
-    install_isr(12);
-    install_isr(13);
-    install_isr(14);
-    install_isr(15);
-    install_isr(16);
-    install_isr(17);
-    install_isr(18);
-    install_isr(19);
-    install_isr(21);
-    install_isr(22);
-    install_isr(23);
-    install_isr(25);
-    install_isr(26);
-    install_isr(27);
-    install_isr(32);
-    install_isr(33);
-    install_isr(34);
-    install_isr(35);
-    install_isr(36);
-    install_isr(39);
+    dbg_info("INSTALLING ISRs\n");
+    install_isrs();
 }
 
 //------------------------------------------------------
