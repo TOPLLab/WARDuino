@@ -33,7 +33,7 @@ class ProxySupervisor {
     void startPushDebuggerSocket();
 
     bool send(void *t_buffer, int t_size);
-    nlohmann::basic_json<>readReply();
+    nlohmann::basic_json<> readReply();
 
     pthread_t getThreadID();
 

@@ -126,7 +126,8 @@ bool ProxySupervisor::send(
 }
 
 nlohmann::basic_json<> ProxySupervisor::readReply() {
-    while(!this->hasReplied);
+    while (!this->hasReplied)
+        ;
     this->hasReplied = false;
     return this->proxyResult;
 }
@@ -214,20 +215,20 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
     nlohmann::basic_json<> call_result = this->readReply();  // blocking
     rfc->success = *call_result.find("success") == 1;
 
-//    if (!rfc->success) {
-//        uint16_t msg_size = 0;
-//        memcpy(&msg_size, call_result + 1, sizeof(uint16_t));
-//        if (msg_size > rfc->exception_size) {
-//            delete[] rfc->exception;
-//            rfc->exception = new char[msg_size];
-//            rfc->exception_size = msg_size;
-//        }
-//        memcpy(rfc->exception, call_result + 1 + sizeof(uint16_t), msg_size);
-//        return;
-//    }
+    //    if (!rfc->success) {
+    //        uint16_t msg_size = 0;
+    //        memcpy(&msg_size, call_result + 1, sizeof(uint16_t));
+    //        if (msg_size > rfc->exception_size) {
+    //            delete[] rfc->exception;
+    //            rfc->exception = new char[msg_size];
+    //            rfc->exception_size = msg_size;
+    //        }
+    //        memcpy(rfc->exception, call_result + 1 + sizeof(uint16_t),
+    //        msg_size); return;
+    //    }
 
     uint8_t type = *call_result.find("type");
-    auto *result = (StackValue *)malloc(sizeof (struct StackValue));
+    auto *result = (StackValue *)malloc(sizeof(struct StackValue));
     result->value_type = type;
     result->value = {*call_result.find("value")};
     rfc->result = result;
