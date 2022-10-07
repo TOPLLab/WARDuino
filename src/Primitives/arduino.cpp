@@ -78,11 +78,13 @@ int isr_index = 0;
         }                                                            \
     }
 
-/* Private macro to create an ISR for a specific pin*/
-#define topic(pin) "interrupt_" #pin
+#define INTERRUPT_TOPIC_PREFIX "interrupt_"
 
-#define def_isr(pin) \
-    void isr_##pin() { CallbackHandler::push_event(#pin, "", 0); }
+/* Private macro to create an ISR for a specific pin*/
+#define def_isr(pin)                                                     \
+    void isr_##pin() {                                                   \
+        CallbackHandler::push_event(INTERRUPT_TOPIC_PREFIX #pin, "", 0); \
+    }
 
 /* Common GPIO pins on ESP32 devices:*/
 def_isr(1);
@@ -613,7 +615,7 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 
     attachInterrupt(digitalPinToInterrupt(pin), ISRs[index].ISR_callback, mode);
 
-    String callback_id = "interrupt_";
+    String callback_id = INTERRUPT_TOPIC_PREFIX;
     callback_id += String(pin);
     Callback c = Callback(m, callback_id.c_str(), fidx);
     CallbackHandler::add_callback(c);
