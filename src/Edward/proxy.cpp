@@ -63,8 +63,8 @@ void Proxy::returnResult(Module *m) {
 
     // send the result to the client
     char *val = printValue(rfc->result);
-    WARDuino::instance()->debugger->channel->write(R"({"success":"%d",%s})",
-                                                   rfc->success ? 1 : 0, val);
+    WARDuino::instance()->debugger->channel->write(
+        R"({"success":%s,%s})", rfc->success ? "true" : "false", val);
     free(val);
 }
 
