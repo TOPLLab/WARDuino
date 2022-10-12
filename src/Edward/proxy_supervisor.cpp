@@ -80,7 +80,7 @@ void ProxySupervisor::startPushDebuggerSocket() {
     uint32_t current_size = start_size;
     char *buffer = (char *)malloc(start_size);
 
-    printf("Started listening for events from proxy device.\n");
+    dbg_info("Proxy supervisor listening to remote device...\n");
     while (continuing(this->mutex)) {
         if (this->channel->read(&_char, 1) != -1) {
             // increase buffer size if needed
@@ -114,9 +114,14 @@ void ProxySupervisor::startPushDebuggerSocket() {
 
                 buf_idx = 0;
             } catch (const nlohmann::detail::parse_error &e) {
+                if (_char == '\n') {
+                    // discard buffer
+                    buf_idx = 0;
+                }
             }
         }
     }
+    dbg_info("Proxy supervisor shutting down.\n");
 }
 
 bool ProxySupervisor::send(
