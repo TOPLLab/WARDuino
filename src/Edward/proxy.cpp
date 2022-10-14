@@ -51,20 +51,26 @@ RFC *Proxy::topRFC() { return this->calls->top(); }
 void Proxy::returnResult(Module *m) {
     RFC *rfc = this->calls->top();
 
-    // reading result from stack
-    if (rfc->success && rfc->type->result_count > 0) {
-        rfc->result = &m->stack[m->sp];
-    } else if (!rfc->success) {
-        printf("some exception will be returned\n");
-        // TODO exception msg
-    }
     // remove call from lifo queue
     this->calls->pop();
 
+    if (!rfc->success) {
+        // TODO exception msg
+        WARDuino::instance()->debugger->channel->write(R"({"success":false})");
+        return;
+    }
+
+    if (rfc->type->result_count == 0) {
+        // reading result from stack
+        WARDuino::instance()->debugger->channel->write(R"({"success":true})");
+        return;
+    }
+
     // send the result to the client
+    rfc->result = &m->stack[m->sp];
     char *val = printValue(rfc->result);
-    WARDuino::instance()->debugger->channel->write(
-        R"({"success":%s,%s})", rfc->success ? "true" : "false", val);
+    WARDuino::instance()->debugger->channel->write(R"({"success":true,%s})",
+                                                   val);
     free(val);
 }
 

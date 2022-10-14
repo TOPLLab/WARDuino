@@ -220,6 +220,10 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
     nlohmann::basic_json<> call_result = this->readReply();  // blocking
     rfc->success = *call_result.find("success");
 
+    if (rfc->type->result_count == 0) {
+        return ;
+    }
+
     //    if (!rfc->success) {
     //        uint16_t msg_size = 0;
     //        memcpy(&msg_size, call_result + 1, sizeof(uint16_t));

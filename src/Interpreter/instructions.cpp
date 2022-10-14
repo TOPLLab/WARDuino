@@ -125,12 +125,16 @@ bool proxy_call(Module *m, uint32_t fidx) {
         dbg_info(": FAILED TO SEND\n", fidx);
         return false;
     }
+
     if (!rfc->success) {
         // TODO exception bugger might be too small and msg not null terminated?
         memcpy(&exception, rfc->exception, strlen(rfc->exception));
         return false;
     }
-    if (rfc->type->result_count > 0) m->stack[++m->sp] = *rfc->result;
+
+    if (rfc->type->result_count > 0) {
+        m->stack[++m->sp] = *rfc->result;
+    }
     return true;
 }
 
