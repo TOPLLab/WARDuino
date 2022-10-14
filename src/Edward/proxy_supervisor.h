@@ -30,7 +30,7 @@ class ProxySupervisor {
    public:
     ProxySupervisor(Channel *duplex, pthread_mutex_t *mutex);
 
-    void startPushDebuggerSocket();
+    void listenToSocket();
 
     bool send(void *t_buffer, int t_size);
     nlohmann::basic_json<> readReply();

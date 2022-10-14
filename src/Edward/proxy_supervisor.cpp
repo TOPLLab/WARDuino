@@ -40,11 +40,11 @@ bool continuing(pthread_mutex_t *mutex) {
     }
 }
 
-void *readSocket(void *input) {
+void *runSupervisor(void *input) {
     // Print value received as argument:
     dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
     auto *supervisor = (ProxySupervisor *)input;
-    supervisor->startPushDebuggerSocket();
+    supervisor->listenToSocket();
     pthread_exit(nullptr);
 }
 
@@ -57,12 +57,12 @@ Event *parseJSON(char *buff) {
 }
 
 ProxySupervisor::ProxySupervisor(Channel *duplex, pthread_mutex_t *mutex) {
-    printf("Started supervisor.\n");
+    debug("Starting supervisor.\n");
     this->channel = duplex;
     this->mutex = mutex;
     this->proxyResult = nullptr;
 
-    pthread_create(&this->threadid, nullptr, readSocket, this);
+    pthread_create(&this->threadid, nullptr, runSupervisor, this);
 }
 
 bool isEvent(nlohmann::basic_json<> parsed) {
@@ -73,7 +73,7 @@ bool isReply(nlohmann::basic_json<> parsed) {
     return parsed.find("success") != parsed.end();
 }
 
-void ProxySupervisor::startPushDebuggerSocket() {
+void ProxySupervisor::listenToSocket() {
     char _char;
     uint32_t buf_idx = 0;
     const uint32_t start_size = 1024;
@@ -185,9 +185,9 @@ void arguments_copy(unsigned char *dest, StackValue *args,
 
 /*
  *
- * output:  1 byte  | 4 bytes | sizeof(arg1.value_type) bytes |
- * sizeof(arg2.value_type) bytes | ... interrupt | funID   | arg1.value
- *
+ * output:  1 byte (interrupt code)  | 4 bytes (fidx) | sizeof(arg_1) arg_1  ...
+ sizeof(arg_n) arg_n
+
  * Output is also transformed to hexa
  *
  */
@@ -221,7 +221,7 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
     rfc->success = *call_result.find("success");
 
     if (rfc->type->result_count == 0) {
-        return ;
+        return;
     }
 
     //    if (!rfc->success) {
