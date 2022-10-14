@@ -59,7 +59,7 @@ void Proxy::returnResult(Module *m) {
         // TODO exception msg
     }
     // remove call from lifo queue
-    calls->pop();
+    this->calls->pop();
 
     // send the result to the client
     char *val = printValue(rfc->result);
@@ -86,7 +86,7 @@ char *printValue(StackValue *v) {
             snprintf(buff, 255, R"("type":%d,"value":%.7f)", F64, v->value.f64);
             break;
         default:
-            snprintf(buff, 255, R"("type":"%02x","value":"%)" PRIx64 "\"",
+            snprintf(buff, 255, R"("type":%02x,"value":%)" PRIx64,
                      v->value_type, v->value.uint64);
     }
     return buff;
