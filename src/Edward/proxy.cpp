@@ -23,35 +23,54 @@ char *printValue(StackValue *v);
 Proxy::Proxy() = default;
 
 void Proxy::pushRFC(Module *m, RFC *rfc) {
-    // push proxy guard block to stack
-    this->pushProxyGuard(m);
-    // push RFC arguments to stack
-    this->setupCalleeArgs(m, rfc);
-    // push function to stack
-    setup_call(m, rfc->fidx);
     // keep RFC in queue
     this->calls->push(rfc);
+
+    // push RFC arguments to stack
+    this->setupCalleeArgs(m, rfc);
+
+    if (rfc->fidx < m->import_count) {
+        // execute primitives directly
+        ((Primitive)m->functions[rfc->fidx].func_ptr)(m);
+        // send result directly
+        m->warduino->program_state = PROXYhalt;
+        m->warduino->debugger->sendProxyCallResult(m);
+        return;
+    }
+
+    // push proxy guard block to stack
+    this->pushProxyGuard(m);
+    // push function to stack
+    setup_call(m, rfc->fidx);
+
+    m->warduino->program_state = PROXYrun;
 }
 
 RFC *Proxy::topRFC() { return this->calls->top(); }
 
 void Proxy::returnResult(Module *m) {
     RFC *rfc = this->calls->top();
-    // reading result from stack
-    if (rfc->success && rfc->type->result_count > 0) {
-        rfc->result->value_type = m->stack[m->sp].value_type;
-        rfc->result->value = m->stack[m->sp].value;
-    } else if (!rfc->success) {
-        printf("some exception will be returned\n");
-        // TODO exception msg
-    }
+
     // remove call from lifo queue
-    calls->pop();
+    this->calls->pop();
+
+    if (!rfc->success) {
+        // TODO exception msg
+        WARDuino::instance()->debugger->channel->write(R"({"success":false})");
+        return;
+    }
+
+    if (rfc->type->result_count == 0) {
+        // reading result from stack
+        WARDuino::instance()->debugger->channel->write(R"({"success":true})");
+        return;
+    }
 
     // send the result to the client
+    rfc->result = &m->stack[m->sp];
     char *val = printValue(rfc->result);
-    WARDuino::instance()->debugger->channel->write(R"({"success":"%d",%s})",
-                                                   rfc->success ? 1 : 0, val);
+    WARDuino::instance()->debugger->channel->write(R"({"success":true,%s})",
+                                                   val);
     free(val);
 }
 
@@ -73,7 +92,7 @@ char *printValue(StackValue *v) {
             snprintf(buff, 255, R"("type":%d,"value":%.7f)", F64, v->value.f64);
             break;
         default:
-            snprintf(buff, 255, R"("type":"%02x","value":"%)" PRIx64 "\"",
+            snprintf(buff, 255, R"("type":%02x,"value":%)" PRIx64,
                      v->value_type, v->value.uint64);
     }
     return buff;

@@ -40,11 +40,11 @@ bool continuing(pthread_mutex_t *mutex) {
     }
 }
 
-void *readSocket(void *input) {
+void *runSupervisor(void *input) {
     // Print value received as argument:
     dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
     auto *supervisor = (ProxySupervisor *)input;
-    supervisor->startPushDebuggerSocket();
+    supervisor->listenToSocket();
     pthread_exit(nullptr);
 }
 
@@ -57,12 +57,12 @@ Event *parseJSON(char *buff) {
 }
 
 ProxySupervisor::ProxySupervisor(Channel *duplex, pthread_mutex_t *mutex) {
-    printf("Started supervisor.\n");
+    debug("Starting supervisor.\n");
     this->channel = duplex;
     this->mutex = mutex;
     this->proxyResult = nullptr;
 
-    pthread_create(&this->threadid, nullptr, readSocket, this);
+    pthread_create(&this->threadid, nullptr, runSupervisor, this);
 }
 
 bool isEvent(nlohmann::basic_json<> parsed) {
@@ -73,14 +73,14 @@ bool isReply(nlohmann::basic_json<> parsed) {
     return parsed.find("success") != parsed.end();
 }
 
-void ProxySupervisor::startPushDebuggerSocket() {
+void ProxySupervisor::listenToSocket() {
     char _char;
     uint32_t buf_idx = 0;
     const uint32_t start_size = 1024;
     uint32_t current_size = start_size;
     char *buffer = (char *)malloc(start_size);
 
-    printf("Started listening for events from proxy device.\n");
+    dbg_info("Proxy supervisor listening to remote device...\n");
     while (continuing(this->mutex)) {
         if (this->channel->read(&_char, 1) != -1) {
             // increase buffer size if needed
@@ -114,9 +114,14 @@ void ProxySupervisor::startPushDebuggerSocket() {
 
                 buf_idx = 0;
             } catch (const nlohmann::detail::parse_error &e) {
+                if (_char == '\n') {
+                    // discard buffer
+                    buf_idx = 0;
+                }
             }
         }
     }
+    dbg_info("Proxy supervisor shutting down.\n");
 }
 
 bool ProxySupervisor::send(
@@ -128,6 +133,7 @@ bool ProxySupervisor::send(
 nlohmann::basic_json<> ProxySupervisor::readReply() {
     while (!this->hasReplied)
         ;
+    WARDuino::instance()->debugger->channel->write("read reply: succeeded\n");
     this->hasReplied = false;
     return this->proxyResult;
 }
@@ -180,9 +186,9 @@ void arguments_copy(unsigned char *dest, StackValue *args,
 
 /*
  *
- * output:  1 byte  | 4 bytes | sizeof(arg1.value_type) bytes |
- * sizeof(arg2.value_type) bytes | ... interrupt | funID   | arg1.value
- *
+ * output:  1 byte (interrupt code)  | 4 bytes (fidx) | sizeof(arg_1) arg_1  ...
+ sizeof(arg_n) arg_n
+
  * Output is also transformed to hexa
  *
  */
@@ -213,7 +219,11 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
 
 void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
     nlohmann::basic_json<> call_result = this->readReply();  // blocking
-    rfc->success = *call_result.find("success") == 1;
+    rfc->success = *call_result.find("success");
+
+    if (rfc->type->result_count == 0) {
+        return;
+    }
 
     //    if (!rfc->success) {
     //        uint16_t msg_size = 0;

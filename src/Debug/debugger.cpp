@@ -978,9 +978,6 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
 
     auto *rfc = new RFC(fidx, func->type, args);
     this->proxy->pushRFC(m, rfc);
-
-    *program_state = PROXYrun;
-    dbg_trace("Program state: ProxyRun");
 }
 
 RFC *Debugger::topProxyCall() {
