@@ -115,7 +115,6 @@ bool CallbackHandler::resolve_event(bool force) {
 
     CallbackHandler::resolving_event = true;
     CallbackHandler::events->pop_front();
-    CallbackHandler::pushed_cursor--;
 
     debug("Resolving an event. (%lu remaining)\n",
           CallbackHandler::events->size());
