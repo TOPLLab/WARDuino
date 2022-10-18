@@ -9,8 +9,10 @@
  *  4) Extend the install_primitives function
  *
  */
-#include "primitives.h"
+#include "Arduino.h"
 
+#include <HTTPClient.h>
+#include <WiFi.h>
 #include <sys/time.h>
 
 #include <cmath>
@@ -20,12 +22,7 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
-
-#ifdef ARDUINO
-#include <HTTPClient.h>
-#include <WiFi.h>
-
-#include "Arduino.h"
+#include "primitives.h"
 
 // NEOPIXEL
 #include <Adafruit_NeoPixel.h>
@@ -38,7 +35,7 @@ Adafruit_NeoPixel pixels =
 #include <SPI.h>
 SPIClass *spi = new SPIClass();
 
-// Hardeware SPI
+// Hardware SPI
 void write_spi_byte(unsigned char c) {
     spi->beginTransaction(SPISettings(20000000, MSBFIRST, SPI_MODE0));
     spi->transfer(c);
@@ -55,29 +52,93 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
     spi->endTransaction();
 }
 
-#else
+// Hardware Interrupts
 
-#include <chrono>
-#include <thread>
+#define ALL_ISRS 25  // number of installed ISRs
 
-#endif
+typedef struct ISREntry {
+    int pin;
+    void (*ISR_callback)();
+} ISREntry;
+
+ISREntry ISRs[ALL_ISRS];
+int isr_index = 0;
+
+/* Private macro to install an ISR */
+#define install_isr(number)                                          \
+    {                                                                \
+        dbg_info("installing isr number: %d  of %d with name: %s\n", \
+                 isr_index + 1, ALL_ISRS, isr_##number);             \
+        if (isr_index < ALL_ISRS) {                                  \
+            ISREntry *p = &ISRs[isr_index++];                        \
+            p->pin = number;                                         \
+            p->ISR_callback = &(isr_##number);                       \
+        } else {                                                     \
+            FATAL("isr_index out of bounds");                        \
+        }                                                            \
+    }
+
+#define INTERRUPT_TOPIC_PREFIX "interrupt_"
+
+/* Private macro to create an ISR for a specific pin*/
+#define def_isr(pin)                                                     \
+    void isr_##pin() {                                                   \
+        CallbackHandler::push_event(INTERRUPT_TOPIC_PREFIX #pin, "", 0); \
+    }
+
+/* Common GPIO pins on ESP32 devices:*/
+def_isr(1);
+def_isr(2);
+def_isr(3);
+def_isr(4);
+def_isr(5);
+def_isr(12);
+def_isr(13);
+def_isr(14);
+def_isr(15);
+def_isr(16);
+def_isr(17);
+def_isr(18);
+def_isr(19);
+def_isr(21);
+def_isr(22);
+def_isr(23);
+def_isr(25);
+def_isr(26);
+def_isr(27);
+def_isr(32);
+def_isr(33);
+def_isr(34);
+def_isr(35);
+def_isr(36);
+def_isr(39);
+
+int resolve_isr(int pin) {
+    debug("Resolve ISR (%d) for %i \n", ALL_ISRS, pin);
+
+    for (int i = 0; i < ALL_ISRS; i++) {
+        auto &isr = ISRs[i];
+        debug("Checking entry %i of %i: pin = %i \n", i, ALL_ISRS, isr.pin);
+        if (pin == isr.pin) {
+            debug("FOUND ISR\n");
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Primitives
 
 #define NUM_PRIMITIVES 0
-#ifdef ARDUINO
-#define NUM_PRIMITIVES_ARDUINO 34
-#else
-#define NUM_PRIMITIVES_ARDUINO 24
-#endif
+#define NUM_PRIMITIVES_ARDUINO 37
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
 // Global index for installing primitives
 int prim_index = 0;
 
-double sensor_emu = 0;
-
 /*
-    Private macros to install a primitive
+   Private macros to install a primitive
 */
 #define install_primitive(prim_name)                                       \
     {                                                                      \
@@ -242,7 +303,6 @@ Type NoneToOneU64 = {.form = FUNC,
                      .mask = 0x82000};
 
 // Util function declarations
-#ifdef ARDUINO
 
 void connect(const String ssid, const String password);
 
@@ -254,12 +314,9 @@ int32_t http_post_request(Module *m, const String url, const String body,
                           const String authorization_parsed, uint32_t response,
                           uint32_t size);
 
-#endif
-
 //------------------------------------------------------
 // Arduino Specific Functions
 //------------------------------------------------------
-#ifdef ARDUINO
 
 def_prim(abort, NoneToNoneU32) {
     sprintf(exception, "Trap: assertion failed.");
@@ -324,7 +381,6 @@ def_prim(wifi_connected, NoneToOneU32) {
 
 def_prim(wifi_localip, twoToOneU32) {
     uint32_t buff = arg1.uint32;
-    uint32_t size = arg0.uint32;
     IPAddress ip = WiFi.localIP();
 
     String ipString = String(ip[0]);
@@ -509,47 +565,57 @@ def_prim(clear_pixels, NoneToNoneU32) {
     return true;
 }
 
-// INTERRUPTS
+// LED Control primitives
 
-class Interrupt {
-   public:
-    void setup(uint8_t pin, void (*ISR_callback)(void), uint8_t mode) {
-        this->pin = pin;
-        this->mode = mode;
-        Serial.print("Attaching to ");
-        Serial.print(pin);
-        Serial.println("");
-        attachInterrupt(digitalPinToInterrupt(pin), ISR_callback, mode);
-    }
+def_prim(chip_analog_write, threeToNoneU32) {
+    uint8_t channel = arg2.uint32;
+    uint32_t value = arg1.uint32;
+    uint32_t maxValue = arg0.uint32;
 
-    void handleInterrupt();
-    uint8_t pin;
+    // printf("chip_ledc_analog_write(%u, %u, %u)\n", channel, value, maxValue);
+    // calculate duty, 4095 from 2 ^ 12 - 1
+    uint32_t duty = (4095 / maxValue) * min(value, maxValue);
 
-   private:
-    uint8_t mode;
-    void (*ISR_callback)();
-};
-
-void Interrupt::handleInterrupt() {
-    String topic = "interrupt";
-    topic += String(pin);
-    auto *empty = reinterpret_cast<const unsigned char *>("");
-    CallbackHandler::push_event(topic.c_str(), empty, 0);
+    ledcWrite(channel, duty);
+    pop_args(3);
+    return true;
 }
 
-std::vector<Interrupt *> handlers;
+def_prim(chip_ledc_setup, threeToNoneU32) {
+    uint32_t channel = arg2.uint32;
+    uint32_t freq = arg1.uint32;
+    uint32_t ledc_timer = arg0.uint32;
+    // printf("chip_ledc_setup(%u, %u, %u)\n", channel, freq, ledc_timer);
+    ledcSetup(channel, freq, ledc_timer);
+    pop_args(3);
+    return true;
+}
+
+def_prim(chip_ledc_attach_pin, twoToNoneU32) {
+    uint32_t pin = arg1.uint32;
+    uint32_t channel = arg0.uint32;
+    // printf("chip_ledc_attach_pin(%u,%u)\n", pin, channel);
+    ledcAttachPin(pin, channel);
+    pop_args(2);
+    return true;
+}
+
+// INTERRUPTS
 
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t fidx = arg1.uint32;  // Callback function
     uint8_t mode = arg0.uint32;
 
-    Interrupt *handler = new Interrupt();
-    handlers.push_back(handler);
-    handler->setup(
-        pin, [] { handlers.back()->handleInterrupt(); }, mode);
+    int index = resolve_isr(pin);
+    if (index < 0) {
+        dbg_info("subscribe_interrupt: no ISR found for pin %i", pin);
+        return false;
+    }
 
-    String callback_id = "interrupt";
+    attachInterrupt(digitalPinToInterrupt(pin), ISRs[index].ISR_callback, mode);
+
+    String callback_id = INTERRUPT_TOPIC_PREFIX;
     callback_id += String(pin);
     Callback c = Callback(m, callback_id.c_str(), fidx);
     CallbackHandler::add_callback(c);
@@ -561,14 +627,7 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 def_prim(unsubscribe_interrupt, oneToNoneU32) {
     uint8_t pin = arg0.uint32;
 
-    auto it = std::remove_if(
-        handlers.begin(), handlers.end(),
-        [pin](Interrupt *handler) { return handler->pin == pin; });
-
-    if (it != handlers.end()) {
-        handlers.erase(it, handlers.end());
-        detachInterrupt(digitalPinToInterrupt(pin));
-    }
+    detachInterrupt(digitalPinToInterrupt(pin));
 
     pop_args(1);
     return true;
@@ -592,7 +651,7 @@ def_prim(mqtt_init, threeToNoneU32) {
     mqttClient.setServer(server, port);
     mqttClient.setCallback([](const char *topic, const unsigned char *payload,
                               unsigned int length) {
-        CallbackHandler::push_event(topic, payload, length);
+        CallbackHandler::push_event(topic, (const char *)payload, length);
     });
 
 #if DEBUG
@@ -743,240 +802,9 @@ def_prim(mqtt_loop, NoneToOneU32) {
     return true;
 }
 
-#else
-
-def_prim(init_pixels, NoneToNoneU32) {
-    printf("init_pixels \n");
-    return true;
-}
-
-def_prim(set_pixel_color, fourToOneU32) {
-    printf("set_pixel_color \n");
-    pop_args(4);
-    return true;
-}
-
-def_prim(show_pixels, NoneToNoneU32) {
-    printf("show pixels \n");
-    return true;
-}
-
-def_prim(clear_pixels, NoneToNoneU32) {
-    printf("clear pixels \n");
-    return true;
-}
-
-def_prim(abort, NoneToNoneU32) {
-    debug("EMU: abort\n");
-    return false;
-}
-
-def_prim(micros, NoneToOneU64) {
-    struct timeval tv {};
-    gettimeofday(&tv, nullptr);
-    unsigned long micros = 1000000 * tv.tv_sec + tv.tv_usec;
-    pushUInt64(micros);
-    return true;
-}
-
-// call callback test function (temporary)
-def_prim(test, oneToNoneU32) {
-    uint32_t fidx = arg0.uint32;
-
-    std::string topic = "interrupt";
-    topic.append(std::to_string(fidx));
-
-    Callback c = Callback(m, topic, fidx);
-    CallbackHandler::add_callback(c);
-    auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
-    CallbackHandler::push_event(topic, payload, 11);
-    pop_args(1);
-    return true;
-}
-
-def_prim(print_int, oneToNoneU32) {
-    debug("EMU: print ");
-    printf("%u\n", arg0.uint32);
-    pop_args(1);
-    return true;
-}
-
-def_prim(print_string, twoToNoneU32) {
-    uint32_t addr = arg1.uint32;
-    uint32_t size = arg0.uint32;
-    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
-    debug("EMU: print string at %i: ", addr);
-    printf("%s\n", text.c_str());
-    pop_args(2);
-    return true;
-}
-
-def_prim(wifi_connect, fourToNoneU32) {
-    uint32_t ssid = arg3.uint32;
-    uint32_t len0 = arg2.uint32;
-    uint32_t pass = arg1.uint32;
-    uint32_t len1 = arg0.uint32;
-
-    std::string ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid);
-    std::string pass_str = parse_utf8_string(m->memory.bytes, len1, pass);
-    debug("EMU: connect to %s with password %s\n", ssid_str.c_str(),
-          pass_str.c_str());
-    pop_args(4);
-    return true;
-}
-
-def_prim(wifi_status, NoneToOneU32) {
-    pushInt32(3);  // return WL_CONNECTED
-    return true;
-}
-
-def_prim(wifi_connected, NoneToOneU32) {
-    pushInt32(1);  // return that we are connected
-    return true;
-}
-
-def_prim(wifi_localip, twoToOneU32) {
-    uint32_t buff = arg1.uint32;
-    uint32_t size = arg0.uint32;
-    std::string ip = "192.168.0.181";
-
-    for (unsigned long i = 0; i < ip.length(); i++) {
-        m->memory.bytes[buff + i] = (uint32_t)ip[i];
-    }
-    pop_args(2);
-    pushInt32(buff);
-    return true;
-}
-
-def_prim(http_get, fourToOneU32) {
-    // Get arguments
-    uint32_t url = arg3.uint32;
-    uint32_t length = arg2.uint32;
-    int32_t response = arg1.uint32;
-    uint32_t size = arg0.uint32;
-    // Parse url
-    std::string text = parse_utf8_string(m->memory.bytes, length, url);
-    debug("EMU: http get request %s\n", text.c_str());
-    // Construct response
-    std::string answer = "Response code: 200.";
-    if (answer.length() > size) {
-        sprintf(exception, "GET: buffer size is too small for response.");
-        return false;  // TRAP
-    }
-    for (unsigned long i = 0; i < answer.length(); i++) {
-        m->memory.bytes[response + i] = (uint32_t)answer[i];
-    }
-
-    // Pop args and return response address
-    pop_args(4);
-    pushInt32(response);
-    return true;
-}
-
-def_prim(http_post, tenToOneU32) {
-    // Get arguments
-    uint32_t url = arg9.uint32;
-    uint32_t url_len = arg8.uint32;
-    uint32_t body = arg7.uint32;
-    uint32_t body_len = arg6.uint32;
-    uint32_t content_type = arg5.uint32;
-    uint32_t content_type_len = arg4.uint32;
-    uint32_t authorization = arg3.uint32;
-    uint32_t authorization_len = arg2.uint32;
-    int32_t response = arg1.uint32;
-    uint32_t size = arg0.uint32;
-
-    std::string url_parsed = parse_utf8_string(m->memory.bytes, url_len, url);
-    std::string body_parsed =
-        parse_utf8_string(m->memory.bytes, body_len, body);
-    std::string content_type_parsed =
-        parse_utf8_string(m->memory.bytes, content_type_len, content_type);
-    std::string authorization_parsed =
-        parse_utf8_string(m->memory.bytes, authorization_len, authorization);
-    debug(
-        "EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t "
-        "'%s'\n",
-        url_parsed.c_str(), content_type_parsed.c_str(),
-        authorization_parsed.c_str(), body_parsed.c_str());
-
-    pop_args(10);
-    pushInt32(response);
-    return true;
-}
-
-def_prim(chip_pin_mode, twoToNoneU32) {
-    debug("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
-    pop_args(2);
-    return true;
-}
-
-def_prim(chip_digital_write, twoToNoneU32) {
-    debug("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
-    pop_args(2);
-    return true;
-}
-
-def_prim(chip_digital_read, oneToOneU32) {
-    uint8_t pin = arg0.uint32;
-    pop_args(1);
-    pushUInt32(1);  // HIGH
-    return true;
-}
-
-def_prim(chip_analog_read, oneToOneI32) {
-    uint8_t pin = arg0.uint32;
-    pop_args(1);
-    pushInt32(sin(sensor_emu) * 100);
-    sensor_emu += .25;
-    return true;
-}
-
-def_prim(chip_delay, oneToNoneU32) {
-    using namespace std::this_thread;  // sleep_for, sleep_until
-    using namespace std::chrono;       // nanoseconds, system_clock, seconds
-    debug("EMU: chip_delay(%u) \n", arg0.uint32);
-    sleep_for(milliseconds(arg0.uint32));
-    debug("EMU: .. done\n");
-    pop_args(1);
-    return true;
-}
-
-def_prim(chip_delay_us, oneToNoneU32) {
-    using namespace std::this_thread;  // sleep_for, sleep_until
-    using namespace std::chrono;       // nanoseconds, system_clock, seconds
-    debug("EMU: chip_delay(%u ms) \n", arg0.uint32);
-    sleep_for(microseconds(arg0.uint32));
-    debug("EMU: .. done\n");
-    pop_args(1);
-    return true;
-}
-
-// warning: undefined symbol: write_spi_byte
-def_prim(write_spi_byte, oneToNoneU32) {
-    debug("EMU: write_spi_byte(%u) \n", arg0.uint32);
-    pop_args(1);
-    return true;
-}
-
-// warning: undefined symbol: spi_begin
-def_prim(spi_begin, NoneToNoneU32) {
-    debug("EMU: spi_begin \n");
-    return true;
-}
-
-def_prim(write_spi_bytes_16, twoToNoneU32) {
-    debug("EMU: write_spi_byte_16(%u, %u) \n", arg1.uint32, arg0.uint32);
-    pop_args(2);
-    return true;
-}
-
-#endif
-
 //------------------------------------------------------
 // Util functions
 //------------------------------------------------------
-#ifdef ARDUINO
-
 void connect(const String ssid, const String password) {
     char *ssid_buf =
         (char *)acalloc(ssid.length() + 1, sizeof(char), "ssid_buf");
@@ -1063,24 +891,39 @@ int32_t http_post_request(Module *m, const String url, const String body,
     return httpResponseCode;
 }
 
-#endif
-
-/*
-int analogRead(uint8_t pin)
-void analogReference(uint8_t mode)
-void analogWrite(uint8_t pin, int val)
-void analogWriteFreq(uint32_t freq)
-void analogWriteRange(uint32_t range)
-*/
-
 //------------------------------------------------------
-// Installing all the primitives
+// Installing all the primitives & ISRs
 //------------------------------------------------------
+void install_isrs() {
+    install_isr(1);
+    install_isr(2);
+    install_isr(3);
+    install_isr(4);
+    install_isr(5);
+    install_isr(12);
+    install_isr(13);
+    install_isr(14);
+    install_isr(15);
+    install_isr(16);
+    install_isr(17);
+    install_isr(18);
+    install_isr(19);
+    install_isr(21);
+    install_isr(22);
+    install_isr(23);
+    install_isr(25);
+    install_isr(26);
+    install_isr(27);
+    install_isr(32);
+    install_isr(33);
+    install_isr(34);
+    install_isr(35);
+    install_isr(36);
+    install_isr(39);
+}
+
 void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
-    // install_primitive(rand);
-#ifdef ARDUINO
-    dbg_info("INSTALLING ARDUINO\n");
     install_primitive(abort);
     install_primitive(millis);
     install_primitive(micros);
@@ -1124,35 +967,13 @@ void install_primitives() {
     install_primitive(clear_pixels);
     install_primitive(show_pixels);
 
-#else
-    dbg_info("INSTALLING FAKE ARDUINO\n");
-    install_primitive(abort);
-    install_primitive(micros);
-    install_primitive(test);
-    install_primitive(print_int);
-    install_primitive(print_string);
-    install_primitive(wifi_connect);
-    install_primitive(wifi_connected);
-    install_primitive(wifi_status);
-    install_primitive(wifi_localip);
-    install_primitive(http_get);
-    install_primitive(http_post);
-    install_primitive(chip_pin_mode);
-    install_primitive(chip_digital_write);
-    install_primitive(chip_delay);
-    install_primitive(chip_digital_read);
-    install_primitive(chip_analog_read);
-    install_primitive(chip_delay_us);
-    install_primitive(spi_begin);
-    install_primitive(write_spi_byte);
-    install_primitive(write_spi_bytes_16);
+    // temporary primitives needed for analogWrite in ESP32
+    install_primitive(chip_analog_write);
+    install_primitive(chip_ledc_setup);
+    install_primitive(chip_ledc_attach_pin);
 
-    install_primitive(init_pixels);
-    install_primitive(set_pixel_color);
-    install_primitive(clear_pixels);
-    install_primitive(show_pixels);
-
-#endif
+    dbg_info("INSTALLING ISRs\n");
+    install_isrs();
 }
 
 //------------------------------------------------------

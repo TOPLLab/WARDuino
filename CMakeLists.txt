@@ -13,7 +13,7 @@ if (BUILD_ESP)
     if (NOT EXISTS $ENV{IDF_PATH}/tools/cmake/project.cmake)
         message(FATAL_ERROR "Can't find $IDF_PATH/tools/cmake/project.cmake. Make sure ESP-IDF is installed and $IDF_PATH is set.")
     endif ()
-    
+
     message(VERBOSE "Using ESP-IDF toolchain")
 
     set(EXTRA_COMPONENT_DIRS "platforms/ESP-IDF")
@@ -25,23 +25,29 @@ project(WARDuino)
 
 # Build the emulator version of WARDuino
 if (BUILD_EMULATOR)
+    set(EXTERNAL_LIB_HEADERS lib/json/single_include)
+
     find_package(Threads REQUIRED)
+
     set(SOURCE_FILES
+            src/WARDuino/WARDuino.cpp
+            src/WARDuino/CallbackHandler.cpp
+            src/Primitives/emulated.cpp
+            src/Interpreter/instructions.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
             src/Utils/util_arduino.cpp
-            src/Debug/debugger.cpp
             src/Utils/macros.cpp
-            src/WARDuino/WARDuino.cpp
-            src/WARDuino/CallbackHandler.cpp
-            src/Primitives/primitives.cpp
-            src/Interpreter/instructions.cpp
-            )
+            src/Utils/sockets.cpp
+            src/Debug/debugger.cpp
+            src/Edward/proxy.cpp
+            src/Edward/proxy_supervisor.cpp
+            src/Edward/RFC.cpp)
+
     set(TEST_FRAMEWORK
-        tests/integration/wasm_tests.cpp
-        tests/integration/assertion.cpp
-        tests/integration/sexpr-parser/src/sexpr.c
-        )
+            tests/integration/wasm_tests.cpp
+            tests/integration/assertion.cpp
+            tests/integration/sexpr-parser/src/sexpr.c)
 
     add_definitions(-DINFO=0)
     add_definitions(-DDEBUG=0)
@@ -52,11 +58,12 @@ if (BUILD_EMULATOR)
     set(CMAKE_CXX_STANDARD 11)
 
     # Set default compile flags for GCC
-    if(CMAKE_COMPILER_IS_GNUCXX)
+    if (CMAKE_COMPILER_IS_GNUCXX)
         add_compile_options(-g -v -Wall -Wextra -Wunused)
-    endif(CMAKE_COMPILER_IS_GNUCXX)
+    endif (CMAKE_COMPILER_IS_GNUCXX)
 
     # WARDuino CLI
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES} ${TEST_FRAMEWORK})
     target_link_libraries(wdcli PRIVATE Threads::Threads)
+    target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS})
 endif (BUILD_EMULATOR)

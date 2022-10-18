@@ -13,4 +13,4 @@ character, it should match `([0-9A-F][0-9A-F])+`
 The first two character of the HEX sequence (that is the first byte of the 
 translated binary data) differentiates between the various interrup types.
 
-See: [interrupt_operations.cpp](../interrupt_operations.cpp)
+See: [src/Debug/Debugger.cpp](../src/Debug/Debugger.cpp)

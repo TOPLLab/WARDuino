@@ -1,5 +1,4 @@
-#ifndef WAC_H
-#define WAC_H
+#pragma once
 
 #include <array>
 #include <climits>
@@ -10,6 +9,7 @@
 #include <vector>
 
 #include "Debug/debugger.h"
+#include "Edward/proxy_supervisor.h"
 #include "WARDuino/CallbackHandler.h"
 
 // Constants
@@ -30,8 +30,11 @@
 #define FUNC 0x60     // -0x20
 #define BLOCK 0x40    // -0x40
 
-#define EVENTS_SIZE 1
-
+#ifdef ARDUINO
+#define EVENTS_SIZE 10
+#else
+#define EVENTS_SIZE 50
+#endif
 #define KIND_FUNCTION 0
 #define KIND_TABLE 1
 #define KIND_MEMORY 2
@@ -65,8 +68,9 @@ typedef union FuncPtr {
 
 // A block or function
 typedef struct Block {
-    uint8_t block_type;  // 0x00: function, 0x01: init_exp
-    // 0x02: block, 0x03: loop, 0x04: if
+    uint8_t block_type;         // 0x00: function, 0x01: init_exp, 0x02: block,
+                                // 0x03: loop, 0x04: if, 0xfe: proxy guard,
+                                // 0xff: cbk guard
     uint32_t fidx;              // function only (index)
     Type *type;                 // params/results type
     uint32_t local_count;       // function only
@@ -178,12 +182,16 @@ typedef struct PrimitiveEntry {
 
 class WARDuino {
    private:
+    static WARDuino *singleton;
     std::vector<Module *> modules = {};
+
+    WARDuino();
 
    public:
     Debugger *debugger;
+    RunningState program_state;
 
-    WARDuino();
+    static WARDuino *instance();
 
     int run_module(Module *m);
 
@@ -195,7 +203,5 @@ class WARDuino {
 
     uint32_t get_export_fidx(Module *m, const char *name);
 
-    void handleInterrupt(size_t len, uint8_t *buff);
+    void handleInterrupt(size_t len, uint8_t *buff) const;
 };
-
-#endif

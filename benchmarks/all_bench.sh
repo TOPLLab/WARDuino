@@ -18,13 +18,17 @@ to_csv() {
   sed -i -n '0~2{N;s/\n/,/p}' $1
 }
 
-sleep 5
-./espruino_bench.sh $tmpdir/espruino
-to_csv $tmpdir/espruino
+#sleep 5
+#./espruino_bench.sh $tmpdir/espruino
+#to_csv $tmpdir/espruino
 
 sleep 5
 ./warduino_bench.sh $tmpdir/warduino
 to_csv $tmpdir/warduino
+
+sleep 5
+./edward_bench.sh $tmpdir/edward
+to_csv $tmpdir/edward
 
 sleep 5
 ./wasm3_bench.sh $tmpdir/wasm3
@@ -38,6 +42,8 @@ echo "# Espruino"
 cat $tmpdir/espruino
 echo "# Warduino"
 cat $tmpdir/warduino
+echo "# Edward"
+cat $tmpdir/edward
 echo "# Wasm3"
 cat $tmpdir/wasm3
 echo "# Native"

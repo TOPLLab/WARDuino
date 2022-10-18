@@ -17,7 +17,7 @@ if [[ $src == *.wat ]] || [[ $extension == *.wast ]]; then
 fi
 
 # Optimize (optional)
-wasm-opt -O3 "${src}.wasm" -o "src.wasm"
+#wasm-opt -O3 "${src}.wasm" -o "src.wasm"
 wasm-strip "src.wasm"
 echo -e "> optimized src.wasm"
 

@@ -7,6 +7,7 @@ import serial
 import serial.tools.list_ports
 import time
 import sys
+import math
 
 
 def await_output(s: serial.Serial, target: str, failure=None):
@@ -49,19 +50,17 @@ if __name__ == "__main__":
         port = ports[0]
     print(f"using {port}", file=sys.stderr)
 
+
     with serial.Serial(port, 115200) as serial:
         if len(sys.argv) == 2:
-            with open(sys.argv[1], "rb") as inputText:
-                serial.write(inputText.read(-1))
-                serial.write(b'\n\n')
-            print("Bytes sent", file=sys.stderr)
-        print("Await start", file=sys.stderr)
-        await_output(serial, "START\n")
-        startTime = time.monotonic()
-        print("START found, waiting for DONE", file=sys.stderr)
-        success = await_output(serial, "DONE\n", failure="Guru Meditation Error")
-        if success:
-            endTime = time.monotonic()
-            print(endTime - startTime)
-        else:
-            print("\nnan")
+            print("Await start", file=sys.stderr)
+            await_output(serial, "START\n")
+            startTime = time.monotonic()
+            print("START found, waiting for DONE", file=sys.stderr)
+            success = await_output(serial, "DONE\n", failure="Guru Meditation Error")
+            if success:
+                endTime = time.monotonic()
+                print(f"{sys.argv[1]}: iterations=1 runtime: {math.floor((endTime - startTime) * 1000000)}us")
+            else:
+                print("\nnan")
+

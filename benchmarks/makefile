@@ -15,7 +15,7 @@ DEBUGFLAGS = -DDEBUG=$(DEBUG) -DTRACE=$(TRACE) -DINFO=$(INFO) -DWARN=$(WARN)
 CXX       = g++
 CC        = gcc
 CFLAGS    = -g -Wall -c
-CXXFLAGS  = -g -v -std=c++11  -Wall
+CXXFLAGS  = -g -v -std=c++11 -I ../lib/json/single_include -Wall
 
 
 
@@ -26,15 +26,20 @@ TARGET    = warduino_benchmark
 TASKS = $(notdir $(patsubst %/.,%,$(wildcard tasks/*/.)))
 
 CXXSOURCES = \
-	../mem.cpp \
-	../util.cpp \
-	../util_arduino.cpp \
-	../interrupt_operations.cpp \
-	../debug.cpp \
-	../WARDuino.cpp \
-	../primitives.cpp \
-	../instructions.cpp \
-	../glue.cpp \
+	   ../src/Memory/mem.cpp \
+           ../src/Utils/util.cpp \
+           ../src/Utils/util_arduino.cpp \
+           ../src/Debug/debugger.cpp \
+           ../src/Utils/macros.cpp \
+           ../src/WARDuino/WARDuino.cpp \
+           ../src/WARDuino/CallbackHandler.cpp \
+           ../src/Primitives/emulated.cpp \
+           ../src/Interpreter/instructions.cpp \
+           ../src/Edward/RFC.cpp \
+           ../src/Edward/proxy.cpp \
+           ../src/Edward/proxy_supervisor.cpp \
+           ../src/Utils/sockets.cpp \
+	   ../lib/json/single_include/nlohmann/json.hpp \
 	benchmarks.cpp
 
 all: $(OUTPUTDIR)$(TARGET) $(addprefix tasks/,$(addsuffix /wast/impl.wasm, $(TASKS)))
@@ -51,8 +56,8 @@ run: all
 	$(OUTPUTDIR)$(TARGET)
 
 clean: mostlyclean
-	$(MAKE) -C tasks clean
+	-$(MAKE) -C tasks clean
 
 mostlyclean:
-	$(RM) -rf $(OUTPUTDIR)
-	$(RM) $(COBJECTS)
+	-$(RM) -rf $(OUTPUTDIR)
+	-$(RM) $(COBJECTS)
