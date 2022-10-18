@@ -177,7 +177,7 @@ int main(int argc, const char *argv[]) {
     bool no_debug = false;
     bool no_socket = false;
     const char *socket = "8192";
-    bool paused = false;
+    bool initiallyPaused = false;
     const char *file_name = nullptr;
     const char *proxy = nullptr;
     const char *mode = "interpreter";
@@ -212,7 +212,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp("--socket", arg)) {
             ARGV_GET(socket);
         } else if (!strcmp("--paused", arg)) {
-            wac->program_state = WARDUINOpause;
+            initiallyPaused = false;
         } else if (!strcmp("--proxy", arg)) {
             ARGV_GET(proxy);  // /dev/ttyUSB0
         } else if (!strcmp("--mode", arg)) {
@@ -236,6 +236,9 @@ int main(int argc, const char *argv[]) {
                   .mangle_table_index = false,
                   .dlsym_trim_underscore = false,
                   .return_exception = return_exception});
+        if (initiallyPaused) {
+            wac->program_state = WARDUINOpause;
+        }
     } else {
         print_help();
         return 1;

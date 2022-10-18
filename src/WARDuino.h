@@ -189,7 +189,7 @@ class WARDuino {
 
    public:
     Debugger *debugger;
-    RunningState program_state;
+    RunningState program_state = WARDUINOrun;
 
     static WARDuino *instance();
 
