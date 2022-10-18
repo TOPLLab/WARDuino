@@ -1509,8 +1509,6 @@ bool interpret(Module *m) {
     // set to true when finishes successfully
     bool program_done = false;
 
-    m->warduino->program_state = WARDUINOrun;
-
     while (!program_done && success) {
         if (m->warduino->program_state == WARDUINOstep) {
             m->warduino->program_state = WARDUINOpause;
