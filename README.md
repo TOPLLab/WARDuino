@@ -36,6 +36,8 @@ The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, an
 
 ### Build for ESP-IDF
 
+> warning: primitive support for IDF is under construction
+
 Before you can compile and flash with ESP-IDF, you must install and enable [the toolchain](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html).
 You also need to disable the watchdog timer:
 
