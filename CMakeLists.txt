@@ -70,6 +70,6 @@ if (BUILD_EMULATOR)
 
     # WARDuino CLI
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES} ${TEST_FRAMEWORK} ${PROTO_SRCS} ${PROTO_HDRS})
-    target_link_libraries(wdcli PRIVATE Threads::Threads ${Protobuf_LIBRARIES})
-    target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} ${CMAKE_CURRENT_BINARY_DIR} ${PROTOBUF_INCLUDE_DIRS})
+    target_link_libraries(wdcli PRIVATE Threads::Threads ${Protobuf_LITE_LIBRARIES})
+    target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} ${CMAKE_CURRENT_BINARY_DIR})
 endif (BUILD_EMULATOR)
