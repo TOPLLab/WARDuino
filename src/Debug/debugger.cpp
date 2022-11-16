@@ -427,7 +427,7 @@ void Debugger::dumpLocals(Module *m) const {
         }
     }
     Frame *f = &m->callstack[firstFunFramePtr];
-    this->channel->write(R"({"count":%u,"locals":[)", 0);
+    this->channel->write(R"({"count":%u,"locals":[)", f->block->local_count);
     //    fflush(stdout);  // FIXME: this is needed for ESP to properly print
     char _value_str[256];
     for (uint32_t i = 0; i < f->block->local_count; i++) {
