@@ -113,8 +113,9 @@ if(BUILD_UNITTEST)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 
+    set(PATH_TO_UNIT_TEST ${PROJECT_SOURCE_DIR}/tests/vm_unit_tests)
 
-    file(GLOB TEST_SRC_FILES ${PROJECT_SOURCE_DIR}/tests/vm_implementation_unit_tests/*.cpp)
+    file(GLOB TEST_SRC_FILES ${PATH_TO_UNIT_TEST}/*.cpp)
 
     message(DEBUG "Unit test source codes: " ${TEST_SRC_FILES})
 
