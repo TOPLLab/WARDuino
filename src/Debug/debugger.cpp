@@ -179,6 +179,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptDUMPLocals:
             *program_state = WARDUINOpause;
             this->dumpLocals(m);
+            this->channel->write("\n");
             free(interruptData);
             break;
         case interruptDUMPFull:
