@@ -2,8 +2,8 @@
 #include <unistd.h>
 
 #include "../../src/WARDuino.h"
-#include "example_code/fac/fac_wasm.h"
 #include "example_code/blink/blink_wasm.h"
+#include "example_code/fac/fac_wasm.h"
 #include "gtest/gtest.h"
 
 class StateModule : public ::testing::Test {
