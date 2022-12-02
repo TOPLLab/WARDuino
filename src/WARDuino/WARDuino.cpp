@@ -292,16 +292,10 @@ uint32_t WARDuino::get_export_fidx(Module *m, const char *name) {
     return static_cast<uint32_t>(-1);
 }
 
-Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
-                              Options options) {
-    debug("Loading module of size %d \n", byte_count);
-    uint8_t valueType;
+void WARDuino::load_module_state(Module *m, uint8_t *bytes,
+                                 uint32_t byte_count) {
     uint32_t word;
-    Module *m;
-    // Allocate the module
-    m = (Module *)acalloc(1, sizeof(Module), "Module");
-    m->warduino = this;
-    m->options = options;
+    uint8_t valueType;
 
     // Allocate stacks
     m->stack = (StackValue *)acalloc(STACK_SIZE, sizeof(StackValue), "Stack");
@@ -858,6 +852,18 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
             FATAL("Exception: %s\n", exception);
         }
     }
+}
+
+Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
+                              Options options) {
+    debug("Loading module of size %d \n", byte_count);
+    Module *m;
+    // Allocate the module
+    m = (Module *)acalloc(1, sizeof(Module), "Module");
+    m->warduino = this;
+    m->options = options;
+
+    this->load_module_state(m, bytes, byte_count);
 
     this->modules.push_back(m);
 
@@ -872,34 +878,7 @@ void WARDuino::unload_module(Module *m) {
 #endif
     auto it = std::find(this->modules.begin(), this->modules.end(), m);
     if (it != this->modules.end()) this->modules.erase(it);
-
-    if (m->types != nullptr) {
-        for (uint32_t i = 0; i < m->type_count; i++) {
-            free(m->types[i].params);
-            free(m->types[i].results);
-        }
-        free(m->types);
-    }
-
-    if (m->functions != nullptr) {
-        for (uint32_t i = 0; i < m->function_count; ++i) {
-            free(m->functions[i].export_name);
-        }
-        free(m->functions);
-    }
-
-    if (m->globals != nullptr) free(m->globals);
-
-    if (m->table.entries != nullptr) free(m->table.entries);
-
-    if (m->memory.bytes != nullptr) free(m->memory.bytes);
-
-    if (m->stack != nullptr) free(m->stack);
-
-    if (m->callstack != nullptr) free(m->callstack);
-
-    if (m->br_table != nullptr) free(m->br_table);
-
+    this->free_module_state(m);
     free(m);
 }
 
@@ -951,4 +930,38 @@ WARDuino *WARDuino::singleton = nullptr;
 WARDuino *WARDuino::instance() {
     if (singleton == nullptr) singleton = new WARDuino();
     return singleton;
+}
+
+// Removes all the state of a module
+void WARDuino::free_module_state(Module *m) {
+    if (m->types != nullptr) {
+        for (uint32_t i = 0; i < m->type_count; i++) {
+            free(m->types[i].params);
+            free(m->types[i].results);
+        }
+        free(m->types);
+    }
+
+    if (m->functions != nullptr) {
+        for (uint32_t i = 0; i < m->function_count; ++i)
+            free(m->functions[i].export_name);
+        free(m->functions);
+    }
+
+    if (m->globals != nullptr) free(m->globals);
+
+    if (m->table.entries != nullptr) free(m->table.entries);
+
+    if (m->memory.bytes != nullptr) free(m->memory.bytes);
+
+    if (m->stack != nullptr) free(m->stack);
+
+    if (m->callstack != nullptr) free(m->callstack);
+
+    if (m->br_table != nullptr) free(m->br_table);
+}
+
+void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
+    this->free_module_state(m);
+    this->load_module_state(m, wasm, wasm_len);
 }

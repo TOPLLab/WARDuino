@@ -199,9 +199,15 @@ class WARDuino {
 
     void unload_module(Module *m);
 
+    void update_module(Module *old_module, uint8_t *wasm, uint32_t wasm_len);
+
     bool invoke(Module *m, uint32_t fidx);
 
     uint32_t get_export_fidx(Module *m, const char *name);
 
     void handleInterrupt(size_t len, uint8_t *buff) const;
+
+    void load_module_state(Module *m, uint8_t *bytes, uint32_t byte_count);
+
+    void free_module_state(Module *m);
 };
