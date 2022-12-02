@@ -122,7 +122,7 @@ void WebSocket::open() {
     struct sockaddr_in address = createAddress(this->port);
     bindSocketToAddress(this->fileDescriptor, address);
     startListening(this->fileDescriptor);
-    printf("Listening on port 172.0.0.1:%i\n", this->port);
+    printf("Listening on port 127.0.0.1:%i\n", this->port);
 
     // block until a connection is established
     this->socket = listenForIncomingConnection(this->fileDescriptor, address);
