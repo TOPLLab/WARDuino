@@ -141,6 +141,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         fflush(stdout);
         return false;
     }
+    printf("received interrupt %x\n", *interruptData);
+    fflush(stdout);
 
     this->channel->write("Interrupt: %x\n", *interruptData);
 
@@ -199,6 +201,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleChangedLocal(m, interruptData);
             free(interruptData);
             break;
+        case interruptUPDATEModule:
+            this->channel->write("CHANGE Module!\n");
+            this->handleUpdateModule(m, interruptData);
+            free(interruptData);
+            break;
         case interruptWOODDUMP:
             *program_state = WARDUINOpause;
             free(interruptData);
@@ -206,6 +213,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptOffset:
             free(interruptData);
+            printf("offset\n");
             this->channel->write("{\"offset\":\"%p\"}\n", (void *)m->bytes);
             break;
         case interruptRecvState:
@@ -1053,4 +1061,12 @@ void Debugger::stop() {
         this->channel->close();
         this->channel = nullptr;
     }
+}
+
+bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
+    uint8_t *wasm = data + 1;
+    uint32_t wasm_len = read_B32(&data);
+    WARDuino *wd = m->warduino;
+    wd->update_module(m, wasm, wasm_len);
+    return true;
 }
