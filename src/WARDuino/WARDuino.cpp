@@ -292,8 +292,8 @@ uint32_t WARDuino::get_export_fidx(Module *m, const char *name) {
     return static_cast<uint32_t>(-1);
 }
 
-void WARDuino::load_module_state(Module *m, uint8_t *bytes,
-                                 uint32_t byte_count) {
+void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
+                                  uint32_t byte_count) {
     uint32_t word;
     uint8_t valueType;
 
@@ -863,7 +863,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     m->warduino = this;
     m->options = options;
 
-    this->load_module_state(m, bytes, byte_count);
+    this->instantiate_module(m, bytes, byte_count);
 
     this->modules.push_back(m);
 
@@ -1008,5 +1008,5 @@ void WARDuino::free_module_state(Module *m) {
 
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
     this->free_module_state(m);
-    this->load_module_state(m, wasm, wasm_len);
+    this->instantiate_module(m, wasm, wasm_len);
 }

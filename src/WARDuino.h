@@ -207,7 +207,7 @@ class WARDuino {
 
     void handleInterrupt(size_t len, uint8_t *buff) const;
 
-    void load_module_state(Module *m, uint8_t *bytes, uint32_t byte_count);
+    void instantiate_module(Module *m, uint8_t *bytes, uint32_t byte_count);
 
     void free_module_state(Module *m);
 };
