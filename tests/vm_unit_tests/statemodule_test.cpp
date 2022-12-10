@@ -3,6 +3,7 @@
 
 #include "../../src/WARDuino.h"
 #include "example_code/blink/blink_wasm.h"
+#include "example_code/dimmer/dimmer_wasm.h"
 #include "example_code/fac/fac_wasm.h"
 #include "gtest/gtest.h"
 
@@ -10,6 +11,7 @@ class StateModule : public ::testing::Test {
    protected:
     WARDuino* warduino;
     Module* wasm_module;
+    Options opts;
 
     StateModule() : warduino(WARDuino::instance()) {}
 
@@ -17,17 +19,21 @@ class StateModule : public ::testing::Test {
 
     void SetUp() override {
         wasm_module = new Module;
-        Options opts = {.disable_memory_bounds = false,
-                        .mangle_table_index = false,
-                        .dlsym_trim_underscore = false,
-                        .return_exception = true};
+        opts = {.disable_memory_bounds = false,
+                .mangle_table_index = false,
+                .dlsym_trim_underscore = false,
+                .return_exception = true};
+        wasm_module->options = opts;
         wasm_module->warduino = this->warduino;
     }
 
-    void TearDown() override { delete wasm_module; }
+    void TearDown() override {
+        wasm_module->warduino = nullptr;
+        delete wasm_module;
+    }
 };
 
-TEST_F(StateModule, DISABLED_InitiallyEmpty) {
+TEST_F(StateModule, InitiallyEmpty) {
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_EQ(wasm_module->types, nullptr);
     EXPECT_EQ(wasm_module->functions, nullptr);
@@ -39,7 +45,7 @@ TEST_F(StateModule, DISABLED_InitiallyEmpty) {
     EXPECT_EQ(wasm_module->br_table, nullptr);
 }
 
-TEST_F(StateModule, DISABLED_FacLoadsWithoutTableGlobalsAndMemory) {
+TEST_F(StateModule, FacLoadsWithoutTableGlobalsAndMemory) {
     warduino->load_module_state(wasm_module, fac_wasm, fac_wasm_len);
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_NE(wasm_module->types, nullptr);
@@ -54,20 +60,37 @@ TEST_F(StateModule, DISABLED_FacLoadsWithoutTableGlobalsAndMemory) {
     EXPECT_EQ(wasm_module->table.entries, nullptr);
 }
 
-TEST_F(StateModule, DISABLED_FacStateFrees) {
-    warduino->load_module_state(wasm_module, fac_wasm, fac_wasm_len);
-    ASSERT_NE(wasm_module->types, nullptr);
-    ASSERT_NE(wasm_module->functions, nullptr);
-    ASSERT_NE(wasm_module->stack, nullptr);
-    ASSERT_NE(wasm_module->callstack, nullptr);
-    ASSERT_NE(wasm_module->br_table, nullptr);
+TEST_F(StateModule, BlinkLoadsWithoutTableAndMemory) {
+    warduino->load_module_state(wasm_module, blink_wasm, blink_wasm_len);
+    EXPECT_NE(wasm_module->types, nullptr);
+    EXPECT_NE(wasm_module->functions, nullptr);
+    EXPECT_NE(wasm_module->stack, nullptr);
+    EXPECT_NE(wasm_module->callstack, nullptr);
+    EXPECT_NE(wasm_module->br_table, nullptr);
+    EXPECT_NE(wasm_module->globals, nullptr);
 
-    // memory, table, and globals are not used in fac.wast
-    ASSERT_EQ(wasm_module->memory.bytes, nullptr);
-    ASSERT_EQ(wasm_module->globals, nullptr);
-    ASSERT_EQ(wasm_module->table.entries, nullptr);
+    // not used in blink.wast
+    EXPECT_EQ(wasm_module->memory.bytes, nullptr);
+    EXPECT_EQ(wasm_module->table.entries, nullptr);
+}
 
+TEST_F(StateModule, DimmerLoadsWithTableMemoryAndGlobals) {
+    warduino->load_module_state(wasm_module, dimmer_wasm, dimmer_wasm_len);
+    ASSERT_NE(wasm_module, nullptr);
+    EXPECT_NE(wasm_module->types, nullptr);
+    EXPECT_NE(wasm_module->functions, nullptr);
+    EXPECT_NE(wasm_module->stack, nullptr);
+    EXPECT_NE(wasm_module->callstack, nullptr);
+    EXPECT_NE(wasm_module->br_table, nullptr);
+    EXPECT_NE(wasm_module->globals, nullptr);
+    EXPECT_NE(wasm_module->memory.bytes, nullptr);
+    EXPECT_NE(wasm_module->table.entries, nullptr);
+}
+
+TEST_F(StateModule, FreeingModuleStateEmptiesModule) {
+    warduino->load_module_state(wasm_module, dimmer_wasm, dimmer_wasm_len);
     warduino->free_module_state(wasm_module);
+
     EXPECT_EQ(wasm_module->types, nullptr);
     EXPECT_EQ(wasm_module->functions, nullptr);
     EXPECT_EQ(wasm_module->globals, nullptr);
@@ -78,9 +101,8 @@ TEST_F(StateModule, DISABLED_FacStateFrees) {
     EXPECT_EQ(wasm_module->br_table, nullptr);
 }
 
-TEST_F(StateModule, DISABLED_FacFreeingStatePreservesOptions) {
-    Options opts = wasm_module->options;
-    warduino->load_module_state(wasm_module, fac_wasm, fac_wasm_len);
+TEST_F(StateModule, FreeingStatePreservesOptions) {
+    warduino->load_module_state(wasm_module, blink_wasm, blink_wasm_len);
     warduino->free_module_state(wasm_module);
     Options opts2 = wasm_module->options;
     EXPECT_EQ(opts.disable_memory_bounds, opts2.disable_memory_bounds);
