@@ -907,10 +907,7 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
 }
 
 int WARDuino::run_module(Module *m) {
-    uint32_t fidx = this->get_export_fidx(m, "main");
-    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "Main");
-    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
-    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
+    uint32_t fidx = this->get_main_fidx(m);
     ASSERT(fidx != UNDEF, "Main not found");
     this->invoke(m, fidx);
 
@@ -1009,4 +1006,15 @@ void WARDuino::free_module_state(Module *m) {
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
     this->free_module_state(m);
     this->instantiate_module(m, wasm, wasm_len);
+    uint32_t fidx = this->get_main_fidx(m);
+    ASSERT(fidx != UNDEF, "Main not found");
+    setup_call(m, fidx);
+}
+
+uint32_t WARDuino::get_main_fidx(Module *m) {
+    uint32_t fidx = this->get_export_fidx(m, "main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "Main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
+    return fidx;
 }

@@ -187,6 +187,8 @@ class WARDuino {
 
     WARDuino();
 
+    uint32_t get_main_fidx(Module *m);
+
    public:
     Debugger *debugger;
     RunningState program_state = WARDUINOrun;
