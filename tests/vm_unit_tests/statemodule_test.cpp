@@ -46,7 +46,7 @@ TEST_F(StateModule, InitiallyEmpty) {
 }
 
 TEST_F(StateModule, FacLoadsWithoutTableGlobalsAndMemory) {
-    warduino->load_module_state(wasm_module, fac_wasm, fac_wasm_len);
+    warduino->instantiate_module(wasm_module, fac_wasm, fac_wasm_len);
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_NE(wasm_module->types, nullptr);
     EXPECT_NE(wasm_module->functions, nullptr);
@@ -61,7 +61,7 @@ TEST_F(StateModule, FacLoadsWithoutTableGlobalsAndMemory) {
 }
 
 TEST_F(StateModule, BlinkLoadsWithoutTableAndMemory) {
-    warduino->load_module_state(wasm_module, blink_wasm, blink_wasm_len);
+    warduino->instantiate_module(wasm_module, blink_wasm, blink_wasm_len);
     EXPECT_NE(wasm_module->types, nullptr);
     EXPECT_NE(wasm_module->functions, nullptr);
     EXPECT_NE(wasm_module->stack, nullptr);
@@ -75,7 +75,7 @@ TEST_F(StateModule, BlinkLoadsWithoutTableAndMemory) {
 }
 
 TEST_F(StateModule, DimmerLoadsWithTableMemoryAndGlobals) {
-    warduino->load_module_state(wasm_module, dimmer_wasm, dimmer_wasm_len);
+    warduino->instantiate_module(wasm_module, dimmer_wasm, dimmer_wasm_len);
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_NE(wasm_module->types, nullptr);
     EXPECT_NE(wasm_module->functions, nullptr);
@@ -88,7 +88,7 @@ TEST_F(StateModule, DimmerLoadsWithTableMemoryAndGlobals) {
 }
 
 TEST_F(StateModule, FreeingModuleStateEmptiesModule) {
-    warduino->load_module_state(wasm_module, dimmer_wasm, dimmer_wasm_len);
+    warduino->instantiate_module(wasm_module, dimmer_wasm, dimmer_wasm_len);
     warduino->free_module_state(wasm_module);
 
     EXPECT_EQ(wasm_module->types, nullptr);
@@ -102,7 +102,7 @@ TEST_F(StateModule, FreeingModuleStateEmptiesModule) {
 }
 
 TEST_F(StateModule, FreeingStatePreservesOptions) {
-    warduino->load_module_state(wasm_module, blink_wasm, blink_wasm_len);
+    warduino->instantiate_module(wasm_module, blink_wasm, blink_wasm_len);
     warduino->free_module_state(wasm_module);
     Options opts2 = wasm_module->options;
     EXPECT_EQ(opts.disable_memory_bounds, opts2.disable_memory_bounds);
