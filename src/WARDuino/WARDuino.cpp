@@ -940,25 +940,70 @@ void WARDuino::free_module_state(Module *m) {
             free(m->types[i].results);
         }
         free(m->types);
+        m->types = nullptr;
     }
 
     if (m->functions != nullptr) {
         for (uint32_t i = 0; i < m->function_count; ++i)
             free(m->functions[i].export_name);
         free(m->functions);
+        m->functions = nullptr;
     }
 
-    if (m->globals != nullptr) free(m->globals);
+    if (m->globals != nullptr) {
+        free(m->globals);
+        m->globals = nullptr;
+    }
 
-    if (m->table.entries != nullptr) free(m->table.entries);
+    if (m->table.entries != nullptr) {
+        free(m->table.entries);
+        m->table.entries = nullptr;
+    }
 
-    if (m->memory.bytes != nullptr) free(m->memory.bytes);
+    if (m->memory.bytes != nullptr) {
+        free(m->memory.bytes);
+        m->memory.bytes = nullptr;
+    }
 
-    if (m->stack != nullptr) free(m->stack);
+    if (m->stack != nullptr) {
+        free(m->stack);
+        m->stack = nullptr;
+    }
 
-    if (m->callstack != nullptr) free(m->callstack);
+    if (m->callstack != nullptr) {
+        free(m->callstack);
+        m->callstack = nullptr;
+    }
 
-    if (m->br_table != nullptr) free(m->br_table);
+    if (m->br_table != nullptr) {
+        free(m->br_table);
+        m->br_table = nullptr;
+    }
+
+    m->function_count = 0;
+    m->byte_count = 0;
+    m->type_count = 0;
+
+    m->import_count = 0;
+    m->global_count = 0;
+    m->pc_ptr = 0;
+    m->sp = -1;
+    m->fp = -1;
+    m->csp = -1;
+
+    if (m->exception != nullptr) {
+        free(m->exception);  // safe to remove?
+    }
+
+    m->memory.pages = 0;
+    m->memory.initial = 0;
+    m->memory.maximum = 0;
+    m->table.elem_type = 0;
+    m->table.initial = 0;
+    m->table.maximum = 0;
+    m->table.size = 0;
+
+    m->block_lookup.clear();
 }
 
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
