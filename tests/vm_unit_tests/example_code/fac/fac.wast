@@ -29,6 +29,6 @@
     (loop 
        (local.get $arg)
        (call $fac)
-        nop
+        drop
        (br 0)))
 )
