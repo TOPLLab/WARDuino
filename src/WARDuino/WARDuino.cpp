@@ -292,16 +292,10 @@ uint32_t WARDuino::get_export_fidx(Module *m, const char *name) {
     return static_cast<uint32_t>(-1);
 }
 
-Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
-                              Options options) {
-    debug("Loading module of size %d \n", byte_count);
-    uint8_t valueType;
+void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
+                                  uint32_t byte_count) {
     uint32_t word;
-    Module *m;
-    // Allocate the module
-    m = (Module *)acalloc(1, sizeof(Module), "Module");
-    m->warduino = this;
-    m->options = options;
+    uint8_t valueType;
 
     // Allocate stacks
     m->stack = (StackValue *)acalloc(STACK_SIZE, sizeof(StackValue), "Stack");
@@ -329,6 +323,10 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
     ASSERT(word == WA_VERSION, "Wrong module version 0x%" PRIx32 "\n", word);
     // Read the sections
     uint8_t *bytes_end = bytes + byte_count;
+
+    // Needed for run_init_expr
+    RunningState oldState = this->program_state;
+    this->program_state = WARDUINOrun;
 
     while (pos < bytes_end) {
         uint32_t id = read_LEB(&pos, 7);
@@ -859,6 +857,20 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
         }
     }
 
+    this->program_state = oldState;
+}
+
+Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
+                              Options options) {
+    debug("Loading module of size %d \n", byte_count);
+    Module *m;
+    // Allocate the module
+    m = (Module *)acalloc(1, sizeof(Module), "Module");
+    m->warduino = this;
+    m->options = options;
+
+    this->instantiate_module(m, bytes, byte_count);
+
     this->modules.push_back(m);
 
     debug("return module \n");
@@ -872,34 +884,7 @@ void WARDuino::unload_module(Module *m) {
 #endif
     auto it = std::find(this->modules.begin(), this->modules.end(), m);
     if (it != this->modules.end()) this->modules.erase(it);
-
-    if (m->types != nullptr) {
-        for (uint32_t i = 0; i < m->type_count; i++) {
-            free(m->types[i].params);
-            free(m->types[i].results);
-        }
-        free(m->types);
-    }
-
-    if (m->functions != nullptr) {
-        for (uint32_t i = 0; i < m->function_count; ++i) {
-            free(m->functions[i].export_name);
-        }
-        free(m->functions);
-    }
-
-    if (m->globals != nullptr) free(m->globals);
-
-    if (m->table.entries != nullptr) free(m->table.entries);
-
-    if (m->memory.bytes != nullptr) free(m->memory.bytes);
-
-    if (m->stack != nullptr) free(m->stack);
-
-    if (m->callstack != nullptr) free(m->callstack);
-
-    if (m->br_table != nullptr) free(m->br_table);
-
+    this->free_module_state(m);
     free(m);
 }
 
@@ -928,10 +913,7 @@ bool WARDuino::invoke(Module *m, uint32_t fidx) {
 }
 
 int WARDuino::run_module(Module *m) {
-    uint32_t fidx = this->get_export_fidx(m, "main");
-    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "Main");
-    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
-    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
+    uint32_t fidx = this->get_main_fidx(m);
     ASSERT(fidx != UNDEF, "Main not found");
     this->invoke(m, fidx);
 
@@ -951,4 +933,94 @@ WARDuino *WARDuino::singleton = nullptr;
 WARDuino *WARDuino::instance() {
     if (singleton == nullptr) singleton = new WARDuino();
     return singleton;
+}
+
+// Removes all the state of a module
+void WARDuino::free_module_state(Module *m) {
+    if (m->types != nullptr) {
+        for (uint32_t i = 0; i < m->type_count; i++) {
+            free(m->types[i].params);
+            free(m->types[i].results);
+        }
+        free(m->types);
+        m->types = nullptr;
+    }
+
+    if (m->functions != nullptr) {
+        for (uint32_t i = 0; i < m->function_count; ++i)
+            free(m->functions[i].export_name);
+        free(m->functions);
+        m->functions = nullptr;
+    }
+
+    if (m->globals != nullptr) {
+        free(m->globals);
+        m->globals = nullptr;
+    }
+
+    if (m->table.entries != nullptr) {
+        free(m->table.entries);
+        m->table.entries = nullptr;
+    }
+
+    if (m->memory.bytes != nullptr) {
+        free(m->memory.bytes);
+        m->memory.bytes = nullptr;
+    }
+
+    if (m->stack != nullptr) {
+        free(m->stack);
+        m->stack = nullptr;
+    }
+
+    if (m->callstack != nullptr) {
+        free(m->callstack);
+        m->callstack = nullptr;
+    }
+
+    if (m->br_table != nullptr) {
+        free(m->br_table);
+        m->br_table = nullptr;
+    }
+
+    m->function_count = 0;
+    m->byte_count = 0;
+    m->type_count = 0;
+
+    m->import_count = 0;
+    m->global_count = 0;
+    m->pc_ptr = 0;
+    m->sp = -1;
+    m->fp = -1;
+    m->csp = -1;
+
+    if (m->exception != nullptr) {
+        free(m->exception);  // safe to remove?
+    }
+
+    m->memory.pages = 0;
+    m->memory.initial = 0;
+    m->memory.maximum = 0;
+    m->table.elem_type = 0;
+    m->table.initial = 0;
+    m->table.maximum = 0;
+    m->table.size = 0;
+
+    m->block_lookup.clear();
+}
+
+void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
+    this->free_module_state(m);
+    this->instantiate_module(m, wasm, wasm_len);
+    uint32_t fidx = this->get_main_fidx(m);
+    ASSERT(fidx != UNDEF, "Main not found");
+    setup_call(m, fidx);
+}
+
+uint32_t WARDuino::get_main_fidx(Module *m) {
+    uint32_t fidx = this->get_export_fidx(m, "main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "Main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
+    if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
+    return fidx;
 }
