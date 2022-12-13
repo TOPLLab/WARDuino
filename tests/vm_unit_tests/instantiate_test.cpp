@@ -6,15 +6,15 @@
 #include "example_code/fac/fac_wasm.h"
 #include "gtest/gtest.h"
 
-class StateModule : public ::testing::Test {
+class ModuleFixture : public ::testing::Test {
    protected:
     WARDuino* warduino;
     Module* wasm_module;
     Options opts;
 
-    StateModule() : warduino(WARDuino::instance()) {}
+    ModuleFixture() : warduino(WARDuino::instance()) {}
 
-    ~StateModule() override {}
+    ~ModuleFixture() override {}
 
     void SetUp() override {
         wasm_module = new Module;
@@ -32,7 +32,7 @@ class StateModule : public ::testing::Test {
     }
 };
 
-TEST_F(StateModule, InitiallyEmpty) {
+TEST_F(ModuleFixture, InitiallyEmpty) {
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_EQ(wasm_module->types, nullptr);
     EXPECT_EQ(wasm_module->functions, nullptr);
@@ -44,7 +44,7 @@ TEST_F(StateModule, InitiallyEmpty) {
     EXPECT_EQ(wasm_module->br_table, nullptr);
 }
 
-TEST_F(StateModule, FacLoadsWithoutTableGlobalsAndMemory) {
+TEST_F(ModuleFixture, FacLoadsWithoutTableGlobalsAndMemory) {
     warduino->instantiate_module(wasm_module, fac_wasm, fac_wasm_len);
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_NE(wasm_module->types, nullptr);
@@ -59,7 +59,7 @@ TEST_F(StateModule, FacLoadsWithoutTableGlobalsAndMemory) {
     EXPECT_EQ(wasm_module->table.entries, nullptr);
 }
 
-TEST_F(StateModule, BlinkLoadsWithoutTableAndMemory) {
+TEST_F(ModuleFixture, BlinkLoadsWithoutTableAndMemory) {
     warduino->instantiate_module(wasm_module, blink_wasm, blink_wasm_len);
     EXPECT_NE(wasm_module->types, nullptr);
     EXPECT_NE(wasm_module->functions, nullptr);
@@ -73,7 +73,7 @@ TEST_F(StateModule, BlinkLoadsWithoutTableAndMemory) {
     EXPECT_EQ(wasm_module->table.entries, nullptr);
 }
 
-TEST_F(StateModule, DimmerLoadsWithTableMemoryAndGlobals) {
+TEST_F(ModuleFixture, DimmerLoadsWithTableMemoryAndGlobals) {
     warduino->instantiate_module(wasm_module, dimmer_wasm, dimmer_wasm_len);
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_NE(wasm_module->types, nullptr);
@@ -86,7 +86,7 @@ TEST_F(StateModule, DimmerLoadsWithTableMemoryAndGlobals) {
     EXPECT_NE(wasm_module->table.entries, nullptr);
 }
 
-TEST_F(StateModule, FreeingModuleStateEmptiesModule) {
+TEST_F(ModuleFixture, FreeingModuleStateEmptiesModule) {
     warduino->instantiate_module(wasm_module, dimmer_wasm, dimmer_wasm_len);
     warduino->free_module_state(wasm_module);
 
@@ -100,7 +100,7 @@ TEST_F(StateModule, FreeingModuleStateEmptiesModule) {
     EXPECT_EQ(wasm_module->br_table, nullptr);
 }
 
-TEST_F(StateModule, FreeingStatePreservesOptions) {
+TEST_F(ModuleFixture, FreeingStatePreservesOptions) {
     warduino->instantiate_module(wasm_module, blink_wasm, blink_wasm_len);
     warduino->free_module_state(wasm_module);
     Options opts2 = wasm_module->options;
@@ -110,7 +110,7 @@ TEST_F(StateModule, FreeingStatePreservesOptions) {
     EXPECT_EQ(opts.return_exception, opts2.return_exception);
 }
 
-TEST_F(StateModule, InstantiatingPreservesRunningState) {
+TEST_F(ModuleFixture, InstantiatingPreservesRunningState) {
     auto wd = warduino;
     auto mod = wasm_module;
     auto doInstantiate = [wd, mod]() {
