@@ -1,3 +1,5 @@
+#include <future>
+
 #include "../../src/WARDuino.h"
 #include "example_code/blink/blink_wasm.h"
 #include "example_code/dimmer/dimmer_wasm.h"
@@ -106,6 +108,24 @@ TEST_F(StateModule, FreeingStatePreservesOptions) {
     EXPECT_EQ(opts.dlsym_trim_underscore, opts2.dlsym_trim_underscore);
     EXPECT_EQ(opts.mangle_table_index, opts2.mangle_table_index);
     EXPECT_EQ(opts.return_exception, opts2.return_exception);
+}
+
+TEST_F(StateModule, InstantiatingPreservesRunningState) {
+    auto wd = warduino;
+    auto mod = wasm_module;
+    auto doInstantiate = [wd, mod]() {
+        wd->program_state = WARDUINOpause;
+        wd->instantiate_module(mod, blink_wasm, blink_wasm_len);
+    };
+
+    // async policy may cause an exception
+    ASSERT_NO_THROW({
+        std::future<void> parsing(
+            std::async(std::launch::async, doInstantiate));
+        std::future_status status = parsing.wait_for(std::chrono::seconds(1));
+        ASSERT_EQ(status, std::future_status::ready);
+        ASSERT_EQ(warduino->program_state, WARDUINOpause);
+    });
 }
 
 int main(int argc, char** argv) {
