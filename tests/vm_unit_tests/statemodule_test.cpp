@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <unistd.h>
-
 #include "../../src/WARDuino.h"
 #include "example_code/blink/blink_wasm.h"
 #include "example_code/dimmer/dimmer_wasm.h"
