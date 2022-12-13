@@ -324,6 +324,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     // Read the sections
     uint8_t *bytes_end = bytes + byte_count;
 
+    // Needed for run_init_expr
+    RunningState oldState = this->program_state;
+    this->program_state = WARDUINOrun;
+
     while (pos < bytes_end) {
         uint32_t id = read_LEB(&pos, 7);
         uint32_t section_len = read_LEB_32(&pos);
@@ -852,6 +856,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
             FATAL("Exception: %s\n", exception);
         }
     }
+
+    this->program_state = oldState;
 }
 
 Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
