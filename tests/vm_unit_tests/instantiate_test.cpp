@@ -110,7 +110,7 @@ TEST_F(ModuleFixture, FreeingStatePreservesOptions) {
     EXPECT_EQ(opts.return_exception, opts2.return_exception);
 }
 
-TEST_F(ModuleFixture, InstantiatingPreservesRunningState) {
+TEST_F(ModuleFixture, InstantiatingWorksDespitePauseState) {
     auto wd = warduino;
     auto mod = wasm_module;
     auto doInstantiate = [wd, mod]() {
@@ -125,6 +125,60 @@ TEST_F(ModuleFixture, InstantiatingPreservesRunningState) {
         std::future_status status = parsing.wait_for(std::chrono::seconds(1));
         ASSERT_EQ(status, std::future_status::ready);
         ASSERT_EQ(warduino->program_state, WARDUINOpause);
+    });
+}
+
+TEST_F(ModuleFixture, InstantiatingWorksDespiteStepState) {
+    auto wd = warduino;
+    auto mod = wasm_module;
+    auto doInstantiate = [wd, mod]() {
+        wd->program_state = WARDUINOstep;
+        wd->instantiate_module(mod, blink_wasm, blink_wasm_len);
+    };
+
+    // async policy may cause an exception
+    ASSERT_NO_THROW({
+        std::future<void> parsing(
+            std::async(std::launch::async, doInstantiate));
+        std::future_status status = parsing.wait_for(std::chrono::seconds(1));
+        ASSERT_EQ(status, std::future_status::ready);
+        ASSERT_EQ(warduino->program_state, WARDUINOstep);
+    });
+}
+
+TEST_F(ModuleFixture, InstantiatingWorksDespitePROXYrunState) {
+    auto wd = warduino;
+    auto mod = wasm_module;
+    auto doInstantiate = [wd, mod]() {
+        wd->program_state = PROXYrun;
+        wd->instantiate_module(mod, blink_wasm, blink_wasm_len);
+    };
+
+    // async policy may cause an exception
+    ASSERT_NO_THROW({
+        std::future<void> parsing(
+            std::async(std::launch::async, doInstantiate));
+        std::future_status status = parsing.wait_for(std::chrono::seconds(1));
+        ASSERT_EQ(status, std::future_status::ready);
+        ASSERT_EQ(warduino->program_state, PROXYrun);
+    });
+}
+
+TEST_F(ModuleFixture, InstantiatingWorksDespitePROXYhaltState) {
+    auto wd = warduino;
+    auto mod = wasm_module;
+    auto doInstantiate = [wd, mod]() {
+        wd->program_state = PROXYhalt;
+        wd->instantiate_module(mod, blink_wasm, blink_wasm_len);
+    };
+
+    // async policy may cause an exception
+    ASSERT_NO_THROW({
+        std::future<void> parsing(
+            std::async(std::launch::async, doInstantiate));
+        std::future_status status = parsing.wait_for(std::chrono::seconds(1));
+        ASSERT_EQ(status, std::future_status::ready);
+        ASSERT_EQ(warduino->program_state, PROXYhalt);
     });
 }
 
