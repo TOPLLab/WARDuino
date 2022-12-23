@@ -121,7 +121,7 @@ void *startDebuggerCommunication(void *arg) {
     uint8_t buffer[1024] = {0};
     while (true) {
         while ((valread = duplex->read(buffer, 1024)) != -1) {
-            WARDuino::instance()->handleInterrupt(valread - 1, buffer);
+            WARDuino::instance()->handleInterrupt(valread, buffer);
         }
     }
 }
