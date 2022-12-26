@@ -38,11 +38,18 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
                 (uint8_t *)acalloc(sizeof(uint8_t), len, "interrupt buffer");
             memcpy(msg, buff, len * sizeof(uint8_t));
             *msg = *data;
-            this->debugMessages.push_back(msg);
+            this->pushMessage(msg);
         } else {
-            this->debugMessages.push_back(data);
+            this->pushMessage(data);
         }
     }
+}
+
+void Debugger::pushMessage(uint8_t *msg) {
+#ifndef ARDUINO
+    std::lock_guard<std::mutex> lg(mutexDebugMsgs);
+#endif
+    this->debugMessages.push_back(msg);
 }
 
 void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
@@ -96,6 +103,9 @@ void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
 }
 
 uint8_t *Debugger::getDebugMessage() {
+#ifndef ARDUINO
+    std::lock_guard<std::mutex> lg(mutexDebugMsgs);
+#endif
     if (!this->debugMessages.empty()) {
         uint8_t *ret = this->debugMessages.front();
         this->debugMessages.pop_front();

@@ -67,6 +67,9 @@ class Debugger {
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
+#ifndef ARDUINO
+    std::mutex mutexDebugMsgs;  // mutual exclude debugMessages
+#endif
     volatile bool interruptWrite{};
     volatile bool interruptRead{};
     bool interruptEven = true;
@@ -87,6 +90,8 @@ class Debugger {
 
     // TODO Move parsing to WARDuino class?
     void parseDebugBuffer(size_t len, const uint8_t *buff);
+
+    void pushMessage(uint8_t *msg);
 
     //// Handle Interrupt Types
 
