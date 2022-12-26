@@ -227,15 +227,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 free(interruptData);
                 this->channel->write("ack!\n");
             } else {
-                printf("receiving state\n");
                 debug("receiving state\n");
                 receivingData = !this->saveState(m, interruptData);
                 free(interruptData);
                 debug("sending %s!\n", receivingData ? "ack" : "done");
                 this->channel->write("%s!\n", receivingData ? "ack" : "done");
-                if (!this->receivingData) {
-                    debug("receiving state done\n");
-                }
             }
             break;
         case interruptProxyCall: {
@@ -762,9 +758,8 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 if (m->memory.bytes != nullptr) {
                     free(m->memory.bytes);
                 }
-                m->memory.bytes =
-                    (uint8_t *)acalloc(pages * PAGE_SIZE, sizeof(uint32_t),
-                                       "Module->memory.bytes");
+                m->memory.bytes = (uint8_t *)acalloc(pages * PAGE_SIZE, 1,
+                                                     "Module->memory.bytes");
                 m->memory.pages = pages;
                 // }
                 // else{
@@ -793,8 +788,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
         switch (*program_state++) {
             case pcState: {  // PC
                 m->pc_ptr = (uint8_t *)readPointer(&program_state);
-                /* printf("receiving pc %p\n", static_cast<void*>(m->pc_ptr));
-                 */
+                debug("receiving pc %p\n", static_cast<void *>(m->pc_ptr));
                 break;
             }
             case breakpointsState: {  // breakpoints
@@ -870,7 +864,6 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 break;
             }
             case tblState: {
-                program_state++;  // for now only funcref
                 uint32_t quantity = read_B32(&program_state);
                 for (size_t i = 0; i < quantity; i++) {
                     uint32_t ne = read_B32(&program_state);
@@ -882,26 +875,25 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 debug("receiving memory\n");
                 uint32_t start = read_B32(&program_state);
                 uint32_t limit = read_B32(&program_state);
-                debug("memory offsets start=%" PRIu32 " , limit=%" PRIu32 "\n",
-                      start, limit);
                 if (start > limit) {
                     FATAL("incorrect memory offsets\n");
                 }
                 uint32_t total_bytes = limit - start + 1;
                 uint8_t *mem_end =
                     m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
-                debug("will copy #%" PRIu32 " bytes\n", total_bytes);
+                debug("will copy #%" PRIu32 " bytes from %" PRIu32
+                      " to %" PRIu32 " (incl.)\n",
+                      total_bytes, start, limit);
                 if ((m->memory.bytes + start) + total_bytes > mem_end) {
                     FATAL("memory overflow %p > %p\n",
-                          static_cast<void *>((m->bytes + start) + total_bytes),
+                          static_cast<void *>(m->bytes + start + total_bytes),
                           static_cast<void *>(mem_end));
                 }
-                memcpy(m->memory.bytes + start, program_state, total_bytes + 1);
-                for (auto i = start; i <= (start + total_bytes - 1); i++) {
+                memcpy(m->memory.bytes + start, program_state, total_bytes);
+                for (auto i = start; i < (start + total_bytes); i++) {
                     debug("GOT byte idx %" PRIu32 " =%" PRIu8 "\n", i,
                           m->memory.bytes[i]);
                 }
-                debug("outside the out\n");
                 program_state += total_bytes;
                 break;
             }
