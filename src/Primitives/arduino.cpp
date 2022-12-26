@@ -54,7 +54,7 @@ void write_spi_bytes_16_prim(int times, uint32_t color) {
 
 // Hardware Interrupts
 
-#define ALL_ISRS 25  // number of installed ISRs
+#define ALL_ISRS 26  // number of installed ISRs
 
 typedef struct ISREntry {
     int pin;
@@ -111,6 +111,7 @@ def_isr(33);
 def_isr(34);
 def_isr(35);
 def_isr(36);
+def_isr(37);
 def_isr(39);
 
 int resolve_isr(int pin) {
@@ -919,6 +920,7 @@ void install_isrs() {
     install_isr(34);
     install_isr(35);
     install_isr(36);
+    install_isr(37);
     install_isr(39);
 }
 
