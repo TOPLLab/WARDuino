@@ -12,6 +12,7 @@
 #include "../Utils/sockets.h"
 
 #ifndef ARDUINO
+#include <mutex>
 #include <thread>
 #endif
 struct Module;
