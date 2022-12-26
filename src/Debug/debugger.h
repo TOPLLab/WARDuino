@@ -67,12 +67,12 @@ class Debugger {
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
-
     volatile bool interruptWrite{};
     volatile bool interruptRead{};
     bool interruptEven = true;
     uint8_t interruptLastChar{};
     std::vector<uint8_t> interruptBuffer;
+    std::queue<uint8_t *> parsedInterrupts{};
     long interruptSize{};
     bool receivingData = false;
 
@@ -86,7 +86,7 @@ class Debugger {
     void printValue(StackValue *v, uint32_t idx, bool end) const;
 
     // TODO Move parsing to WARDuino class?
-    uint8_t *parseDebugBuffer(size_t len, const uint8_t *buff);
+    void parseDebugBuffer(size_t len, const uint8_t *buff);
 
     //// Handle Interrupt Types
 

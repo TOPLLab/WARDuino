@@ -27,20 +27,25 @@ void Debugger::setChannel(Channel *duplex) {
 }
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
-    uint8_t *data = this->parseDebugBuffer(len, buff);
-    if (data != nullptr && *data == interruptRecvCallbackmapping) {
-        std::string text = (char *)buff;
-        auto *msg =
-            (uint8_t *)acalloc(sizeof(uint8_t), len, "interrupt buffer");
-        memcpy(msg, buff, len * sizeof(uint8_t));
-        *msg = *data;
-        this->debugMessages.push_back(msg);
-    } else if (data != nullptr) {
-        this->debugMessages.push_back(data);
+    this->parseDebugBuffer(len, buff);
+    uint8_t *data{};
+    while (!this->parsedInterrupts.empty()) {
+        data = this->parsedInterrupts.front();
+        this->parsedInterrupts.pop();
+        if (*data == interruptRecvCallbackmapping) {
+            std::string text = (char *)buff;
+            auto *msg =
+                (uint8_t *)acalloc(sizeof(uint8_t), len, "interrupt buffer");
+            memcpy(msg, buff, len * sizeof(uint8_t));
+            *msg = *data;
+            this->debugMessages.push_back(msg);
+        } else {
+            this->debugMessages.push_back(data);
+        }
     }
 }
 
-uint8_t *Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
+void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
     for (size_t i = 0; i < len; i++) {
         bool success = true;
         int r = -1 /*undef*/;
@@ -64,19 +69,18 @@ uint8_t *Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
             if (this->interruptEven) {
                 if (!this->interruptBuffer.empty()) {
                     // done, send to process
-                    auto *data = (uint8_t *)acalloc(
-                        sizeof(uint8_t), this->interruptBuffer.size(),
-                        "interrupt buffer");
+                    auto data = (uint8_t *)acalloc(sizeof(uint8_t),
+                                                   this->interruptBuffer.size(),
+                                                   "interrupt buffer");
                     memcpy(data, this->interruptBuffer.data(),
                            this->interruptBuffer.size() * sizeof(uint8_t));
+                    this->parsedInterrupts.push(data);
                     this->interruptBuffer.clear();
-                    return data;
                 }
             } else {
                 this->interruptBuffer.clear();
                 this->interruptEven = true;
                 dbg_warn("Dropped interrupt: could not process");
-                return nullptr;
             }
         } else {  // good parse
             if (!this->interruptEven) {
@@ -89,7 +93,6 @@ uint8_t *Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
             this->interruptEven = !this->interruptEven;
         }
     }
-    return nullptr;
 }
 
 uint8_t *Debugger::getDebugMessage() {
