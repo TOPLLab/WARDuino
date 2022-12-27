@@ -438,7 +438,7 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t mode = arg0.uint32;
 
     debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, fidx, mode);
-    std::string topic = "interrupt";
+    std::string topic = "interrupt_";
     topic.append(std::to_string(pin));
 
     Callback c = Callback(m, topic, fidx);
