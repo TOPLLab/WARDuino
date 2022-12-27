@@ -193,10 +193,15 @@ void Callback::resolve_event(const Event &e) {
 
     // Push arguments (5 args)
     module->stack[++module->sp].value.uint32 = start - topic.length();
+    module->stack[module->sp].value_type = I32;
     module->stack[++module->sp].value.uint32 = topic.length();
+    module->stack[module->sp].value_type = I32;
     module->stack[++module->sp].value.uint32 = start;
+    module->stack[module->sp].value_type = I32;
     module->stack[++module->sp].value.uint32 = payload.length();
+    module->stack[module->sp].value_type = I32;
     module->stack[++module->sp].value.uint32 = payload.length();
+    module->stack[module->sp].value_type = I32;
 
     // Setup function
     uint32_t fidx = module->table.entries[table_index];
