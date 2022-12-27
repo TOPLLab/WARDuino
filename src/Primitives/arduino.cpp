@@ -605,7 +605,7 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
 
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
-    uint8_t fidx = arg1.uint32;  // Callback function
+    uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
     uint8_t mode = arg0.uint32;
 
     int index = resolve_isr(pin);
@@ -618,7 +618,7 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 
     String callback_id = INTERRUPT_TOPIC_PREFIX;
     callback_id += String(pin);
-    Callback c = Callback(m, callback_id.c_str(), fidx);
+    Callback c = Callback(m, callback_id.c_str(), tidx);
     CallbackHandler::add_callback(c);
 
     pop_args(3);
