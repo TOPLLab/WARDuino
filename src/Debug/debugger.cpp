@@ -33,11 +33,21 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
         data = this->parsedInterrupts.front();
         this->parsedInterrupts.pop();
         if (*data == interruptRecvCallbackmapping) {
-            std::string text = (char *)buff;
-            auto *msg =
-                (uint8_t *)acalloc(sizeof(uint8_t), len, "interrupt buffer");
-            memcpy(msg, buff, len * sizeof(uint8_t));
+            size_t startIdx = 0;
+            size_t endIdx;
+            while (buff[startIdx] != '7' || buff[startIdx + 1] != '5' ||
+                   buff[startIdx + 2] != '{') {
+                startIdx++;
+            }
+            endIdx = startIdx;
+            while (buff[endIdx] != '\n') {
+                endIdx++;
+            }
+            auto *msg = (uint8_t *)acalloc(sizeof(uint8_t), (endIdx - startIdx),
+                                           "interrupt buffer");
+            memcpy(msg, buff + startIdx, (endIdx - startIdx) * sizeof(uint8_t));
             *msg = *data;
+            free(data);
             this->pushMessage(msg);
         } else {
             this->pushMessage(data);
