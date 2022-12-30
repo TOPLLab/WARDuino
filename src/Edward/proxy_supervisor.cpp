@@ -79,10 +79,16 @@ void ProxySupervisor::listenToSocket() {
     const uint32_t start_size = 1024;
     uint32_t current_size = start_size;
     char *buffer = (char *)malloc(start_size);
+    ssize_t readAmount;
 
     dbg_info("Proxy supervisor listening to remote device...\n");
     while (continuing(this->mutex)) {
-        if (this->channel->read(&_char, 1) != -1) {
+        readAmount = this->channel->read(&_char, 1);
+        if (readAmount == -1) {
+            printf("Proxy supervisor shutting down.\n");
+            exit(-1);
+        }
+        if (readAmount > 0) {
             // increase buffer size if needed
             if (current_size <= (buf_idx + 1)) {
                 char *new_buff = (char *)malloc(current_size + start_size);
@@ -121,7 +127,6 @@ void ProxySupervisor::listenToSocket() {
             }
         }
     }
-    dbg_info("Proxy supervisor shutting down.\n");
 }
 
 bool ProxySupervisor::send(
@@ -258,10 +263,12 @@ bool ProxySupervisor::call(RFC *callee) {
     }
     // Fetch new callback mapping
     // convert message to hex TODO: move to proxyserver
-    char cmdBuffer[10] = "";
-    int cmdBufferLen = 0;
-    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
-    WARDuino::instance()->debugger->supervisor->send(cmdBuffer, cmdBufferLen);
+    //    char cmdBuffer[10] = "";
+    //    int cmdBufferLen = 0;
+    //    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping,
+    //    &cmdBufferLen);
+    //    WARDuino::instance()->debugger->supervisor->send(cmdBuffer,
+    //    cmdBufferLen);
     this->deserializeRFCResult(callee);
     return true;
 }
