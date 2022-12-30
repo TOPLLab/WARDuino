@@ -259,7 +259,13 @@ int main(int argc, const char *argv[]) {
             } catch (std::invalid_argument const &ex) {
                 // argument is not a port
                 // treat as filename
-                connection = new FileDescriptorChannel(open(proxy, O_RDWR));
+                int serialPort = open(proxy, O_RDWR);
+                if (serialPort < 0) {
+                    fprintf(stderr, "wdcli: error opening %s: %s\n", proxy,
+                            strerror(errno));
+                    return 1;
+                }
+                connection = new FileDescriptorChannel(serialPort);
             } catch (std::out_of_range const &ex) {
                 // argument is an integer but is out of range
                 fprintf(stderr,
