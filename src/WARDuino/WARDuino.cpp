@@ -1024,3 +1024,17 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
     if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
     return fidx;
 }
+
+uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
+    if (physicalAddr - m->bytes < 0) {
+        FATAL(
+            "INVALID Addresses: physicalAddr=%p WasmPhysicalAddr=%p "
+            "(Virtual address = %d)",
+            (void *)physicalAddr, (void *)m->bytes, physicalAddr - m->bytes);
+    }
+    return physicalAddr - m->bytes;
+}
+
+uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m) {
+    return m->bytes + virtualAddr;
+}
