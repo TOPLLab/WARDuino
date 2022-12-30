@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <unistd.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -13,8 +12,6 @@
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
-#include "../../src/Utils/sockets.h"
-#include "../../src/WARDuino.h"
 #include "../../tests/integration/wasm_tests.h"
 
 // Constants
