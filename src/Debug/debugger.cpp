@@ -9,8 +9,6 @@
 #include "../../lib/json/single_include/nlohmann/json.hpp"
 #endif
 
-#include "../Edward/proxy.h"
-#include "../Edward/proxy_supervisor.h"
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
