@@ -1036,5 +1036,10 @@ uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
 }
 
 uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m) {
+    if (virtualAddr >= m->byte_count) {
+        FATAL("Provided virtualAddress is not within the Wasm. Given %" PRIu32
+              " Wasm size %" PRIu32 "\n",
+              virtualAddr, m->byte_count)
+    }
     return m->bytes + virtualAddr;
 }
