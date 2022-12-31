@@ -361,12 +361,6 @@ void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
 void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
     uint8_t *bpData = interruptData + 1;
     uint32_t virtualAddress = read_B32(&bpData);
-    if (virtualAddress >= m->byte_count) {
-        // TODO handle incorrect data properly
-        FATAL("provided BP is out-of-scope: wasm size %" PRIu32
-              " BP is %" PRIu32,
-              m->byte_count, virtualAddress);
-    }
     uint8_t *bpt = toPhysicalAddress(virtualAddress, m);
     if (*interruptData == 0x06) {
         this->addBreakpoint(bpt);
