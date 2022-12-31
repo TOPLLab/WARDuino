@@ -191,7 +191,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptBPAdd:  // Breakpoint
         case interruptBPRem:  // Breakpoint remove
-            this->handleInterruptBP(interruptData);
+            this->handleInterruptBP(m, interruptData);
             free(interruptData);
             break;
         case interruptDUMP:
@@ -358,22 +358,22 @@ void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
     *program_state = WARDUINOrun;
 }
 
-void Debugger::handleInterruptBP(const uint8_t *interruptData) {
-    // TODO: segfault may happen here!
-    uint8_t len = interruptData[1];
-    uintptr_t bp = 0x0;
-    for (size_t i = 0; i < len; i++) {
-        bp <<= sizeof(uint8_t) * 8;
-        bp |= interruptData[i + 2];
+void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
+    uint8_t *bpData = interruptData + 1;
+    uint32_t virtualAddress = read_B32(&bpData);
+    if (virtualAddress >= m->byte_count) {
+        // TODO handle incorrect data properly
+        FATAL("provided BP is out-of-scope: wasm size %" PRIu32
+              " BP is %" PRIu32,
+              m->byte_count, virtualAddress);
     }
-    auto *bpt = (uint8_t *)bp;
-    this->channel->write("BP %p!\n", static_cast<void *>(bpt));
-
+    uint8_t *bpt = toPhysicalAddress(virtualAddress, m);
     if (*interruptData == 0x06) {
         this->addBreakpoint(bpt);
     } else {
         this->deleteBreakpoint(bpt);
     }
+    this->channel->write("BP %" PRIu32 "!\n", virtualAddress);
 }
 
 void Debugger::dump(Module *m, bool full) const {

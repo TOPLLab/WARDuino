@@ -98,7 +98,7 @@ class Debugger {
 
     void handleInterruptRUN(Module *m, RunningState *program_state);
 
-    void handleInterruptBP(const uint8_t *interruptData);
+    void handleInterruptBP(Module *m, uint8_t *interruptData);
 
     //// Information dumps
 
