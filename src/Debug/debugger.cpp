@@ -232,11 +232,6 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             woodDump(m);
             break;
-        case interruptOffset:
-            free(interruptData);
-            printf("offset\n");
-            this->channel->write("{\"offset\":\"%p\"}\n", (void *)m->bytes);
-            break;
         case interruptRecvState:
             if (!this->receivingData) {
                 *program_state = WARDUINOpause;

@@ -48,7 +48,6 @@ enum InterruptTypes {
 
     // Pull Debugging
     interruptWOODDUMP = 0x60,
-    interruptOffset = 0x61,
     interruptRecvState = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
