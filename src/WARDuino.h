@@ -172,6 +172,9 @@ typedef struct Module {
     char *exception = nullptr;  // exception is set when the program fails
 } Module;
 
+uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m);
+uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m);
+
 typedef bool (*Primitive)(Module *);
 
 typedef struct PrimitiveEntry {
