@@ -170,7 +170,7 @@ class Debugger {
 
     bool isBreakpoint(uint8_t *loc);
 
-    void notifyBreakpoint(uint8_t *pc_ptr) const;
+    void notifyBreakpoint(uint32_t bp) const;
 
     // Out-of-place debugging
 

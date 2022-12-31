@@ -131,8 +131,8 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end();
 }
 
-void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
-    this->channel->write("AT %p!\n", (void *)pc_ptr);
+void Debugger::notifyBreakpoint(uint32_t bp) const {
+    this->channel->write("AT %" PRIu32 "!\n", bp);
 }
 
 /**
