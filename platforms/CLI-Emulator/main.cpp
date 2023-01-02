@@ -171,8 +171,21 @@ void *setupDebuggerCommunication(debugger_options *options) {
     wac->debugger->setChannel(duplex);
 }
 
-bool configureSerialPort(int serialPort, const char *baudrate) {
-    struct termios tty;
+const std::map<std::string, speed_t> &baudrateMap() {
+    static const auto *map = new std::map<std::string, speed_t>{
+        {"0", B0},           {"50", B50},         {"75", B75},
+        {"110", B110},       {"134", B134},       {"150", B150},
+        {"200", B200},       {"300", B300},       {"600", B600},
+        {"1200", B1200},     {"1800", B1800},     {"2400", B2400},
+        {"4800", B4800},     {"9600", B9600},     {"19200", B19200},
+        {"38400", B38400},   {"38400", B38400},   {"57600", B57600},
+        {"115200", B115200}, {"230400", B230400},
+    };
+    return *map;
+}
+
+bool configureSerialPort(int serialPort, const char *argument) {
+    struct termios tty {};
     if (tcgetattr(serialPort, &tty) != 0) {
         fprintf(stderr, "wdcli: error configuring serial port (errno %i): %s\n",
                 errno, strerror(errno));
@@ -201,67 +214,15 @@ bool configureSerialPort(int serialPort, const char *baudrate) {
     tty.c_cc[VTIME] = 1;      // Wait max 1sec
     tty.c_cc[VMIN] = 0;
 
-    if (strcmp(baudrate, "115200") == 0) {
-        cfsetispeed(&tty, B115200);
-        cfsetospeed(&tty, B115200);
-    } else if (strcmp(baudrate, "9600") == 0) {
-        cfsetispeed(&tty, B9600);
-        cfsetospeed(&tty, B9600);
-    } else if (strcmp(baudrate, "0") == 0) {
-        cfsetispeed(&tty, B0);
-        cfsetospeed(&tty, B0);
-    } else if (strcmp(baudrate, "50") == 0) {
-        cfsetispeed(&tty, B50);
-        cfsetospeed(&tty, B50);
-    } else if (strcmp(baudrate, "75") == 0) {
-        cfsetispeed(&tty, B75);
-        cfsetospeed(&tty, B75);
-    } else if (strcmp(baudrate, "110") == 0) {
-        cfsetispeed(&tty, B110);
-        cfsetospeed(&tty, B110);
-    } else if (strcmp(baudrate, "134") == 0) {
-        cfsetispeed(&tty, B134);
-        cfsetospeed(&tty, B134);
-    } else if (strcmp(baudrate, "150") == 0) {
-        cfsetispeed(&tty, B150);
-        cfsetospeed(&tty, B150);
-    } else if (strcmp(baudrate, "200") == 0) {
-        cfsetispeed(&tty, B200);
-        cfsetospeed(&tty, B200);
-    } else if (strcmp(baudrate, "300") == 0) {
-        cfsetispeed(&tty, B300);
-        cfsetospeed(&tty, B300);
-    } else if (strcmp(baudrate, "600") == 0) {
-        cfsetispeed(&tty, B600);
-        cfsetospeed(&tty, B600);
-    } else if (strcmp(baudrate, "1200") == 0) {
-        cfsetispeed(&tty, B1200);
-        cfsetospeed(&tty, B1200);
-    } else if (strcmp(baudrate, "1800") == 0) {
-        cfsetispeed(&tty, B1800);
-        cfsetospeed(&tty, B1800);
-    } else if (strcmp(baudrate, "2400") == 0) {
-        cfsetispeed(&tty, B2400);
-        cfsetospeed(&tty, B2400);
-    } else if (strcmp(baudrate, "4800") == 0) {
-        cfsetispeed(&tty, B4800);
-        cfsetospeed(&tty, B4800);
-    } else if (strcmp(baudrate, "19200") == 0) {
-        cfsetispeed(&tty, B19200);
-        cfsetospeed(&tty, B19200);
-    } else if (strcmp(baudrate, "38400") == 0) {
-        cfsetispeed(&tty, B38400);
-        cfsetospeed(&tty, B38400);
-    } else if (strcmp(baudrate, "57600") == 0) {
-        cfsetispeed(&tty, B57600);
-        cfsetospeed(&tty, B57600);
-    } else if (strcmp(baudrate, "230400") == 0) {
-        cfsetispeed(&tty, B230400);
-        cfsetospeed(&tty, B230400);
-    } else {
-        fprintf(stderr, "Provided baudrate %s is unsupported\n", baudrate);
+    auto iterator = baudrateMap().find(argument);
+    if (iterator == baudrateMap().end()) {
+        fprintf(stderr, "Provided argument %s is unsupported\n", argument);
         return false;
     }
+    speed_t baudrate = iterator->second;
+
+    cfsetispeed(&tty, baudrate);
+    cfsetospeed(&tty, baudrate);
 
     if (tcsetattr(serialPort, TCSANOW, &tty) != 0) {
         fprintf(stderr, "Error %i from tcsetattr: %s\n", errno,
