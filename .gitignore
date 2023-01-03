@@ -31,3 +31,5 @@ _deps
 
 *.old
 
+core
+venv
