@@ -312,7 +312,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp("--socket", arg)) {
             ARGV_GET(socket);
         } else if (!strcmp("--paused", arg)) {
-            initiallyPaused = false;
+            initiallyPaused = true;
         } else if (!strcmp("--proxy", arg)) {
             ARGV_GET(proxy);  // /dev/ttyUSB0
         } else if (!strcmp("--baudrate", arg)) {
