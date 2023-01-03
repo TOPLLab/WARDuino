@@ -40,6 +40,9 @@ void print_help() {
             "    --loop         Let the runtime loop infinitely on exceptions "
             "(default: false)\n");
     fprintf(stdout,
+            "    --test         Run in test mode with .wast file with module "
+            "as argument\n");
+    fprintf(stdout,
             "    --asserts      Name of file containing asserts to run against "
             "loaded module\n");
     fprintf(stdout,
@@ -276,7 +279,7 @@ int main(int argc, const char *argv[]) {
     const char *asserts_file = nullptr;
     const char *watcompiler = "wat2wasm";
 
-    if (argc > 0) {
+    if (argc > 0 && argv[0][0] != '-') {
         ARGV_GET(file_name);
 
         dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
@@ -300,8 +303,10 @@ int main(int argc, const char *argv[]) {
             return 0;
         } else if (!strcmp("--loop", arg)) {
             return_exception = false;
-        } else if (!strcmp("--asserts", arg)) {
+        } else if (!strcmp("--test", arg)) {
             run_tests = true;
+            ARGV_GET(file_name);
+        } else if (!strcmp("--asserts", arg)) {
             ARGV_GET(asserts_file);
         } else if (!strcmp("--watcompiler", arg)) {
             ARGV_GET(watcompiler);
