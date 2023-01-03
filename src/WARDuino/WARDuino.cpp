@@ -894,13 +894,18 @@ WARDuino::WARDuino() {
     initTypes();
 }
 
-// if entry == NULL,  attempt to invoke 'main' or '_main'
-// Return value of false means exception occured
-bool WARDuino::invoke(Module *m, uint32_t fidx) {
+// Return value of false means exception occurred
+bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
+                      StackValue *args) {
     bool result;
     m->sp = -1;
     m->fp = -1;
     m->csp = -1;
+
+    for (uint32_t i = 0; i < arity; ++i) {
+        m->stack[++m->sp] = *args;
+        args += sizeof(StackValue);
+    }
 
     dbg_trace("Interpretation starts\n");
     dbg_dump_stack(m);
