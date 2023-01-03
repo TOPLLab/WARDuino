@@ -46,8 +46,6 @@ void print_help() {
             "    --watcompiler  Command to compile Wat files to Wasm "
             "binaries (default: wat2wasm)\n");
     fprintf(stdout,
-            "    --file         Wasm file (module) to load and execute\n");
-    fprintf(stdout,
             "    --no-debug     Run without debug thread"
             "(default: false)\n");
     fprintf(stdout,
@@ -233,6 +231,31 @@ bool configureSerialPort(int serialPort, const char *argument) {
     return true;
 }
 
+StackValue parseParameter(const char *input, uint8_t value_type) {
+    StackValue value = {value_type, {0}};
+    switch (value_type) {
+        case I32: {
+            value.value.uint32 = std::stoi(input);
+            break;
+        }
+        case F32: {
+            value.value.f32 = std::atof(input);
+            break;
+        }
+        case I64: {
+            value.value.uint64 = std::stoi(input);
+            break;
+        }
+        case F64: {
+            value.value.f64 = std::atof(input);
+            break;
+        }
+        default:
+            FATAL("wdcli: '%s' should be of type %hhu\n", input, value_type);
+    }
+    return value;
+}
+
 int main(int argc, const char *argv[]) {
     ARGV_SHIFT();  // Skip command name
 
@@ -255,6 +278,13 @@ int main(int argc, const char *argv[]) {
 
     if (argc > 0) {
         ARGV_GET(file_name);
+
+        dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
+        m = load(*wac, file_name,
+                 {.disable_memory_bounds = false,
+                  .mangle_table_index = false,
+                  .dlsym_trim_underscore = false,
+                  .return_exception = return_exception});
     }
 
     // Parse options
@@ -270,8 +300,6 @@ int main(int argc, const char *argv[]) {
             return 0;
         } else if (!strcmp("--loop", arg)) {
             return_exception = false;
-        } else if (!strcmp("--file", arg)) {
-            ARGV_GET(file_name);
         } else if (!strcmp("--asserts", arg)) {
             run_tests = true;
             ARGV_GET(asserts_file);
@@ -293,68 +321,44 @@ int main(int argc, const char *argv[]) {
             ARGV_GET(mode);
         } else if (!strcmp("--invoke", arg)) {
             ARGV_GET(fname);
-        }
-    }
 
-    if (file_name != nullptr) {
-        if (run_tests) {
-            dbg_info("=== STARTING SPEC TESTS ===\n");
-            return run_wasm_test(*wac, file_name, asserts_file, watcompiler);
-        }
-        dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
-        m = load(*wac, file_name,
-                 {.disable_memory_bounds = false,
-                  .mangle_table_index = false,
-                  .dlsym_trim_underscore = false,
-                  .return_exception = return_exception});
-        if (initiallyPaused) {
-            wac->program_state = WARDUINOpause;
-        }
-    }
-
-    if (m != nullptr && fname != nullptr) {
-        // consume all arguments for the function passed to the invoke option
-        int fidx = wac->get_export_fidx(m, fname);
-        if (fidx < 0) {
-            fprintf(stderr, "wdcli: no exported function with name '%s'\n",
-                    fname);
-            return 1;
-        }
-
-        Block function = m->functions[fidx];
-        for (uint32_t i = 0; i < function.type->param_count; ++i) {
-            StackValue value = {static_cast<uint8_t>(*function.type->params +
-                                                     (i * sizeof(uint32_t))),
-                                {0}};
-            switch (value.value_type) {
-                case I32: {
-                    value.value.uint32 = std::stoi(argv[0]);
-                    break;
-                }
-                case F32: {
-                    value.value.f32 = std::atof(argv[0]);
-                    break;
-                }
-                case I64: {
-                    value.value.uint64 = std::stoi(argv[0]);
-                    break;
-                }
-                case F64: {
-                    value.value.f64 = std::atof(argv[0]);
-                    break;
-                }
-                default:
-                    FATAL("incorrect StackValue type\n");
-                    break;
+            // find function
+            int fidx = wac->get_export_fidx(m, fname);
+            if (fidx < 0) {
+                fprintf(stderr, "wdcli: no exported function with name '%s'\n",
+                        fname);
+                return 1;
             }
-            arguments.push_back(value);
-            ARGV_SHIFT();
+
+            Block function = m->functions[fidx];
+
+            // consume all arguments for the function
+            for (uint32_t i = 0; i < function.type->param_count; ++i) {
+                const char *number = nullptr;
+                ARGV_GET(number);
+
+                if (number[0] == '-') {
+                    FATAL("wdcli: wrong number of arguments for '%s'\n", fname);
+                }
+
+                arguments.push_back(parseParameter(
+                    number, *function.type->params + (i * sizeof(uint32_t))));
+            }
         }
     }
 
-    if (argc != 0) {
+    if (argc != 0 || file_name == nullptr) {
         print_help();
         return 1;
+    }
+
+    if (run_tests) {
+        dbg_info("=== STARTING SPEC TESTS ===\n");
+        return run_wasm_test(*wac, file_name, asserts_file, watcompiler);
+    }
+
+    if (initiallyPaused) {
+        wac->program_state = WARDUINOpause;
     }
 
     if (m) {
