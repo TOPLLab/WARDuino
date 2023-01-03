@@ -34,7 +34,7 @@
 void print_help() {
     fprintf(stdout, "WARDuino WebAssembly Runtime - 0.2.1\n\n");
     fprintf(stdout, "Usage:\n");
-    fprintf(stdout, "    warduino [options] <file>\n");
+    fprintf(stdout, "    warduino <file> [options]\n");
     fprintf(stdout, "Options:\n");
     fprintf(stdout,
             "    --loop         Let the runtime loop infinitely on exceptions "
@@ -69,6 +69,7 @@ void print_help() {
     fprintf(stdout,
             "    --mode         The mode to run in: interpreter, proxy "
             "(default: interpreter)\n");
+    fprintf(stdout, "    --invoke       Invoke a function from the module\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -246,8 +247,15 @@ int main(int argc, const char *argv[]) {
     const char *baudrate = nullptr;
     const char *mode = "interpreter";
 
+    const char *fname = nullptr;
+    std::vector<StackValue> arguments = std::vector<StackValue>();
+
     const char *asserts_file = nullptr;
     const char *watcompiler = "wat2wasm";
+
+    if (argc > 0) {
+        ARGV_GET(file_name);
+    }
 
     // Parse options
     while (argc > 0) {
@@ -283,15 +291,12 @@ int main(int argc, const char *argv[]) {
             ARGV_GET(baudrate);
         } else if (!strcmp("--mode", arg)) {
             ARGV_GET(mode);
+        } else if (!strcmp("--invoke", arg)) {
+            ARGV_GET(fname);
         }
     }
 
-    if (argc == 1) {
-        ARGV_GET(file_name);
-        ARGV_SHIFT();
-    }
-
-    if (argc == 0 && file_name != nullptr) {
+    if (file_name != nullptr) {
         if (run_tests) {
             dbg_info("=== STARTING SPEC TESTS ===\n");
             return run_wasm_test(*wac, file_name, asserts_file, watcompiler);
@@ -305,7 +310,49 @@ int main(int argc, const char *argv[]) {
         if (initiallyPaused) {
             wac->program_state = WARDUINOpause;
         }
-    } else {
+    }
+
+    if (m != nullptr && fname != nullptr) {
+        // consume all arguments for the function passed to the invoke option
+        int fidx = wac->get_export_fidx(m, fname);
+        if (fidx < 0) {
+            fprintf(stderr, "wdcli: no exported function with name '%s'\n",
+                    fname);
+            return 1;
+        }
+
+        Block function = m->functions[fidx];
+        for (uint32_t i = 0; i < function.type->param_count; ++i) {
+            StackValue value = {static_cast<uint8_t>(*function.type->params +
+                                                     (i * sizeof(uint32_t))),
+                                {0}};
+            switch (value.value_type) {
+                case I32: {
+                    value.value.uint32 = std::stoi(argv[0]);
+                    break;
+                }
+                case F32: {
+                    value.value.f32 = std::atof(argv[0]);
+                    break;
+                }
+                case I64: {
+                    value.value.uint64 = std::stoi(argv[0]);
+                    break;
+                }
+                case F64: {
+                    value.value.f64 = std::atof(argv[0]);
+                    break;
+                }
+                default:
+                    FATAL("incorrect StackValue type\n");
+                    break;
+            }
+            arguments.push_back(value);
+            ARGV_SHIFT();
+        }
+    }
+
+    if (argc != 0) {
         print_help();
         return 1;
     }
@@ -372,7 +419,12 @@ int main(int argc, const char *argv[]) {
 
         // Run Wasm module
         dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
-        wac->run_module(m);
+        if (fname != nullptr) {
+            uint32_t fidx = wac->get_export_fidx(m, fname);
+            wac->invoke(m, fidx, arguments.size(), &arguments[0]);
+        } else {
+            wac->run_module(m);
+        }
         wac->unload_module(m);
         wac->debugger->stop();
 
