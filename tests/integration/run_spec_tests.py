@@ -97,7 +97,7 @@ def main():
         base = "core/" + "".join(os.path.basename(filename).split(".")[:-2])
         print(base)
         status = subprocess.run(
-            [args.interpreter, "--file", base + ".wast", "--asserts", base + ".asserts.wast", "--watcompiler", args.compiler],
+            [args.interpreter, base + ".wast", "--asserts", base + ".asserts.wast", "--watcompiler", args.compiler],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if status.returncode == 0:
             print(f"{filename}: All tests passed.\n")
