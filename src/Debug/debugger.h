@@ -99,7 +99,7 @@ class Debugger {
 
     //// Handle REPL interrupts
 
-    void handleInvoke(Module *m, uint8_t *interruptData);
+    static void handleInvoke(Module *m, uint8_t *interruptData);
 
     //// Handle Interrupt Types
 
