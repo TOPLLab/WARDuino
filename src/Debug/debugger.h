@@ -46,6 +46,9 @@ enum InterruptTypes {
     interruptUPDATELocal = 0x21,
     interruptUPDATEModule = 0x22,
 
+    // Remote REPL
+    interruptINVOKE = 0x40,
+
     // Pull Debugging
     interruptWOODDUMP = 0x60,
     interruptOffset = 0x61,
@@ -93,6 +96,10 @@ class Debugger {
     void parseDebugBuffer(size_t len, const uint8_t *buff);
 
     void pushMessage(uint8_t *msg);
+
+    //// Handle REPL interrupts
+
+    void handleInvoke(Module *m, uint8_t *interruptData);
 
     //// Handle Interrupt Types
 

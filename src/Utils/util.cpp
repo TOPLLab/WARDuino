@@ -5,6 +5,40 @@
 
 #include "macros.h"
 
+StackValue *readArgs(Type function, uint8_t *data) {
+    auto *args = new StackValue[function.param_count];
+    for (uint32_t i = 0; i < function.param_count; i++) {
+        args[i] = {static_cast<uint8_t>(function.params[i]), {0}};
+
+        switch (args[i].value_type) {
+            case I32: {
+                memcpy(&args[i].value.uint32, data, sizeof(uint32_t));
+                data += sizeof(uint32_t);
+                break;
+            }
+            case F32: {
+                memcpy(&args[i].value.f32, data, sizeof(float));
+                data += sizeof(float);
+                break;
+            }
+            case I64: {
+                memcpy(&args[i].value.uint64, data, sizeof(uint64_t));
+                data += sizeof(uint64_t);
+                break;
+            }
+            case F64: {
+                memcpy(&args[i].value.f64, data, sizeof(double));
+                data += sizeof(double);
+                break;
+            }
+            default: {
+                FATAL("no argument of type %" PRIu32 "\n", args[i].value_type);
+            }
+        }
+    }
+    return args;
+}
+
 // Little endian base (LED128)
 
 uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {

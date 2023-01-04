@@ -99,53 +99,7 @@ char *printValue(StackValue *v) {
 }
 
 StackValue *Proxy::readRFCArgs(Block *func, uint8_t *data) {
-    if (func->type->param_count == 0) {
-        printf("ProxyFunc %" PRIu32 "takes no arg\n", func->fidx);
-        return nullptr;
-    }
-
-    auto *args = new StackValue[func->type->param_count];
-    uint32_t *params = func->type->params;
-    for (uint32_t i = 0; i < func->type->param_count; i++) {
-        args[i].value.uint64 = 0;  // init whole union to 0
-        args[i].value_type = params[i];
-
-        switch (params[i]) {
-            case I32: {
-                memcpy(&args[i].value.uint32, data, sizeof(uint32_t));
-                data += sizeof(uint32_t);
-                printf("arg %" PRIu32 ": i32 value %" PRIu32 "\n", i,
-                       args[i].value.uint32);
-                break;
-            }
-            case F32: {
-                memcpy(&args[i].value.f32, data, sizeof(float));
-                data += sizeof(float);
-                printf("arg %" PRIu32 ": F32 value %.7f \n", i,
-                       args[i].value.f32);
-                break;
-            }
-            case I64: {
-                memcpy(&args[i].value.uint64, data, sizeof(uint64_t));
-                data += sizeof(uint64_t);
-                printf("arg %" PRIu32 ": I64 value %" PRIu64 "\n", i,
-                       args[i].value.uint64);
-                break;
-            }
-            case F64: {
-                memcpy(&args[i].value.f64, data, sizeof(double));
-                data += sizeof(double);
-                printf("arg %" PRIu32 ": f64 value %.7f \n", i,
-                       args[i].value.f64);
-                break;
-            }
-            default: {
-                FATAL("incorrect argument type: %" PRIu32 "\n", params[i]);
-                break;
-            }
-        }
-    }
-    return args;
+    return readArgs(*func->type, data);
 }
 
 void Proxy::setupCalleeArgs(Module *m, RFC *callee) {
