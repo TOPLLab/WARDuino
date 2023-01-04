@@ -227,6 +227,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleUpdateModule(m, interruptData);
             free(interruptData);
             break;
+        case interruptINVOKE:
+            this->handleInvoke(m, interruptData);
+            free(interruptData);
+            break;
         case interruptWOODDUMP:
             *program_state = WARDUINOpause;
             free(interruptData);
@@ -348,6 +352,15 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
         exit(33);
     }
     return opcode;
+}
+
+void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
+    uint32_t fidx = read_L32(&interruptData);
+
+    Type func = *m->functions[fidx].type;
+    StackValue *args = readArgs(func, interruptData);
+
+    WARDuino::instance()->invoke(m, fidx, func.param_count, args);
 }
 
 void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
