@@ -1096,7 +1096,7 @@ void Debugger::stop() {
 
 bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
     uint8_t *wasm_data = data + 1;
-    uint32_t wasm_len = read_B32(&wasm_data);
+    uint32_t wasm_len = read_LEB_32(&wasm_data);
     uint8_t *wasm = (uint8_t *)malloc(sizeof(uint8_t) * wasm_len);
     memcpy(wasm, wasm_data, wasm_len);
     WARDuino *wd = m->warduino;
