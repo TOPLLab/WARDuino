@@ -5,6 +5,40 @@
 
 #include "macros.h"
 
+StackValue *readArgs(Type function, uint8_t *data) {
+    auto *args = new StackValue[function.param_count];
+    for (uint32_t i = 0; i < function.param_count; i++) {
+        args[i] = {static_cast<uint8_t>(function.params[i]), {0}};
+
+        switch (args[i].value_type) {
+            case I32: {
+                memcpy(&args[i].value.uint32, data, sizeof(uint32_t));
+                data += sizeof(uint32_t);
+                break;
+            }
+            case F32: {
+                memcpy(&args[i].value.f32, data, sizeof(float));
+                data += sizeof(float);
+                break;
+            }
+            case I64: {
+                memcpy(&args[i].value.uint64, data, sizeof(uint64_t));
+                data += sizeof(uint64_t);
+                break;
+            }
+            case F64: {
+                memcpy(&args[i].value.f64, data, sizeof(double));
+                data += sizeof(double);
+                break;
+            }
+            default: {
+                FATAL("no argument of type %" SCNu8 "\n", args[i].value_type);
+            }
+        }
+    }
+    return args;
+}
+
 // Little endian base (LED128)
 
 uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
@@ -160,4 +194,57 @@ double wa_fmin(double a, double b) {
         return std::signbit(a) ? a : b;
     }
     return c;
+}
+
+// WOOD
+uint32_t read_B32(uint8_t **bytes) {
+    uint8_t *b = *bytes;
+    uint32_t n = (b[0] << 24) + (b[1] << 16) + (b[2] << 8) + b[3];
+    *bytes += 4;
+    return n;
+}
+
+uint16_t read_B16(uint8_t **bytes) {
+    uint8_t *b = *bytes;
+    uint32_t n = (b[0] << 8) + b[1];
+    *bytes += 2;
+    return n;
+}
+
+int read_B32_signed(uint8_t **bytes) {
+    uint8_t *b = *bytes;
+    int n = (b[0] << 24) + (b[1] << 16) + (b[2] << 8) + b[3];
+    *bytes += 4;
+    return n;
+}  // TODO replace with read_LEB_32? If keep Big endian use memcpy?
+
+uint32_t read_L32(uint8_t **bytes) {
+    // uint8_t *b = *bytes;
+    uint32_t n = 0;
+    memcpy(&n, *bytes, sizeof(uint32_t));
+    *bytes += 4;
+    return n;
+}  // TODO replace with read_LEB_32? If keep Big endian use memcpy?
+
+void chars_as_hexa(unsigned char *dest, unsigned char *source,
+                   uint32_t len_source) {
+    for (uint32_t i = 0; i < len_source; i++) {
+        unsigned c = source[i] >> 4;
+        unsigned c2 = source[i] & 0xF;
+        dest[i * 2 + 0] = c > 9 ? (c - 10 + 'A') : (c + '0');
+        dest[i * 2 + 1] = c2 > 9 ? (c2 - 10 + 'A') : (c2 + '0');
+    }
+}
+
+unsigned short int sizeof_valuetype(uint32_t vt) {
+    switch (vt) {
+        case I32:
+            return 4;
+        case I64:
+            return 8;
+        case F32:
+            return sizeof(float);
+        default:
+            return sizeof(double);
+    }
 }

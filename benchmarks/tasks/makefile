@@ -1,6 +1,6 @@
 TASKS=$(patsubst %/.,%,$(wildcard */.))
 
-all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/wasm3.ino,$(TASKS)) $(addsuffix /wast/impl.wast,$(TASKS)) $(addsuffix /wast/impl.wasm,$(TASKS)) $(addsuffix /c/arduino.ino,$(TASKS))
+all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/edward/edward.ino,$(TASKS)) $(addsuffix /wast/wasm3/wasm3.ino,$(TASKS)) $(addsuffix /wast/impl.wast,$(TASKS)) $(addsuffix /wast/impl.wasm,$(TASKS)) $(addsuffix /c/c.ino,$(TASKS))
 
 	echo $(TASKS)
 
@@ -8,8 +8,14 @@ all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/w
 %/wast/warduino/warduino.ino: %/wast/impl.wasm
 	-mkdir $(@D)
 	xxd -i $< $@
-	sed -i 's/[^ ]*_impl_wasm/impl_wasm/'  $@
+	sed -i 's/[^ ]*_impl_wasm/impl_wasm/' $@
 	cat ../warduino.ino.template >> $@
+
+%/wast/edward/edward.ino: %/wast/impl.wasm
+	-mkdir $(@D)
+	xxd -i $< $@
+	sed -i 's/[^ ]*_impl_wasm/impl_wasm/' $@
+	cat ../edward.ino.template >> $@
 
 %/wast/wasm3/wasm3.ino: %/wast/impl.wasm
 	-mkdir $(@D)
@@ -17,7 +23,7 @@ all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/w
 	sed -i 's/[^ ]*_impl_wasm/impl_wasm/'  $@
 	cat ../wasm3.ino.template >> $@
 
-%/c/arduino.ino: %/wast/impl.c ../c.ino.template
+%/c/c.ino: %/wast/impl.c ../c.ino.template
 	-mkdir $(@D)
 	echo '#include "Arduino.h"' > $@
 	echo '#pragma GCC optimize ("O0")' >> $@
@@ -43,5 +49,5 @@ all: $(addsuffix /wast/warduino/warduino.ino,$(TASKS)) $(addsuffix /wast/wasm3/w
 	wasm2wat -f $< > $@
 
 clean:
-	-find -iname "impl.wast" -o -iname "impl.wasm" -o -iname "arduino.ino" -o -iname "warduino.ino" -o -iname "wasm3.ino" | xargs rm
+	-find -iname "impl.wast" -o -iname "impl.wasm" -o -iname "c.ino" -o -iname "warduino.ino" -o -iname "edward.ino" -o -iname "wasm3.ino" | xargs rm
 

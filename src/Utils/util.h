@@ -6,6 +6,17 @@
 #include <cstdlib>
 #include <string>
 
+#include "../WARDuino.h"
+
+/**
+ * Read arguments for function from binary data.
+ *
+ * @param type
+ * @param data
+ * @return The arguments as a list of StackValues. Returns nullptr for arity 0.
+ */
+StackValue *readArgs(Type function, uint8_t *data);
+
 /**
  * Read a Little endian base value of 32 bits
  * see: https://en.wikipedia.org/wiki/LEB128
@@ -66,5 +77,15 @@ uint64_t rotr64(uint64_t n, unsigned int c);
 double wa_fmax(double a, double b);
 
 double wa_fmin(double a, double b);
+
+// WOOD
+uint32_t read_B32(uint8_t **bytes);
+uint16_t read_B16(uint8_t **bytes);
+int read_B32_signed(uint8_t **bytes);
+uint32_t read_L32(uint8_t **bytes);
+void chars_as_hexa(unsigned char *dest, unsigned char *source,
+                   uint32_t len_source);
+
+unsigned short int sizeof_valuetype(uint32_t);
 
 #endif

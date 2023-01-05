@@ -3,7 +3,6 @@
 #include <cmath>
 #include <cstring>
 
-#include "../Debug/debugger.h"
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
@@ -28,6 +27,19 @@ void push_block(Module *m, Block *block, int sp) {
 Block *pop_block(Module *m) {
     Frame *frame = &m->callstack[m->csp--];
     Type *t = frame->block->type;
+
+    if (frame->block->block_type == 0xff) {
+        CallbackHandler::resolving_event = false;
+        frame = &m->callstack[m->csp--];
+        t = frame->block->type;
+    }
+
+    if (frame->block->block_type == 0xfe) {
+        m->warduino->program_state = PROXYhalt;
+        m->warduino->debugger->sendProxyCallResult(m);
+        frame = &m->callstack[m->csp--];
+        t = frame->block->type;
+    }
 
     // TODO: validate return value if there is one
 
@@ -69,15 +81,16 @@ void setup_call(Module *m, uint32_t fidx) {
     // Push current frame on the call stack
     push_block(m, func, m->sp - type->param_count);
 
-    if (TRACE) {
-        dbg_warn("  >> fn0x%x(%d) %s(", fidx, fidx,
-                 func->export_name ? func->export_name : "");
-        for (int p = ((int)type->param_count) - 1; p >= 0; p--) {
-            dbg_warn("%s%s", value_repr(&m->stack[m->sp - p]), p ? " " : "");
-        }
-        dbg_warn("), %d locals, %d results\n", func->local_count,
-                 type->result_count);
+#if TRACE
+    dbg_warn("  >> fn0x%x(%d) %s(", fidx, fidx,
+             func->export_name
+                 ? func->export_name
+                 : "") for (int p = ((int)type->param_count) - 1; p >= 0; p--) {
+        dbg_warn("%s%s", value_repr(&m->stack[m->sp - p]), p ? " " : "");
     }
+    dbg_warn("), %d locals, %d results\n", func->local_count,
+             type->result_count);
+#endif
 
     // Push locals (dropping extras)
     m->fp = m->sp - ((int)type->param_count) + 1;
@@ -92,6 +105,37 @@ void setup_call(Module *m, uint32_t fidx) {
 
     // Set program counter to start of function
     m->pc_ptr = func->start_ptr;
+}
+
+// performs proxy calls to an MCU
+bool proxy_call(Module *m, uint32_t fidx) {
+    dbg_info("Remote Function Call %d\n", fidx);
+    ProxySupervisor *supervisor = m->warduino->debugger->supervisor;
+    RFC *rfc;
+    Type *type = m->functions[fidx].type;
+    if (type->param_count > 0) {
+        m->sp -= type->param_count;
+        StackValue *args = &m->stack[m->sp + 1];
+        rfc = new RFC(fidx, type, args);
+    } else {
+        rfc = new RFC(fidx, type);
+    }
+
+    if (!supervisor->call(rfc)) {
+        dbg_info(": FAILED TO SEND\n", fidx);
+        return false;
+    }
+
+    if (!rfc->success) {
+        // TODO exception bugger might be too small and msg not null terminated?
+        memcpy(&exception, rfc->exception, strlen(rfc->exception));
+        return false;
+    }
+
+    if (rfc->type->result_count > 0) {
+        m->stack[++m->sp] = *rfc->result;
+    }
+    return true;
 }
 
 /*
@@ -199,10 +243,10 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
         }
     }
     // if true, keep going
-    if (TRACE) {
-        debug("      - cond: 0x%x jump to 0x%x, block: %s\n", cond,
-              (uint32_t)(m->pc_ptr - m->bytes), block_repr(block));
-    }
+#if TRACE
+    debug("      - cond: 0x%x jump to 0x%x, block: %s\n", cond,
+          (uint32_t)(m->pc_ptr - m->bytes), block_repr(block));
+#endif
     return true;
 }
 
@@ -212,9 +256,9 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
 bool i_instr_else(Module *m) {
     Block *block = m->callstack[m->csp].block;
     m->pc_ptr = block->br_ptr;
-    if (TRACE) {
-        debug("      - of %s jump to 0x%p\n", block_repr(block), m->pc_ptr);
-    }
+#if TRACE
+    debug("      - of %s jump to 0x%p\n", block_repr(block), m->pc_ptr);
+#endif
     return true;
 }
 
@@ -226,17 +270,16 @@ bool i_instr_end(Module *m, bool *prog_done) {
     if (block == nullptr) {
         return false;  // an exception (set by pop_block)
     }
-    if (TRACE) {
-        debug("      - of %s\n", block_repr(block));
-    }
+#if TRACE
+    debug("      - of %s\n", block_repr(block));
+#endif
     if (block->block_type == 0x00) {  // Function
-        if (TRACE) {
-            dbg_warn("  << fn0x%x(%d) %s = %s\n", block->fidx, block->fidx,
-                     block->export_name ? block->export_name : "",
-                     block->type->result_count > 0
-                         ? value_repr(&m->stack[m->sp])
-                         : "_");
-        }
+#if TRACE
+        dbg_warn(
+            "  << fn0x%x(%d) %s = %s\n", block->fidx, block->fidx,
+            block->export_name ? block->export_name : "",
+            block->type->result_count > 0 ? value_repr(&m->stack[m->sp]) : "_");
+#endif
         if (m->csp == -1) {
             // Return to top-level
             *prog_done = true;
@@ -261,9 +304,9 @@ bool i_instr_br(Module *m) {
     m->csp -= depth;
     // set to end for pop_block
     m->pc_ptr = m->callstack[m->csp].block->br_ptr;
-    if (TRACE) {
-        debug("      - to: 0x%p\n", m->pc_ptr);
-    }
+#if TRACE
+    debug("      - to: 0x%p\n", m->pc_ptr);
+#endif
     return true;
 }
 
@@ -279,11 +322,10 @@ bool i_instr_br_if(Module *m) {
         // set to end for pop_block
         m->pc_ptr = m->callstack[m->csp].block->br_ptr;
     }
-    if (TRACE) {
-        debug("      - depth: 0x%x, cond: 0x%x, to: 0x%p\n", depth, cond,
-              m->pc_ptr);
-    }
-
+#if TRACE
+    debug("      - depth: 0x%x, cond: 0x%x, to: 0x%p\n", depth, cond,
+          m->pc_ptr);
+#endif
     return true;
 }
 
@@ -294,7 +336,7 @@ bool i_instr_br_table(Module *m) {
     uint32_t count = read_LEB_32(&m->pc_ptr);
     if (count > BR_TABLE_SIZE) {
         // TODO: check this prior to runtime
-        sprintf(exception, "br_table size %d exceeds max %d\n", count,
+        sprintf(exception, "br_table size %" PRIu32 " exceeds max %d\n", count,
                 BR_TABLE_SIZE);
         return false;
     }
@@ -311,10 +353,9 @@ bool i_instr_br_table(Module *m) {
     m->csp -= depth;
     // set to end for pop_block
     m->pc_ptr = m->callstack[m->csp].block->br_ptr;
-    if (TRACE) {
-        debug("      - count: %d, didx: %d, to: 0x%p\n", count, didx,
-              m->pc_ptr);
-    }
+#if TRACE
+    debug("      - count: %d, didx: %d, to: 0x%p\n", count, didx, m->pc_ptr);
+#endif
     return true;
 }
 
@@ -328,9 +369,9 @@ bool i_instr_return(Module *m) {
     // Set the program count to the end of the function
     // The actual pop_block and return is handled by the end opcode.
     m->pc_ptr = m->callstack[0].block->end_ptr;
-    if (TRACE) {
-        debug("      - to: 0x%p\n", m->pc_ptr);
-    }
+#if TRACE
+    debug("      - to: 0x%p\n", m->pc_ptr);
+#endif
     return true;
 }
 
@@ -339,6 +380,11 @@ bool i_instr_return(Module *m) {
  */
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
+
+    if (m->warduino->debugger->isProxied(fidx)) {
+        return proxy_call(m, fidx);
+    }
+
     if (fidx < m->import_count) {
         return ((Primitive)m->functions[fidx].func_ptr)(m);
     } else {
@@ -347,10 +393,9 @@ bool i_instr_call(Module *m) {
             return false;
         }
         setup_call(m, fidx);  // regular function call
-        if (TRACE) {
-            debug("      - calling function fidx: %d at: 0x%p\n", fidx,
-                  m->pc_ptr);
-        }
+#if TRACE
+        debug("      - calling function fidx: %d at: 0x%p\n", fidx, m->pc_ptr);
+#endif
     }
     return true;
 }
@@ -366,25 +411,26 @@ bool i_instr_call_indirect(Module *m) {
     if (m->options.mangle_table_index) {
         // val is the table address + the index (not sized for the
         // pointer size) so get the actual (sized) index
-        if (TRACE) {
-            debug("      - entries: %p, original val: 0x%x, new val: 0x%x\n",
-                  m->table.entries, val,
-                  (uint32_t)((uint64_t)m->table.entries) - val);
-        }
+#if TRACE
+        debug("      - entries: %p, original val: 0x%x, new val: 0x%x\n",
+              m->table.entries, val,
+              (uint32_t)((uint64_t)m->table.entries) - val);
+#endif
         // val = val - (uint32_t)((uint64_t)m->table.entries & 0xFFFFFFFF);
         val = val - (uint32_t)((uint64_t)m->table.entries);
     }
     if (val >= m->table.maximum) {
-        sprintf(exception, "undefined element 0x%x (max: 0x%x) in table", val,
-                m->table.maximum);
+        sprintf(exception,
+                "undefined element 0x%" PRIx32 " (max: 0x%" PRIx32 ") in table",
+                val, m->table.maximum);
         return false;
     }
 
     uint32_t fidx = m->table.entries[val];
-    if (TRACE) {
-        debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx,
-              val, fidx);
-    }
+#if TRACE
+    debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx, val,
+          fidx);
+#endif
 
     if (fidx < m->import_count) {
         // THUNK thunk_out(m, fidx);    // import/thunk call
@@ -420,19 +466,19 @@ bool i_instr_call_indirect(Module *m) {
             }
         }
 
-        if (TRACE) {
-            debug(
-                "      - tidx: %d, table idx: %d, "
-                "calling function fidx: %d at: 0x%p\n",
-                tidx, val, fidx, m->pc_ptr);
-        }
+#if TRACE
+        debug(
+            "      - tidx: %d, table idx: %d, "
+            "calling function fidx: %d at: 0x%p\n",
+            tidx, val, fidx, m->pc_ptr);
+#endif
     }
     return true;
 }
 
 /**
  * 0x1a drop
- * remvove a value from the stack
+ * remove a value from the stack
  */
 bool i_instr_drop(Module *m) {
     m->sp--;
@@ -463,10 +509,10 @@ bool i_instr_select(Module *m) {
  */
 bool i_instr_get_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
-    if (TRACE) {
-        debug("      - arg: 0x%x, got %s\n", arg,
-              value_repr(&m->stack[m->fp + arg]));
-    }
+#if TRACE
+    debug("      - arg: 0x%x, got %s\n", arg,
+          value_repr(&m->stack[m->fp + arg]));
+#endif
     m->stack[++m->sp] = m->stack[m->fp + arg];
     return true;
 }
@@ -477,10 +523,10 @@ bool i_instr_get_local(Module *m) {
 bool i_instr_set_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp--];
-    if (TRACE) {
-        debug("      - arg: 0x%x, to %s (stack loc: %d)\n", arg,
-              value_repr(&m->stack[m->sp + 1]), m->fp + arg);
-    }
+#if TRACE
+    debug("      - arg: 0x%x, to %s (stack loc: %d)\n", arg,
+          value_repr(&m->stack[m->sp + 1]), m->fp + arg);
+#endif
     return true;
 }
 
@@ -490,9 +536,9 @@ bool i_instr_set_local(Module *m) {
 bool i_instr_tee_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp];
-    if (TRACE) {
-        debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
-    }
+#if TRACE
+    debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
+#endif
     return true;
 }
 
@@ -501,9 +547,9 @@ bool i_instr_tee_local(Module *m) {
  */
 bool i_instr_get_global(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
-    if (TRACE) {
-        debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
-    }
+#if TRACE
+    debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
+#endif
     m->stack[++m->sp] = m->globals[arg];
     return true;
 }
@@ -514,10 +560,9 @@ bool i_instr_get_global(Module *m) {
 bool i_instr_set_global(Module *m) {
     uint32_t arg = read_LEB_32(&m->pc_ptr);
     m->globals[arg] = m->stack[m->sp--];
-    if (TRACE) {
-        debug("      - arg: 0x%x, got %s\n", arg,
-              value_repr(&m->stack[m->sp + 1]));
-    }
+#if TRACE
+    debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->stack[m->sp + 1]));
+#endif
     return true;
 }
 
@@ -1464,35 +1509,34 @@ bool interpret(Module *m) {
     // set to true when finishes successfully
     bool program_done = false;
 
-    // TODO: this is actually a property of warduino
-    RunningState program_state = WARDUINOrun;
-
     while (!program_done && success) {
-        if (program_state == WARDUINOstep) {
-            program_state = WARDUINOpause;
+        if (m->warduino->program_state == WARDUINOstep) {
+            m->warduino->program_state = WARDUINOpause;
         }
 
-        while (m->warduino->debugger->checkDebugMessages(m, &program_state)) {
-        };
+        while (m->warduino->debugger->checkDebugMessages(
+            m, &m->warduino->program_state)) {
+        }
         fflush(stdout);
         reset_wdt();
 
-        if (program_state == WARDUINOpause) {
+        // Resolve 1 callback event if queue is not empty and VM not paused, and
+        // no event currently resolving
+        CallbackHandler::resolve_event();
+
+        // Skip the main loop if paused or drone
+        if (m->warduino->program_state == WARDUINOpause ||
+            m->warduino->program_state == PROXYhalt) {
             continue;
         }
 
         // Program state is not paused
 
-        // Resolve 1 callback event if queue is not empty and no event currently
-        // resolving
-        //        if (!CallbackHandler::resolving_event) {
-        CallbackHandler::resolve_event();
-        //        }
-
-        // if BP and not the one we just unpaused
+        // If BP and not the one we just unpaused
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
-            m->warduino->debugger->skipBreakpoint != m->pc_ptr) {
-            program_state = WARDUINOpause;
+            m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
+            m->warduino->program_state != PROXYrun) {
+            m->warduino->program_state = WARDUINOpause;
             m->warduino->debugger->notifyBreakpoint(m->pc_ptr);
             continue;
         }
@@ -1553,10 +1597,10 @@ bool interpret(Module *m) {
                 success &= i_instr_call(m);
                 continue;
             }
-            case 0x11:  // call_indirect
+            case 0x11: {  // call_indirect
                 success &= i_instr_call_indirect(m);
                 continue;
-
+            }
                 //
                 // Parametric operators
                 //
@@ -1692,9 +1736,17 @@ bool interpret(Module *m) {
         }
     }
 
+    if (m->warduino->program_state == PROXYrun) {
+        dbg_info("Trap was thrown during proxy call.\n");
+        RFC *rfc = m->warduino->debugger->topProxyCall();
+        rfc->success = false;
+        rfc->exception = strdup(exception);
+        rfc->exception_size = strlen(exception);
+        m->warduino->debugger->sendProxyCallResult(m);
+    }
+
     // Resolve all unhandled callback events
-    while (/*!CallbackHandler::resolving_event &&*/
-           CallbackHandler::resolve_event())
+    while (CallbackHandler::resolving_event && CallbackHandler::resolve_event())
         ;
 
     dbg_trace("Interpretation ended %s with status %s\n",

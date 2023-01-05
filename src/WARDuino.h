@@ -1,5 +1,4 @@
-#ifndef WAC_H
-#define WAC_H
+#pragma once
 
 #include <array>
 #include <climits>
@@ -10,6 +9,7 @@
 #include <vector>
 
 #include "Debug/debugger.h"
+#include "Edward/proxy_supervisor.h"
 #include "WARDuino/CallbackHandler.h"
 
 // Constants
@@ -30,8 +30,11 @@
 #define FUNC 0x60     // -0x20
 #define BLOCK 0x40    // -0x40
 
-#define EVENTS_SIZE 1
-
+#ifdef ARDUINO
+#define EVENTS_SIZE 10
+#else
+#define EVENTS_SIZE 50
+#endif
 #define KIND_FUNCTION 0
 #define KIND_TABLE 1
 #define KIND_MEMORY 2
@@ -65,8 +68,9 @@ typedef union FuncPtr {
 
 // A block or function
 typedef struct Block {
-    uint8_t block_type;  // 0x00: function, 0x01: init_exp
-    // 0x02: block, 0x03: loop, 0x04: if
+    uint8_t block_type;         // 0x00: function, 0x01: init_exp, 0x02: block,
+                                // 0x03: loop, 0x04: if, 0xfe: proxy guard,
+                                // 0xff: cbk guard
     uint32_t fidx;              // function only (index)
     Type *type;                 // params/results type
     uint32_t local_count;       // function only
@@ -135,37 +139,37 @@ typedef struct Options {
 class WARDuino;  // predeclare for it work in the module decl
 
 typedef struct Module {
-    WARDuino *warduino;
-    char *path;       // file path of the wasm module
-    Options options;  // Config options
+    WARDuino *warduino = nullptr;
+    char *path = nullptr;  // file path of the wasm module
+    Options options;       // Config options
 
-    uint32_t byte_count;  // number of bytes in the module
-    uint8_t *bytes;       // module content/bytes
+    uint32_t byte_count = 0;   // number of bytes in the module
+    uint8_t *bytes = nullptr;  // module content/bytes
 
-    uint32_t type_count;  // number of function types
-    Type *types;          // function types
+    uint32_t type_count = 0;  // number of function types
+    Type *types = nullptr;    // function types
 
-    uint32_t import_count;    // number of leading imports in functions
-    uint32_t function_count;  // number of function (including imports)
-    Block *functions;         // imported and locally defined functions
+    uint32_t import_count = 0;    // number of leading imports in functions
+    uint32_t function_count = 0;  // number of function (including imports)
+    Block *functions = nullptr;   // imported and locally defined functions
     std::map<uint8_t *, Block *>
         block_lookup;  // map of module byte position to Blocks
     // same length as byte_count
-    uint32_t start_function;  // function to run on module load
+    uint32_t start_function = -1;  // function to run on module load
     Table table;
     Memory memory;
-    uint32_t global_count;  // number of globals
-    StackValue *globals;    // globals
+    uint32_t global_count = 0;      // number of globals
+    StackValue *globals = nullptr;  // globals
     // Runtime state
-    uint8_t *pc_ptr;     // program counter
-    int sp;              // operand stack pointer
-    int fp;              // current frame pointer into stack
-    StackValue *stack;   // main operand stack
-    int csp;             // callstack pointer
-    Frame *callstack;    // callstack
-    uint32_t *br_table;  // br_table branch indexes
+    uint8_t *pc_ptr = nullptr;     // program counter
+    int sp = -1;                   // operand stack pointer
+    int fp = -1;                   // current frame pointer into stack
+    StackValue *stack = nullptr;   // main operand stack
+    int csp = -1;                  // callstack pointer
+    Frame *callstack = nullptr;    // callstack
+    uint32_t *br_table = nullptr;  // br_table branch indexes
 
-    char *exception;  // exception is set when the program fails
+    char *exception = nullptr;  // exception is set when the program fails
 } Module;
 
 typedef bool (*Primitive)(Module *);
@@ -178,12 +182,18 @@ typedef struct PrimitiveEntry {
 
 class WARDuino {
    private:
+    static WARDuino *singleton;
     std::vector<Module *> modules = {};
+
+    WARDuino();
+
+    uint32_t get_main_fidx(Module *m);
 
    public:
     Debugger *debugger;
+    RunningState program_state = WARDUINOrun;
 
-    WARDuino();
+    static WARDuino *instance();
 
     int run_module(Module *m);
 
@@ -191,11 +201,16 @@ class WARDuino {
 
     void unload_module(Module *m);
 
-    bool invoke(Module *m, uint32_t fidx);
+    void update_module(Module *old_module, uint8_t *wasm, uint32_t wasm_len);
+
+    bool invoke(Module *m, uint32_t fidx, uint32_t arity = 0,
+                StackValue *args = nullptr);
 
     uint32_t get_export_fidx(Module *m, const char *name);
 
-    void handleInterrupt(size_t len, uint8_t *buff);
-};
+    void handleInterrupt(size_t len, uint8_t *buff) const;
 
-#endif
+    void instantiate_module(Module *m, uint8_t *bytes, uint32_t byte_count);
+
+    void free_module_state(Module *m);
+};

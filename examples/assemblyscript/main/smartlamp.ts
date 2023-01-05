@@ -7,10 +7,12 @@ const PASSWORD = "network-password";
 const CLIENT_ID = "random-mqtt-client-id";
 
 function until_connected(connect: () => void,
-                         connected: () => boolean): void {
+                         connected: () => boolean,
+                         retry: () => boolean): void {
+    connect();
     while (!connected()) {
         wd.delay(1000);
-        connect();
+        if (retry) connect();
     }
 }
 
@@ -40,7 +42,8 @@ export function main(): void {
     // Connect to Wi-Fi
     until_connected(
         () => { wd.wifi_connect(SSID, PASSWORD); },
-        wd.wifi_connected);
+        wd.wifi_connected,
+        () => { return wd.wifi_status() === 6; });
     let message = "Connected to wifi network with ip: ";
     wd.print(message.concat(wd.wifi_localip()));
 
@@ -48,7 +51,8 @@ export function main(): void {
     wd.mqtt_init("192.168.0.24", 1883);
     until_connected(
         () => { wd.mqtt_connect(CLIENT_ID); wd.mqtt_loop(); },
-        () => { return wd.mqtt_connected(); });
+        () => { return wd.mqtt_connected(); },
+        () => { return true; });
 
     // Subscribe to MQTT topic and turn on LED
     wd.mqtt_subscribe("LED", callback);
@@ -60,7 +64,8 @@ export function main(): void {
     while (true) {
         until_connected(
             () => { wd.mqtt_connect(CLIENT_ID); wd.mqtt_loop(); },
-            () => { return wd.mqtt_connected(); });
+            () => { return wd.mqtt_connected(); },
+            () => { return true; });
 
         wd.sleep(5); // Sleep for 5 seconds
     }

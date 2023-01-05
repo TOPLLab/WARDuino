@@ -1,18 +1,18 @@
 //
 // WARDuino - WebAssembly interpreter for embedded devices.
 //
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include <termios.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
-#include "../../src/WARDuino.h"
 #include "../../tests/integration/wasm_tests.h"
 
 // Constants
@@ -32,13 +32,16 @@
     }
 
 void print_help() {
-    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.1.0\n\n");
+    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.2.1\n\n");
     fprintf(stdout, "Usage:\n");
-    fprintf(stdout, "    warduino [options] <file>\n");
+    fprintf(stdout, "    warduino <file> [options]\n");
     fprintf(stdout, "Options:\n");
-    fprintf(
-        stdout,
-        "    --loop         Let the runtime loop infinitely on exceptions\n");
+    fprintf(stdout,
+            "    --loop         Let the runtime loop infinitely on exceptions "
+            "(default: false)\n");
+    fprintf(stdout,
+            "    --test         Run in test mode with .wast file with module "
+            "as argument\n");
     fprintf(stdout,
             "    --asserts      Name of file containing asserts to run against "
             "loaded module\n");
@@ -46,7 +49,28 @@ void print_help() {
             "    --watcompiler  Command to compile Wat files to Wasm "
             "binaries (default: wat2wasm)\n");
     fprintf(stdout,
-            "    --file         Wasm file (module) to load and execute\n");
+            "    --no-debug     Run without debug thread"
+            "(default: false)\n");
+    fprintf(stdout,
+            "    --no-socket    Run debug on stdout"
+            "(default: false)\n");
+    fprintf(stdout,
+            "    --socket       Port number for debug socket (ignored if "
+            "'--no-socket' is true)"
+            "(default: 8192)\n");
+    fprintf(stdout,
+            "    --paused       Pause program on entry (default: false)\n");
+    fprintf(stdout,
+            "    --proxy        Localhost port or serial port (ignored if mode "
+            "is 'proxy')\n");
+    fprintf(stdout,
+            "    --baudrate        Baudrate to use when connecting to a serial "
+            "port (ignored if "
+            "no serial port is provided)\n");
+    fprintf(stdout,
+            "    --mode         The mode to run in: interpreter, proxy "
+            "(default: interpreter)\n");
+    fprintf(stdout, "    --invoke       Invoke a function from the module\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -89,106 +113,150 @@ error:
     return nullptr;
 }
 
-// Socket Debugger Interface
-void setFileDescriptorOptions(int socket_fd) {
-    int opt = 1;
-    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
-        perror("Failed to set socket file descriptor options");
-        exit(EXIT_FAILURE);
+void *startDebuggerCommunication(void *arg) {
+    Channel *duplex = WARDuino::instance()->debugger->channel;
+    if (duplex == nullptr) {
+        return nullptr;
     }
-}
 
-int createSocketFileDescriptor() {
-    int socket_fd;
-    if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("Failed to make a new socket file descriptor");
-        exit(EXIT_FAILURE);
-    }
-    setFileDescriptorOptions(socket_fd);
-    return socket_fd;
-}
+    duplex->open();
 
-void bindSocketToAddress(int socket_fd, struct sockaddr_in address) {
-    if (bind(socket_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("Binding socket to address failed");
-        exit(EXIT_FAILURE);
-    }
-}
-
-struct sockaddr_in createAddress(int port) {
-    struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(port);
-    return address;
-}
-
-void startListening(int socket_fd) {
-    if (listen(socket_fd, 1) < 0) {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-}
-
-int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
-    int new_socket;
-    int size = sizeof(address);
-    if ((new_socket = accept(socket_fd, (struct sockaddr *)&address,
-                             (socklen_t *)&size)) < 0) {
-        perror("Failed to listen for incoming connections");
-        exit(EXIT_FAILURE);
-    }
-    return new_socket;
-}
-
-void startDebuggerStd(WARDuino *wac, Module *m) {
-    int valread;
+    ssize_t valread;
     uint8_t buffer[1024] = {0};
-    wac->debugger->socket = fileno(stdout);
     while (true) {
-        debug("waiting for debug command\n");
-        while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
-            write(fileno(stdout), "got a message ... \n", 19);
-            wac->handleInterrupt(valread - 1, buffer);
-            write(fileno(stdout), buffer, valread);
-            fflush(stdout);
+        while ((valread = duplex->read(buffer, 1024)) != -1) {
+            WARDuino::instance()->handleInterrupt(valread, buffer);
         }
     }
 }
 
-void startDebuggerSocket(WARDuino *wac, Module *m) {
-    int socket_fd = createSocketFileDescriptor();
-    struct sockaddr_in address = createAddress(8192);
-    bindSocketToAddress(socket_fd, address);
-    startListening(socket_fd);
+// Connect to proxy via a web socket
+int connectToProxySocket(int proxy) {
+    int channel;
+    struct sockaddr_in address = createLocalhostAddress(proxy);
 
-    int valread;
-    uint8_t buffer[1024] = {0};
-    while (true) {
-        int socket = listenForIncomingConnection(socket_fd, address);
-        wac->debugger->socket = socket;
-        //        wac->debugger->socket = fileno(stdout); // todo remove
-        while ((valread = read(socket, buffer, 1024)) != -1) {
-            write(socket, "got a message ... \n", 19);
-            wac->handleInterrupt(valread - 1, buffer);
-            // runningstate program_state = warduinorun;
-            write(socket, buffer, valread);
-            // while (checkdebugmessages(m, &program_state)) {
-            //				printf("checkdebugmessages \n");
-            //};
-            // fflush(stdout);
-        }
+    if ((channel = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        dbg_info("Socket creation error\n");
+        return -1;
     }
+
+    if (connect(channel, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        dbg_info("Connection failed\n");
+        return -1;
+    }
+
+    return channel;
 }
 
-WARDuino wac;
+// Connect to proxy via file descriptor
+int connectToProxyFd(const char *proxyfd) { return open(proxyfd, O_RDWR); }
+
+WARDuino *wac = WARDuino::instance();
 Module *m;
 
-void *runWAC(void *p) {
-    // Print value received as argument:
-    dbg_info("\n=== STARTED INTERPRETATION (in separate thread) ===\n");
-    wac.run_module(m);
-    wac.unload_module(m);
+struct debugger_options {
+    const char *socket;
+    bool no_socket;
+};
+
+void *setupDebuggerCommunication(debugger_options *options) {
+    dbg_info("\n=== STARTED DEBUGGER (in separate thread) ===\n");
+    // Start debugger
+    Channel *duplex;
+    if (options->no_socket) {
+        duplex = new Duplex(stdin, stdout);
+    } else {
+        int port = std::stoi(options->socket);
+        duplex = new WebSocket(port);
+    }
+
+    wac->debugger->setChannel(duplex);
+}
+
+const std::map<std::string, speed_t> &baudrateMap() {
+    static const auto *map = new std::map<std::string, speed_t>{
+        {"0", B0},           {"50", B50},         {"75", B75},
+        {"110", B110},       {"134", B134},       {"150", B150},
+        {"200", B200},       {"300", B300},       {"600", B600},
+        {"1200", B1200},     {"1800", B1800},     {"2400", B2400},
+        {"4800", B4800},     {"9600", B9600},     {"19200", B19200},
+        {"38400", B38400},   {"38400", B38400},   {"57600", B57600},
+        {"115200", B115200}, {"230400", B230400},
+    };
+    return *map;
+}
+
+bool configureSerialPort(int serialPort, const char *argument) {
+    struct termios tty {};
+    if (tcgetattr(serialPort, &tty) != 0) {
+        fprintf(stderr, "wdcli: error configuring serial port (errno %i): %s\n",
+                errno, strerror(errno));
+        return false;
+    }
+
+    tty.c_cflag &= ~PARENB;  // Disable parity bit
+    tty.c_cflag &= ~CSTOPB;  // Disable stop field
+
+    tty.c_cflag &= ~CSIZE;  // Byte is 8 bits
+    tty.c_cflag |= CS8;
+
+    tty.c_cflag &= ~CRTSCTS;  // Disable RTS/CTS
+    tty.c_cflag |=
+        CREAD | CLOCAL;  // Turn on READ & ignore ctrl lines (CLOCAL= 1)
+    tty.c_lflag &= ~ICANON;
+    tty.c_lflag &= ~ECHO;    // No echo
+    tty.c_lflag &= ~ECHOE;   // No erasure
+    tty.c_lflag &= ~ECHONL;  // No new-line echo
+    tty.c_lflag &= ~ISIG;
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+    tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR |
+                     ICRNL);  // No special handling
+    tty.c_oflag &= ~OPOST;    // No output bytes interpretation
+    tty.c_oflag &= ~ONLCR;    // No carriage return conversion
+    tty.c_cc[VTIME] = 1;      // Wait max 1sec
+    tty.c_cc[VMIN] = 0;
+
+    auto iterator = baudrateMap().find(argument);
+    if (iterator == baudrateMap().end()) {
+        fprintf(stderr, "Provided argument %s is unsupported\n", argument);
+        return false;
+    }
+    speed_t baudrate = iterator->second;
+
+    cfsetispeed(&tty, baudrate);
+    cfsetospeed(&tty, baudrate);
+
+    if (tcsetattr(serialPort, TCSANOW, &tty) != 0) {
+        fprintf(stderr, "Error %i from tcsetattr: %s\n", errno,
+                strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+StackValue parseParameter(const char *input, uint8_t value_type) {
+    StackValue value = {value_type, {0}};
+    switch (value_type) {
+        case I32: {
+            value.value.uint32 = std::stoi(input);
+            break;
+        }
+        case F32: {
+            value.value.f32 = std::atof(input);
+            break;
+        }
+        case I64: {
+            value.value.uint64 = std::stoi(input);
+            break;
+        }
+        case F64: {
+            value.value.f64 = std::atof(input);
+            break;
+        }
+        default:
+            FATAL("wdcli: '%s' should be of type %hhu\n", input, value_type);
+    }
+    return value;
 }
 
 int main(int argc, const char *argv[]) {
@@ -196,11 +264,31 @@ int main(int argc, const char *argv[]) {
 
     bool return_exception = true;
     bool run_tests = false;
+    bool no_debug = false;
     bool no_socket = false;
+    const char *socket = "8192";
+    bool initiallyPaused = false;
     const char *file_name = nullptr;
+    const char *proxy = nullptr;
+    const char *baudrate = nullptr;
+    const char *mode = "interpreter";
+
+    const char *fname = nullptr;
+    std::vector<StackValue> arguments = std::vector<StackValue>();
 
     const char *asserts_file = nullptr;
     const char *watcompiler = "wat2wasm";
+
+    if (argc > 0 && argv[0][0] != '-') {
+        ARGV_GET(file_name);
+
+        dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
+        m = load(*wac, file_name,
+                 {.disable_memory_bounds = false,
+                  .mangle_table_index = false,
+                  .dlsym_trim_underscore = false,
+                  .return_exception = return_exception});
+    }
 
     // Parse options
     while (argc > 0) {
@@ -215,50 +303,140 @@ int main(int argc, const char *argv[]) {
             return 0;
         } else if (!strcmp("--loop", arg)) {
             return_exception = false;
-        } else if (!strcmp("--file", arg)) {
+        } else if (!strcmp("--test", arg)) {
+            run_tests = true;
             ARGV_GET(file_name);
         } else if (!strcmp("--asserts", arg)) {
-            run_tests = true;
             ARGV_GET(asserts_file);
         } else if (!strcmp("--watcompiler", arg)) {
             ARGV_GET(watcompiler);
+        } else if (!strcmp("--no-debug", arg)) {
+            no_debug = true;
         } else if (!strcmp("--no-socket", arg)) {
             no_socket = true;
+        } else if (!strcmp("--socket", arg)) {
+            ARGV_GET(socket);
+        } else if (!strcmp("--paused", arg)) {
+            initiallyPaused = true;
+        } else if (!strcmp("--proxy", arg)) {
+            ARGV_GET(proxy);  // /dev/ttyUSB0
+        } else if (!strcmp("--baudrate", arg)) {
+            ARGV_GET(baudrate);
+        } else if (!strcmp("--mode", arg)) {
+            ARGV_GET(mode);
+        } else if (!strcmp("--invoke", arg)) {
+            ARGV_GET(fname);
+
+            // find function
+            int fidx = wac->get_export_fidx(m, fname);
+            if (fidx < 0) {
+                fprintf(stderr, "wdcli: no exported function with name '%s'\n",
+                        fname);
+                return 1;
+            }
+
+            Block function = m->functions[fidx];
+
+            // consume all arguments for the function
+            for (uint32_t i = 0; i < function.type->param_count; ++i) {
+                const char *number = nullptr;
+                ARGV_GET(number);
+
+                if (number[0] == '-') {
+                    FATAL("wdcli: wrong number of arguments for '%s'\n", fname);
+                }
+
+                arguments.push_back(parseParameter(
+                    number, *function.type->params + (i * sizeof(uint32_t))));
+            }
         }
     }
 
-    if (argc == 1) {
-        ARGV_GET(file_name);
-        ARGV_SHIFT();
-    }
-
-    if (argc == 0 && file_name != nullptr) {
-        if (run_tests) {
-            dbg_info("=== STARTING SPEC TESTS ===\n");
-            return run_wasm_test(wac, file_name, asserts_file, watcompiler);
-        }
-        dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
-        m = load(wac, file_name,
-                 {.disable_memory_bounds = false,
-                  .mangle_table_index = false,
-                  .dlsym_trim_underscore = false,
-                  .return_exception = return_exception});
-    } else {
+    if (argc != 0 || file_name == nullptr) {
         print_help();
         return 1;
     }
 
+    if (run_tests) {
+        dbg_info("=== STARTING SPEC TESTS ===\n");
+        return run_wasm_test(*wac, file_name, asserts_file, watcompiler);
+    }
+
+    if (initiallyPaused) {
+        wac->program_state = WARDUINOpause;
+    }
+
     if (m) {
-        pthread_t id;
-        uint8_t command[] = {'0', '3', '\n'};
-        // wac.handleInterrupt(3, command);
-        m->warduino = &wac;
-        pthread_create(&id, nullptr, runWAC, nullptr);
-        if (no_socket) {
-            startDebuggerStd(&wac, m);
-        } else {
-            startDebuggerSocket(&wac, m);
+        m->warduino = wac;
+
+        if (strcmp(mode, "proxy") == 0) {
+            // Run in proxy mode
+            wac->debugger->proxify();
+        } else if (proxy) {
+            // Connect to proxy device
+            Channel *connection = nullptr;
+            try {
+                int port = std::stoi(proxy);
+                connection = new WebSocket(port);
+            } catch (std::invalid_argument const &ex) {
+                // argument is not a port
+                // treat as filename
+                int serialPort = open(proxy, O_RDWR);
+                if (serialPort < 0) {
+                    fprintf(stderr, "wdcli: error opening %s: %s\n", proxy,
+                            strerror(errno));
+                    return 1;
+                }
+                if (baudrate == nullptr) {
+                    fprintf(stderr, "wdcli: baudrate not specified\n");
+                    return 1;
+                }
+
+                if (!configureSerialPort(serialPort, baudrate)) {
+                    return 1;
+                }
+                connection = new FileDescriptorChannel(serialPort);
+            } catch (std::out_of_range const &ex) {
+                // argument is an integer but is out of range
+                fprintf(stderr,
+                        "wdcli: out of range integer argument for --proxy\n");
+                return 1;
+            }
+
+            if (connection == nullptr) {
+                // Failed to connect stop program
+                fprintf(stderr, "wdcli: failed to connect to proxy device\n");
+                return 1;
+            }
+
+            // Start supervising proxy device (new thread)
+            wac->debugger->startProxySupervisor(connection);
         }
+
+        // Start debugger (new thread)
+        pthread_t id;
+        if (!no_debug) {
+            auto *options =
+                (debugger_options *)malloc(sizeof(struct debugger_options));
+            options->no_socket = no_socket;
+            options->socket = socket;
+            setupDebuggerCommunication(options);
+            free(options);
+
+            pthread_create(&id, nullptr, startDebuggerCommunication, nullptr);
+        }
+
+        // Run Wasm module
+        dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
+        if (fname != nullptr) {
+            uint32_t fidx = wac->get_export_fidx(m, fname);
+            wac->invoke(m, fidx, arguments.size(), &arguments[0]);
+        } else {
+            wac->run_module(m);
+        }
+        wac->unload_module(m);
+        wac->debugger->stop();
+
         int *ptr;
         pthread_join(id, (void **)&ptr);
     }

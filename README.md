@@ -6,10 +6,10 @@
   <a href="https://github.com/TOPLLab/WARDuino/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
 </p>
 
-This project is released under the Mozilla Public License 2.0, and is being developed as part of an active research project at the University of Ghent's [TOPL](https://github.com/TOPLLab) lab.
+This project is released under the Mozilla Public License 2.0, and is being developed as part of an active research project at the University of Ghent's [TOPL Lab](https://github.com/TOPLLab).
 
 The WARDuino virtual machine is a WebAssembly runtime for microcontrollers, which runs both under the Arduino and ESP-IDF toolchains.
-The WARDuino project also includes a [VS Code extension](https://github.com/TOPLLab/WARDuino-VSCode) to use the remote debugging facilities offered by the virtual machine.
+The WARDuino project also includes a [VS Code extension](https://github.com/TOPLLab/WARDuino-VSCode) to use both the remote debugging and the out-of-place debugging facilities offered by the virtual machine.
 
 <p align="center">
   <a href="./README.md#build-and-development-instructions">Installation</a> | <a href="./examples/">Examples</a> | <a href="./README.md#webassembly-specification-tests">Run Specification tests</a> | <a href="./documentation/">Documentation</a>
@@ -22,7 +22,7 @@ Supported platforms: Linux (Ubuntu), macOS, ESP-IDF, Arduino
 The project uses CMake. Quick install looks like this:
 
 ```bash
-git clone git@github.com:TOPLLab/WARDuino.git
+git clone --recursive git@github.com:TOPLLab/WARDuino.git
 cd WARDuino
 mkdir build-emu
 cd build-emu
@@ -35,6 +35,8 @@ This will build the command-line tool (`emulator`), which has been tested on bot
 The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, and has been extensively tested on different ESP8266 and ESP32 microcontrollers.
 
 ### Build for ESP-IDF
+
+> warning: primitive support for IDF is under construction
 
 Before you can compile and flash with ESP-IDF, you must install and enable [the toolchain](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html).
 You also need to disable the watchdog timer:
@@ -62,6 +64,7 @@ Or simply run `idf.py flash`.
 ### Build for Arduino
 
 First, install the [arduino-cli](https://arduino.github.io/arduino-cli/0.21/installation/).
+You will also need python3 with the pyserial pacakge.
 
 Second, create the config file:
 
@@ -69,14 +72,26 @@ Second, create the config file:
 arduino-cli config init
 ```
 
-If you need additional boards, such as the esp32 boards, you can add them in the generated config file. More information [here](https://arduino.github.io/arduino-cli/0.21/getting-started/).
+If you need additional boards, such as the esp32 boards, you can add them in the generated config file. More information on how to install the esp32 boards can be found <a href="./documentation/InstallArduinoESP32.md">here</a>.
+(_note: WARDuino requires at least version 2.0.2 of the esp32 board manager when using esp32 devices)_
 
 Thirdly, make sure you install the `PubSubClient` and `Adafruit NeoPixel` library. (used for MQTT and pixel primitives)
 
 ```bash
-arduino-cli lib install "PubSubClient"
-arduino-cli lib install "Adafruit NeoPixel"
+arduino-cli lib install "PubSubClient" # for MQTT
+arduino-cli lib install "Adafruit NeoPixel" # for some primitives
 ```
+
+To build for Arduino with WIFI support you need to also install the following third-party libraries.
+(Wou might need to set `enable_unsafe_install` to `true` in your arduino config ) <!-- Todo remove one day  ---!>
+
+```bash
+arduino-cli lib install FreeRTOS
+arduino-cli lib install --git-url https://github.com/me-no-dev/AsyncTCP.git
+```
+
+If you haven't done so already, clone (or symlink) this repository to `~/Arduino/libraries` to make WARDuino availible to Arduino.
+
 
 After this initial installation steps you can start using WARDuino with the Arduino toolchain.
 You can upload the example file as follows, starting from the project root:
