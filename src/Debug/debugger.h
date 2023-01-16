@@ -208,4 +208,7 @@ class Debugger {
     void notifyPushedEvent() const;
 
     bool handlePushedEvent(char *bytes) const;
+
+    // TODO remove
+    void printErrorSnapshot(Module *m);
 };

@@ -170,6 +170,10 @@ typedef struct Module {
     uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
+
+    // Temporary pc_error to keep track of failing instructions
+    uint8_t *pc_error = nullptr;
+
 } Module;
 
 uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m);
