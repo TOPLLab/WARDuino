@@ -1509,6 +1509,7 @@ bool interpret(Module *m) {
     // set to true when finishes successfully
     bool program_done = false;
 
+    uint8_t *pc_error{};  // TODO remove
     while (!program_done && success) {
         if (m->warduino->program_state == WARDUINOstep) {
             m->warduino->program_state = WARDUINOpause;
@@ -1546,6 +1547,7 @@ bool interpret(Module *m) {
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
         m->pc_ptr += 1;
+        pc_error = m->pc_ptr;
 
         dbg_dump_stack(m);
         dbg_trace(" PC: %p OPCODE: <%s> in %s\n", block_ptr,
@@ -1755,6 +1757,11 @@ bool interpret(Module *m) {
               success ? "ok" : "error");
     if (!success && m->options.return_exception) {
         m->exception = strdup(exception);
+        // TODO remove following lines
+        m->pc_error = pc_error;
+        if (m->warduino->debugger->channel != nullptr) {
+            m->warduino->debugger->printErrorSnapshot(m);
+        }
     } else if (!success) {
         FATAL("%s\n", exception);
     }

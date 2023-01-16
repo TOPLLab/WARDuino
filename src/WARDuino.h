@@ -170,6 +170,10 @@ typedef struct Module {
     uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
+
+    // Temporary pc_error to keep track of failing instructions
+    uint8_t *pc_error = nullptr;
+
 } Module;
 
 uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m);
@@ -206,7 +210,8 @@ class WARDuino {
 
     void update_module(Module *old_module, uint8_t *wasm, uint32_t wasm_len);
 
-    bool invoke(Module *m, uint32_t fidx);
+    bool invoke(Module *m, uint32_t fidx, uint32_t arity = 0,
+                StackValue *args = nullptr);
 
     uint32_t get_export_fidx(Module *m, const char *name);
 

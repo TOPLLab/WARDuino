@@ -34,19 +34,20 @@
 void print_help() {
     fprintf(stdout, "WARDuino WebAssembly Runtime - 0.2.1\n\n");
     fprintf(stdout, "Usage:\n");
-    fprintf(stdout, "    warduino [options] <file>\n");
+    fprintf(stdout, "    warduino <file> [options]\n");
     fprintf(stdout, "Options:\n");
     fprintf(stdout,
             "    --loop         Let the runtime loop infinitely on exceptions "
             "(default: false)\n");
+    fprintf(stdout,
+            "    --test         Run in test mode with .wast file with module "
+            "as argument\n");
     fprintf(stdout,
             "    --asserts      Name of file containing asserts to run against "
             "loaded module\n");
     fprintf(stdout,
             "    --watcompiler  Command to compile Wat files to Wasm "
             "binaries (default: wat2wasm)\n");
-    fprintf(stdout,
-            "    --file         Wasm file (module) to load and execute\n");
     fprintf(stdout,
             "    --no-debug     Run without debug thread"
             "(default: false)\n");
@@ -69,6 +70,7 @@ void print_help() {
     fprintf(stdout,
             "    --mode         The mode to run in: interpreter, proxy "
             "(default: interpreter)\n");
+    fprintf(stdout, "    --invoke       Invoke a function from the module\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -171,8 +173,21 @@ void *setupDebuggerCommunication(debugger_options *options) {
     wac->debugger->setChannel(duplex);
 }
 
-bool configureSerialPort(int serialPort, const char *baudrate) {
-    struct termios tty;
+const std::map<std::string, speed_t> &baudrateMap() {
+    static const auto *map = new std::map<std::string, speed_t>{
+        {"0", B0},           {"50", B50},         {"75", B75},
+        {"110", B110},       {"134", B134},       {"150", B150},
+        {"200", B200},       {"300", B300},       {"600", B600},
+        {"1200", B1200},     {"1800", B1800},     {"2400", B2400},
+        {"4800", B4800},     {"9600", B9600},     {"19200", B19200},
+        {"38400", B38400},   {"38400", B38400},   {"57600", B57600},
+        {"115200", B115200}, {"230400", B230400},
+    };
+    return *map;
+}
+
+bool configureSerialPort(int serialPort, const char *argument) {
+    struct termios tty {};
     if (tcgetattr(serialPort, &tty) != 0) {
         fprintf(stderr, "wdcli: error configuring serial port (errno %i): %s\n",
                 errno, strerror(errno));
@@ -201,67 +216,15 @@ bool configureSerialPort(int serialPort, const char *baudrate) {
     tty.c_cc[VTIME] = 1;      // Wait max 1sec
     tty.c_cc[VMIN] = 0;
 
-    if (strcmp(baudrate, "115200") == 0) {
-        cfsetispeed(&tty, B115200);
-        cfsetospeed(&tty, B115200);
-    } else if (strcmp(baudrate, "9600") == 0) {
-        cfsetispeed(&tty, B9600);
-        cfsetospeed(&tty, B9600);
-    } else if (strcmp(baudrate, "0") == 0) {
-        cfsetispeed(&tty, B0);
-        cfsetospeed(&tty, B0);
-    } else if (strcmp(baudrate, "50") == 0) {
-        cfsetispeed(&tty, B50);
-        cfsetospeed(&tty, B50);
-    } else if (strcmp(baudrate, "75") == 0) {
-        cfsetispeed(&tty, B75);
-        cfsetospeed(&tty, B75);
-    } else if (strcmp(baudrate, "110") == 0) {
-        cfsetispeed(&tty, B110);
-        cfsetospeed(&tty, B110);
-    } else if (strcmp(baudrate, "134") == 0) {
-        cfsetispeed(&tty, B134);
-        cfsetospeed(&tty, B134);
-    } else if (strcmp(baudrate, "150") == 0) {
-        cfsetispeed(&tty, B150);
-        cfsetospeed(&tty, B150);
-    } else if (strcmp(baudrate, "200") == 0) {
-        cfsetispeed(&tty, B200);
-        cfsetospeed(&tty, B200);
-    } else if (strcmp(baudrate, "300") == 0) {
-        cfsetispeed(&tty, B300);
-        cfsetospeed(&tty, B300);
-    } else if (strcmp(baudrate, "600") == 0) {
-        cfsetispeed(&tty, B600);
-        cfsetospeed(&tty, B600);
-    } else if (strcmp(baudrate, "1200") == 0) {
-        cfsetispeed(&tty, B1200);
-        cfsetospeed(&tty, B1200);
-    } else if (strcmp(baudrate, "1800") == 0) {
-        cfsetispeed(&tty, B1800);
-        cfsetospeed(&tty, B1800);
-    } else if (strcmp(baudrate, "2400") == 0) {
-        cfsetispeed(&tty, B2400);
-        cfsetospeed(&tty, B2400);
-    } else if (strcmp(baudrate, "4800") == 0) {
-        cfsetispeed(&tty, B4800);
-        cfsetospeed(&tty, B4800);
-    } else if (strcmp(baudrate, "19200") == 0) {
-        cfsetispeed(&tty, B19200);
-        cfsetospeed(&tty, B19200);
-    } else if (strcmp(baudrate, "38400") == 0) {
-        cfsetispeed(&tty, B38400);
-        cfsetospeed(&tty, B38400);
-    } else if (strcmp(baudrate, "57600") == 0) {
-        cfsetispeed(&tty, B57600);
-        cfsetospeed(&tty, B57600);
-    } else if (strcmp(baudrate, "230400") == 0) {
-        cfsetispeed(&tty, B230400);
-        cfsetospeed(&tty, B230400);
-    } else {
-        fprintf(stderr, "Provided baudrate %s is unsupported\n", baudrate);
+    auto iterator = baudrateMap().find(argument);
+    if (iterator == baudrateMap().end()) {
+        fprintf(stderr, "Provided argument %s is unsupported\n", argument);
         return false;
     }
+    speed_t baudrate = iterator->second;
+
+    cfsetispeed(&tty, baudrate);
+    cfsetospeed(&tty, baudrate);
 
     if (tcsetattr(serialPort, TCSANOW, &tty) != 0) {
         fprintf(stderr, "Error %i from tcsetattr: %s\n", errno,
@@ -269,6 +232,31 @@ bool configureSerialPort(int serialPort, const char *baudrate) {
         return false;
     }
     return true;
+}
+
+StackValue parseParameter(const char *input, uint8_t value_type) {
+    StackValue value = {value_type, {0}};
+    switch (value_type) {
+        case I32: {
+            value.value.uint32 = std::stoi(input);
+            break;
+        }
+        case F32: {
+            value.value.f32 = std::atof(input);
+            break;
+        }
+        case I64: {
+            value.value.uint64 = std::stoi(input);
+            break;
+        }
+        case F64: {
+            value.value.f64 = std::atof(input);
+            break;
+        }
+        default:
+            FATAL("wdcli: '%s' should be of type %hhu\n", input, value_type);
+    }
+    return value;
 }
 
 int main(int argc, const char *argv[]) {
@@ -285,8 +273,22 @@ int main(int argc, const char *argv[]) {
     const char *baudrate = nullptr;
     const char *mode = "interpreter";
 
+    const char *fname = nullptr;
+    std::vector<StackValue> arguments = std::vector<StackValue>();
+
     const char *asserts_file = nullptr;
     const char *watcompiler = "wat2wasm";
+
+    if (argc > 0 && argv[0][0] != '-') {
+        ARGV_GET(file_name);
+
+        dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
+        m = load(*wac, file_name,
+                 {.disable_memory_bounds = false,
+                  .mangle_table_index = false,
+                  .dlsym_trim_underscore = false,
+                  .return_exception = return_exception});
+    }
 
     // Parse options
     while (argc > 0) {
@@ -301,10 +303,10 @@ int main(int argc, const char *argv[]) {
             return 0;
         } else if (!strcmp("--loop", arg)) {
             return_exception = false;
-        } else if (!strcmp("--file", arg)) {
+        } else if (!strcmp("--test", arg)) {
+            run_tests = true;
             ARGV_GET(file_name);
         } else if (!strcmp("--asserts", arg)) {
-            run_tests = true;
             ARGV_GET(asserts_file);
         } else if (!strcmp("--watcompiler", arg)) {
             ARGV_GET(watcompiler);
@@ -315,38 +317,53 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp("--socket", arg)) {
             ARGV_GET(socket);
         } else if (!strcmp("--paused", arg)) {
-            initiallyPaused = false;
+            initiallyPaused = true;
         } else if (!strcmp("--proxy", arg)) {
             ARGV_GET(proxy);  // /dev/ttyUSB0
         } else if (!strcmp("--baudrate", arg)) {
             ARGV_GET(baudrate);
         } else if (!strcmp("--mode", arg)) {
             ARGV_GET(mode);
+        } else if (!strcmp("--invoke", arg)) {
+            ARGV_GET(fname);
+
+            // find function
+            int fidx = wac->get_export_fidx(m, fname);
+            if (fidx < 0) {
+                fprintf(stderr, "wdcli: no exported function with name '%s'\n",
+                        fname);
+                return 1;
+            }
+
+            Block function = m->functions[fidx];
+
+            // consume all arguments for the function
+            for (uint32_t i = 0; i < function.type->param_count; ++i) {
+                const char *number = nullptr;
+                ARGV_GET(number);
+
+                if (number[0] == '-') {
+                    FATAL("wdcli: wrong number of arguments for '%s'\n", fname);
+                }
+
+                arguments.push_back(parseParameter(
+                    number, *function.type->params + (i * sizeof(uint32_t))));
+            }
         }
     }
 
-    if (argc == 1) {
-        ARGV_GET(file_name);
-        ARGV_SHIFT();
-    }
-
-    if (argc == 0 && file_name != nullptr) {
-        if (run_tests) {
-            dbg_info("=== STARTING SPEC TESTS ===\n");
-            return run_wasm_test(*wac, file_name, asserts_file, watcompiler);
-        }
-        dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
-        m = load(*wac, file_name,
-                 {.disable_memory_bounds = false,
-                  .mangle_table_index = false,
-                  .dlsym_trim_underscore = false,
-                  .return_exception = return_exception});
-        if (initiallyPaused) {
-            wac->program_state = WARDUINOpause;
-        }
-    } else {
+    if (argc != 0 || file_name == nullptr) {
         print_help();
         return 1;
+    }
+
+    if (run_tests) {
+        dbg_info("=== STARTING SPEC TESTS ===\n");
+        return run_wasm_test(*wac, file_name, asserts_file, watcompiler);
+    }
+
+    if (initiallyPaused) {
+        wac->program_state = WARDUINOpause;
     }
 
     if (m) {
@@ -411,7 +428,12 @@ int main(int argc, const char *argv[]) {
 
         // Run Wasm module
         dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
-        wac->run_module(m);
+        if (fname != nullptr) {
+            uint32_t fidx = wac->get_export_fidx(m, fname);
+            wac->invoke(m, fidx, arguments.size(), &arguments[0]);
+        } else {
+            wac->run_module(m);
+        }
         wac->unload_module(m);
         wac->debugger->stop();
 

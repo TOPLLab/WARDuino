@@ -227,6 +227,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleUpdateModule(m, interruptData);
             free(interruptData);
             break;
+        case interruptINVOKE:
+            this->handleInvoke(m, interruptData);
+            free(interruptData);
+            break;
         case interruptWOODDUMP:
             *program_state = WARDUINOpause;
             free(interruptData);
@@ -343,6 +347,21 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
         exit(33);
     }
     return opcode;
+}
+
+void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
+    uint32_t fidx = read_L32(&interruptData);
+
+    // TODO redo fidx < 0 if needed
+    if (fidx >= m->function_count) {
+        debug("no function available for fidx %" PRIi32 "\n", fidx);
+        return;
+    }
+
+    Type func = *m->functions[fidx].type;
+    StackValue *args = readArgs(func, interruptData);
+
+    WARDuino::instance()->invoke(m, fidx, func.param_count, args);
 }
 
 void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
@@ -1074,10 +1093,101 @@ void Debugger::stop() {
 
 bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
     uint8_t *wasm_data = data + 1;
-    uint32_t wasm_len = read_B32(&wasm_data);
+    uint32_t wasm_len = read_LEB_32(&wasm_data);
     uint8_t *wasm = (uint8_t *)malloc(sizeof(uint8_t) * wasm_len);
     memcpy(wasm, wasm_data, wasm_len);
     WARDuino *wd = m->warduino;
     wd->update_module(m, wasm, wasm_len);
     return true;
+}
+
+void Debugger::printErrorSnapshot(Module *m) {
+    // TODO merge printErrorSnapshot into WOODDump
+    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
+
+    debug("asked for errorDump\n");
+    printf("asked for errorDump\n");
+    this->channel->write("Error!\n");
+    this->channel->write("{");
+
+    // exception
+    if (m->exception != nullptr) {
+        this->channel->write(R"("exception_msg":"%s",)", m->exception);
+    }
+    if (m->pc_error != nullptr) {
+        this->channel->write(R"("pc_error":)");
+        this->channel->write("%" PRIu32 ",", toVA(m->pc_error));
+    }
+
+    // current PC
+    this->channel->write(R"("pc":)");
+    this->channel->write("%" PRIu32 ",", toVA(m->pc_ptr));
+
+    this->channel->write("\"breakpoints\":[");
+    size_t i = 0;
+    for (auto bp : this->breakpoints) {
+        this->channel->write("%" PRIu32 "%s", toVA(bp),
+                             (++i < this->breakpoints.size()) ? "," : "");
+    }
+    this->channel->write("],");
+
+    // stack
+    this->channel->write("\"stack\":[");
+    for (int j = 0; j <= m->sp; j++) {
+        auto v = &m->stack[j];
+        printValue(v, j, j == m->sp);
+    }
+    this->channel->write("],");
+
+    // Callstack
+    this->channel->write("\"callstack\":[");
+    for (int j = 0; j <= m->csp; j++) {
+        Frame *f = &m->callstack[j];
+        uint32_t block_key =
+            f->block->block_type == 0 ? 0 : toVA(findOpcode(m, f->block));
+        this->channel->write(
+            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"idx":%d,)",
+            f->block->block_type, f->block->fidx, f->sp, f->fp, j);
+        this->channel->write("\"block_key\":%" PRIu32 ",\"ra\":%" PRIu32 "}%s",
+                             block_key, toVA(f->ra_ptr),
+                             (j < m->csp) ? "," : "");
+    }
+
+    // Globals
+    this->channel->write("],\"globals\":[");
+    for (uint32_t j = 0; j < m->global_count; j++) {
+        auto v = m->globals + j;
+        printValue(v, j, j == (m->global_count - 1));
+    }
+    this->channel->write("]");  // closing globals
+
+    this->channel->write(R"(,"table":{"max":%d, "init":%d, "elements":[)",
+                         m->table.maximum, m->table.initial);
+
+    for (uint32_t j = 0; j < m->table.size; j++) {
+        this->channel->write("%" PRIu32 "%s", m->table.entries[j],
+                             (j + 1) == m->table.size ? "" : ",");
+    }
+    this->channel->write("]}");  // closing table
+
+    // memory
+    uint32_t total_elems =
+        m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
+    this->channel->write(
+        R"(,"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
+        m->memory.pages, m->memory.maximum, m->memory.initial);
+    for (uint32_t j = 0; j < total_elems; j++) {
+        this->channel->write("%" PRIu8 "%s", m->memory.bytes[j],
+                             (j + 1) == total_elems ? "" : ",");
+    }
+    this->channel->write("]}");  // closing memory
+
+    this->channel->write(R"(,"br_table":{"size":"0x%x","labels":[)",
+                         BR_TABLE_SIZE);
+    for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
+        this->channel->write("%" PRIu32 "%s", m->br_table[j],
+                             (j + 1) == BR_TABLE_SIZE ? "" : ",");
+    }
+    this->channel->write(R"(]},"events":{"mappings":%s}}\n)",
+                         CallbackHandler::dump_callbacks().c_str());
 }
