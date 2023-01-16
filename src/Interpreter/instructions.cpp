@@ -1752,16 +1752,16 @@ bool interpret(Module *m) {
     while (CallbackHandler::resolving_event && CallbackHandler::resolve_event())
         ;
 
-    // TODO remove if
-    if (!success) {
-        m->pc_error = pc_error;
-        m->warduino->debugger->printErrorSnapshot(m);
-    }
     dbg_trace("Interpretation ended %s with status %s\n",
               program_done ? "expectedly" : "unexpectedly",
               success ? "ok" : "error");
     if (!success && m->options.return_exception) {
         m->exception = strdup(exception);
+        // TODO remove following lines
+        m->pc_error = pc_error;
+        if (m->warduino->debugger->channel != nullptr) {
+            m->warduino->debugger->printErrorSnapshot(m);
+        }
     } else if (!success) {
         FATAL("%s\n", exception);
     }
