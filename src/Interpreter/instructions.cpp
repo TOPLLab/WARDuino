@@ -1509,7 +1509,7 @@ bool interpret(Module *m) {
     // set to true when finishes successfully
     bool program_done = false;
 
-    uint8_t *pc_error;  // TODO remove
+    uint8_t *pc_error{};  // TODO remove
     while (!program_done && success) {
         if (m->warduino->program_state == WARDUINOstep) {
             m->warduino->program_state = WARDUINOpause;
