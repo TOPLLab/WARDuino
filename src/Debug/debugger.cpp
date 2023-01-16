@@ -1102,12 +1102,22 @@ bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
 }
 
 void Debugger::printErrorSnapshot(Module *m) {
+    // TODO merge printErrorSnapshot into WOODDump
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
 
     debug("asked for errorDump\n");
     printf("asked for errorDump\n");
     this->channel->write("Error!\n");
     this->channel->write("{");
+
+    // exception
+    if (m->exception != nullptr) {
+        this->channel->write(R"("exception_msg":"%s",)", m->exception);
+    }
+    if (m->pc_error != nullptr) {
+        this->channel->write(R"("pc_error":)");
+        this->channel->write("%" PRIu32 ",", toVA(m->pc_error));
+    }
 
     // current PC
     this->channel->write(R"("pc":)");
