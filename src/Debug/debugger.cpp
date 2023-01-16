@@ -352,7 +352,8 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
 void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
     uint32_t fidx = read_L32(&interruptData);
 
-    if (fidx < 0 || fidx >= m->function_count) {
+    // TODO redo fidx < 0 if needed
+    if (fidx >= m->function_count) {
         debug("no function available for fidx %" PRIi32 "\n", fidx);
         return;
     }
