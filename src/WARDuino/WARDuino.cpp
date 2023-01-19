@@ -904,7 +904,7 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
 
     for (uint32_t i = 0; i < arity; ++i) {
         m->stack[++m->sp] = *args;
-        args += sizeof(StackValue);
+        args++;
     }
 
     dbg_trace("Interpretation starts\n");
