@@ -99,7 +99,7 @@ class Debugger {
 
     //// Handle REPL interrupts
 
-    static void handleInvoke(Module *m, uint8_t *interruptData);
+    void handleInvoke(Module *m, uint8_t *interruptData);
 
     //// Handle Interrupt Types
 
@@ -110,6 +110,8 @@ class Debugger {
     //// Information dumps
 
     void dump(Module *m, bool full = false) const;
+
+    void dumpStack(Module *m) const;
 
     void dumpLocals(Module *m) const;
 

@@ -365,7 +365,13 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
     Type func = *m->functions[fidx].type;
     StackValue *args = readLEBArgs(func, interruptData);
 
+    WARDuino *instance = WARDuino::instance();
+    RunningState current = instance->program_state;
+    instance->program_state = WARDUINOrun;
+
     WARDuino::instance()->invoke(m, fidx, func.param_count, args);
+    instance->program_state = current;
+    this->dumpStack(m);
 }
 
 void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
@@ -418,6 +424,16 @@ void Debugger::dump(Module *m, bool full) const {
 
     this->channel->write("}\n\n");
     //    fflush(stdout);
+}
+
+void Debugger::dumpStack(Module *m) const {
+    this->channel->write("{\"stack\": [");
+    int32_t i = m->sp;
+    while(0 <= i) {
+        this->printValue(&m->stack[i], i, 0 <= i - 1);
+        i--;
+    }
+    this->channel->write("]}\n\n");
 }
 
 void Debugger::dumpBreakpoints() const {
