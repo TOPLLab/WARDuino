@@ -429,7 +429,7 @@ void Debugger::dump(Module *m, bool full) const {
 void Debugger::dumpStack(Module *m) const {
     this->channel->write("{\"stack\": [");
     int32_t i = m->sp;
-    while(0 <= i) {
+    while (0 <= i) {
         this->printValue(&m->stack[i], i, i <= 1);
         i--;
     }
