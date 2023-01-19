@@ -36,4 +36,4 @@ void setup_call(Module *m, uint32_t fidx);
  * @param return_exception whether to save the exception method or not
  * @return true if the interpretation ended as expected
  */
-bool interpret(Module *m);
+bool interpret(Module *m, bool waiting = false);

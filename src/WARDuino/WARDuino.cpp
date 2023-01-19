@@ -919,10 +919,16 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
 
 int WARDuino::run_module(Module *m) {
     uint32_t fidx = this->get_main_fidx(m);
-    ASSERT(fidx != UNDEF, "Main not found");
-    this->invoke(m, fidx);
 
-    return m->stack->value.uint32;
+    // execute main
+    if(fidx != UNDEF) {
+        this->invoke(m, fidx);
+        return m->stack->value.uint32;
+    }
+
+    // wait
+    m->warduino->program_state = WARDUINOpause;
+    return interpret(m, true);
 }
 
 // Called when an interrupt comes in (not concurre

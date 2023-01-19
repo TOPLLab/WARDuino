@@ -1499,7 +1499,7 @@ bool i_instr_callback(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool interpret(Module *m) {
+bool interpret(Module *m, bool waiting) {
     uint8_t *block_ptr;
     uint8_t opcode;
 
@@ -1509,7 +1509,7 @@ bool interpret(Module *m) {
     // set to true when finishes successfully
     bool program_done = false;
 
-    while (!program_done && success) {
+    while ((!program_done && success) || waiting) {
         if (m->warduino->program_state == WARDUINOstep) {
             m->warduino->program_state = WARDUINOpause;
         }
@@ -1757,5 +1757,6 @@ bool interpret(Module *m) {
     } else if (!success) {
         FATAL("%s\n", exception);
     }
+
     return success;
 }
