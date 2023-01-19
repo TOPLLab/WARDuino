@@ -228,7 +228,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptINVOKE:
-            this->handleInvoke(m, interruptData);
+            this->handleInvoke(m, interruptData + 1);
             free(interruptData);
             break;
         case interruptWOODDUMP:
@@ -355,7 +355,7 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
 }
 
 void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
-    uint32_t fidx = read_L32(&interruptData);
+    uint32_t fidx = read_LEB_32(&interruptData);
 
     if (fidx < 0 || fidx >= m->function_count) {
         debug("no function available for fidx %" PRIi32 "\n", fidx);
@@ -363,7 +363,7 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
     }
 
     Type func = *m->functions[fidx].type;
-    StackValue *args = readArgs(func, interruptData);
+    StackValue *args = readLEBArgs(func, interruptData);
 
     WARDuino::instance()->invoke(m, fidx, func.param_count, args);
 }
