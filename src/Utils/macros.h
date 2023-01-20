@@ -53,12 +53,20 @@ void end();
         }                                                          \
     }
 
+#if DEBUG
 #define FATAL(...)                                      \
     {                                                   \
         printf("Error(%s:%d): \n", __FILE__, __LINE__); \
         printf(__VA_ARGS__);                            \
         exit(1);                                        \
     }
+#else
+#define FATAL(...)           \
+    {                        \
+        printf(__VA_ARGS__); \
+        exit(1);             \
+    }
+#endif
 
 #endif
 
