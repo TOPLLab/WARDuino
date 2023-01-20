@@ -158,3 +158,47 @@ void WebSocket::close() {
     sendAlarm();  // stop possible blocking accept call
     shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
 }
+
+#ifdef ARDUINO
+#include <stdio.h>
+
+SocketClient::SocketClient(AsyncClient *t_client) : client(t_client) {}
+
+void SocketClient::open(){};
+
+int SocketClient::write(char const *fmt, ...) const {
+    va_list args;
+    va_start(args, fmt);
+    int written =
+        std::vsnprintf(const_cast<char *>(this->sendBuffer), 1024, fmt, args);
+    if (written >= 1024) {
+        while (true) {
+            printf("TOO MUCH\n");
+        }
+    }
+
+    size_t total = (size_t)written;
+    size_t offset = 0;
+    while (offset < total) {
+        while (!this->client->canSend()) {
+            printf("SocketClient::write: looping cannot send to client yet\n");
+        }
+        size_t amountToAdd = (total - offset) > this->client->space()
+                                 ? this->client->space()
+                                 : (total - offset);
+        this->client->add(this->sendBuffer + offset, amountToAdd);
+        this->client->send();
+        offset += amountToAdd;
+    }
+    va_end(args);
+    return written;
+}
+
+ssize_t SocketClient::read(void *out, size_t size) {
+    while (true) {
+        printf("Trying to read from client\n");
+    }
+}
+
+void SocketClient::close(){};
+#endif

@@ -69,3 +69,24 @@ class WebSocket : public Channel {
     ssize_t read(void *out, size_t size) override;
     void close() override;
 };
+
+#ifdef ARDUINO
+// clang-format off
+#include "freertos/FreeRTOS.h"
+// clang-format on
+#include <AsyncTCP.h>
+
+class SocketClient : public Channel {
+   private:
+    AsyncClient *client{};
+    const char sendBuffer[1024]{};
+
+   public:
+    explicit SocketClient(AsyncClient *t_client);
+    void open() override;
+    int write(char const *fmt, ...) const override;
+    ssize_t read(void *out, size_t size) override;
+    void close() override;
+};
+
+#endif
