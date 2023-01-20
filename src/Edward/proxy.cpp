@@ -56,21 +56,23 @@ void Proxy::returnResult(Module *m) {
 
     if (!rfc->success) {
         // TODO exception msg
-        WARDuino::instance()->debugger->channel->write(R"({"success":false})");
+        WARDuino::instance()->debugger->proxyChannel->write(
+            R"({"success":false})");
         return;
     }
 
     if (rfc->type->result_count == 0) {
         // reading result from stack
-        WARDuino::instance()->debugger->channel->write(R"({"success":true})");
+        WARDuino::instance()->debugger->proxyChannel->write(
+            R"({"success":true})");
         return;
     }
 
     // send the result to the client
     rfc->result = &m->stack[m->sp];
     char *val = printValue(rfc->result);
-    WARDuino::instance()->debugger->channel->write(R"({"success":true,%s})",
-                                                   val);
+    WARDuino::instance()->debugger->proxyChannel->write(
+        R"({"success":true,%s})", val);
     free(val);
 }
 

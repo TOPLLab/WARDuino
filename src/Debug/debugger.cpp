@@ -24,6 +24,11 @@ void Debugger::setChannel(Channel *duplex) {
     this->channel = duplex;
 }
 
+void Debugger::setProxyChannel(Channel *duplex) {
+    if (this->proxyChannel != nullptr) delete this->proxyChannel;
+    this->proxyChannel = duplex;
+}
+
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     this->parseDebugBuffer(len, buff);
     uint8_t *data{};

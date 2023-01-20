@@ -890,6 +890,7 @@ void WARDuino::unload_module(Module *m) {
 
 WARDuino::WARDuino() {
     this->debugger = new Debugger(0);
+    this->debugger->setProxyChannel(0);
     install_primitives();
     initTypes();
 }

@@ -144,7 +144,8 @@ class Debugger {
 
    public:
     // Public fields
-    Channel *channel;
+    Channel *channel{};
+    Channel *proxyChannel{};
     ProxySupervisor *supervisor = nullptr;
 
     std::set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
@@ -155,6 +156,8 @@ class Debugger {
     explicit Debugger(Channel *duplex);
 
     void setChannel(Channel *duplex);
+
+    void setProxyChannel(Channel *duplex);
 
     // Public methods
 

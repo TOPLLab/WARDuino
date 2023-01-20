@@ -97,7 +97,7 @@ bool CallbackHandler::resolve_event(bool force) {
 
     if (should_push_event()) {
         Event e = CallbackHandler::events->at(CallbackHandler::pushed_cursor++);
-        WARDuino::instance()->debugger->channel->write(
+        WARDuino::instance()->debugger->proxyChannel->write(
             R"({"topic":"%s","payload":"%s"})", e.topic.c_str(),
             e.payload.c_str());
 
