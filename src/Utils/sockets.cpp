@@ -211,11 +211,11 @@ void ClientSideSocket::close() {}
 #ifdef ARDUINO
 #include <stdio.h>
 
-SocketClient::SocketClient(AsyncClient *t_client) : client(t_client) {}
+ServerSideSocket::ServerSideSocket(AsyncClient *t_client) : client(t_client) {}
 
-void SocketClient::open(){};
+void ServerSideSocket::open(){};
 
-int SocketClient::write(char const *fmt, ...) const {
+int ServerSideSocket::write(char const *fmt, ...) const {
     va_list args;
     va_start(args, fmt);
     int written =
@@ -243,11 +243,11 @@ int SocketClient::write(char const *fmt, ...) const {
     return written;
 }
 
-ssize_t SocketClient::read(void *out, size_t size) {
+ssize_t ServerSideSocket::read(void *out, size_t size) {
     while (true) {
         printf("Trying to read from client\n");
     }
 }
 
-void SocketClient::close(){};
+void ServerSideSocket::close(){};
 #endif

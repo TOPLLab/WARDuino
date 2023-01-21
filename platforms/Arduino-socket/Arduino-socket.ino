@@ -27,11 +27,11 @@ uint16_t toolport = 8081;
 void onData(uint8_t* buff, size_t len) { wac->handleInterrupt(len, buff); }
 
 void onNewProxyClient(AsyncClient* c) {
-    wac->debugger->setProxyChannel(new SocketClient(c));
+    wac->debugger->setProxyChannel(new ServerSideSocket(c));
 }
 
 void onNewToolClient(AsyncClient* c) {
-    wac->debugger->setChannel(new SocketClient(c));
+    wac->debugger->setChannel(new ServerSideSocket(c));
 }
 
 void onGoneProxyClient() {

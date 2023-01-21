@@ -93,13 +93,13 @@ class ClientSideSocket : public Channel {
 // clang-format on
 #include <AsyncTCP.h>
 
-class SocketClient : public Channel {
+class ServerSideSocket : public Channel {
    private:
     AsyncClient *client{};
     const char sendBuffer[1024]{};
 
    public:
-    explicit SocketClient(AsyncClient *t_client);
+    explicit ServerSideSocket(AsyncClient *t_client);
     void open() override;
     int write(char const *fmt, ...) const override;
     ssize_t read(void *out, size_t size) override;
