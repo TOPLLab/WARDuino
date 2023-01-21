@@ -169,7 +169,7 @@ void WebSocket::close() {
 }
 
 ClientSideSocket::ClientSideSocket(const char *t_host, int t_port)
-    : host(t_host), port(t_port) {}
+    : port(t_port), host(t_host) {}
 
 void ClientSideSocket::open() {
     printf("ClientSideSocket: connecting to %s:%d\n", this->host, this->port);
