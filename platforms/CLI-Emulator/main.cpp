@@ -377,7 +377,7 @@ int main(int argc, const char *argv[]) {
             Channel *connection = nullptr;
             try {
                 int port = std::stoi(proxy);
-                connection = new WebSocket(port);
+                connection = new ClientSideSocket("127.0.0.1", port);
             } catch (std::invalid_argument const &ex) {
                 // argument is not a port
                 // treat as filename
