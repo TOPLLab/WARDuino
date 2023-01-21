@@ -1,5 +1,6 @@
 #include "sockets.h"
 
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -22,7 +23,7 @@ void setFileDescriptorOptions(int socket_fd) {
 
 int createSocketFileDescriptor() {
     int socket_fd;
-    if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("Failed to make a new socket file descriptor");
         exit(EXIT_FAILURE);
     }
@@ -41,6 +42,14 @@ struct sockaddr_in createAddress(int port) {
     struct sockaddr_in address {};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(port);
+    return address;
+}
+
+struct sockaddr_in createRemoteHostAddress(const char *host, int port) {
+    struct sockaddr_in address {};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = inet_addr(host);
     address.sin_port = htons(port);
     return address;
 }
@@ -158,6 +167,46 @@ void WebSocket::close() {
     sendAlarm();  // stop possible blocking accept call
     shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
 }
+
+ClientSideSocket::ClientSideSocket(const char *t_host, int t_port)
+    : host(t_host), port(t_port) {}
+
+void ClientSideSocket::open() {
+    printf("ClientSideSocket: connecting to %s:%d\n", this->host, this->port);
+
+    this->socketfd = createSocketFileDescriptor();
+    struct sockaddr_in address =
+        createRemoteHostAddress(this->host, this->port);
+    if (connect(this->socketfd, (struct sockaddr *)&address, sizeof(address)) !=
+        0) {
+        printf("connection with the server failed...\n");
+        exit(0);
+    } else
+        printf("connected to the server..\n");
+}
+
+int ClientSideSocket::write(char const *fmt, ...) const {
+    va_list args;
+    va_start(args, fmt);
+
+    int strSize = std::vsnprintf(const_cast<char *>(this->sendBuffer),
+                                 this->bufferSize, fmt, args);
+    if (strSize >= this->bufferSize) {
+        while (true) {
+            printf("TOO MUCH\n");
+        }
+    }
+
+    int n = ::write(this->socketfd, this->sendBuffer, strSize);
+    va_end(args);
+    return n;
+}
+
+ssize_t ClientSideSocket::read(void *out, size_t size) {
+    return ::read(this->socketfd, out, size);
+}
+
+void ClientSideSocket::close() {}
 
 #ifdef ARDUINO
 #include <stdio.h>
