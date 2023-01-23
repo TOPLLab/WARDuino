@@ -53,17 +53,17 @@ uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
         *pos += 1;
         result |= ((byte & 0x7fu) << shift);
         shift += 7;
+        bcnt += 1;
         if ((byte & 0x80u) == 0) {
             break;
         }
-        bcnt += 1;
         if (bcnt > (maxbits + 7 - 1) / 7) {
             FATAL("Unsigned LEB at byte %p overflow", (void *)startpos);
         }
     }
     if (sign && (shift < maxbits) && (byte & 0x40u)) {
         // Sign extend by highest bits set 1 except last shift bits
-        result |= UINT64_MAX << shift;
+        result |= (UINT64_MAX << (bcnt * 8)) ^ (UINT64_MAX << shift);
     }
     return result;
 }
