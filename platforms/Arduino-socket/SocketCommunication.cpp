@@ -18,6 +18,7 @@ SocketCommunication::SocketCommunication(const char *t_name, uint16_t t_port,
       onGoneClient(t_onGoneClient) {}
 
 void SocketCommunication::begin() {
+    this->server.begin();
     this->server.onClient(
         [this](void *s, AsyncClient *c) {
             printf("%s: Client connected!\n", this->name);
