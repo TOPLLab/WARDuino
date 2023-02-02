@@ -35,4 +35,4 @@ core
 venv
 
 # ignore ino
-platforms/Arduino-socket/*.ino
+/platforms/Arduino-socket/Arduino-socket.ino
