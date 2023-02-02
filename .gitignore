@@ -33,3 +33,6 @@ _deps
 
 core
 venv
+
+# ignore ino
+/platforms/Arduino-socket/Arduino-socket.ino

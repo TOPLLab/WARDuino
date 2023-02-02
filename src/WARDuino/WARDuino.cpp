@@ -890,6 +890,7 @@ void WARDuino::unload_module(Module *m) {
 
 WARDuino::WARDuino() {
     this->debugger = new Debugger(0);
+    this->debugger->setProxyChannel(0);
     install_primitives();
     initTypes();
 }
@@ -1035,7 +1036,8 @@ uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
         FATAL(
             "INVALID Addresses: physicalAddr=%p WasmPhysicalAddr=%p "
             "(Virtual address = %d)",
-            (void *)physicalAddr, (void *)m->bytes, physicalAddr - m->bytes);
+            (void *)physicalAddr, (void *)m->bytes,
+            (int)(physicalAddr - m->bytes));
     }
     return physicalAddr - m->bytes;
 }

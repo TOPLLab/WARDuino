@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <regex>
 #include <stdexcept>
 
 #include "../../src/Debug/debugger.h"
@@ -61,8 +62,11 @@ void print_help() {
     fprintf(stdout,
             "    --paused       Pause program on entry (default: false)\n");
     fprintf(stdout,
-            "    --proxy        Localhost port or serial port (ignored if mode "
-            "is 'proxy')\n");
+            "    --proxy        Connect to host via TCP or serial (ignored if "
+            "mode is 'proxy'). For TCP use [the.remote.ip.adress:]port (for "
+            "localhost omit `the.remote.ip.address:`). For serial use "
+            "/dev/pathtodev. ");
+
     fprintf(stdout,
             "    --baudrate        Baudrate to use when connecting to a serial "
             "port (ignored if "
@@ -233,6 +237,16 @@ bool configureSerialPort(int serialPort, const char *argument) {
     }
     return true;
 }
+bool is_valid_IP4(std::string IP) {
+    std::regex ipv4(
+        "(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9]"
+        "[0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])");
+    return regex_match(IP, ipv4);
+}
+
+bool is_valid_port(const std::string &str) {
+    return std::all_of(str.begin(), str.end(), ::isdigit);
+}
 
 StackValue parseParameter(const char *input, uint8_t value_type) {
     StackValue value = {value_type, {0}};
@@ -376,8 +390,22 @@ int main(int argc, const char *argv[]) {
             // Connect to proxy device
             Channel *connection = nullptr;
             try {
-                int port = std::stoi(proxy);
-                connection = new WebSocket(port);
+                std::string addr(proxy);
+                std::string host{"127.0.0.1"};
+                std::string port{};
+
+                auto pos = addr.find(":");
+                if (pos != std::string::npos) {
+                    host.assign(addr.substr(0, pos));
+                    port.assign(addr.substr(pos + 1, addr.length()));
+                } else {
+                    port.assign(addr);
+                }
+                if (!is_valid_IP4(host) || !is_valid_port(port))
+                    throw std::invalid_argument("Invalid IPV4 Address.");
+                int portnr = std::stoi(port.c_str());
+                connection = new ClientSideSocket(host.c_str(), portnr);
+
             } catch (std::invalid_argument const &ex) {
                 // argument is not a port
                 // treat as filename
