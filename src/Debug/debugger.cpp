@@ -210,6 +210,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->dump(m, true);
             free(interruptData);
             break;
+        case interruptReset:
+            this->reset(m);
+            free(interruptData);
+            break;
         case interruptUPDATEFun:
             this->channel->write("CHANGE function!\n");
             Debugger::handleChangedFunction(m, interruptData);
@@ -1112,10 +1116,18 @@ void Debugger::stop() {
 
 bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
     uint8_t *wasm_data = data + 1;
-    uint32_t wasm_len = read_B32(&wasm_data);
+    uint32_t wasm_len = read_LEB_32(&wasm_data);
     uint8_t *wasm = (uint8_t *)malloc(sizeof(uint8_t) * wasm_len);
     memcpy(wasm, wasm_data, wasm_len);
     WARDuino *wd = m->warduino;
     wd->update_module(m, wasm, wasm_len);
+    return true;
+}
+
+bool Debugger::reset(Module *m) {
+    auto wasm = (uint8_t *)malloc(sizeof(uint8_t) * m->byte_count);
+    memcpy(wasm, m->bytes, m->byte_count);
+    m->warduino->update_module(m, wasm, m->byte_count);
+    this->channel->write("Reset WARDuino.\n");
     return true;
 }
