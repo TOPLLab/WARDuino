@@ -42,6 +42,7 @@ enum InterruptTypes {
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
     interruptDUMPFull = 0x12,
+    interruptReset = 0x13,
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
     interruptUPDATEModule = 0x22,
@@ -130,6 +131,8 @@ class Debugger {
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
     bool handleUpdateModule(Module *m, uint8_t *data);
+
+    bool reset(Module *m);
 
     //// Handle out-of-place debugging
 
