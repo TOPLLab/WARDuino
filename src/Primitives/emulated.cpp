@@ -25,7 +25,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 28
+#define NUM_PRIMITIVES_ARDUINO 29
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -62,6 +62,7 @@ double sensor_emu = 0;
 #define pushUInt64(arg)                 \
     m->stack[++m->sp].value_type = I64; \
     m->stack[m->sp].value.uint64 = arg
+#define pushFloat32(arg) m->stack[++m->sp].value.f32 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
@@ -86,6 +87,7 @@ uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                     I32, I32, I32, I32, I32};
 
 uint32_t param_I64_arr_len1[1] = {I64};
+uint32_t param_F32_arr_len1[1] = {F32};
 
 Type oneToNoneU32 = {
     .form = FUNC,
@@ -198,6 +200,15 @@ Type NoneToOneU64 = {.form = FUNC,
                      .result_count = 1,
                      .results = param_I64_arr_len1,
                      .mask = 0x82000};
+
+Type oneU32ToOneF32 = {
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 1,
+    .results = param_F32_arr_len1,
+    .mask = 0x80011 /* TODO fix mask*/
+};
 
 def_prim(init_pixels, NoneToNoneU32) {
     printf("init_pixels \n");
@@ -437,7 +448,7 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
     uint8_t mode = arg0.uint32;
 
-    debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, tidx, mode);
+    printf("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, tidx, mode);
     std::string topic = "interrupt_";
     topic.append(std::to_string(pin));
 
@@ -474,6 +485,14 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     pop_args(2);
     return true;
 }
+
+def_prim(req_temp, oneU32ToOneF32) {
+    uint32_t port = arg0.uint32;
+    debug("req_temp(%u)\n", port);
+    pushFloat32(17.34);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -517,6 +536,9 @@ void install_primitives() {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
+
+    // temporary mock primitives for reading sensor data from bmp280
+    install_primitive(req_temp);
 }
 
 //------------------------------------------------------
