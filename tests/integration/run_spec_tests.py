@@ -54,10 +54,11 @@ def sanitise_repo():
 
 
 def sanitise_testfile(filename):
+    index = 0
     base_path = os.path.splitext(filename)[0]
     with open(filename, "r") as template:
-        module_file_name = base_path + ".module.wast"
-        asserts_file_name = base_path + ".asserts.wast"
+        module_file_name = base_path + f"_{index}.wast"
+        asserts_file_name = base_path + f"_{index}.asserts.wast"
         module_file = open(module_file_name, "w")
         asserts_file = open(asserts_file_name, "w")
 
@@ -67,7 +68,17 @@ def sanitise_testfile(filename):
         for line in template:
             if line.startswith("(module"):
                 if module_seen:
-                    break
+                    index += 1
+                    module_file.close()
+                    asserts_file.close()
+                    if os.path.getsize(asserts_file_name) == 0:
+                        os.remove(module_file_name)
+                        os.remove(asserts_file_name)
+                    module_file_name = base_path + f"_{index}.wast"
+                    asserts_file_name = base_path + f"_{index}.asserts.wast"
+                    module_file = open(module_file_name, "w")
+                    file = module_file
+                    asserts_file = open(asserts_file_name, "w")
                 module_seen = True
             elif line.startswith("(assert") or line.startswith("(invoke"):
                 file = False
@@ -78,11 +89,10 @@ def sanitise_testfile(filename):
                 file.write(line)
         module_file.close()
         asserts_file.close()
-        shutil.move(module_file_name, filename)
 
         # Remove unnecessary files (no asserts)
         if os.path.getsize(asserts_file_name) == 0:
-            os.remove(filename)
+            os.remove(module_file_name)
             os.remove(asserts_file_name)
 
 
