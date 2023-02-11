@@ -347,7 +347,7 @@ int main(int argc, const char *argv[]) {
                 }
 
                 arguments.push_back(parseParameter(
-                    number, *function.type->params + (i * sizeof(uint32_t))));
+                    number, function.type->params[i]));
             }
         }
     }
