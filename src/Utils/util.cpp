@@ -85,7 +85,7 @@ uint32_t read_uint32(uint8_t **pos) {
     return ((uint32_t *)(*pos - 4))[0];
 }
 
-StackValue *readLEBArgs(Type function, uint8_t *data) {
+StackValue *readWasmArgs(Type function, uint8_t *data) {
     auto *args = new StackValue[function.param_count];
     for (uint32_t i = 0; i < function.param_count; i++) {
         args[i] = {static_cast<uint8_t>(function.params[i]), {0}};
@@ -96,7 +96,8 @@ StackValue *readLEBArgs(Type function, uint8_t *data) {
                 break;
             }
             case F32: {
-                args[i].value.f32 = read_LEB_signed(&data, 32);
+                memcpy(&args[i].value.f32, data, sizeof(float));  // todo read ieee 754
+                data += sizeof(float);
                 break;
             }
             case I64: {
@@ -104,7 +105,8 @@ StackValue *readLEBArgs(Type function, uint8_t *data) {
                 break;
             }
             case F64: {
-                args[i].value.f64 = read_LEB_signed(&data, 64);
+                memcpy(&args[i].value.f64, data, sizeof(double));
+                data += sizeof(double);
                 break;
             }
             default: {

@@ -367,7 +367,7 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
     }
 
     Type func = *m->functions[fidx].type;
-    StackValue *args = readLEBArgs(func, interruptData);
+    StackValue *args = readWasmArgs(func, interruptData);
 
     WARDuino *instance = WARDuino::instance();
     RunningState current = instance->program_state;

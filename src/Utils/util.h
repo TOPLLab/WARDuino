@@ -54,7 +54,7 @@ uint32_t read_uint32(uint8_t **pos);
  * @param data
  * @return The arguments as a list of StackValues. Returns nullptr for arity 0.
  */
-StackValue *readLEBArgs(Type function, uint8_t *data);
+StackValue *readWasmArgs(Type function, uint8_t *data);
 
 // Parse strings
 
