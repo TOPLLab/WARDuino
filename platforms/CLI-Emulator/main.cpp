@@ -346,8 +346,8 @@ int main(int argc, const char *argv[]) {
                     FATAL("wdcli: wrong number of arguments for '%s'\n", fname);
                 }
 
-                arguments.push_back(parseParameter(
-                    number, function.type->params[i]));
+                arguments.push_back(
+                    parseParameter(number, function.type->params[i]));
             }
         }
     }

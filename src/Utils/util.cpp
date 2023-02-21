@@ -96,7 +96,8 @@ StackValue *readWasmArgs(Type function, uint8_t *data) {
                 break;
             }
             case F32: {
-                memcpy(&args[i].value.f32, data, sizeof(float));  // todo read ieee 754
+                memcpy(&args[i].value.f32, data,
+                       sizeof(float));  // todo read ieee 754
                 data += sizeof(float);
                 break;
             }
