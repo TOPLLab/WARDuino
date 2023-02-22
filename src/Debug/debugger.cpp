@@ -329,11 +329,11 @@ void Debugger::printValue(StackValue *v, uint32_t idx, bool end = false) const {
                      v->value.uint64);
             break;
         case F32:
-            snprintf(buff, 255, R"("type":"F32","value":%)" PRIx32,
+            snprintf(buff, 255, R"("type":"F32","value":"%)" PRIx32 "\"",
                      v->value.uint32);
             break;
         case F64:
-            snprintf(buff, 255, R"("type":"F64","value":%)" PRIx64,
+            snprintf(buff, 255, R"("type":"F64","value":"%)" PRIx64 "\"",
                      v->value.uint64);
             break;
         default:
