@@ -257,6 +257,8 @@ void find_blocks(Module *m) {
 
 void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     // Run the init_expr
+    RunningState current = WARDuino::instance()->program_state;
+    WARDuino::instance()->program_state = WARDUINOinit;
     Block block;
     block.block_type = 0x01;
     block.type = get_block_type(type);
@@ -273,6 +275,7 @@ void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     ASSERT(m->stack[m->sp].value_type == type,
            "init_expr type mismatch 0x%x != 0x%x", m->stack[m->sp].value_type,
            type);
+    WARDuino::instance()->program_state = current;
 }
 
 //
@@ -1015,6 +1018,8 @@ void WARDuino::free_module_state(Module *m) {
 }
 
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
+    m->warduino->program_state = WARDUINOinit;
+
     this->free_module_state(m);
     this->instantiate_module(m, wasm, wasm_len);
     uint32_t fidx = this->get_main_fidx(m);
