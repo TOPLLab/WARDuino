@@ -1018,8 +1018,15 @@ void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
     this->free_module_state(m);
     this->instantiate_module(m, wasm, wasm_len);
     uint32_t fidx = this->get_main_fidx(m);
-    ASSERT(fidx != UNDEF, "Main not found");
-    setup_call(m, fidx);
+
+    // execute main
+    if (fidx != UNDEF) {
+        setup_call(m, fidx);
+        m->warduino->program_state = WARDUINOrun;
+    }
+
+    // wait
+    m->warduino->program_state = WARDUINOpause;
 }
 
 uint32_t WARDuino::get_main_fidx(Module *m) {
