@@ -20,6 +20,7 @@ struct Block;
 struct StackValue;
 
 enum RunningState {
+    WARDUINOinit,
     WARDUINOrun,
     WARDUINOpause,
     WARDUINOstep,
