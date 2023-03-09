@@ -27,7 +27,7 @@ Module* m;
 void startDebuggerStd(void* pvParameter) {
     int valread;
     uint8_t buffer[1024] = {0};
-    Channel *duplex = new Duplex(stdin, stdout);
+    Channel* duplex = new Duplex(stdin, stdout);
     WARDuino::instance()->debugger->channel = duplex;
     while (true) {
         taskYIELD();
