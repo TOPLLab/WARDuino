@@ -1,3 +1,5 @@
 sdkconfig
 *.wasm
 *.wasm.h
+
+!build.sh

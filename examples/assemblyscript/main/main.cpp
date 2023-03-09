@@ -22,31 +22,28 @@ extern "C" {
 extern void app_main(void);
 }
 
-WARDuino wac;
 Module* m;
 
 void startDebuggerStd(void* pvParameter) {
     int valread;
     uint8_t buffer[1024] = {0};
-    wac.debugger->socket = fileno(stdout);
+    Channel* duplex = new Duplex(stdin, stdout);
+    WARDuino::instance()->debugger->channel = duplex;
     while (true) {
         taskYIELD();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-        while ((valread = read(fileno(stdin), buffer, 1024)) != -1) {
-            write(fileno(stdout), "got a message ... \n", 19);
-            wac.handleInterrupt(valread - 1, buffer);
-            write(fileno(stdout), buffer, valread);
-            fflush(stdout);
+        while ((valread = duplex->read(buffer, 1024)) != -1) {
+            WARDuino::instance()->handleInterrupt(valread, buffer);
         }
     }
 }
 
 void app_main(void) {
-    m = wac.load_module(src_wasm, src_wasm_len, {});
+    m = WARDuino::instance()->load_module(src_wasm, src_wasm_len, {});
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
-    wac.run_module(m);
+    WARDuino::instance()->run_module(m);
     printf("END\n\n");
-    wac.unload_module(m);
+    WARDuino::instance()->unload_module(m);
 }
