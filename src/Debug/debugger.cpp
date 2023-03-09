@@ -223,8 +223,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptUPDATEModule:
-            this->channel->write("CHANGE Module!\n");
             this->handleUpdateModule(m, interruptData);
+            this->channel->write("CHANGE Module!\n");
             free(interruptData);
             break;
         case interruptINVOKE:
