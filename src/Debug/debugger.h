@@ -43,6 +43,7 @@ enum InterruptTypes {
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
     interruptDUMPFull = 0x12,
+    interruptReset = 0x13,
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
     interruptUPDATEModule = 0x22,
@@ -100,7 +101,7 @@ class Debugger {
 
     //// Handle REPL interrupts
 
-    static void handleInvoke(Module *m, uint8_t *interruptData);
+    void handleInvoke(Module *m, uint8_t *interruptData);
 
     //// Handle Interrupt Types
 
@@ -111,6 +112,8 @@ class Debugger {
     //// Information dumps
 
     void dump(Module *m, bool full = false) const;
+
+    void dumpStack(Module *m) const;
 
     void dumpLocals(Module *m) const;
 
@@ -131,6 +134,8 @@ class Debugger {
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
     bool handleUpdateModule(Module *m, uint8_t *data);
+
+    bool reset(Module *m);
 
     //// Handle out-of-place debugging
 
