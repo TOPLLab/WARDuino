@@ -1,0 +1,3 @@
+#pragma once
+
+#cmakedefine PROJECT_VERSION "@WARDUINO_VERSION_STRING@"

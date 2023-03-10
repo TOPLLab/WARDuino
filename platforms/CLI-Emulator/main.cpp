@@ -14,6 +14,7 @@
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
 #include "../../tests/integration/wasm_tests.h"
+#include "warduino/config.h"
 
 // Constants
 #define MAX_MODULE_SIZE (64 * 1024 * 1024)
@@ -32,7 +33,7 @@
     }
 
 void print_help() {
-    fprintf(stdout, "WARDuino WebAssembly Runtime - 0.2.1\n\n");
+    fprintf(stdout, "WARDuino WebAssembly Runtime - " PROJECT_VERSION "\n\n");
     fprintf(stdout, "Usage:\n");
     fprintf(stdout, "    warduino <file> [options]\n");
     fprintf(stdout, "Options:\n");
