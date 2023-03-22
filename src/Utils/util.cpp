@@ -85,6 +85,39 @@ uint32_t read_uint32(uint8_t **pos) {
     return ((uint32_t *)(*pos - 4))[0];
 }
 
+StackValue *readWasmArgs(Type function, uint8_t *data) {
+    auto *args = new StackValue[function.param_count];
+    for (uint32_t i = 0; i < function.param_count; i++) {
+        args[i] = {static_cast<uint8_t>(function.params[i]), {0}};
+
+        switch (args[i].value_type) {
+            case I32: {
+                args[i].value.int32 = read_LEB_signed(&data, 32);
+                break;
+            }
+            case F32: {
+                memcpy(&args[i].value.f32, data,
+                       sizeof(float));  // todo read ieee 754
+                data += sizeof(float);
+                break;
+            }
+            case I64: {
+                args[i].value.int64 = read_LEB_signed(&data, 64);
+                break;
+            }
+            case F64: {
+                memcpy(&args[i].value.f64, data, sizeof(double));
+                data += sizeof(double);
+                break;
+            }
+            default: {
+                FATAL("no argument of type %" SCNu8 "\n", args[i].value_type);
+            }
+        }
+    }
+    return args;
+}
+
 // Strings
 
 // Reads a string from the bytes array at pos that starts with a LEB length

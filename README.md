@@ -1,19 +1,38 @@
-<h1 align="center">WARDuino</h1>
+<div align="center">
+  <h1>WARDuino</h1>
 
-<p align="center">
-  <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg"></a>
-  <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml/badge.svg"></a>
-  <a href="https://github.com/TOPLLab/WARDuino/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
-</p>
+  <p>
+    <strong>Wasm virtual machine for ESP32 / Arduino</strong>
+  </p>
+
+  <p>
+    <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg"></a>
+    <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml/badge.svg"></a>
+    <a href="https://github.com/TOPLLab/WARDuino/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
+  </p>
+
+  <h4>
+    <a href="./README.md#build-and-development-instructions">Installation</a>
+    <span> | </span>
+    <a href="./examples/">Examples</a>
+    <span> | </span>
+    <a href="./README.md#webassembly-specification-tests">Run Specification tests</a>
+    <span> | </span>
+    <a href="./documentation/">Documentation</a>
+  </h4>
+
+</div>
+
+## About
 
 This project is released under the Mozilla Public License 2.0, and is being developed as part of an active research project at the University of Ghent's [TOPL Lab](https://github.com/TOPLLab).
 
-The WARDuino virtual machine is a WebAssembly runtime for microcontrollers, which runs both under the Arduino and ESP-IDF toolchains.
-The WARDuino project also includes a [VS Code extension](https://github.com/TOPLLab/WARDuino-VSCode) to use both the remote debugging and the out-of-place debugging facilities offered by the virtual machine.
++ The WARDuino virtual machine is a WebAssembly runtime for microcontrollers, which runs both under the Arduino and ESP-IDF toolchains.
++ The WARDuino virtual machine features an extensive debugger with novel techniques such as out-of-place debugging.
++ The virtual machine allows developers to implement their own primitives in C++, which are callable from Wasm.
++ The WARDuino project also includes a [VS Code extension](https://github.com/TOPLLab/WARDuino-VSCode) to use both the remote debugging and the out-of-place debugging facilities offered by the virtual machine.
 
-<p align="center">
-  <a href="./README.md#build-and-development-instructions">Installation</a> | <a href="./examples/">Examples</a> | <a href="./README.md#webassembly-specification-tests">Run Specification tests</a> | <a href="./documentation/">Documentation</a>
-</p>
+*Note: WARDuino is not 1.0, since this is an active research project. Expect possible bugs or performance issues.*
 
 ## Build and Development Instructions
 

@@ -257,6 +257,8 @@ void find_blocks(Module *m) {
 
 void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     // Run the init_expr
+    RunningState current = WARDuino::instance()->program_state;
+    WARDuino::instance()->program_state = WARDUINOinit;
     Block block;
     block.block_type = 0x01;
     block.type = get_block_type(type);
@@ -273,6 +275,7 @@ void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     ASSERT(m->stack[m->sp].value_type == type,
            "init_expr type mismatch 0x%x != 0x%x", m->stack[m->sp].value_type,
            type);
+    WARDuino::instance()->program_state = current;
 }
 
 //
@@ -904,7 +907,7 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
 
     for (uint32_t i = 0; i < arity; ++i) {
         m->stack[++m->sp] = *args;
-        args += sizeof(StackValue);
+        args++;
     }
 
     dbg_trace("Interpretation starts\n");
@@ -919,10 +922,16 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
 
 int WARDuino::run_module(Module *m) {
     uint32_t fidx = this->get_main_fidx(m);
-    ASSERT(fidx != UNDEF, "Main not found");
-    this->invoke(m, fidx);
 
-    return m->stack->value.uint32;
+    // execute main
+    if (fidx != UNDEF) {
+        this->invoke(m, fidx);
+        return m->stack->value.uint32;
+    }
+
+    // wait
+    m->warduino->program_state = WARDUINOpause;
+    return interpret(m, true);
 }
 
 // Called when an interrupt comes in (not concurre
@@ -1015,11 +1024,20 @@ void WARDuino::free_module_state(Module *m) {
 }
 
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
+    m->warduino->program_state = WARDUINOinit;
+
     this->free_module_state(m);
     this->instantiate_module(m, wasm, wasm_len);
     uint32_t fidx = this->get_main_fidx(m);
-    ASSERT(fidx != UNDEF, "Main not found");
-    setup_call(m, fidx);
+
+    // execute main
+    if (fidx != UNDEF) {
+        setup_call(m, fidx);
+        m->warduino->program_state = WARDUINOrun;
+    }
+
+    // wait
+    m->warduino->program_state = WARDUINOpause;
 }
 
 uint32_t WARDuino::get_main_fidx(Module *m) {

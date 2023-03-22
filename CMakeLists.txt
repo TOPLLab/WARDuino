@@ -5,6 +5,9 @@ option(BUILD_ESP "Build for esp" OFF)
 option(BUILD_EMULATOR "Build for emulator" OFF)
 option(BUILD_UNITTEST "Build for testing" OFF)
 
+if (ESP_PLATFORM)
+    set(BUILD_ESP ON)
+endif()
 
 if (NOT BUILD_ESP AND NOT BUILD_EMULATOR AND NOT BUILD_UNITTEST)
     message(WARNING "No build target set. Nothing to do.")
@@ -20,10 +23,13 @@ if (BUILD_ESP)
 
     set(EXTRA_COMPONENT_DIRS "platforms/ESP-IDF")
 
-    include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+    include($ENV{IDF_PATH}/tools/cmake/project.cmake "${PROJECT_BINARY_DIR}/../include")
 endif (BUILD_ESP)
 
-project(WARDuino)
+project(WARDuino VERSION 0.2.3)
+
+set(WARDUINO_VERSION_STRING "${PROJECT_VERSION}")
+configure_file(src/config.h.in include/warduino/config.h)
 
 # Build the emulator version of WARDuino
 if (BUILD_EMULATOR)
@@ -67,7 +73,7 @@ if (BUILD_EMULATOR)
     # WARDuino CLI
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES} ${TEST_FRAMEWORK})
     target_link_libraries(wdcli PRIVATE Threads::Threads)
-    target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS})
+    target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
 endif (BUILD_EMULATOR)
 
 if(BUILD_UNITTEST)
@@ -124,7 +130,7 @@ if(BUILD_UNITTEST)
         message(DEBUG "Add executable for " ${TEST_FILE})
         add_executable(${TEST_NAME} ${TEST_FILE} ${SOURCE_FILES})
         target_link_libraries(${TEST_NAME} gtest_main)
-        target_include_directories(${TEST_NAME} PRIVATE ${EXTERNAL_LIB_HEADERS})
+        target_include_directories(${TEST_NAME} PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
         add_test(${TEST_NAME} ${TEST_NAME})
     endforeach()
 endif(BUILD_UNITTEST)

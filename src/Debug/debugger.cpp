@@ -210,6 +210,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->dump(m, true);
             free(interruptData);
             break;
+        case interruptReset:
+            this->reset(m);
+            free(interruptData);
+            break;
         case interruptUPDATEFun:
             this->channel->write("CHANGE function!\n");
             Debugger::handleChangedFunction(m, interruptData);
@@ -223,12 +227,12 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptUPDATEModule:
-            this->channel->write("CHANGE Module!\n");
             this->handleUpdateModule(m, interruptData);
+            this->channel->write("CHANGE Module!\n");
             free(interruptData);
             break;
         case interruptINVOKE:
-            this->handleInvoke(m, interruptData);
+            this->handleInvoke(m, interruptData + 1);
             free(interruptData);
             break;
         case interruptWOODDUMP:
@@ -325,10 +329,12 @@ void Debugger::printValue(StackValue *v, uint32_t idx, bool end = false) const {
                      v->value.uint64);
             break;
         case F32:
-            snprintf(buff, 255, R"("type":"F32","value":%.7f)", v->value.f32);
+            snprintf(buff, 255, R"("type":"F32","value":"%)" PRIx32 "\"",
+                     v->value.uint32);
             break;
         case F64:
-            snprintf(buff, 255, R"("type":"F64","value":%.7f)", v->value.f64);
+            snprintf(buff, 255, R"("type":"F64","value":"%)" PRIx64 "\"",
+                     v->value.uint64);
             break;
         default:
             snprintf(buff, 255, R"("type":"%02x","value":"%)" PRIx64 "\"",
@@ -355,7 +361,7 @@ uint8_t *Debugger::findOpcode(Module *m, Block *block) {
 }
 
 void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
-    uint32_t fidx = read_L32(&interruptData);
+    uint32_t fidx = read_LEB_32(&interruptData);
 
     if (fidx < 0 || fidx >= m->function_count) {
         debug("no function available for fidx %" PRIi32 "\n", fidx);
@@ -363,9 +369,15 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
     }
 
     Type func = *m->functions[fidx].type;
-    StackValue *args = readArgs(func, interruptData);
+    StackValue *args = readWasmArgs(func, interruptData);
+
+    WARDuino *instance = WARDuino::instance();
+    RunningState current = instance->program_state;
+    instance->program_state = WARDUINOrun;
 
     WARDuino::instance()->invoke(m, fidx, func.param_count, args);
+    instance->program_state = current;
+    this->dumpStack(m);
 }
 
 void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
@@ -418,6 +430,16 @@ void Debugger::dump(Module *m, bool full) const {
 
     this->channel->write("}\n\n");
     //    fflush(stdout);
+}
+
+void Debugger::dumpStack(Module *m) const {
+    this->channel->write("{\"stack\": [");
+    int32_t i = m->sp;
+    while (0 <= i) {
+        this->printValue(&m->stack[i], i, i < 1);
+        i--;
+    }
+    this->channel->write("]}\n\n");
 }
 
 void Debugger::dumpBreakpoints() const {
@@ -1101,5 +1123,13 @@ bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
     memcpy(wasm, wasm_data, wasm_len);
     WARDuino *wd = m->warduino;
     wd->update_module(m, wasm, wasm_len);
+    return true;
+}
+
+bool Debugger::reset(Module *m) {
+    auto wasm = (uint8_t *)malloc(sizeof(uint8_t) * m->byte_count);
+    memcpy(wasm, m->bytes, m->byte_count);
+    m->warduino->update_module(m, wasm, m->byte_count);
+    this->channel->write("Reset WARDuino.\n");
     return true;
 }

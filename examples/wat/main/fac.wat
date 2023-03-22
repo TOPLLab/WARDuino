@@ -10,8 +10,9 @@
   (type $i32->i32       (func (param i32) (result i32)))
   (type $void->void     (func (param) (result)))
 
-  (; Define one function ;)
+  (; Export two functions ;)
   (export "main" (func $main))
+  (export "fac"  (func $fac))
  
   (memory $mem 1)
   (data (i32.const 0) "\nCalculating fac(5) ... ")
