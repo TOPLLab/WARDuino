@@ -227,6 +227,16 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleChangedLocal(m, interruptData);
             free(interruptData);
             break;
+        case interruptUPDATEStackValue:
+            this->channel->write("Update StackValue!\n");
+            this->handleUpdateStackValue(m, interruptData + 1);
+            free(interruptData);
+            break;
+        case interruptUPDATEGlobalValue:
+            this->channel->write("Update StackValue!\n");
+            this->handleUpdateGlobalValue(m, interruptData + 1);
+            free(interruptData);
+            break;
         case interruptUPDATEModule:
             this->channel->write("CHANGE Module!\n");
             this->handleUpdateModule(m, interruptData);
@@ -618,6 +628,28 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
             break;
     }
     this->channel->write("Local %u changed to %u\n", localId, v->value.uint32);
+    return true;
+}
+
+bool Debugger::handleUpdateStackValue(Module *m, uint8_t *data) {
+    uint32_t idx = read_B32(&data);
+    if (idx >= STACK_SIZE) {
+        return false;
+    }
+    StackValue *sv = &m->stack[idx];
+    if (!this->deserialiseStackValueIntoDest(sv, data)) return false;
+    this->channel->write("Updated StackValue idx: %" PRIu32 "\n", idx);
+    return true;
+}
+
+bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
+    uint32_t idx = read_B32(&data);
+    if (idx >= m->global_count) {
+        return false;
+    }
+    StackValue *v = &m->globals[idx];
+    if (!this->deserialiseStackValueIntoDest(v, data)) return false;
+    this->channel->write("Updated Global idx: %" PRIu32 "\n", idx);
     return true;
 }
 
@@ -1195,4 +1227,15 @@ void Debugger::printErrorSnapshot(Module *m) {
     }
     this->channel->write(R"(]},"events":{"mappings":%s}}\n)",
                          CallbackHandler::dump_callbacks().c_str());
+}
+
+bool Debugger::deserialiseStackValueIntoDest(StackValue *dest, uint8_t *bytes) {
+    uint8_t valtypes[] = {I32, I64, F32, F64};
+    uint8_t type_index = *bytes++;
+    if (type_index >= sizeof(valtypes)) return false;
+    dest->value.uint64 = 0;  // init whole union to 0
+    size_t qb = type_index == 0 || type_index == 2 ? 4 : 8;
+    dest->value_type = valtypes[type_index];
+    memcpy(&dest->value, bytes, qb);
+    return true;
 }

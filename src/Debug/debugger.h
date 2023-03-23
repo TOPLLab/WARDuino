@@ -42,10 +42,11 @@ enum InterruptTypes {
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
     interruptDUMPFull = 0x12,
+    interruptUPDATEStackValue = 0x14,
+    interruptUPDATEGlobalValue = 0x15,
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
     interruptUPDATEModule = 0x22,
-
     // Remote REPL
     interruptINVOKE = 0x40,
 
@@ -127,6 +128,10 @@ class Debugger {
     static bool handleChangedFunction(Module *m, uint8_t *bytes);
 
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
+
+    bool handleUpdateStackValue(Module *m, uint8_t *bytes);
+
+    bool handleUpdateGlobalValue(Module *m, uint8_t *data);
 
     bool handleUpdateModule(Module *m, uint8_t *data);
 
@@ -214,4 +219,7 @@ class Debugger {
 
     // TODO remove
     void printErrorSnapshot(Module *m);
+
+    // move to seperate serialisation/deserialisation file
+    bool deserialiseStackValueIntoDest(StackValue *dest, uint8_t *bytes);
 };
