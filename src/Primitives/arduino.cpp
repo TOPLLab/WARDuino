@@ -131,7 +131,7 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 37
+#define NUM_PRIMITIVES_ARDUINO 38
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -163,6 +163,7 @@ int prim_index = 0;
 #define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
 #define pushUInt32(arg) m->stack[++m->sp].value.uint32 = arg
 #define pushInt32(arg) m->stack[++m->sp].value.int32 = arg
+#define pushFloat32(arg) m->stack[++m->sp].value.f32 = arg
 #define pushUInt64(arg)                 \
     m->stack[++m->sp].value_type = I64; \
     m->stack[m->sp].value.uint64 = arg
@@ -190,6 +191,7 @@ uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                     I32, I32, I32, I32, I32};
 
 uint32_t param_I64_arr_len1[1] = {I64};
+uint32_t param_F32_arr_len1[1] = {F32};
 
 Type oneToNoneU32 = {
     .form = FUNC,
@@ -302,6 +304,15 @@ Type NoneToOneU64 = {.form = FUNC,
                      .result_count = 1,
                      .results = param_I64_arr_len1,
                      .mask = 0x82000};
+
+Type oneU32ToOneF32 = {
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 1,
+    .results = param_F32_arr_len1,
+    .mask = 0x80011 /* TODO fix mask*/
+};
 
 // Util function declarations
 
@@ -598,6 +609,13 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     // printf("chip_ledc_attach_pin(%u,%u)\n", pin, channel);
     ledcAttachPin(pin, channel);
     pop_args(2);
+    return true;
+}
+
+def_prim(req_temp, oneU32ToOneF32) {
+    uint32_t port = arg0.uint32;
+    debug("req_temp(%u)\n", port);
+    pushFloat32(17.34);
     return true;
 }
 
@@ -973,6 +991,9 @@ void install_primitives() {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
+
+    // temporary mock primitives for reading sensor data from bmp280
+    install_primitive(req_temp);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();

@@ -2,7 +2,7 @@
 // WARDuino - WebAssembly interpreter for embedded devices.
 //
 //
-//#include <cstdio>
+// #include <cstdio>
 
 #include <WARDuino.h>
 
@@ -58,13 +58,13 @@ void setup(void) {
 }
 
 void loop() {
-    disableCore0WDT();
+    //    disableCore0WDT();
     m = wac->load_module(wasm, wasm_len, {});
 
     printf("LOADED \n\n");
-    uint8_t command[] = {'0', '3', '\n'};
-    wac->handleInterrupt(3, command);
-    xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
+    //    uint8_t command[] = {'0', '3', '\n'};
+    //    wac->handleInterrupt(3, command);
+    //    xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
 
     Serial.println("\nFree heap:");
