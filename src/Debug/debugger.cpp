@@ -654,7 +654,7 @@ bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
 }
 
 void Debugger::notifyPushedEvent() const {
-    this->channel->write("new pushed event");
+    this->channel->write("new pushed event\n");
 }
 
 bool Debugger::handlePushedEvent(char *bytes) const {
