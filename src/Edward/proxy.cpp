@@ -113,7 +113,7 @@ void Proxy::pushProxyGuard(Module *m) {
     if (m == nullptr) {
         return;
     }
-    auto *guard = new Block();
+    auto *guard = (Block *)malloc(sizeof(struct Block));
     guard->block_type = 255;  // 0xfe proxy guard
     push_block(m, guard, m->sp);
 }

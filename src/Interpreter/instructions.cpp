@@ -71,6 +71,11 @@ Block *pop_block(Module *m) {
         m->pc_ptr = frame->ra_ptr;
     }
 
+    // free if event or proxy guard
+    if (frame->block->block_type == 0xfe || frame->block->block_type == 0xff) {
+        free(frame->block);
+    }
+
     return frame->block;
 }
 
