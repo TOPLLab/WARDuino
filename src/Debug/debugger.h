@@ -15,6 +15,17 @@
 #include <mutex>
 #include <thread>
 #endif
+
+// Flags for Dumping State
+#define STATE_PC 0b10000000  // PC
+#define STATE_ST 0b01000000  // Stack Flag
+#define STATE_CS 0b00100000  // Callstack Flag
+#define STATE_ME 0b00010000  // Memory
+#define STATE_TB 0b00001000  // Table
+#define STATE_BT 0b00000100  // Branching Table
+#define STATE_GB 0b00000010  // Globals
+#define STATE_BP 0b00000001  // Breakpoints
+
 struct Module;
 struct Block;
 struct StackValue;
@@ -188,7 +199,7 @@ class Debugger {
 
     // Out-of-place debugging
 
-    void woodDump(Module *m);
+    void woodDump(Module *m, uint8_t state_flags);
 
     void proxify();
 
