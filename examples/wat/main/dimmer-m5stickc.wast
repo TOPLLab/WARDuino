@@ -23,12 +23,12 @@
   ;; Mutable globals
   (global $delta (mut i32) (i32.const -127))
 
-  (func $decrease (type $t4)
+  (func $decrease (type $t3)
     i32.const -127
     ;; i32.const 127
     global.set $delta)
 
-  (func $increase (type $t4)
+  (func $increase (type $t3)
     i32.const 127
     ;; i32.const 0
     global.set $delta)
