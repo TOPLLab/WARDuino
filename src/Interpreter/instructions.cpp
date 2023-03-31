@@ -1766,10 +1766,9 @@ bool interpret(Module *m) {
               success ? "ok" : "error");
     if (!success && m->options.return_exception) {
         m->exception = strdup(exception);
-        // TODO remove following lines
         m->pc_error = pc_error;
         if (m->warduino->debugger->channel != nullptr) {
-            m->warduino->debugger->printErrorSnapshot(m);
+            m->warduino->debugger->dumpAllState(m);
         }
     } else if (!success) {
         FATAL("%s\n", exception);

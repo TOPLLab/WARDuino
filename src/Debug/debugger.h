@@ -235,9 +235,6 @@ class Debugger {
 
     bool handlePushedEvent(char *bytes) const;
 
-    // TODO remove
-    void printErrorSnapshot(Module *m);
-
     // move to seperate serialisation/deserialisation file
     bool deserialiseStackValueIntoDest(StackValue *dest, uint8_t *bytes);
 };
