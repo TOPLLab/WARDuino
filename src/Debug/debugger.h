@@ -16,16 +16,6 @@
 #include <thread>
 #endif
 
-// Flags for Dumping State
-#define STATE_PC 0b10000000  // PC
-#define STATE_ST 0b01000000  // Stack Flag
-#define STATE_CS 0b00100000  // Callstack Flag
-#define STATE_ME 0b00010000  // Memory
-#define STATE_TB 0b00001000  // Table
-#define STATE_BT 0b00000100  // Branching Table
-#define STATE_GB 0b00000010  // Globals
-#define STATE_BP 0b00000001  // Breakpoints
-
 struct Module;
 struct Block;
 struct StackValue;
@@ -50,6 +40,7 @@ enum InterruptTypes {
     interruptSTEP = 0x04,
     interruptBPAdd = 0x06,
     interruptBPRem = 0x07,
+    interruptDumpExecutionState = 0x09,
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
     interruptDUMPFull = 0x12,
@@ -62,7 +53,7 @@ enum InterruptTypes {
     interruptINVOKE = 0x40,
 
     // Pull Debugging
-    interruptDumpExecutionState = 0x60,
+    interruptWOODDUMP = 0x60,
     interruptRecvState = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
@@ -75,6 +66,20 @@ enum InterruptTypes {
     interruptPUSHEvent = 0x73,
     interruptDUMPCallbackmapping = 0x74,
     interruptRecvCallbackmapping = 0x75
+};
+
+enum ExecutionState {
+    pcState = 0x01,
+    breakpointsState = 0x02,
+    callstackState = 0x03,
+    globalsState = 0x04,
+    tableState = 0x05,
+    memState = 0x06,
+    branchingTableState = 0x07,
+    stackState = 0x08,
+    errorState = 0x09,
+    callbacksState = 0x0a,
+    eventsState = 0x0b
 };
 
 class Debugger {
@@ -199,7 +204,9 @@ class Debugger {
 
     // Out-of-place debugging
 
-    void dumpExecutionState(Module *m, uint8_t state_flags);
+    void dumpAllState(Module *m);
+
+    void dumpExecutionState(Module *m, uint16_t sizeStateArray, uint8_t *state);
 
     void proxify();
 

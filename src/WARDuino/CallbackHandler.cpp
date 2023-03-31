@@ -150,8 +150,9 @@ std::deque<Event>::const_iterator CallbackHandler::event_end() {
 
 void CallbackHandler::clear_callbacks() { CallbackHandler::callbacks->clear(); }
 
-std::string CallbackHandler::dump_callbacks() {
-    std::string repr = R"({"callbacks": [)";
+std::string CallbackHandler::dump_callbacks(bool includeOuterCurlyBraces) {
+    std::string repr =
+        includeOuterCurlyBraces ? R"({"callbacks": [)" : R"("callbacks": [)";
     auto iterator = CallbackHandler::callbacks->begin();
     while (iterator != CallbackHandler::callbacks->end()) {
         repr += R"({")" + iterator->first + R"(": [)";
@@ -163,7 +164,7 @@ std::string CallbackHandler::dump_callbacks() {
         repr += "]}";
         repr += (++iterator != CallbackHandler::callbacks->end()) ? ", " : "";
     }
-    repr += "]}";
+    repr += includeOuterCurlyBraces ? "]}" : "]";
     return repr;
 }
 
