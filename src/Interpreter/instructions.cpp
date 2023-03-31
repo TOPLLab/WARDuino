@@ -1253,6 +1253,10 @@ bool i_instr_binary_f32(Module *m, uint8_t opcode) {
     float h = m->stack[m->sp].value.f32;
     float i;
     m->sp -= 1;
+    if (opcode == 0x95 && h == 0) {
+        sprintf(exception, "float divide by zero");
+        return false;
+    }
     switch (opcode) {
         case 0x92:
             i = g + h;
