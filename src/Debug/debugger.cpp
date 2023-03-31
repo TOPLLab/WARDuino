@@ -776,7 +776,7 @@ void Debugger::woodDump(Module *m, uint8_t state_flags) {
     this->channel->write("}\n");
 }
 
-enum ReceiveState {
+enum ExecutionState {
     pcState = 0x01,
     breakpointsState = 0x02,
     callstackState = 0x03,
