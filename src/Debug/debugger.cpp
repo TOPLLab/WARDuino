@@ -246,9 +246,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleInvoke(m, interruptData);
             free(interruptData);
             break;
-        case interruptWOODDUMP:
+        case interruptDumpExecutionState:
             *program_state = WARDUINOpause;
-            woodDump(m, *(interruptData + 1));
+            dumpExecutionState(m, *(interruptData + 1));
             free(interruptData);
             break;
         case interruptRecvState:
@@ -667,12 +667,11 @@ bool Debugger::handlePushedEvent(char *bytes) const {
     return true;
 }
 
-void Debugger::woodDump(Module *m, uint8_t state_flags) {
+void Debugger::dumpExecutionState(Module *m, uint8_t state_flags) {
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
-
     bool addComma = false;
     debug("asked for doDump\n");
-    printf("asked for woodDump\n");
+    printf("asked for dumpExecutionState\n");
     this->channel->write("DUMP!\n");
     this->channel->write("{");
 
@@ -785,7 +784,9 @@ enum ExecutionState {
     memState = 0x06,
     brtblState = 0x07,
     stackvalsState = 0x08,
-    pcErrorState = 0x09
+    pcErrorState = 0x09,
+    callbacks = 0x0a,
+    events = 0x0b
 };
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {

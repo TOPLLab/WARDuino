@@ -62,7 +62,7 @@ enum InterruptTypes {
     interruptINVOKE = 0x40,
 
     // Pull Debugging
-    interruptWOODDUMP = 0x60,
+    interruptDumpExecutionState = 0x60,
     interruptRecvState = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
@@ -199,7 +199,7 @@ class Debugger {
 
     // Out-of-place debugging
 
-    void woodDump(Module *m, uint8_t state_flags);
+    void dumpExecutionState(Module *m, uint8_t state_flags);
 
     void proxify();
 
