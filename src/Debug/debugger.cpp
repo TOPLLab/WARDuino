@@ -15,7 +15,11 @@
 
 // Debugger
 
-Debugger::Debugger(Channel *duplex) { this->channel = duplex; }
+Debugger::Debugger(Channel *duplex) {
+    this->channel = duplex;
+    this->supervisor_mutex = new std::mutex();
+    this->supervisor_mutex->lock();
+}
 
 // Public methods
 
@@ -1076,10 +1080,8 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
 
 void Debugger::startProxySupervisor(Channel *socket) {
     this->connected_to_proxy = true;
-    pthread_mutex_init(&this->supervisor_mutex, nullptr);
-    pthread_mutex_lock(&this->supervisor_mutex);
 
-    this->supervisor = new ProxySupervisor(socket, &this->supervisor_mutex);
+    this->supervisor = new ProxySupervisor(socket, this->supervisor_mutex);
     printf("Connected to proxy.\n");
 }
 
@@ -1089,10 +1091,9 @@ void Debugger::disconnect_proxy() {
     if (!this->proxy_connected()) {
         return;
     }
-    int *ptr;
     // TODO close file
-    pthread_mutex_unlock(&this->supervisor_mutex);
-    pthread_join(this->supervisor->getThreadID(), (void **)&ptr);
+    this->supervisor_mutex->unlock();
+    this->supervisor->thread.join();
 }
 
 void Debugger::updateCallbackmapping(Module *m, const char *data) {
@@ -1132,4 +1133,11 @@ bool Debugger::reset(Module *m) {
     m->warduino->update_module(m, wasm, m->byte_count);
     this->channel->write("Reset WARDuino.\n");
     return true;
+}
+
+Debugger::~Debugger() {
+    this->disconnect_proxy();
+    this->stop();
+    delete this->supervisor_mutex;
+    delete this->supervisor;
 }

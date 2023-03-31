@@ -88,7 +88,7 @@ class Debugger {
     Proxy *proxy = nullptr;  // proxy module for debugger
 
     bool connected_to_proxy = false;
-    pthread_mutex_t supervisor_mutex;
+    std::mutex *supervisor_mutex;
 
     // Private methods
 
@@ -160,6 +160,8 @@ class Debugger {
 
     // Constructor
     explicit Debugger(Channel *duplex);
+
+    ~Debugger();
 
     void setChannel(Channel *duplex);
 
