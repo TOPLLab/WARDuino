@@ -932,6 +932,24 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 printf("Updated pc %" PRIu32 "\n", pc);
                 break;
             }
+            case errorState: {
+                uint32_t pc_error = read_B32(&program_state);
+                m->pc_error = toPhysicalAddress(pc_error, m);
+                printf("Updated pc_error %" PRIu32 "\n", pc_error);
+                uint32_t exception_msg_size = read_B32(&program_state);
+                if (m->exception != nullptr) {
+                    free(m->exception);
+                }
+                if (exception_msg_size > 0) {
+                    m->exception = (char *)malloc(exception_msg_size + 1);
+                    memcpy((void *)m->exception, program_state,
+                           exception_msg_size);
+                    m->exception[exception_msg_size] = '\0';
+                    printf("Updated exception msg %s\n", m->exception);
+                }
+                program_state += exception_msg_size;
+                break;
+            }
             case breakpointsState: {  // breakpoints
                 uint8_t quantity_bps = *program_state++;
                 debug("receiving breakpoints %" PRIu8 "\n", quantity_bps);
