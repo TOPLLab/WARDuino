@@ -1555,8 +1555,8 @@ bool interpret(Module *m) {
 
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
-        m->pc_ptr += 1;
         pc_error = m->pc_ptr;
+        m->pc_ptr += 1;
 
         dbg_dump_stack(m);
         dbg_trace(" PC: %p OPCODE: <%s> in %s\n", block_ptr,
