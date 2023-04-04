@@ -58,10 +58,10 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
 }
 
 void Debugger::pushMessage(uint8_t *msg) {
-#ifndef ARDUINO
-    std::lock_guard<std::mutex> lg(mutexDebugMsgs);
-#endif
+    std::lock_guard<std::mutex> const lg(messageQueueMutex);
     this->debugMessages.push_back(msg);
+    this->freshMessages = !this->debugMessages.empty();
+    this->messageQueueConditionVariable.notify_one();
 }
 
 void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
@@ -115,16 +115,14 @@ void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
 }
 
 uint8_t *Debugger::getDebugMessage() {
-#ifndef ARDUINO
-    std::lock_guard<std::mutex> lg(mutexDebugMsgs);
-#endif
+    std::lock_guard<std::mutex> const lg(messageQueueMutex);
+    uint8_t *ret = nullptr;
     if (!this->debugMessages.empty()) {
-        uint8_t *ret = this->debugMessages.front();
+        ret = this->debugMessages.front();
         this->debugMessages.pop_front();
-        return ret;
-    } else {
-        return nullptr;
     }
+    this->freshMessages = !this->debugMessages.empty();
+    return ret;
 }
 
 void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
