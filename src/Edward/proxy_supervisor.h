@@ -2,7 +2,9 @@
 
 #include <cinttypes>
 #include <csignal>
+#include <mutex>
 #include <set>
+#include <thread>
 
 #include "../Utils/sockets.h"
 #include "RFC.h"
@@ -11,14 +13,12 @@
 #else
 #include "../../lib/json/single_include/nlohmann/json.hpp"
 #endif
-#include "pthread.h"
 #include "sys/types.h"
 
 class ProxySupervisor {
    private:
     Channel *channel;
-    pthread_t threadid;
-    pthread_mutex_t *mutex;
+    std::mutex *mutex;
     std::set<uint32_t> *proxied = new std::set<uint32_t>();
 
     bool hasReplied = false;
@@ -28,14 +28,14 @@ class ProxySupervisor {
     void deserializeRFCResult(RFC *rfc);
 
    public:
-    ProxySupervisor(Channel *duplex, pthread_mutex_t *mutex);
+    std::thread thread;
+
+    ProxySupervisor(Channel *duplex, std::mutex *mutex);
 
     void listenToSocket();
 
     bool send(void *t_buffer, int t_size);
     nlohmann::basic_json<> readReply();
-
-    pthread_t getThreadID();
 
     bool call(RFC *callee);
 

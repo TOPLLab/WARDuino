@@ -3,13 +3,13 @@
 //
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <pthread.h>
 #include <termios.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
+#include <thread>
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
@@ -114,10 +114,10 @@ error:
     return nullptr;
 }
 
-void *startDebuggerCommunication(void *arg) {
+void startDebuggerCommunication() {
     Channel *duplex = WARDuino::instance()->debugger->channel;
     if (duplex == nullptr) {
-        return nullptr;
+        return;
     }
 
     duplex->open();
@@ -415,7 +415,7 @@ int main(int argc, const char *argv[]) {
         }
 
         // Start debugger (new thread)
-        pthread_t id;
+        std::thread communication;
         if (!no_debug) {
             auto *options =
                 (debugger_options *)malloc(sizeof(struct debugger_options));
@@ -424,7 +424,7 @@ int main(int argc, const char *argv[]) {
             setupDebuggerCommunication(options);
             free(options);
 
-            pthread_create(&id, nullptr, startDebuggerCommunication, nullptr);
+            communication = std::thread(startDebuggerCommunication);
         }
 
         // Run Wasm module
@@ -438,8 +438,7 @@ int main(int argc, const char *argv[]) {
         wac->unload_module(m);
         wac->debugger->stop();
 
-        int *ptr;
-        pthread_join(id, (void **)&ptr);
+        communication.join();
     }
 
     return 0;
