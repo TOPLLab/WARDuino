@@ -29,23 +29,20 @@ bool is_success(const char *msg) {
     return (msg != nullptr) && (msg[0] == '\0');  // check if string is empty
 }
 
-bool continuing(pthread_mutex_t *mutex) {
-    switch (pthread_mutex_trylock(mutex)) {
-        case 0: /* if we got the lock, unlock and return false */
-            pthread_mutex_unlock(mutex);
-            return false;
-        case EBUSY: /* return true if the mutex was locked */
-        default:
-            return true;
+bool continuing(std::mutex *mutex) {
+    if (mutex->try_lock()) {
+        /* if we got the lock, unlock and return false */
+        mutex->unlock();
+        return false;
     }
+    /* return true if the mutex was locked */
+    return true;
 }
 
-void *runSupervisor(void *input) {
+void runSupervisor(ProxySupervisor *supervisor) {
     // Print value received as argument:
     dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
-    auto *supervisor = (ProxySupervisor *)input;
     supervisor->listenToSocket();
-    pthread_exit(nullptr);
 }
 
 Event *parseJSON(char *buff) {
@@ -56,13 +53,12 @@ Event *parseJSON(char *buff) {
     return new Event(*parsed.find("topic"), payload);
 }
 
-ProxySupervisor::ProxySupervisor(Channel *duplex, pthread_mutex_t *mutex) {
+ProxySupervisor::ProxySupervisor(Channel *duplex, std::mutex *mutex) {
     debug("Starting supervisor.\n");
     this->channel = duplex;
     this->mutex = mutex;
+    this->thread = std::thread(runSupervisor, this);
     this->proxyResult = nullptr;
-
-    pthread_create(&this->threadid, nullptr, runSupervisor, this);
 }
 
 bool isEvent(nlohmann::basic_json<> parsed) {
@@ -142,8 +138,6 @@ nlohmann::basic_json<> ProxySupervisor::readReply() {
     this->hasReplied = false;
     return this->proxyResult;
 }
-
-pthread_t ProxySupervisor::getThreadID() { return this->threadid; }
 
 /*
  * returns the quantity of bytes needed to serialize a Proxy.

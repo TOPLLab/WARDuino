@@ -1,9 +1,12 @@
 #pragma once
 
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <queue>  // std::queue
 #include <set>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -11,10 +14,6 @@
 #include "../Edward/proxy_supervisor.h"
 #include "../Utils/sockets.h"
 
-#ifndef ARDUINO
-#include <mutex>
-#include <thread>
-#endif
 struct Module;
 struct Block;
 struct StackValue;
@@ -73,9 +72,6 @@ class Debugger {
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
-#ifndef ARDUINO
-    std::mutex mutexDebugMsgs;  // mutual exclude debugMessages
-#endif
     volatile bool interruptWrite{};
     volatile bool interruptRead{};
     bool interruptEven = true;
@@ -88,7 +84,7 @@ class Debugger {
     Proxy *proxy = nullptr;  // proxy module for debugger
 
     bool connected_to_proxy = false;
-    pthread_mutex_t supervisor_mutex;
+    std::mutex *supervisor_mutex;
 
     // Private methods
 
@@ -151,6 +147,9 @@ class Debugger {
 
    public:
     // Public fields
+    std::mutex messageQueueMutex;  // mutual exclude debugMessages
+    std::condition_variable messageQueueConditionVariable;
+    bool freshMessages = false;
     Channel *channel;
     ProxySupervisor *supervisor = nullptr;
 
@@ -160,6 +159,8 @@ class Debugger {
 
     // Constructor
     explicit Debugger(Channel *duplex);
+
+    ~Debugger();
 
     void setChannel(Channel *duplex);
 
