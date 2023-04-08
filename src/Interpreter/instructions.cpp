@@ -1525,9 +1525,16 @@ bool interpret(Module *m, bool waiting) {
         // no event currently resolving
         CallbackHandler::resolve_event();
 
-        // Skip the main loop if paused or drone
+        // Sleep interpret loop if 'paused' or 'waiting drone'
         if (m->warduino->program_state == WARDUINOpause ||
             m->warduino->program_state == PROXYhalt) {
+            // wait until new debug messages arrive
+            {
+                std::unique_lock<std::mutex> lock(
+                    m->warduino->debugger->messageQueueMutex);
+                m->warduino->debugger->messageQueueConditionVariable.wait(
+                    lock, [m] { return m->warduino->debugger->freshMessages; });
+            }
             continue;
         }
 
