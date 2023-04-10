@@ -228,12 +228,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptUPDATEStackValue:
-            this->channel->write("Update StackValue!\n");
             this->handleUpdateStackValue(m, interruptData + 1);
             free(interruptData);
             break;
         case interruptUPDATEGlobalValue:
-            this->channel->write("Update StackValue!\n");
             this->handleUpdateGlobalValue(m, interruptData + 1);
             free(interruptData);
             break;
@@ -647,7 +645,7 @@ bool Debugger::handleUpdateStackValue(Module *m, uint8_t *data) {
     }
     StackValue *sv = &m->stack[idx];
     if (!this->deserialiseStackValueIntoDest(sv, data)) return false;
-    this->channel->write("Updated StackValue idx: %" PRIu32 "\n", idx);
+    this->channel->write("Updated StackValue %" PRIu32 "\n", idx);
     return true;
 }
 
@@ -658,7 +656,7 @@ bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
     }
     StackValue *v = &m->globals[idx];
     if (!this->deserialiseStackValueIntoDest(v, data)) return false;
-    this->channel->write("Updated Global idx: %" PRIu32 "\n", idx);
+    this->channel->write("Updated Global %" PRIu32 "\n", idx);
     return true;
 }
 
