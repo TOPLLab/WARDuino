@@ -980,6 +980,12 @@ void WARDuino::free_module_state(Module *m) {
     }
 
     if (m->callstack != nullptr) {
+        for (int j = 0; j <= m->csp; j++) {
+            Frame *f = &m->callstack[j];
+            if (f->block->block_type == 0xfe || f->block->block_type == 0xff) {
+                free(f->block);
+            }
+        }
         free(m->callstack);
         m->callstack = nullptr;
     }
@@ -1013,6 +1019,11 @@ void WARDuino::free_module_state(Module *m) {
     m->table.size = 0;
 
     m->block_lookup.clear();
+
+    // events
+    // TODO unsubscribe from interrupts
+    // TODO remove breakpoints
+    CallbackHandler::clear_callbacks();
 }
 
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
