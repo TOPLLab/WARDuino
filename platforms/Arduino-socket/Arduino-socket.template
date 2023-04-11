@@ -75,7 +75,7 @@ void setup(void) {
 
 void loop() {
     disableCore0WDT();
-    m = wac->load_module(wasm, wasm_len, {});
+    m = wac->load_module(wasm, wasm_len, {.return_exception = true});
     {{initiallyPaused}}
     Serial.println("\nFree heap:");
     Serial.println(ESP.getFreeHeap());
