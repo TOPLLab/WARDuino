@@ -233,6 +233,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->channel->write("CHANGE Module!\n");
             free(interruptData);
             break;
+        case interruptUPDATEGlobalValue:
+            this->handleUpdateGlobalValue(m, interruptData + 1);
+            free(interruptData);
+            break;
         case interruptINVOKE:
             this->handleInvoke(m, interruptData + 1);
             free(interruptData);
@@ -1123,6 +1127,10 @@ bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
     WARDuino *wd = m->warduino;
     wd->update_module(m, wasm, wasm_len);
     return true;
+}
+
+bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
+    FATAL("TODO implement handleUpdateGlobalValue\n");
 }
 
 bool Debugger::reset(Module *m) {
