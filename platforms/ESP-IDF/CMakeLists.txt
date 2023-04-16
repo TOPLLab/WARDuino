@@ -10,6 +10,7 @@ set(SOURCE_FILES
         ../../src/Utils/sockets.cpp
         ../../src/Utils/util.cpp
         ../../src/Utils/util_arduino.cpp
+        ../../src/Utils/state_de_serialise.cpp
         ../../src/WARDuino/CallbackHandler.cpp
         ../../src/WARDuino/WARDuino.cpp
         )
