@@ -23,7 +23,7 @@ jobs:
         run: mkdir build-unit-tests
 
       - name: Build unit tests
-        run: cmake . -D BUILD_UNITTEST=ON ; cmake --build .
+        run: cmake .. -D BUILD_UNITTEST=ON ; cmake --build .
         working-directory: build-unit-tests
 
       - name: Run unit tests
