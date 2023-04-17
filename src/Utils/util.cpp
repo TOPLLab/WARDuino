@@ -294,5 +294,12 @@ uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
 }
 
 uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m) {
+    if (virtualAddr >= m->byte_count) {
+        FATAL(
+            "INVALID address conversion:"
+            "virtual address %" PRIu32 " is not within the Wasm size %" PRIu32
+            "\n",
+            virtualAddr, m->byte_count)
+    }
     return m->bytes + virtualAddr;
 }
