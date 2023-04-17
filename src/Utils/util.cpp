@@ -286,7 +286,7 @@ uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
     if (physicalAddr - m->bytes < 0) {
         FATAL(
             "INVALID address conversion: physicalAddr=%p WasmPhysicalAddr=%p "
-            "(Virtual address = %ld)",
+            "(Virtual address = %d)",
             (void *)physicalAddr, (void *)m->bytes,
             (int)(physicalAddr - m->bytes));
     }
