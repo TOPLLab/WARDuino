@@ -1,4 +1,4 @@
-name: VM UnitTests
+name: VM Tests
 on: [ push, pull_request ]
 
 concurrency:
@@ -7,7 +7,7 @@ concurrency:
 
 jobs:
   test:
-    name: Run VM unittests
+    name: Run unit tests
     runs-on: ${{matrix.os}}
     strategy:
       fail-fast: false
