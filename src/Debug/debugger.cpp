@@ -12,7 +12,6 @@
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
-#include "../Utils/state_de_serialiase.h"
 
 // Debugger
 
@@ -1134,7 +1133,7 @@ bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
     uint32_t idx = read_B32(&data);
     if (idx >= m->global_count) return false;
     StackValue *v = &m->globals[idx];
-    if (!deserialiseStackValueIntoDest(v, data)) return false;
+    if (!deserialiseStackValue(data, v)) return false;
     this->channel->write("Updated Global %" PRIu32 "\n", idx);
     return true;
 }

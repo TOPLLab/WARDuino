@@ -50,8 +50,7 @@ if (BUILD_EMULATOR)
             src/Debug/debugger.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
-            src/Edward/RFC.cpp
-            src/Utils/state_de_serialise.cpp)
+            src/Edward/RFC.cpp)
 
     set(TEST_FRAMEWORK
             tests/integration/wasm_tests.cpp
@@ -98,8 +97,7 @@ if(BUILD_UNITTEST)
             src/Debug/debugger.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
-            src/Edward/RFC.cpp
-            src/Utils/state_de_serialise.cpp)
+            src/Edward/RFC.cpp)
 
     # Use C++11
     set(CMAKE_CXX_STANDARD 11)
