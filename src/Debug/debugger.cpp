@@ -1130,11 +1130,28 @@ bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
 }
 
 bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
-    uint32_t idx = read_B32(&data);
-    if (idx >= m->global_count) return false;
-    StackValue *v = &m->globals[idx];
-    if (!deserialiseStackValue(data, v)) return false;
-    this->channel->write("Updated Global %" PRIu32 "\n", idx);
+    this->channel->write("Global updates: %x\n", *data);
+    uint32_t index = read_LEB_32(&data);
+
+    if (index >= m->global_count) return false;
+
+    this->channel->write("Global %u being changed\n", index);
+    StackValue *v = &m->globals[index];
+    switch (v->value_type) {
+        case I32:
+            v->value.uint32 = read_LEB_signed(&data, 32);
+            break;
+        case I64:
+            v->value.int64 = read_LEB_signed(&data, 64);
+            break;
+        case F32:
+            memcpy(&v->value.uint32, data, 4);
+            break;
+        case F64:
+            memcpy(&v->value.uint64, data, 8);
+            break;
+    }
+    this->channel->write("Global %u changed to %u\n", index, v->value.uint32);
     return true;
 }
 
