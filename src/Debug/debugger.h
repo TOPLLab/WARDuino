@@ -43,10 +43,10 @@ enum InterruptTypes {
     interruptDUMPLocals = 0x11,
     interruptDUMPFull = 0x12,
     interruptReset = 0x13,
-    interruptUPDATEGlobalValue = 0x15,
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
     interruptUPDATEModule = 0x22,
+    interruptUPDATEGlobal = 0x23,
 
     // Remote REPL
     interruptINVOKE = 0x40,

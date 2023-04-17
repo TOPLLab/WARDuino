@@ -233,7 +233,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->channel->write("CHANGE Module!\n");
             free(interruptData);
             break;
-        case interruptUPDATEGlobalValue:
+        case interruptUPDATEGlobal:
             this->handleUpdateGlobalValue(m, interruptData + 1);
             free(interruptData);
             break;
