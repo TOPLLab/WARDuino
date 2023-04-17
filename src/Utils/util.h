@@ -56,6 +56,15 @@ uint32_t read_uint32(uint8_t **pos);
  */
 StackValue *readWasmArgs(Type function, uint8_t *data);
 
+/**
+ * Deserialise a global value according the binary protocol
+ *
+ * @param input byte buffer
+ * @param value
+ * @return True if successful
+ */
+bool deserialiseStackValue(uint8_t *input, StackValue *value);
+
 // Parse strings
 
 char *read_string(uint8_t **pos, uint32_t *result_len);
