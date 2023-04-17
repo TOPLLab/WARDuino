@@ -281,3 +281,18 @@ unsigned short int sizeof_valuetype(uint32_t vt) {
             return sizeof(double);
     }
 }
+
+uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
+    if (physicalAddr - m->bytes < 0) {
+        FATAL(
+            "INVALID address conversion: physicalAddr=%p WasmPhysicalAddr=%p "
+            "(Virtual address = %ld)",
+            (void *)physicalAddr, (void *)m->bytes,
+            (int)(physicalAddr - m->bytes));
+    }
+    return physicalAddr - m->bytes;
+}
+
+uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m) {
+    return m->bytes + virtualAddr;
+}
