@@ -72,6 +72,15 @@ class SerialisationFixture : public ::testing::Test {
         }
     }
 
+    uint8_t* serialiseF64(double f, bool includeType) {
+        if (includeType) {
+            uint8_t typeIdx = this->typesMap[F64];
+            return this->doubleCopy(f, &typeIdx);
+        } else {
+            return this->doubleCopy(f);
+        }
+    }
+
     uint8_t* integerToLEB128(int64_t value, uint8_t* putInFront = nullptr) {
         std::vector<uint8_t> buffer;
         bool more = true;
@@ -108,6 +117,25 @@ class SerialisationFixture : public ::testing::Test {
 
         cpy = new uint8_t[size];
         std::memcpy(cpy + offset, &f, sizeof(float));
+        if (putInFront != nullptr) {
+            cpy[0] = *putInFront;
+        }
+
+        this->conversionsToFree.push_back(cpy);
+        return cpy;
+    }
+
+    uint8_t* doubleCopy(double d, uint8_t* putInFront = nullptr) {
+        size_t size = sizeof(double);
+        uint8_t* cpy = nullptr;
+        uint8_t offset = 0;
+        if (putInFront != nullptr) {
+            size += 1;
+            offset = 1;
+        }
+
+        cpy = new uint8_t[size];
+        std::memcpy(cpy + offset, &d, sizeof(double));
         if (putInFront != nullptr) {
             cpy[0] = *putInFront;
         }
@@ -227,6 +255,64 @@ TEST_F(SerialisationFixture, DeserialiseNegativeF32StackValue) {
     EXPECT_EQ(freshSV->value_type, F32)
         << "Deserialisation should deserialise value type";
     EXPECT_EQ(freshSV->value.f32, newValue)
+        << "Deserialisation value does not match expected value";
+}
+
+TEST_F(SerialisationFixture, DeserialisePositiveF64StackValueAndIgnoreType) {
+    const bool includeType = false;
+    double newValue{33.8020001};
+
+    uint8_t* conversion = this->serialiseF64(newValue, includeType);
+
+    bool successful =
+        deserialiseStackValue(conversion, includeType, &this->f64sv);
+    ASSERT_TRUE(successful) << "Deserialisation should be successful";
+    EXPECT_EQ(this->f64sv.value_type, F64)
+        << "Deserialisation should preserve type. ";
+    EXPECT_EQ(this->f64sv.value.f64, newValue)
+        << "Deserialisation value does not match expected value";
+}
+
+TEST_F(SerialisationFixture, DeserialisePositiveF64StackValue) {
+    const bool includeType = true;
+    double newValue{33.8020001};
+    StackValue* freshSV = this->newStackValue();
+    uint8_t* conversion = this->serialiseF64(newValue, includeType);
+
+    bool successful = deserialiseStackValue(conversion, includeType, freshSV);
+    ASSERT_TRUE(successful) << "Deserialisation should be successful";
+    EXPECT_EQ(freshSV->value_type, F64)
+        << "Deserialisation should deserialise value type";
+    EXPECT_EQ(freshSV->value.f64, newValue)
+        << "Deserialisation value does not match expected value";
+}
+
+TEST_F(SerialisationFixture, DeserialiseNegativeF64StackValueAndIgnoreType) {
+    const bool includeType = false;
+    double newValue{-33.8020001};
+    uint8_t* conversion = this->serialiseF64(newValue, includeType);
+    bool successful =
+        deserialiseStackValue(conversion, includeType, &this->f64sv);
+
+    ASSERT_TRUE(successful) << "Deserialisation should be successful";
+    EXPECT_EQ(this->f64sv.value_type, F64)
+        << "Deserialisation should preserve type. ";
+    EXPECT_EQ(this->f64sv.value.f64, newValue)
+        << "Deserialisation value does not match expected value";
+}
+
+TEST_F(SerialisationFixture, DeserialiseNegativeF64StackValue) {
+    const bool includeType = true;
+    double newValue{-33.8020001};
+
+    StackValue* freshSV = this->newStackValue();
+    uint8_t* conversion = this->serialiseF64(newValue, includeType);
+
+    bool successful = deserialiseStackValue(conversion, includeType, freshSV);
+    ASSERT_TRUE(successful) << "Deserialisation should be successful";
+    EXPECT_EQ(freshSV->value_type, F64)
+        << "Deserialisation should deserialise value type";
+    EXPECT_EQ(freshSV->value.f64, newValue)
         << "Deserialisation value does not match expected value";
 }
 
