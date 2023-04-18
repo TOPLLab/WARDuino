@@ -54,6 +54,15 @@ class SerialisationFixture : public ::testing::Test {
         }
     }
 
+    uint8_t* serialiseI32(int64_t value, bool includeType) {
+        if (includeType) {
+            uint8_t typeIdx = this->typesMap[I32];
+            return this->integerToLEB128(value, &typeIdx);
+        } else {
+            return this->integerToLEB128(value);
+        }
+    }
+
     uint8_t* integerToLEB128(int64_t value, uint8_t* putInFront = nullptr) {
         std::vector<uint8_t> buffer;
         bool more = true;
@@ -106,6 +115,34 @@ TEST_F(SerialisationFixture, DeserialisePositiveU32StackValue) {
     EXPECT_EQ(freshSV->value_type, I32)
         << "Deserialisation should deserialise value type. ";
     EXPECT_EQ(freshSV->value.uint32, newValue)
+        << "Deserialisation value does not match expected value";
+}
+
+TEST_F(SerialisationFixture, DeserialiseNegativeI32StackValueAndIgnoreType) {
+    const bool includeType = false;
+    int64_t newValue = -33;
+    uint8_t* conversion = this->serialiseI32(newValue, includeType);
+
+    bool successful =
+        deserialiseStackValue(conversion, includeType, &this->i32sv);
+    ASSERT_TRUE(successful) << "Deserialisation should be successful";
+    EXPECT_EQ(this->i32sv.value_type, I32)
+        << "Deserialisation should preserve type. ";
+    EXPECT_EQ(this->i32sv.value.int32, newValue)
+        << "Deserialisation value does not match expected value";
+}
+
+TEST_F(SerialisationFixture, DeserialiseNegativeI32StackValue) {
+    const bool includeType = true;
+    int64_t newValue = -33;
+    uint8_t* conversion = this->serialiseI32(newValue, includeType);
+    StackValue* freshSV = this->newStackValue();
+    bool successful = deserialiseStackValue(conversion, includeType, freshSV);
+
+    ASSERT_TRUE(successful) << "Deserialisation should be successful";
+    EXPECT_EQ(freshSV->value_type, I32)
+        << "Deserialisation should deserialise value type";
+    EXPECT_EQ(freshSV->value.int32, newValue)
         << "Deserialisation value does not match expected value";
 }
 
