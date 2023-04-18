@@ -1157,7 +1157,7 @@ bool Debugger::handleUpdateStackValue(Module *m, uint8_t *data) {
     if (!deserialiseStackValue(data, decodeType, sv)) {
         return false;
     }
-    this->channel->write("StackValue %" PRIu32 "changed\n", idx);
+    this->channel->write("StackValue %" PRIu32 " changed\n", idx);
     return true;
 }
 
