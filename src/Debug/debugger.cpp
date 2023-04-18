@@ -237,6 +237,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleUpdateGlobalValue(m, interruptData + 1);
             free(interruptData);
             break;
+        case interruptUPDATEStackValue:
+            this->handleUpdateStackValue(m, interruptData + 1);
+            free(interruptData);
+            break;
         case interruptINVOKE:
             this->handleInvoke(m, interruptData + 1);
             free(interruptData);
@@ -1140,6 +1144,20 @@ bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
     bool decodeType = false;
     deserialiseStackValue(data, decodeType, v);
     this->channel->write("Global %u changed to %u\n", index, v->value.uint32);
+    return true;
+}
+
+bool Debugger::handleUpdateStackValue(Module *m, uint8_t *data) {
+    uint32_t idx = read_LEB_32(&data);
+    if (idx >= STACK_SIZE) {
+        return false;
+    }
+    StackValue *sv = &m->stack[idx];
+    bool decodeType = true;
+    if (!deserialiseStackValue(data, decodeType, sv)) {
+        return false;
+    }
+    this->channel->write("StackValue %" PRIu32 "changed\n", idx);
     return true;
 }
 
