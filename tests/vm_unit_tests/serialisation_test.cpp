@@ -325,7 +325,7 @@ TEST_F(SerialisationFixture, DeserialiseInvalidType) {
     StackValue* freshSV = this->newStackValue();
     uint8_t* conversion = this->serialiseF64(newValue, includeType);
 
-    //change type
+    // change type
     conversion[0] = invalidType;
 
     bool successful = deserialiseStackValue(conversion, includeType, freshSV);
