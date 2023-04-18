@@ -316,6 +316,23 @@ TEST_F(SerialisationFixture, DeserialiseNegativeF64StackValue) {
         << "Deserialisation value does not match expected value";
 }
 
+TEST_F(SerialisationFixture, DeserialiseInvalidType) {
+    const bool includeType = true;
+    uint8_t invalidType = 23;
+
+    double newValue{23};
+
+    StackValue* freshSV = this->newStackValue();
+    uint8_t* conversion = this->serialiseF64(newValue, includeType);
+
+    //change type
+    conversion[0] = invalidType;
+
+    bool successful = deserialiseStackValue(conversion, includeType, freshSV);
+    ASSERT_FALSE(successful) << "Deserialisation should fail for "
+                                "an invalid type";
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
