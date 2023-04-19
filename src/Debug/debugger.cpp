@@ -1153,7 +1153,7 @@ bool Debugger::handleUpdateStackValue(Module *m, uint8_t *data) {
         return false;
     }
     StackValue *sv = &m->stack[idx];
-    bool decodeType = true;
+    bool decodeType = false;
     if (!deserialiseStackValue(data, decodeType, sv)) {
         return false;
     }
