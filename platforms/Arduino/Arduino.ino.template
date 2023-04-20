@@ -2,15 +2,10 @@
 // WARDuino - WebAssembly interpreter for embedded devices.
 //
 //
-//#include <cstdio>
-
 #include <WARDuino.h>
 
 #include "Arduino.h"
-#include "upload.h"
-
-// unsigned int wasm_len = _tmp_warduino_upload_wasm_len;
-// unsigned char* wasm = _tmp_warduino_upload_wasm;
+#include "bin/upload.h"
 
 unsigned int wasm_len = upload_wasm_len;
 unsigned char* wasm = upload_wasm;
@@ -62,8 +57,7 @@ void loop() {
     m = wac->load_module(wasm, wasm_len, {});
 
     printf("LOADED \n\n");
-    uint8_t command[] = {'0', '3', '\n'};
-    wac->handleInterrupt(3, command);
+    {{PAUSED}}
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     printf("START\n\n");
 
