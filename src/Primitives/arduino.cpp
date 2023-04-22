@@ -613,8 +613,8 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
 }
 
 def_prim(req_temp, oneU32ToOneF32) {
-    uint32_t port = arg0.uint32;
-    debug("req_temp(%u)\n", port);
+    // uint32_t port = arg0.uint32;
+    // debug("req_temp(%u)\n", port);
     pushFloat32(17.34);
     return true;
 }
