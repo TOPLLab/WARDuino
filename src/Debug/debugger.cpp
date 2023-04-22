@@ -661,7 +661,10 @@ bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
 }
 
 void Debugger::notifyPushedEvent() const {
-    this->channel->write("new pushed event\n");
+    if (this->channel != nullptr) {
+        this->channel->write("new pushed event\n");
+    }
+    CallbackHandler::notifyPush = false;
 }
 
 bool Debugger::handlePushedEvent(char *bytes) const {

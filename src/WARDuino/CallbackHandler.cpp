@@ -29,6 +29,7 @@ void push_guard(Module *m) {
 bool CallbackHandler::manual_event_resolution = false;
 bool CallbackHandler::resolving_event = false;
 size_t CallbackHandler::pushed_cursor = 0;
+bool CallbackHandler::notifyPush = false;
 
 bool should_push_event() {
     return WARDuino::instance()->program_state == PROXYrun ||
@@ -79,6 +80,7 @@ void CallbackHandler::push_event(std::string topic, const char *payload,
 
 void CallbackHandler::push_event(Event *event) {
     if (events->size() < EVENTS_SIZE) {
+        CallbackHandler::notifyPush = true;
         events->push_back(*event);
     }
 }

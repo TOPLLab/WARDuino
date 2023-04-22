@@ -27,6 +27,7 @@ class CallbackHandler {
     CallbackHandler() = default;  // Disallow creation
 
    public:
+    static bool notifyPush;
     static size_t pushed_cursor;
 
     static size_t event_count();

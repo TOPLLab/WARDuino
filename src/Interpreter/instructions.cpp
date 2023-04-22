@@ -1537,6 +1537,9 @@ bool interpret(Module *m) {
         // Skip the main loop if paused or drone
         if (m->warduino->program_state == WARDUINOpause ||
             m->warduino->program_state == PROXYhalt) {
+            if (CallbackHandler::notifyPush) {
+                m->warduino->debugger->notifyPushedEvent();
+            }
             continue;
         }
 
