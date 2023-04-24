@@ -147,7 +147,7 @@ class Debugger {
 
     void dumpExecutionState(Module *m, uint16_t sizeStateArray, uint8_t *state);
 
-    void proxify();
+    void proxify(Module *m, uint8_t *modeData);
 
     void handleProxyCall(Module *m, RunningState *program_state,
                          uint8_t *interruptData);

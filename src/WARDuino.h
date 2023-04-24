@@ -199,6 +199,7 @@ class WARDuino {
    public:
     Debugger *debugger;
     RunningState program_state = WARDUINOrun;
+    ProxyMode proxyMode = ProxyNotUsed;
 
     static WARDuino *instance();
 

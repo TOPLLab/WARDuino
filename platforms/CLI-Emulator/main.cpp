@@ -385,7 +385,8 @@ int main(int argc, const char *argv[]) {
 
         if (strcmp(mode, "proxy") == 0) {
             // Run in proxy mode
-            wac->debugger->proxify();
+            ProxyMode mode = ProxyNotUsed;
+            wac->debugger->proxify(m, reinterpret_cast<uint8_t *>(&mode));
         } else if (proxy) {
             // Connect to proxy device
             Channel *connection = nullptr;
