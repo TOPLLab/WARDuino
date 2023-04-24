@@ -1176,7 +1176,7 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
     dbg_trace("Enqueuing callee %" PRIu32 "\n", func->fidx);
 
     auto *rfc = new RFC(fidx, func->type, args);
-    this->proxy->pushRFC(m, rfc);
+    this->proxy->pushRFC(m, rfc, *program_state);
 }
 
 RFC *Debugger::topProxyCall() {

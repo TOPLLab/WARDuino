@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <stack>
 
+#include "../Debug/debug_structs.h"
 #include "RFC.h"
 struct Module;
 struct Block;
@@ -12,6 +13,8 @@ struct Block;
 class Proxy {
    private:
     std::stack<RFC *> *calls = new std::stack<RFC *>();  // lifo queue
+    std::stack<RunningState> *runStates =
+        new std::stack<RunningState>();  // lifo queue
 
     void setupCalleeArgs(Module *m, RFC *callee);
     void pushProxyGuard(Module *m);
@@ -19,7 +22,7 @@ class Proxy {
    public:
     Proxy();
 
-    void pushRFC(Module *m, RFC *rfc);
+    void pushRFC(Module *m, RFC *rfc, RunningState runState);
     RFC *topRFC();
     void returnResult(Module *m);
 

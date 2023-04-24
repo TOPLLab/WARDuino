@@ -22,9 +22,10 @@ char *printValue(StackValue *v);
 
 Proxy::Proxy() = default;
 
-void Proxy::pushRFC(Module *m, RFC *rfc) {
+void Proxy::pushRFC(Module *m, RFC *rfc, RunningState runState) {
     // keep RFC in queue
     this->calls->push(rfc);
+    this->runStates->push(runState);
 
     // push RFC arguments to stack
     this->setupCalleeArgs(m, rfc);
@@ -33,7 +34,6 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
         // execute primitives directly
         ((Primitive)m->functions[rfc->fidx].func_ptr)(m);
         // send result directly
-        m->warduino->program_state = PROXYhalt;
         m->warduino->debugger->sendProxyCallResult(m);
         return;
     }
@@ -50,9 +50,14 @@ RFC *Proxy::topRFC() { return this->calls->top(); }
 
 void Proxy::returnResult(Module *m) {
     RFC *rfc = this->calls->top();
+    RunningState prevState = this->runStates->top();
 
     // remove call from lifo queue
     this->calls->pop();
+    this->runStates->pop();
+
+    // restore RunningState prior call
+    WARDuino::instance()->program_state = prevState;
 
     if (!rfc->success) {
         // TODO exception msg
