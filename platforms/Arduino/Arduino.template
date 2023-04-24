@@ -15,6 +15,9 @@ Module* m;
 
 Channel* sink{};
 
+char* savedException = nullptr;
+uint32_t savecPCError = 0;
+
 void startDebuggerStd(void* pvParameter) {
     uint8_t buffer[1024] = {0};
     while (true) {
@@ -51,13 +54,31 @@ void setup(void) {
     Serial.println(ESP.getFreePsram());
 }
 
+void copyException(Module* m) {
+    savedException = (char*)malloc(strlen(m->exception) + 1);
+    strcpy(savedException, m->exception);
+    savecPCError = toVirtualAddress(m->pc_error, m);
+}
+
 void loop() {
     disableCore0WDT();
     m = wac->load_module(wasm, wasm_len, {.return_exception = true});
     {{initiallyPaused}}
+
+    if (savedException != nullptr) {
+        m->exception = savedException;
+        m->pc_error = toPhysicalAddress(savecPCError, m);
+    }
+
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
     Serial.println("\nFree heap:");
     Serial.println(ESP.getFreeHeap());
-    wac->run_module(m);
+    bool success = wac->run_module(m);
+    if (success) {
+        savedException = nullptr;
+        savecPCError = 0;
+    } else if (m->exception != nullptr) {
+        copyException(m);
+    }
     wac->unload_module(m);
 }
