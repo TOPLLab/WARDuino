@@ -164,24 +164,6 @@ TEST_F(ModuleFixture, InstantiatingWorksDespitePROXYrunState) {
     });
 }
 
-TEST_F(ModuleFixture, InstantiatingWorksDespitePROXYhaltState) {
-    auto wd = warduino;
-    auto mod = wasm_module;
-    auto doInstantiate = [wd, mod]() {
-        wd->program_state = PROXYhalt;
-        wd->instantiate_module(mod, blink_wasm, blink_wasm_len);
-    };
-
-    // async policy may cause an exception
-    ASSERT_NO_THROW({
-        std::future<void> parsing(
-            std::async(std::launch::async, doInstantiate));
-        std::future_status status = parsing.wait_for(std::chrono::seconds(1));
-        ASSERT_EQ(status, std::future_status::ready);
-        ASSERT_EQ(warduino->program_state, PROXYhalt);
-    });
-}
-
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

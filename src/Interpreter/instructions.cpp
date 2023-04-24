@@ -35,7 +35,6 @@ Block *pop_block(Module *m) {
     }
 
     if (frame->block->block_type == 0xfe) {
-        m->warduino->program_state = PROXYhalt;
         m->warduino->debugger->sendProxyCallResult(m);
         frame = &m->callstack[m->csp--];
         t = frame->block->type;
@@ -1535,8 +1534,7 @@ bool interpret(Module *m) {
         CallbackHandler::resolve_event();
 
         // Skip the main loop if paused or drone
-        if (m->warduino->program_state == WARDUINOpause ||
-            m->warduino->program_state == PROXYhalt) {
+        if (m->warduino->program_state == WARDUINOpause) {
             if (CallbackHandler::notifyPush) {
                 m->warduino->debugger->notifyPushedEvent();
             }

@@ -287,7 +287,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         } break;
         case interruptProxify: {
             dbg_info("Converting to proxy settings.\n");
-            this->proxify();
+            this->proxify(m, interruptData + 1);
             free(interruptData);
             break;
         }
@@ -1155,9 +1155,28 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
     return bp;
 }
 
-void Debugger::proxify() {
-    WARDuino::instance()->program_state = PROXYhalt;
+void Debugger::proxify(Module *m, uint8_t *modeData) {
     this->proxy = new Proxy();  // TODO delete
+    bool validMode = true;
+    switch (*modeData) {
+        case ProxyNotUsed: {
+            m->warduino->proxyMode = ProxyNotUsed;
+            break;
+        }
+        case ProxyRedirect: {
+            m->warduino->proxyMode = ProxyRedirect;
+            break;
+        }
+        case ProxyCopy: {
+            m->warduino->proxyMode = ProxyCopy;
+            break;
+        }
+        default:
+            validMode = false;
+    }
+    if (validMode) {
+        this->channel->write("Proxify!\n");
+    }
 }
 
 void Debugger::handleProxyCall(Module *m, RunningState *program_state,
@@ -1176,7 +1195,7 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
     dbg_trace("Enqueuing callee %" PRIu32 "\n", func->fidx);
 
     auto *rfc = new RFC(fidx, func->type, args);
-    this->proxy->pushRFC(m, rfc);
+    this->proxy->pushRFC(m, rfc, *program_state);
 }
 
 RFC *Debugger::topProxyCall() {

@@ -32,8 +32,7 @@ size_t CallbackHandler::pushed_cursor = 0;
 bool CallbackHandler::notifyPush = false;
 
 bool should_push_event() {
-    return WARDuino::instance()->program_state == PROXYrun ||
-           WARDuino::instance()->program_state == PROXYhalt;
+    return WARDuino::instance()->proxyMode == ProxyRedirect;
 }
 
 std::unordered_map<std::string, std::vector<Callback> *>
@@ -113,6 +112,13 @@ bool CallbackHandler::resolve_event(bool force) {
     if (!force && (CallbackHandler::manual_event_resolution ||
                    WARDuino::instance()->program_state == WARDUINOpause)) {
         return true;
+    }
+
+    if (WARDuino::instance()->proxyMode == ProxyCopy) {
+        // before resolving send copy
+        WARDuino::instance()->debugger->proxyChannel->write(
+            R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
+            event.payload.c_str());
     }
 
     CallbackHandler::resolving_event = true;
