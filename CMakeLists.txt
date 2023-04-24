@@ -52,11 +52,6 @@ if (BUILD_EMULATOR)
             src/Edward/proxy_supervisor.cpp
             src/Edward/RFC.cpp)
 
-    set(TEST_FRAMEWORK
-            tests/integration/wasm_tests.cpp
-            tests/integration/assertion.cpp
-            tests/integration/sexpr-parser/src/sexpr.c)
-
     add_definitions(-DINFO=0)
     add_definitions(-DDEBUG=0)
     add_definitions(-DTRACE=0)
@@ -71,7 +66,7 @@ if (BUILD_EMULATOR)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
     # WARDuino CLI
-    add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES} ${TEST_FRAMEWORK})
+    add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
     target_link_libraries(wdcli PRIVATE Threads::Threads)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
 endif (BUILD_EMULATOR)
@@ -119,7 +114,7 @@ if(BUILD_UNITTEST)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 
-    set(PATH_TO_UNIT_TEST ${PROJECT_SOURCE_DIR}/tests/vm_unit_tests)
+    set(PATH_TO_UNIT_TEST ${PROJECT_SOURCE_DIR}/tests/unit)
 
     file(GLOB TEST_SRC_FILES ${PATH_TO_UNIT_TEST}/*.cpp)
 
