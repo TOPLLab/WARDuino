@@ -6,11 +6,10 @@ enum RunningState {
     WARDUINOstep,
     PROXYrun,  // Running state used when executing a proxy call. During
     // this state the call is set up and executed by the main
-    // loop. After execution, the state is restored to
-    // PROXYhalt
-    PROXYhalt  // Do not run the program (program runs on computer, which
-    // sends messages for primitives, do forward interrupts)
+    // loop.
 };
+
+enum ProxyMode { ProxyNotUsed = 0x01, ProxyRedirect = 0x02, ProxyCopy = 0x03 };
 
 enum InterruptTypes {
     // Remote Debugging
