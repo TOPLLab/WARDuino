@@ -62,7 +62,9 @@ double sensor_emu = 0;
 #define pushUInt64(arg)                 \
     m->stack[++m->sp].value_type = I64; \
     m->stack[m->sp].value.uint64 = arg
-#define pushFloat32(arg) m->stack[++m->sp].value.f32 = arg
+#define pushFloat32(arg)               \
+    m->stack[++m->sp].value.f32 = arg; \
+    m->stack[m->sp].value_type = F32;
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
