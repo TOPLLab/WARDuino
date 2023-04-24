@@ -23,6 +23,8 @@ uint16_t proxyport = {{proxyPort}};
 
 Channel* sink{};
 
+char* savedException = nullptr;
+uint32_t savecPCError = 0;
 
 #define UART_PIN 3
 
@@ -73,12 +75,30 @@ void setup(void) {
     serverForTool->begin();
 }
 
+void copyException(Module* m) {
+    savedException = (char*)malloc(strlen(m->exception) + 1);
+    strcpy(savedException, m->exception);
+    savecPCError = toVirtualAddress(m->pc_error, m);
+}
+
 void loop() {
     disableCore0WDT();
     m = wac->load_module(wasm, wasm_len, {.return_exception = true});
     {{initiallyPaused}}
+
+    if (savedException != nullptr) {
+        m->exception = savedException;
+        m->pc_error = toPhysicalAddress(savecPCError, m);
+    }
+
     Serial.println("\nFree heap:");
     Serial.println(ESP.getFreeHeap());
-    wac->run_module(m);
+    bool success = wac->run_module(m);
+    if (success) {
+        savedException = nullptr;
+        savecPCError = 0;
+    } else if (m->exception != nullptr) {
+        copyException(m);
+    }
     wac->unload_module(m);
 }
