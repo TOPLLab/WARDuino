@@ -1548,8 +1548,8 @@ bool interpret(Module *m) {
             m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
             m->warduino->program_state != PROXYrun) {
             m->warduino->program_state = WARDUINOpause;
-            m->warduino->debugger->notifyBreakpoint(
-                toVirtualAddress(m->pc_ptr, m));
+            m->warduino->debugger->notifyBreakpoint(toVirtualAddress(
+                m->pc_ptr, m, "instructions in interpret in notifyAtBp"));
             continue;
         }
         m->warduino->debugger->skipBreakpoint = nullptr;

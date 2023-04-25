@@ -57,7 +57,7 @@ void setup(void) {
 void copyException(Module* m) {
     savedException = (char*)malloc(strlen(m->exception) + 1);
     strcpy(savedException, m->exception);
-    savecPCError = toVirtualAddress(m->pc_error, m);
+    savecPCError = toVirtualAddress(m->pc_error, m, "in Arduino.ino copyExecption pc_error");
 }
 
 void loop() {
@@ -67,7 +67,7 @@ void loop() {
 
     if (savedException != nullptr) {
         m->exception = savedException;
-        m->pc_error = toPhysicalAddress(savecPCError, m);
+        m->pc_error = toPhysicalAddress(savecPCError, m, "in Arduino.ino loop savedPCError");
     }
 
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);

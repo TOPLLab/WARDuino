@@ -78,7 +78,7 @@ void setup(void) {
 void copyException(Module* m) {
     savedException = (char*)malloc(strlen(m->exception) + 1);
     strcpy(savedException, m->exception);
-    savecPCError = toVirtualAddress(m->pc_error, m);
+    savecPCError = toVirtualAddress(m->pc_error, m, "in Arduino-socket.ino copyExecption pc_error");
 }
 
 void loop() {
@@ -88,7 +88,7 @@ void loop() {
 
     if (savedException != nullptr) {
         m->exception = savedException;
-        m->pc_error = toPhysicalAddress(savecPCError, m);
+        m->pc_error = toPhysicalAddress(savecPCError, m, "in Arduino-socket.ino loop savedPCError");
     }
 
     Serial.println("\nFree heap:");
