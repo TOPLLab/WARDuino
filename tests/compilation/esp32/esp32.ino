@@ -1,7 +1,10 @@
-#include <Ticker.h>
+//
+// WARDuino - WebAssembly interpreter for embedded devices.
+//
+//
+#include <WARDuino.h>
 
 #include "Arduino.h"
-#include "WARDuino.h"
 
 unsigned char hello_wasm[] = {
     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x04, 0x05, 0x01, 0x70,
@@ -13,51 +16,40 @@ unsigned char hello_wasm[] = {
     0x70, 0x5f, 0x62, 0x61, 0x73, 0x65, 0x03, 0x02};
 unsigned int hello_wasm_len = 80;
 
-WARDuino wac;
-
+WARDuino* wac = WARDuino::instance();
 Module* m;
 
-#define DBGTIMEOUT 500000
+#define UART_PIN 3
 
-hw_timer_t* timer = NULL;
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+void startDebuggerStd(void* pvParameter) {
+    Channel* sink = new Sink(stdout);
+    wac->debugger->setChannel(sink);
+    sink->open();
 
-volatile bool handlingInterrupt = false;
-uint8_t buff[100] = {0};
-uint8_t buff_len = 0;
+    uint8_t buffer[1024] = {0};
+    while (true) {
+        yield();
 
-void IRAM_ATTR dbgCheck() {
-    portENTER_CRITICAL_ISR(&timerMux);
-    bool oldHandeling = handlingInterrupt;
-    handlingInterrupt = true;
-    portEXIT_CRITICAL_ISR(&timerMux);
-    if (oldHandeling) return;
-
-    while (Serial.available()) {
-        size_t buff_len = 0;
         while (Serial.available()) {
-            buff[buff_len++] = (int8_t)Serial.read();
-            if (buff_len >= 99) break;
-        }
-        if (buff_len) {
-            wac.handleInterrupt(buff_len, buff);
+            size_t buff_len = 0;
+            while (Serial.available()) {
+                buffer[buff_len++] = (int8_t)Serial.read();
+            }
+            if (buff_len) {
+                buffer[buff_len] = '\0';
+                wac->handleInterrupt(buff_len, buffer);
+            }
         }
     }
-    portENTER_CRITICAL_ISR(&timerMux);
-    handlingInterrupt = false;
-    portEXIT_CRITICAL_ISR(&timerMux);
 }
 
-void setup() {
-    Serial.begin(115200);
+void setup(void) { Serial.begin(115200); }
 
-    // Set timer
-    timer = timerBegin(0, 80, true);
-    timerAttachInterrupt(timer, &dbgCheck, true);
-    timerAlarmWrite(timer, DBGTIMEOUT, true);
-    timerAlarmEnable(timer);
+void loop() {
+    disableCore0WDT();
+    m = wac->load_module(hello_wasm, hello_wasm_len, {});
 
-    m = wac.load_module(hello_wasm, hello_wasm_len, {});
+    wac->run_module(m);
+
+    wac->unload_module(m);
 }
-
-void loop() { wac.run_module(m); }
