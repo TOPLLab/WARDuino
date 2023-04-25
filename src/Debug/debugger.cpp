@@ -397,11 +397,14 @@ void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
 void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
     uint8_t *bpData = interruptData + 1;
     uint32_t virtualAddress = read_B32(&bpData);
-    uint8_t *bpt = toPhysicalAddress(virtualAddress, m, "inHandleInterruptBP");
-    if (*interruptData == 0x06) {
-        this->addBreakpoint(bpt);
-    } else {
-        this->deleteBreakpoint(bpt);
+    if (isToPhysicalAddrPossible(virtualAddress, m)) {
+        uint8_t *bpt =
+            toPhysicalAddress(virtualAddress, m, "inHandleInterruptBP");
+        if (*interruptData == 0x06) {
+            this->addBreakpoint(bpt);
+        } else {
+            this->deleteBreakpoint(bpt);
+        }
     }
     this->channel->write("BP %" PRIu32 "!\n", virtualAddress);
 }
@@ -971,9 +974,11 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 debug("receiving breakpoints %" PRIu8 "\n", quantity_bps);
                 for (size_t i = 0; i < quantity_bps; i++) {
                     auto virtualBP = read_B32(&program_state);
-                    this->addBreakpoint(toPhysicalAddress(
-                        virtualBP, m, "in saveState breakpointsState"));
-                    printf("add breakpoint %" PRIu32 "\n", virtualBP);
+                    if (isToPhysicalAddrPossible(virtualBP, m)) {
+                        this->addBreakpoint(toPhysicalAddress(
+                            virtualBP, m, "in saveState breakpointsState"));
+                        printf("add breakpoint %" PRIu32 "\n", virtualBP);
+                    }
                 }
                 break;
             }
@@ -1299,6 +1304,7 @@ bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
     memcpy(wasm, wasm_data, wasm_len);
     WARDuino *wd = m->warduino;
     wd->update_module(m, wasm, wasm_len);
+    this->breakpoints.clear();
     return true;
 }
 

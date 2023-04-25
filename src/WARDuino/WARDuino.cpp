@@ -1022,7 +1022,6 @@ void WARDuino::free_module_state(Module *m) {
 
     // events
     // TODO unsubscribe from interrupts
-    // TODO remove breakpoints
     CallbackHandler::clear_callbacks();
 }
 
@@ -1062,4 +1061,8 @@ uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m,
               virtualAddr, m->byte_count, dbgMsg)
     }
     return m->bytes + virtualAddr;
+}
+
+bool isToPhysicalAddrPossible(uint32_t virtualAddr, Module *m) {
+    return virtualAddr < m->byte_count;
 }

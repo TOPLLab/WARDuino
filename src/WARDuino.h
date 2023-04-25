@@ -178,6 +178,7 @@ typedef struct Module {
 
 uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m, const char *dbgMsg);
 uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m, const char *dbgMsg);
+bool isToPhysicalAddrPossible(uint32_t virtualAddr, Module *m);
 
 typedef bool (*Primitive)(Module *);
 
