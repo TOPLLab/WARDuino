@@ -237,6 +237,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleUpdateGlobalValue(m, interruptData + 1);
             free(interruptData);
             break;
+        case interruptUPDATEStackValue:
+            this->handleUpdateStackValue(m, interruptData + 1);
+            free(interruptData);
+            break;
         case interruptINVOKE:
             this->handleInvoke(m, interruptData + 1);
             free(interruptData);
@@ -1137,21 +1141,23 @@ bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
 
     this->channel->write("Global %u being changed\n", index);
     StackValue *v = &m->globals[index];
-    switch (v->value_type) {
-        case I32:
-            v->value.uint32 = read_LEB_signed(&data, 32);
-            break;
-        case I64:
-            v->value.int64 = read_LEB_signed(&data, 64);
-            break;
-        case F32:
-            memcpy(&v->value.uint32, data, 4);
-            break;
-        case F64:
-            memcpy(&v->value.uint64, data, 8);
-            break;
-    }
+    bool decodeType = false;
+    deserialiseStackValue(data, decodeType, v);
     this->channel->write("Global %u changed to %u\n", index, v->value.uint32);
+    return true;
+}
+
+bool Debugger::handleUpdateStackValue(Module *m, uint8_t *data) {
+    uint32_t idx = read_LEB_32(&data);
+    if (idx >= STACK_SIZE) {
+        return false;
+    }
+    StackValue *sv = &m->stack[idx];
+    bool decodeType = false;
+    if (!deserialiseStackValue(data, decodeType, sv)) {
+        return false;
+    }
+    this->channel->write("StackValue %" PRIu32 " changed\n", idx);
     return true;
 }
 

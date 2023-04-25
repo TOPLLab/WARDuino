@@ -47,6 +47,7 @@ enum InterruptTypes {
     interruptUPDATELocal = 0x21,
     interruptUPDATEModule = 0x22,
     interruptUPDATEGlobal = 0x23,
+    interruptUPDATEStackValue = 0x24,
 
     // Remote REPL
     interruptINVOKE = 0x40,
@@ -133,6 +134,8 @@ class Debugger {
     bool handleUpdateModule(Module *m, uint8_t *data);
 
     bool handleUpdateGlobalValue(Module *m, uint8_t *data);
+
+    bool handleUpdateStackValue(Module *m, uint8_t *bytes);
 
     bool reset(Module *m);
 

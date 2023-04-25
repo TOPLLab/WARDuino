@@ -63,7 +63,7 @@ StackValue *readWasmArgs(Type function, uint8_t *data);
  * @param value
  * @return True if successful
  */
-bool deserialiseStackValue(uint8_t *input, StackValue *value);
+bool deserialiseStackValue(uint8_t *input, bool decodeType, StackValue *value);
 
 // Parse strings
 
