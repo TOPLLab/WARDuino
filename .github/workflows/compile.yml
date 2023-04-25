@@ -68,7 +68,7 @@ jobs:
                         - name: esp32:esp32
                           source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
                       sketches: |
-                        - platforms/Arduino
+                        - tests/compilation/esp32/esp32.ino
         steps:
             - name: Checkout
               uses: actions/checkout@v3
