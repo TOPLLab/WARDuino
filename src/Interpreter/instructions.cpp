@@ -929,7 +929,6 @@ bool i_instr_math_f32(Module *m, uint8_t opcode) {
     float g = m->stack[m->sp - 1].value.f32;
     float h = m->stack[m->sp].value.f32;
     uint32_t c;
-    m->sp -= 1;
     switch (opcode) {
         case 0x5b:
             c = static_cast<uint32_t>(g == h);
@@ -952,6 +951,7 @@ bool i_instr_math_f32(Module *m, uint8_t opcode) {
         default:
             return false;
     }
+    m->sp -= 1;
     m->stack[m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = c;
     return true;
@@ -1097,7 +1097,6 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
     uint32_t c;
-    m->sp -= 1;
     if (opcode >= 0x6d && opcode <= 0x70 && b == 0) {
         sprintf(exception, "integer divide by zero");
         return false;
@@ -1166,6 +1165,7 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
     //    sprintf(exception, "integer overflow");
     //    return false;
     //}
+    m->sp -= 1;
     m->stack[m->sp].value.uint32 = c;
     return true;
 }
@@ -1177,7 +1177,6 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp - 1].value.uint64;
     uint64_t e = m->stack[m->sp].value.uint64;
     uint64_t f;
-    m->sp -= 1;
     if (opcode >= 0x7f && opcode <= 0x82 && e == 0) {
         sprintf(exception, "integer divide by zero");
         return false;
@@ -1239,6 +1238,7 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
         default:
             return false;
     }
+    m->sp -= 1;
     m->stack[m->sp].value.uint64 = f;
 
     return true;
@@ -1251,7 +1251,6 @@ bool i_instr_binary_f32(Module *m, uint8_t opcode) {
     float g = m->stack[m->sp - 1].value.f32;
     float h = m->stack[m->sp].value.f32;
     float i;
-    m->sp -= 1;
     if (opcode == 0x95 && h == 0) {
         sprintf(exception, "float divide by zero");
         return false;
@@ -1281,6 +1280,7 @@ bool i_instr_binary_f32(Module *m, uint8_t opcode) {
         default:
             return false;
     }
+    m->sp -= 1;
     m->stack[m->sp].value.f32 = i;
     return true;
 }
