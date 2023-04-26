@@ -1305,6 +1305,7 @@ bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
     WARDuino *wd = m->warduino;
     wd->update_module(m, wasm, wasm_len);
     this->breakpoints.clear();
+    wd->proxyMode = ProxyNotUsed;
     return true;
 }
 
