@@ -131,7 +131,7 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 38
+#define NUM_PRIMITIVES_ARDUINO 39
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -350,6 +350,14 @@ def_prim(micros, NoneToOneU64) {
 def_prim(print_int, oneToNoneU32) {
     uint32_t integer = arg0.uint32;
     Serial.print(integer);
+    Serial.flush();
+    pop_args(1);
+    return true;
+}
+
+def_prim(print_float, oneToNoneU32) {
+    float f = arg0.f32;
+    Serial.print(f);
     Serial.flush();
     pop_args(1);
     return true;
@@ -615,8 +623,8 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
 }
 
 def_prim(req_temp, oneU32ToOneF32) {
-    // uint32_t port = arg0.uint32;
-    // debug("req_temp(%u)\n", port);
+    uint32_t port = arg0.uint32;
+    debug("req_temp(%u)\n", port);
     pushFloat32(17.34);
     return true;
 }
@@ -953,6 +961,7 @@ void install_primitives() {
     install_primitive(micros);
 
     install_primitive(print_int);
+    install_primitive(print_float);
     install_primitive(print_string);
 
     install_primitive(wifi_connect);

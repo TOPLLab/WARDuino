@@ -25,7 +25,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES_ARDUINO 30
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -276,6 +276,13 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
+def_prim(print_float, oneToNoneU32) {
+    float f = arg0.f32;
+    printf("temp %f\n", f);
+    pop_args(1);
+    return true;
+}
+
 def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
@@ -506,6 +513,7 @@ void install_primitives() {
     install_primitive(micros);
 
     install_primitive(print_int);
+    install_primitive(print_float);
     install_primitive(print_string);
 
     install_primitive(wifi_connect);
