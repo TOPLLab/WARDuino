@@ -1021,7 +1021,7 @@ void WARDuino::free_module_state(Module *m) {
     m->block_lookup.clear();
 
     // events
-    // TODO unsubscribe from interrupts
+    // TODO clear only callbacks from this module
     CallbackHandler::clear_callbacks();
 }
 

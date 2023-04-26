@@ -156,7 +156,14 @@ std::deque<Event>::const_iterator CallbackHandler::event_end() {
     return CallbackHandler::events->cend();
 }
 
-void CallbackHandler::clear_callbacks() { CallbackHandler::callbacks->clear(); }
+void CallbackHandler::clear_callbacks() {
+    for (const auto &pair : *CallbackHandler::callbacks) {
+        for (auto &cb : *pair.second) {
+            cb.unsubScribe();
+        }
+    }
+    CallbackHandler::callbacks->clear();
+}
 
 std::string CallbackHandler::dump_callbacks(bool includeOuterCurlyBraces) {
     std::string repr =
@@ -236,7 +243,8 @@ void Callback::resolve_event(const Event &e) {
     setup_call(module, fidx);
 
     // Validate argument count
-    // Callback function cannot return a result, should have return type void
+    // Callback function cannot return a result, should have return type
+    // void
     // TODO
 }
 
@@ -244,6 +252,17 @@ Callback::Callback(const Callback &c) {
     module = c.module;
     topic = c.topic;
     table_index = c.table_index;
+}
+
+void Callback::unsubScribe() {
+    if (this->unsubscribeFunc != nullptr) {
+        this->unsubscribeFunc();
+    }
+}
+
+void Callback::setUnsubscribe(std::function<void(void)> func) {
+    // TODO settings does not work
+    this->unsubscribeFunc = func;
 }
 
 // Event class

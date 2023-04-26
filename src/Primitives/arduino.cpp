@@ -634,11 +634,13 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
         return false;
     }
 
-    attachInterrupt(digitalPinToInterrupt(pin), ISRs[index].ISR_callback, mode);
+    auto digPin = digitalPinToInterrupt(pin);
+    attachInterrupt(digPin, ISRs[index].ISR_callback, mode);
 
     String callback_id = INTERRUPT_TOPIC_PREFIX;
     callback_id += String(pin);
     Callback c = Callback(m, callback_id.c_str(), tidx);
+    c.setUnsubscribe([digPin]() { detachInterrupt(digPin); });
     CallbackHandler::add_callback(c);
 
     pop_args(3);
