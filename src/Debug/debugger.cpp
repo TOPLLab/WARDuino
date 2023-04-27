@@ -54,7 +54,7 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
 }
 
 void Debugger::pushMessage(uint8_t *msg) {
-#ifndef ARDUINO
+#if !defined(ARDUINO) && !defined(PICO)
     std::lock_guard<std::mutex> lg(mutexDebugMsgs);
 #endif
     this->debugMessages.push_back(msg);
@@ -111,7 +111,7 @@ void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
 }
 
 uint8_t *Debugger::getDebugMessage() {
-#ifndef ARDUINO
+#if !defined(ARDUINO) && !defined(PICO)
     std::lock_guard<std::mutex> lg(mutexDebugMsgs);
 #endif
     if (!this->debugMessages.empty()) {
@@ -269,7 +269,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         } break;
         case interruptMonitorProxies: {
             printf("receiving functions list to proxy\n");
-            this->handleMonitorProxies(m, interruptData + 1);
+            //this->handleMonitorProxies(m, interruptData + 1);
             free(interruptData);
         } break;
         case interruptProxify: {
@@ -1074,7 +1074,7 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     this->channel->write("done!\n");
 }
 
-void Debugger::startProxySupervisor(Channel *socket) {
+/*void Debugger::startProxySupervisor(Channel *socket) {
     this->connected_to_proxy = true;
     pthread_mutex_init(&this->supervisor_mutex, nullptr);
     pthread_mutex_lock(&this->supervisor_mutex);
@@ -1093,7 +1093,7 @@ void Debugger::disconnect_proxy() {
     // TODO close file
     pthread_mutex_unlock(&this->supervisor_mutex);
     pthread_join(this->supervisor->getThreadID(), (void **)&ptr);
-}
+}*/
 
 void Debugger::updateCallbackmapping(Module *m, const char *data) {
     nlohmann::basic_json<> parsed = nlohmann::json::parse(data);

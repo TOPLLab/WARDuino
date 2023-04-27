@@ -32,7 +32,7 @@ StackValue *readArgs(Type function, uint8_t *data) {
                 break;
             }
             default: {
-                FATAL("no argument of type %" SCNu8 "\n", args[i].value_type);
+                //FATAL("no argument of type %" SCNu8 "\n", args[i].value_type);
             }
         }
     }
@@ -111,7 +111,7 @@ StackValue *readWasmArgs(Type function, uint8_t *data) {
                 break;
             }
             default: {
-                FATAL("no argument of type %" SCNu8 "\n", args[i].value_type);
+                //FATAL("no argument of type %" SCNu8 "\n", args[i].value_type);
             }
         }
     }

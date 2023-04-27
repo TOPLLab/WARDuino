@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "Debug/debugger.h"
-#include "Edward/proxy_supervisor.h"
+//#include "Edward/proxy_supervisor.h"
 #include "WARDuino/CallbackHandler.h"
 
 // Constants

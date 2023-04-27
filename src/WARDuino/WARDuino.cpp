@@ -881,7 +881,7 @@ Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
 }
 
 void WARDuino::unload_module(Module *m) {
-#ifndef ARDUINO
+#if !defined(ARDUINO) && !defined(PICO)
     this->debugger
         ->disconnect_proxy();  // TODO should this be in unload module?
 #endif

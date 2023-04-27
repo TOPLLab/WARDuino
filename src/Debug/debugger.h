@@ -11,7 +11,7 @@
 #include "../Edward/proxy_supervisor.h"
 #include "../Utils/sockets.h"
 
-#ifndef ARDUINO
+#if !defined(ARDUINO) && !defined(PICO)
 #include <mutex>
 #include <thread>
 #endif
@@ -73,7 +73,7 @@ class Debugger {
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
-#ifndef ARDUINO
+#if !defined(ARDUINO) && !defined(PICO)
     std::mutex mutexDebugMsgs;  // mutual exclude debugMessages
 #endif
     volatile bool interruptWrite{};
@@ -204,7 +204,9 @@ class Debugger {
 
     bool proxy_connected() const;
 
+#if !defined(ARDUINO) && !defined(PICO)
     void disconnect_proxy();
+#endif
 
     // Pull-based
 
