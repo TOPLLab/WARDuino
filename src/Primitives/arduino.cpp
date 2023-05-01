@@ -131,7 +131,7 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 38
+#define NUM_PRIMITIVES_ARDUINO 39
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -163,7 +163,9 @@ int prim_index = 0;
 #define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
 #define pushUInt32(arg) m->stack[++m->sp].value.uint32 = arg
 #define pushInt32(arg) m->stack[++m->sp].value.int32 = arg
-#define pushFloat32(arg) m->stack[++m->sp].value.f32 = arg
+#define pushFloat32(arg)               \
+    m->stack[++m->sp].value.f32 = arg; \
+    m->stack[m->sp].value_type = F32;
 #define pushUInt64(arg)                 \
     m->stack[++m->sp].value_type = I64; \
     m->stack[m->sp].value.uint64 = arg
@@ -348,6 +350,14 @@ def_prim(micros, NoneToOneU64) {
 def_prim(print_int, oneToNoneU32) {
     uint32_t integer = arg0.uint32;
     Serial.print(integer);
+    Serial.flush();
+    pop_args(1);
+    return true;
+}
+
+def_prim(print_float, oneToNoneU32) {
+    float f = arg0.f32;
+    Serial.print(f);
     Serial.flush();
     pop_args(1);
     return true;
@@ -632,11 +642,13 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
         return false;
     }
 
-    attachInterrupt(digitalPinToInterrupt(pin), ISRs[index].ISR_callback, mode);
+    auto digPin = digitalPinToInterrupt(pin);
+    attachInterrupt(digPin, ISRs[index].ISR_callback, mode);
 
     String callback_id = INTERRUPT_TOPIC_PREFIX;
     callback_id += String(pin);
     Callback c = Callback(m, callback_id.c_str(), tidx);
+    c.setUnsubscribe([digPin]() { detachInterrupt(digPin); });
     CallbackHandler::add_callback(c);
 
     pop_args(3);
@@ -949,6 +961,7 @@ void install_primitives() {
     install_primitive(micros);
 
     install_primitive(print_int);
+    install_primitive(print_float);
     install_primitive(print_string);
 
     install_primitive(wifi_connect);

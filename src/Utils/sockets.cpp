@@ -229,8 +229,11 @@ int ServerSideSocket::write(char const *fmt, ...) const {
     size_t total = (size_t)written;
     size_t offset = 0;
     while (offset < total) {
-        while (!this->client->canSend()) {
+        while (!this->client->canSend() && this->client->connected()) {
             printf("SocketClient::write: looping cannot send to client yet\n");
+        }
+        if (!this->client->connected()) {
+            break;
         }
         size_t amountToAdd = (total - offset) > this->client->space()
                                  ? this->client->space()

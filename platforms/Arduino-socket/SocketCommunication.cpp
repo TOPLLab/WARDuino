@@ -89,6 +89,7 @@ void SocketCommunication::unregisterClient(AsyncClient *t_client) {
 void SocketCommunication::connect2Wifi(struct WiFiCredentials credentials) {
     printf("Connecting to WiFi..\n\n");
     WiFi.begin(credentials.ssid, credentials.pswd);
+    WiFi.setSleep(false);
     while (WiFi.status() != WL_CONNECTED) {
         delay(10);
     }

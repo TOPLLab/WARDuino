@@ -246,8 +246,23 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
 
     uint8_t type = *call_result.find("type");
     auto *result = (StackValue *)malloc(sizeof(struct StackValue));
+    switch (type) {
+        case I32:
+            result->value.int32 = {*call_result.find("value")};
+            break;
+        case I64:
+            result->value.int64 = {*call_result.find("value")};
+            break;
+        case F32:
+            result->value.f32 = {*call_result.find("value")};
+            break;
+        case F64:
+            result->value.f64 = {*call_result.find("value")};
+            break;
+        default:
+            FATAL("Invalid proxy value type %" PRIu8 "\n", type);
+    }
     result->value_type = type;
-    result->value = {*call_result.find("value")};
     rfc->result = result;
 }
 

@@ -29,10 +29,10 @@ void push_guard(Module *m) {
 bool CallbackHandler::manual_event_resolution = false;
 bool CallbackHandler::resolving_event = false;
 size_t CallbackHandler::pushed_cursor = 0;
+bool CallbackHandler::notifyPush = false;
 
 bool should_push_event() {
-    return WARDuino::instance()->program_state == PROXYrun ||
-           WARDuino::instance()->program_state == PROXYhalt;
+    return WARDuino::instance()->proxyMode == ProxyRedirect;
 }
 
 std::unordered_map<std::string, std::vector<Callback> *>
@@ -79,6 +79,7 @@ void CallbackHandler::push_event(std::string topic, const char *payload,
 
 void CallbackHandler::push_event(Event *event) {
     if (events->size() < EVENTS_SIZE) {
+        CallbackHandler::notifyPush = true;
         events->push_back(*event);
     }
 }
@@ -111,6 +112,13 @@ bool CallbackHandler::resolve_event(bool force) {
     if (!force && (CallbackHandler::manual_event_resolution ||
                    WARDuino::instance()->program_state == WARDUINOpause)) {
         return true;
+    }
+
+    if (WARDuino::instance()->proxyMode == ProxyCopy) {
+        // before resolving send copy
+        WARDuino::instance()->debugger->proxyChannel->write(
+            R"({"topic":"%s","payload":"%s"})", event.topic.c_str(),
+            event.payload.c_str());
     }
 
     CallbackHandler::resolving_event = true;
@@ -148,7 +156,14 @@ std::deque<Event>::const_iterator CallbackHandler::event_end() {
     return CallbackHandler::events->cend();
 }
 
-void CallbackHandler::clear_callbacks() { CallbackHandler::callbacks->clear(); }
+void CallbackHandler::clear_callbacks() {
+    for (const auto &pair : *CallbackHandler::callbacks) {
+        for (auto &cb : *pair.second) {
+            cb.unsubScribe();
+        }
+    }
+    CallbackHandler::callbacks->clear();
+}
 
 std::string CallbackHandler::dump_callbacks(bool includeOuterCurlyBraces) {
     std::string repr =
@@ -228,7 +243,8 @@ void Callback::resolve_event(const Event &e) {
     setup_call(module, fidx);
 
     // Validate argument count
-    // Callback function cannot return a result, should have return type void
+    // Callback function cannot return a result, should have return type
+    // void
     // TODO
 }
 
@@ -236,6 +252,17 @@ Callback::Callback(const Callback &c) {
     module = c.module;
     topic = c.topic;
     table_index = c.table_index;
+}
+
+void Callback::unsubScribe() {
+    if (this->unsubscribeFunc != nullptr) {
+        this->unsubscribeFunc();
+    }
+}
+
+void Callback::setUnsubscribe(std::function<void(void)> func) {
+    // TODO settings does not work
+    this->unsubscribeFunc = func;
 }
 
 // Event class

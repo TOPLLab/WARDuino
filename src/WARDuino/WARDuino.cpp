@@ -1021,8 +1021,7 @@ void WARDuino::free_module_state(Module *m) {
     m->block_lookup.clear();
 
     // events
-    // TODO unsubscribe from interrupts
-    // TODO remove breakpoints
+    // TODO clear only callbacks from this module
     CallbackHandler::clear_callbacks();
 }
 
@@ -1042,22 +1041,28 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
     return fidx;
 }
 
-uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
+uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m,
+                          const char *dbgMsg) {
     if (physicalAddr - m->bytes < 0) {
         FATAL(
             "INVALID Addresses: physicalAddr=%p WasmPhysicalAddr=%p "
-            "(Virtual address = %d)",
+            "(Virtual address = %d). %s",
             (void *)physicalAddr, (void *)m->bytes,
-            (int)(physicalAddr - m->bytes));
+            (int)(physicalAddr - m->bytes), dbgMsg);
     }
     return physicalAddr - m->bytes;
 }
 
-uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m) {
+uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m,
+                           const char *dbgMsg) {
     if (virtualAddr >= m->byte_count) {
         FATAL("Provided virtualAddress is not within the Wasm. Given %" PRIu32
-              " Wasm size %" PRIu32 "\n",
-              virtualAddr, m->byte_count)
+              " Wasm size %" PRIu32 " %s\n",
+              virtualAddr, m->byte_count, dbgMsg)
     }
     return m->bytes + virtualAddr;
+}
+
+bool isToPhysicalAddrPossible(uint32_t virtualAddr, Module *m) {
+    return virtualAddr < m->byte_count;
 }

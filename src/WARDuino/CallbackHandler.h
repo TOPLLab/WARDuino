@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <queue>
 #include <string>
 #include <unordered_map>
@@ -27,6 +28,7 @@ class CallbackHandler {
     CallbackHandler() = default;  // Disallow creation
 
    public:
+    static bool notifyPush;
     static size_t pushed_cursor;
 
     static size_t event_count();
@@ -52,6 +54,9 @@ class CallbackHandler {
 };
 
 class Callback {
+   private:
+    std::function<void()> unsubscribeFunc{nullptr};
+
    public:
     Module *module;  // reference to module
     std::string topic;
@@ -59,6 +64,9 @@ class Callback {
 
     explicit Callback(Module *m, std::string id, uint32_t tidx);
     Callback(const Callback &c);
+
+    void setUnsubscribe(std::function<void(void)> func);
+    void unsubScribe();
 
     void resolve_event(const Event &e);
 };

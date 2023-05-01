@@ -176,8 +176,9 @@ typedef struct Module {
 
 } Module;
 
-uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m);
-uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m);
+uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m, const char *dbgMsg);
+uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m, const char *dbgMsg);
+bool isToPhysicalAddrPossible(uint32_t virtualAddr, Module *m);
 
 typedef bool (*Primitive)(Module *);
 
@@ -199,6 +200,7 @@ class WARDuino {
    public:
     Debugger *debugger;
     RunningState program_state = WARDUINOrun;
+    ProxyMode proxyMode = ProxyNotUsed;
 
     static WARDuino *instance();
 

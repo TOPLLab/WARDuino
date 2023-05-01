@@ -25,7 +25,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES_ARDUINO 30
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -62,7 +62,9 @@ double sensor_emu = 0;
 #define pushUInt64(arg)                 \
     m->stack[++m->sp].value_type = I64; \
     m->stack[m->sp].value.uint64 = arg
-#define pushFloat32(arg) m->stack[++m->sp].value.f32 = arg
+#define pushFloat32(arg)               \
+    m->stack[++m->sp].value.f32 = arg; \
+    m->stack[m->sp].value_type = F32;
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
@@ -270,6 +272,13 @@ def_prim(test, oneToNoneU32) {
 def_prim(print_int, oneToNoneU32) {
     debug("EMU: print ");
     printf("%u\n", arg0.uint32);
+    pop_args(1);
+    return true;
+}
+
+def_prim(print_float, oneToNoneU32) {
+    float f = arg0.f32;
+    printf("temp %f\n", f);
     pop_args(1);
     return true;
 }
@@ -504,6 +513,7 @@ void install_primitives() {
     install_primitive(micros);
 
     install_primitive(print_int);
+    install_primitive(print_float);
     install_primitive(print_string);
 
     install_primitive(wifi_connect);
