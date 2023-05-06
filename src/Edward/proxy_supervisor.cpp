@@ -77,6 +77,8 @@ void ProxySupervisor::listenToSocket() {
     char *buffer = (char *)malloc(start_size);
     ssize_t readAmount;
 
+    this->channel->open();
+
     dbg_info("Proxy supervisor listening to remote device...\n");
     while (continuing(this->mutex)) {
         readAmount = this->channel->read(&_char, 1);
