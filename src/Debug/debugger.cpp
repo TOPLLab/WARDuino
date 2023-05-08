@@ -704,8 +704,10 @@ void Debugger::woodDump(Module *m) {
     this->channel->write("\"callstack\":[");
     for (int j = 0; j <= m->csp; j++) {
         Frame *f = &m->callstack[j];
-        uint8_t *block_key =
-            f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
+        uint8_t bt = f->block->block_type;
+        uint8_t *block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
+                                 ? nullptr
+                                 : findOpcode(m, f->block);
         this->channel->write(
             R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
@@ -896,6 +898,20 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                                   fidx, f->block->fidx);
                         }
                         m->fp = f->sp + 1;
+                    } else if (block_type == 0xff || block_type == 0xfe) {
+                        debug("guard block %" PRIu8 "\n", block_type);
+                        auto *guard = (Block *)malloc(sizeof(struct Block));
+                        guard->block_type = block_type;
+                        guard->type = nullptr;
+                        guard->local_value_type = nullptr;
+                        guard->start_ptr = nullptr;
+                        guard->end_ptr = nullptr;
+                        guard->else_ptr = nullptr;
+                        guard->export_name = nullptr;
+                        guard->import_field = nullptr;
+                        guard->import_module = nullptr;
+                        guard->func_ptr = nullptr;
+                        f->block = guard;
                     } else {
                         debug("non function block\n");
                         auto *block_key =
