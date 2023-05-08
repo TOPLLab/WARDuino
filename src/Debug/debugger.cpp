@@ -659,7 +659,7 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
 }
 
 void Debugger::notifyPushedEvent() const {
-    this->channel->write("new pushed event");
+    this->channel->write("new pushed event\n");
 }
 
 bool Debugger::handlePushedEvent(char *bytes) const {
