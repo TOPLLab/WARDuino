@@ -30,6 +30,8 @@ Block *pop_block(Module *m) {
 
     if (frame->block->block_type == 0xff) {
         CallbackHandler::resolving_event = false;
+        // free if event guard
+        free(frame->block);
         frame = &m->callstack[m->csp--];
         t = frame->block->type;
     }
@@ -37,6 +39,8 @@ Block *pop_block(Module *m) {
     if (frame->block->block_type == 0xfe) {
         m->warduino->program_state = PROXYhalt;
         m->warduino->debugger->sendProxyCallResult(m);
+        // free if proxy guard
+        free(frame->block);
         frame = &m->callstack[m->csp--];
         t = frame->block->type;
     }
@@ -69,11 +73,6 @@ Block *pop_block(Module *m) {
     if (frame->block->block_type == 0x00) {
         // Function, set pc to return address
         m->pc_ptr = frame->ra_ptr;
-    }
-
-    // free if event or proxy guard
-    if (frame->block->block_type == 0xfe || frame->block->block_type == 0xff) {
-        free(frame->block);
     }
 
     return frame->block;
