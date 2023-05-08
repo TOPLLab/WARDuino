@@ -988,6 +988,12 @@ void WARDuino::free_module_state(Module *m) {
     }
 
     if (m->callstack != nullptr) {
+        for (int j = 0; j <= m->csp; j++) {
+            Frame *f = &m->callstack[j];
+            if (f->block->block_type == 0xfe || f->block->block_type == 0xff) {
+                free(f->block);
+            }
+        }
         free(m->callstack);
         m->callstack = nullptr;
     }
