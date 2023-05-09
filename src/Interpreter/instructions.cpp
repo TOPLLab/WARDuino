@@ -32,6 +32,7 @@ Block *pop_block(Module *m) {
         CallbackHandler::resolving_event = false;
         // free if event guard
         free(frame->block);
+        frame->block = nullptr;
         frame = &m->callstack[m->csp--];
         t = frame->block->type;
     }
@@ -41,6 +42,7 @@ Block *pop_block(Module *m) {
         m->warduino->debugger->sendProxyCallResult(m);
         // free if proxy guard
         free(frame->block);
+        frame->block = nullptr;
         frame = &m->callstack[m->csp--];
         t = frame->block->type;
     }
