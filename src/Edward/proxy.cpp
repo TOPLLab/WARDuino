@@ -38,10 +38,10 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
         return;
     }
 
+    // push function to callstack
+    setup_call(m, rfc->fidx);
     // push proxy guard block to stack
     this->pushProxyGuard(m);
-    // push function to stack
-    setup_call(m, rfc->fidx);
 
     m->warduino->program_state = PROXYrun;
 }
