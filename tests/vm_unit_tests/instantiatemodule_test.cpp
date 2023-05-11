@@ -6,15 +6,15 @@
 #include "example_code/fac/fac_wasm.h"
 #include "gtest/gtest.h"
 
-class ModuleFixture : public ::testing::Test {
+class InstantiateModuleFixture : public ::testing::Test {
    protected:
     WARDuino* warduino;
     Module* wasm_module;
     Options opts;
 
-    ModuleFixture() : warduino(WARDuino::instance()) {}
+    InstantiateModuleFixture() : warduino(WARDuino::instance()) {}
 
-    ~ModuleFixture() override {}
+    ~InstantiateModuleFixture() override {}
 
     void SetUp() override {
         wasm_module = new Module;
@@ -32,7 +32,7 @@ class ModuleFixture : public ::testing::Test {
     }
 };
 
-TEST_F(ModuleFixture, InitiallyEmpty) {
+TEST_F(InstantiateModuleFixture, InitiallyEmpty) {
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_EQ(wasm_module->types, nullptr);
     EXPECT_EQ(wasm_module->functions, nullptr);
@@ -44,7 +44,7 @@ TEST_F(ModuleFixture, InitiallyEmpty) {
     EXPECT_EQ(wasm_module->br_table, nullptr);
 }
 
-TEST_F(ModuleFixture, FacLoadsWithoutTableGlobalsAndMemory) {
+TEST_F(InstantiateModuleFixture, FacLoadsWithoutTableGlobalsAndMemory) {
     warduino->instantiate_module(wasm_module, fac_wasm, fac_wasm_len);
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_NE(wasm_module->types, nullptr);
@@ -59,7 +59,7 @@ TEST_F(ModuleFixture, FacLoadsWithoutTableGlobalsAndMemory) {
     EXPECT_EQ(wasm_module->table.entries, nullptr);
 }
 
-TEST_F(ModuleFixture, BlinkLoadsWithoutTableAndMemory) {
+TEST_F(InstantiateModuleFixture, BlinkLoadsWithoutTableAndMemory) {
     warduino->instantiate_module(wasm_module, blink_wasm, blink_wasm_len);
     EXPECT_NE(wasm_module->types, nullptr);
     EXPECT_NE(wasm_module->functions, nullptr);
@@ -73,7 +73,7 @@ TEST_F(ModuleFixture, BlinkLoadsWithoutTableAndMemory) {
     EXPECT_EQ(wasm_module->table.entries, nullptr);
 }
 
-TEST_F(ModuleFixture, DimmerLoadsWithTableMemoryAndGlobals) {
+TEST_F(InstantiateModuleFixture, DimmerLoadsWithTableMemoryAndGlobals) {
     warduino->instantiate_module(wasm_module, dimmer_wasm, dimmer_wasm_len);
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_NE(wasm_module->types, nullptr);
@@ -86,31 +86,7 @@ TEST_F(ModuleFixture, DimmerLoadsWithTableMemoryAndGlobals) {
     EXPECT_NE(wasm_module->table.entries, nullptr);
 }
 
-TEST_F(ModuleFixture, FreeingModuleStateEmptiesModule) {
-    warduino->instantiate_module(wasm_module, dimmer_wasm, dimmer_wasm_len);
-    warduino->free_module_state(wasm_module);
-
-    EXPECT_EQ(wasm_module->types, nullptr);
-    EXPECT_EQ(wasm_module->functions, nullptr);
-    EXPECT_EQ(wasm_module->globals, nullptr);
-    EXPECT_EQ(wasm_module->table.entries, nullptr);
-    EXPECT_EQ(wasm_module->memory.bytes, nullptr);
-    EXPECT_EQ(wasm_module->stack, nullptr);
-    EXPECT_EQ(wasm_module->callstack, nullptr);
-    EXPECT_EQ(wasm_module->br_table, nullptr);
-}
-
-TEST_F(ModuleFixture, FreeingStatePreservesOptions) {
-    warduino->instantiate_module(wasm_module, blink_wasm, blink_wasm_len);
-    warduino->free_module_state(wasm_module);
-    Options opts2 = wasm_module->options;
-    EXPECT_EQ(opts.disable_memory_bounds, opts2.disable_memory_bounds);
-    EXPECT_EQ(opts.dlsym_trim_underscore, opts2.dlsym_trim_underscore);
-    EXPECT_EQ(opts.mangle_table_index, opts2.mangle_table_index);
-    EXPECT_EQ(opts.return_exception, opts2.return_exception);
-}
-
-TEST_F(ModuleFixture, InstantiatingWorksDespitePauseState) {
+TEST_F(InstantiateModuleFixture, InstantiatingWorksDespitePauseState) {
     auto wd = warduino;
     auto mod = wasm_module;
     auto doInstantiate = [wd, mod]() {
@@ -128,7 +104,7 @@ TEST_F(ModuleFixture, InstantiatingWorksDespitePauseState) {
     });
 }
 
-TEST_F(ModuleFixture, InstantiatingWorksDespiteStepState) {
+TEST_F(InstantiateModuleFixture, InstantiatingWorksDespiteStepState) {
     auto wd = warduino;
     auto mod = wasm_module;
     auto doInstantiate = [wd, mod]() {
@@ -146,7 +122,7 @@ TEST_F(ModuleFixture, InstantiatingWorksDespiteStepState) {
     });
 }
 
-TEST_F(ModuleFixture, InstantiatingWorksDespitePROXYrunState) {
+TEST_F(InstantiateModuleFixture, InstantiatingWorksDespitePROXYrunState) {
     auto wd = warduino;
     auto mod = wasm_module;
     auto doInstantiate = [wd, mod]() {
@@ -164,7 +140,7 @@ TEST_F(ModuleFixture, InstantiatingWorksDespitePROXYrunState) {
     });
 }
 
-TEST_F(ModuleFixture, InstantiatingWorksDespitePROXYhaltState) {
+TEST_F(InstantiateModuleFixture, InstantiatingWorksDespitePROXYhaltState) {
     auto wd = warduino;
     auto mod = wasm_module;
     auto doInstantiate = [wd, mod]() {
