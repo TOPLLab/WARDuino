@@ -40,7 +40,7 @@ test/*.js
 *.map
 
 WABT
-core/
+!core
 
 .idea
 
