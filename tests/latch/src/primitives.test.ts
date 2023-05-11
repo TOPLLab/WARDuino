@@ -1,15 +1,23 @@
-import {Expected, Instance, ProcessBridge, TestScenario} from '../../src/framework/Describer';
-import {Action, Instruction} from '../../src/framework/Actions';
-import {Type} from '../../src/wasm/spec';
-import {Framework} from '../../src/framework/Framework';
+import {
+    Action, DependenceScheduler,
+    Expected,
+    Framework,
+    HybridScheduler,
+    Instance,
+    Instruction,
+    ProcessBridge,
+    TestScenario,
+    Type
+} from 'latch';
 import {ARDUINO, EMULATOR, EmulatorBridge, HardwareBridge} from './util/warduino.bridge';
-import {DependenceScheduler} from '../../src/framework/Scheduler';
 import * as mqtt from 'mqtt';
 
 const framework = Framework.getImplementation();
 
-framework.platform(new EmulatorBridge(EMULATOR));
-framework.platform(new HardwareBridge(ARDUINO), new DependenceScheduler());
+// TODO disclaimer: file is currently disabled until latch supports AS compilation
+
+framework.platform(new EmulatorBridge(EMULATOR), new HybridScheduler(), true);
+framework.platform(new HardwareBridge(ARDUINO), new DependenceScheduler(), true);
 
 framework.suite('Integration tests: basic primitives');
 
@@ -94,10 +102,12 @@ const interrupts: TestScenario = {
     steps: [{
         title: 'Subscribe to falling interrupt on pin 36',
         instruction: Instruction.invoke,
-        payload: {name: 'interrupts.subscribe', args: [
-            {type: Type.i32, value: 36},
-            {type: Type.i32, value: 0},
-            {type: Type.i32, value: 2}]},
+        payload: {
+            name: 'interrupts.subscribe', args: [
+                {type: Type.i32, value: 36},
+                {type: Type.i32, value: 0},
+                {type: Type.i32, value: 2}]
+        },
         expected: [{
             'stack': {
                 kind: 'comparison', value: (state: Object, value: Array<any>) => {
@@ -133,7 +143,7 @@ function awaitBreakpoint(bridge: ProcessBridge, instance: Instance): Promise<str
         });
 
         // send mqtt message
-        let client : mqtt.MqttClient = mqtt.connect('mqtt://test.mosquitto.org');
+        let client: mqtt.MqttClient = mqtt.connect('mqtt://test.mosquitto.org');
         client.publish('parrot', 'This is an ex-parrot!');
     });
 }

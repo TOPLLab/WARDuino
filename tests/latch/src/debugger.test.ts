@@ -1,107 +1,19 @@
-/**
- * This file contains test suites of the WARDuino VM and debugger.
- *
- * These tests are independent of the plugin and uses the emulator version of the VM (wdcli).
- */
-
 /* eslint-disable @typescript-eslint/naming-convention */
 
-import 'mocha';
-import {Behaviour, Description, Expectation, Expected, getValue, Step, TestScenario} from '../../src/framework/Describer';
-import {Framework} from '../../src/framework/Framework';
-import {DependenceScheduler} from '../../src/framework/Scheduler';
-import {ARDUINO, EMULATOR, EmulatorBridge, HardwareBridge} from './util/warduino.bridge';
-import {Instruction} from '../../src/framework/Actions';
+import {
+    Behaviour,
+    Description,
+    Expectation,
+    Expected,
+    Framework,
+    getValue,
+    Instruction,
+    Step,
+    TestScenario
+} from 'latch';
+import {EMULATOR, EmulatorBridge} from './util/warduino.bridge';
 
-const EXAMPLES: string = 'src/test/suite/examples/';
-let INITIAL_PORT: number = 7900;
-
-/**
- * Test Suite of the WARDuino CLI
- */
-
-// describe('WARDuino CLI: test exit codes', () => {
-//     let process: ChildProcess;
-//
-//     /**
-//      * Tests to see if VM and debugger start properly
-//      */
-//
-//     it('Test: exit code (0)', function (done) {
-//         this.timeout(3500);
-//         process = spawn(EMULATOR, [`${EXAMPLES}hello.wasm`, '--no-debug']).on('exit', function (code) {
-//             expect(code).to.equal(0);
-//             done();
-//         });
-//     });
-//
-//     it('Test: exit code (1)', function (done) {
-//         process = spawn(EMULATOR, [`${EXAMPLES}nonexistent.wasm`, '--socket', (INITIAL_PORT++).toString()]).on('exit', function (code) {
-//             expect(code).to.equal(1);
-//             done();
-//         });
-//     });
-//
-//     afterEach('Shutdown CLI', function () {
-//         process.removeAllListeners('exit');
-//         process.kill('SIGKILL');
-//     });
-// });
-//
-// describe('WARDuino CLI: test debugging socket', () => {
-//
-//     it('Test: start websocket', function (done) {
-//         let succeeded = false;
-//
-//         const process: ChildProcess = startWARDuino(EMULATOR, `${EXAMPLES}blink.wasm`, INITIAL_PORT++);
-//         process.on('exit', function (code) {
-//             assert.isTrue(succeeded, `Interpreter should not exit (${code}).`);
-//             done();
-//         });
-//
-//         while (process.stdout === undefined) {
-//         }
-//
-//         if (isReadable(process.stdout)) {
-//             const reader = new ReadlineParser();
-//             process.stdout.pipe(reader);
-//
-//             reader.on('data', (data) => {
-//                 if (data.includes('Listening')) {
-//                     succeeded = true;
-//                     process.kill('SIGKILL');
-//                 }
-//             });
-//         }
-//     });
-//
-//     it('Test: connect to websocket', async function () {
-//         const instance: Emulator = await connectSocket(EMULATOR, `${EXAMPLES}blink.wasm`, INITIAL_PORT++);
-//         instance.interface.destroy();
-//         instance.process.kill('SIGKILL');
-//     });
-// });
-//
-// describe.skip('WARDuino CLI: test proxy connection', () => {
-//     it('Test: --proxy flag', function (done) {
-//         const address = {port: INITIAL_PORT, host: '127.0.0.1'};
-//         const proxy: net.Server = new net.Server();
-//         proxy.listen(INITIAL_PORT++);
-//         proxy.on('connection', () => {
-//             done();
-//         });
-//
-//         connectSocket(EMULATOR, `${EXAMPLES}blink.wasm`, INITIAL_PORT++, ['--proxy', address.port.toString()]).then((instance: Emulator) => {
-//             instance.process.on('exit', function (code) {
-//                 assert.fail(`Interpreter should not exit. (code: ${code})`);
-//                 done();
-//             });
-//         }).catch(function (message) {
-//             assert.fail(message);
-//             done();
-//         });
-//     });
-// });
+const EXAMPLES: string = 'examples/';
 
 /**
  * Tests of the Remote Debugger API
@@ -110,7 +22,7 @@ let INITIAL_PORT: number = 7900;
 const framework = Framework.getImplementation();
 
 framework.platform(new EmulatorBridge(EMULATOR));
-framework.platform(new HardwareBridge(ARDUINO), new DependenceScheduler(), true);
+//framework.platform(new HardwareBridge(ARDUINO), new DependenceScheduler(), true);
 
 framework.suite('Integration tests: Debugger');
 
