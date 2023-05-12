@@ -245,17 +245,17 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleInvoke(m, interruptData + 1);
             free(interruptData);
             break;
-        case interruptWOODDUMP:
+        case interruptSnapshot:
             *program_state = WARDUINOpause;
             free(interruptData);
-            woodDump(m);
+            snapshot(m);
             break;
         case interruptOffset:
             free(interruptData);
             printf("offset\n");
             this->channel->write("{\"offset\":\"%p\"}\n", (void *)m->bytes);
             break;
-        case interruptRecvState:
+        case interruptLoadSnapshot:
             if (!this->receivingData) {
                 *program_state = WARDUINOpause;
                 debug("paused program execution\n");
@@ -672,9 +672,9 @@ bool Debugger::handlePushedEvent(char *bytes) const {
     return true;
 }
 
-void Debugger::woodDump(Module *m) {
+void Debugger::snapshot(Module *m) {
     debug("asked for doDump\n");
-    printf("asked for woodDump\n");
+    printf("asked for snapshot\n");
     this->channel->write("DUMP!\n");
     this->channel->write("{");
 
@@ -768,7 +768,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
     debug("freeing the program state\n");
     uint8_t *first_msg = nullptr;
     uint8_t *endfm = nullptr;
-    first_msg = interruptData + 1;  // skip interruptRecvState
+    first_msg = interruptData + 1;  // skip interruptLoadSnapshot
     endfm = first_msg + read_B32(&first_msg);
 
     // nullify state
@@ -853,7 +853,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
 bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     uint8_t *program_state = nullptr;
     uint8_t *end_state = nullptr;
-    program_state = interruptData + 1;  // skip interruptRecvState
+    program_state = interruptData + 1;  // skip interruptLoadSnapshot
     end_state = program_state + read_B32(&program_state);
 
     debug("saving program_state\n");

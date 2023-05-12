@@ -53,9 +53,9 @@ enum InterruptTypes {
     interruptINVOKE = 0x40,
 
     // Pull Debugging
-    interruptWOODDUMP = 0x60,
+    interruptSnapshot = 0x60,
     interruptOffset = 0x61,
-    interruptRecvState = 0x62,
+    interruptLoadSnapshot = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
     interruptProxify = 0x65,  // wifi SSID \0 wifi PASS \0
@@ -192,9 +192,9 @@ class Debugger {
 
     void notifyBreakpoint(uint8_t *pc_ptr) const;
 
-    // Out-of-place debugging
+    // Out-of-place debugging: EDWARD
 
-    void woodDump(Module *m);
+    void snapshot(Module *m);
 
     void proxify();
 
