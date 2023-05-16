@@ -673,21 +673,19 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 }
 
 void Debugger::snapshot(Module *m) {
+    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     debug("asked for doDump\n");
     printf("asked for snapshot\n");
     this->channel->write("DUMP!\n");
     this->channel->write("{");
 
     // current PC
-    this->channel->write(R"("pc":"%p",)", (void *)m->pc_ptr);
-
-    // start of bytes
-    this->channel->write(R"("start":["%p"],)", (void *)m->bytes);
+    this->channel->write("\"pc\":%" PRIu32 ",", toVA(m->pc_ptr));
 
     this->channel->write("\"breakpoints\":[");
     size_t i = 0;
     for (auto bp : this->breakpoints) {
-        this->channel->write(R"("%p"%s)", bp,
+        this->channel->write("%" PRIu32 "%s", toVA(bp),
                              (++i < this->breakpoints.size()) ? "," : "");
     }
     this->channel->write("],");
@@ -705,13 +703,16 @@ void Debugger::snapshot(Module *m) {
     for (int j = 0; j <= m->csp; j++) {
         Frame *f = &m->callstack[j];
         uint8_t bt = f->block->block_type;
-        uint8_t *block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
-                                 ? nullptr
-                                 : findOpcode(m, f->block);
+        uint32_t block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
+                                 ? 0
+                                 : toVA(findOpcode(m, f->block));
         this->channel->write(
-            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
-            f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
-            static_cast<void *>(f->ra_ptr), j, (j < m->csp) ? "," : "");
+            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"idx":%d,)", bt,
+            f->block->fidx, f->sp, f->fp, j);
+        this->channel->write("\"block_key\":%" PRIu32 ",\"ra\":%" PRIu32 "}%s",
+                             block_key,
+                             f->ra_ptr == nullptr ? 0 : toVA(f->ra_ptr),
+                             (j < m->csp) ? "," : "");
     }
 
     // Globals
