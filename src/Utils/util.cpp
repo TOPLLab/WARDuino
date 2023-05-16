@@ -308,3 +308,30 @@ unsigned short int sizeof_valuetype(uint32_t vt) {
             return sizeof(double);
     }
 }
+
+uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
+    if (physicalAddr - m->bytes < 0 ||
+        physicalAddr > m->bytes + m->byte_count) {
+        FATAL(
+            "INVALID toVirtualAddress conversion: physicalAddr=%p "
+            "WasmPhysicalAddr=%p "
+            "(Virtual address = %d)",
+            (void *)physicalAddr, (void *)m->bytes,
+            (int)(physicalAddr - m->bytes));
+    }
+    return physicalAddr - m->bytes;
+}
+
+uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m) {
+    if (virtualAddr >= m->byte_count) {
+        FATAL(
+            "INVALID toPhysicalAddress conversion: "
+            "VirtualAddr=%" PRIu32 " is not within the Wasm size %" PRIu32 "\n",
+            virtualAddr, m->byte_count)
+    }
+    return m->bytes + virtualAddr;
+}
+
+bool isToPhysicalAddrPossible(uint32_t virtualAddr, Module *m) {
+    return virtualAddr < m->byte_count;
+}
