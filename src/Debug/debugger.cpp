@@ -417,15 +417,13 @@ void Debugger::handleInterruptBP(const uint8_t *interruptData) {
 }
 
 void Debugger::dump(Module *m, bool full) const {
+    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("{");
 
     // current PC
-    this->channel->write(R"("pc":"%p",)", (void *)m->pc_ptr);
+    this->channel->write("\"pc\":%" PRIu32 ",", toVA(m->pc_ptr));
 
-    // start of bytes
-    this->channel->write(R"("start":["%p"],)", (void *)m->bytes);
-
-    this->dumpBreakpoints();
+    this->dumpBreakpoints(m);
 
     this->dumpFunctions(m);
 
@@ -452,12 +450,12 @@ void Debugger::dumpStack(Module *m) const {
     this->channel->write("]}\n\n");
 }
 
-void Debugger::dumpBreakpoints() const {
+void Debugger::dumpBreakpoints(Module *m) const {
     this->channel->write("\"breakpoints\":[");
     {
         size_t i = 0;
         for (auto bp : this->breakpoints) {
-            this->channel->write(R"("%p"%s)", bp,
+            this->channel->write("%" PRIu32 "%s", toVirtualAddress(bp, m),
                                  (++i < this->breakpoints.size()) ? "," : "");
         }
     }
@@ -468,10 +466,10 @@ void Debugger::dumpFunctions(Module *m) const {
     this->channel->write("\"functions\":[");
 
     for (size_t i = m->import_count; i < m->function_count; i++) {
-        this->channel->write(R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
-                             m->functions[i].fidx,
-                             static_cast<void *>(m->functions[i].start_ptr),
-                             static_cast<void *>(m->functions[i].end_ptr),
+        this->channel->write(R"({"fidx":"0x%x",)", m->functions[i].fidx);
+        this->channel->write("\"from\":%" PRIu32 ",\"to\":%" PRIu32 "}%s",
+                             toVirtualAddress(m->functions[i].start_ptr, m),
+                             toVirtualAddress(m->functions[i].end_ptr, m),
                              (i < m->function_count - 1) ? "," : "],");
     }
 }
@@ -480,15 +478,26 @@ void Debugger::dumpFunctions(Module *m) const {
  * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
  */
 void Debugger::dumpCallstack(Module *m) const {
+    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("\"callstack\":[");
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
-        uint8_t *callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
-        this->channel->write(
-            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"start":"%p","ra":"%p","callsite":"%p"}%s)",
-            f->block->block_type, f->block->fidx, f->sp, f->fp,
-            f->block->start_ptr, static_cast<void *>(f->ra_ptr),
-            static_cast<void *>(callsite), (i < m->csp) ? "," : "]");
+        uint8_t *callsite = nullptr;
+        uint32_t callsite_retaddr = 0;
+        uint32_t retaddr = 0;
+        // first frame has no retrun address
+        if (f->ra_ptr != nullptr) {
+            callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
+            callsite_retaddr = toVA(callsite);
+            retaddr = toVA(f->ra_ptr);
+        }
+        this->channel->write(R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,)",
+                             f->block->block_type, f->block->fidx, f->sp,
+                             f->fp);
+        this->channel->write("\"start\":%" PRIu32 ",\"ra\":%" PRIu32
+                             ",\"callsite\":%" PRIu32 "}%s",
+                             toVA(f->block->start_ptr), retaddr,
+                             callsite_retaddr, (i < m->csp) ? "," : "]");
     }
 }
 

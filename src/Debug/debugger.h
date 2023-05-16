@@ -115,7 +115,7 @@ class Debugger {
 
     void dumpLocals(Module *m) const;
 
-    void dumpBreakpoints() const;
+    void dumpBreakpoints(Module *m) const;
 
     void dumpFunctions(Module *m) const;
 
