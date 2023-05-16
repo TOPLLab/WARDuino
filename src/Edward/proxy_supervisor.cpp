@@ -29,23 +29,20 @@ bool is_success(const char *msg) {
     return (msg != nullptr) && (msg[0] == '\0');  // check if string is empty
 }
 
-bool continuing(pthread_mutex_t *mutex) {
-    switch (pthread_mutex_trylock(mutex)) {
-        case 0: /* if we got the lock, unlock and return false */
-            pthread_mutex_unlock(mutex);
-            return false;
-        case EBUSY: /* return true if the mutex was locked */
-        default:
-            return true;
+bool continuing(std::mutex *mutex) {
+    if (mutex->try_lock()) {
+        /* if we got the lock, unlock and return false */
+        mutex->unlock();
+        return false;
     }
+    /* return true if the mutex was locked */
+    return true;
 }
 
-void *runSupervisor(void *input) {
+void runSupervisor(ProxySupervisor *supervisor) {
     // Print value received as argument:
     dbg_info("\n=== LISTENING TO SOCKET (in separate thread) ===\n");
-    auto *supervisor = (ProxySupervisor *)input;
     supervisor->listenToSocket();
-    pthread_exit(nullptr);
 }
 
 Event *parseJSON(char *buff) {
@@ -56,13 +53,12 @@ Event *parseJSON(char *buff) {
     return new Event(*parsed.find("topic"), payload);
 }
 
-ProxySupervisor::ProxySupervisor(Channel *duplex, pthread_mutex_t *mutex) {
+ProxySupervisor::ProxySupervisor(Channel *duplex, std::mutex *mutex) {
     debug("Starting supervisor.\n");
     this->channel = duplex;
     this->mutex = mutex;
+    this->thread = std::thread(runSupervisor, this);
     this->proxyResult = nullptr;
-
-    pthread_create(&this->threadid, nullptr, runSupervisor, this);
 }
 
 bool isEvent(nlohmann::basic_json<> parsed) {
@@ -80,6 +76,8 @@ void ProxySupervisor::listenToSocket() {
     uint32_t current_size = start_size;
     char *buffer = (char *)malloc(start_size);
     ssize_t readAmount;
+
+    this->channel->open();
 
     dbg_info("Proxy supervisor listening to remote device...\n");
     while (continuing(this->mutex)) {
@@ -142,8 +140,6 @@ nlohmann::basic_json<> ProxySupervisor::readReply() {
     this->hasReplied = false;
     return this->proxyResult;
 }
-
-pthread_t ProxySupervisor::getThreadID() { return this->threadid; }
 
 /*
  * returns the quantity of bytes needed to serialize a Proxy.
@@ -244,8 +240,23 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
 
     uint8_t type = *call_result.find("type");
     auto *result = (StackValue *)malloc(sizeof(struct StackValue));
+    switch (type) {
+        case I32:
+            result->value.int32 = {*call_result.find("value")};
+            break;
+        case I64:
+            result->value.int64 = {*call_result.find("value")};
+            break;
+        case F32:
+            result->value.f32 = {*call_result.find("value")};
+            break;
+        case F64:
+            result->value.f64 = {*call_result.find("value")};
+            break;
+        default:
+            FATAL("Invalid proxy value type %" PRIu8 "\n", type);
+    }
     result->value_type = type;
-    result->value = {*call_result.find("value")};
     rfc->result = result;
 }
 

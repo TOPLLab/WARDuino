@@ -15,7 +15,11 @@
 
 // Debugger
 
-Debugger::Debugger(Channel *duplex) { this->channel = duplex; }
+Debugger::Debugger(Channel *duplex) {
+    this->channel = duplex;
+    this->supervisor_mutex = new std::mutex();
+    this->supervisor_mutex->lock();
+}
 
 // Public methods
 
@@ -54,10 +58,10 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
 }
 
 void Debugger::pushMessage(uint8_t *msg) {
-#ifndef ARDUINO
-    std::lock_guard<std::mutex> lg(mutexDebugMsgs);
-#endif
+    std::lock_guard<std::mutex> const lg(messageQueueMutex);
     this->debugMessages.push_back(msg);
+    this->freshMessages = !this->debugMessages.empty();
+    this->messageQueueConditionVariable.notify_one();
 }
 
 void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
@@ -111,16 +115,14 @@ void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
 }
 
 uint8_t *Debugger::getDebugMessage() {
-#ifndef ARDUINO
-    std::lock_guard<std::mutex> lg(mutexDebugMsgs);
-#endif
+    std::lock_guard<std::mutex> const lg(messageQueueMutex);
+    uint8_t *ret = nullptr;
     if (!this->debugMessages.empty()) {
-        uint8_t *ret = this->debugMessages.front();
+        ret = this->debugMessages.front();
         this->debugMessages.pop_front();
-        return ret;
-    } else {
-        return nullptr;
     }
+    this->freshMessages = !this->debugMessages.empty();
+    return ret;
 }
 
 void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
@@ -231,21 +233,29 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->channel->write("CHANGE Module!\n");
             free(interruptData);
             break;
+        case interruptUPDATEGlobal:
+            this->handleUpdateGlobalValue(m, interruptData + 1);
+            free(interruptData);
+            break;
+        case interruptUPDATEStackValue:
+            this->handleUpdateStackValue(m, interruptData + 1);
+            free(interruptData);
+            break;
         case interruptINVOKE:
             this->handleInvoke(m, interruptData + 1);
             free(interruptData);
             break;
-        case interruptWOODDUMP:
+        case interruptSnapshot:
             *program_state = WARDUINOpause;
             free(interruptData);
-            woodDump(m);
+            snapshot(m);
             break;
         case interruptOffset:
             free(interruptData);
             printf("offset\n");
             this->channel->write("{\"offset\":\"%p\"}\n", (void *)m->bytes);
             break;
-        case interruptRecvState:
+        case interruptLoadSnapshot:
             if (!this->receivingData) {
                 *program_state = WARDUINOpause;
                 debug("paused program execution\n");
@@ -649,22 +659,22 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
 }
 
 void Debugger::notifyPushedEvent() const {
-    this->channel->write("new pushed event");
+    this->channel->write("new pushed event\n");
 }
 
 bool Debugger::handlePushedEvent(char *bytes) const {
     if (*bytes != interruptPUSHEvent) return false;
-    auto parsed = nlohmann::json::parse(bytes);
-    printf("handle pushed event: %s", bytes);
+    auto parsed = nlohmann::json::parse(bytes + 1);
+    printf("handle pushed event: %s\n", bytes + 1);
     auto *event = new Event(*parsed.find("topic"), *parsed.find("payload"));
     CallbackHandler::push_event(event);
     this->notifyPushedEvent();
     return true;
 }
 
-void Debugger::woodDump(Module *m) {
+void Debugger::snapshot(Module *m) {
     debug("asked for doDump\n");
-    printf("asked for woodDump\n");
+    printf("asked for snapshot\n");
     this->channel->write("DUMP!\n");
     this->channel->write("{");
 
@@ -694,8 +704,10 @@ void Debugger::woodDump(Module *m) {
     this->channel->write("\"callstack\":[");
     for (int j = 0; j <= m->csp; j++) {
         Frame *f = &m->callstack[j];
-        uint8_t *block_key =
-            f->block->block_type == 0 ? nullptr : findOpcode(m, f->block);
+        uint8_t bt = f->block->block_type;
+        uint8_t *block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
+                                 ? nullptr
+                                 : findOpcode(m, f->block);
         this->channel->write(
             R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
             f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
@@ -756,7 +768,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
     debug("freeing the program state\n");
     uint8_t *first_msg = nullptr;
     uint8_t *endfm = nullptr;
-    first_msg = interruptData + 1;  // skip interruptRecvState
+    first_msg = interruptData + 1;  // skip interruptLoadSnapshot
     endfm = first_msg + read_B32(&first_msg);
 
     // nullify state
@@ -841,7 +853,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
 bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     uint8_t *program_state = nullptr;
     uint8_t *end_state = nullptr;
-    program_state = interruptData + 1;  // skip interruptRecvState
+    program_state = interruptData + 1;  // skip interruptLoadSnapshot
     end_state = program_state + read_B32(&program_state);
 
     debug("saving program_state\n");
@@ -886,6 +898,20 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                                   fidx, f->block->fidx);
                         }
                         m->fp = f->sp + 1;
+                    } else if (block_type == 0xff || block_type == 0xfe) {
+                        debug("guard block %" PRIu8 "\n", block_type);
+                        auto *guard = (Block *)malloc(sizeof(struct Block));
+                        guard->block_type = block_type;
+                        guard->type = nullptr;
+                        guard->local_value_type = nullptr;
+                        guard->start_ptr = nullptr;
+                        guard->end_ptr = nullptr;
+                        guard->else_ptr = nullptr;
+                        guard->export_name = nullptr;
+                        guard->import_field = nullptr;
+                        guard->import_module = nullptr;
+                        guard->func_ptr = nullptr;
+                        f->block = guard;
                     } else {
                         debug("non function block\n");
                         auto *block_key =
@@ -1076,10 +1102,8 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
 
 void Debugger::startProxySupervisor(Channel *socket) {
     this->connected_to_proxy = true;
-    pthread_mutex_init(&this->supervisor_mutex, nullptr);
-    pthread_mutex_lock(&this->supervisor_mutex);
 
-    this->supervisor = new ProxySupervisor(socket, &this->supervisor_mutex);
+    this->supervisor = new ProxySupervisor(socket, this->supervisor_mutex);
     printf("Connected to proxy.\n");
 }
 
@@ -1089,10 +1113,9 @@ void Debugger::disconnect_proxy() {
     if (!this->proxy_connected()) {
         return;
     }
-    int *ptr;
     // TODO close file
-    pthread_mutex_unlock(&this->supervisor_mutex);
-    pthread_join(this->supervisor->getThreadID(), (void **)&ptr);
+    this->supervisor_mutex->unlock();
+    this->supervisor->thread.join();
 }
 
 void Debugger::updateCallbackmapping(Module *m, const char *data) {
@@ -1126,10 +1149,45 @@ bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
     return true;
 }
 
+bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
+    this->channel->write("Global updates: %x\n", *data);
+    uint32_t index = read_LEB_32(&data);
+
+    if (index >= m->global_count) return false;
+
+    this->channel->write("Global %u being changed\n", index);
+    StackValue *v = &m->globals[index];
+    bool decodeType = false;
+    deserialiseStackValue(data, decodeType, v);
+    this->channel->write("Global %u changed to %u\n", index, v->value.uint32);
+    return true;
+}
+
+bool Debugger::handleUpdateStackValue(Module *m, uint8_t *data) {
+    uint32_t idx = read_LEB_32(&data);
+    if (idx >= STACK_SIZE) {
+        return false;
+    }
+    StackValue *sv = &m->stack[idx];
+    bool decodeType = false;
+    if (!deserialiseStackValue(data, decodeType, sv)) {
+        return false;
+    }
+    this->channel->write("StackValue %" PRIu32 " changed\n", idx);
+    return true;
+}
+
 bool Debugger::reset(Module *m) {
     auto wasm = (uint8_t *)malloc(sizeof(uint8_t) * m->byte_count);
     memcpy(wasm, m->bytes, m->byte_count);
     m->warduino->update_module(m, wasm, m->byte_count);
     this->channel->write("Reset WARDuino.\n");
     return true;
+}
+
+Debugger::~Debugger() {
+    this->disconnect_proxy();
+    this->stop();
+    delete this->supervisor_mutex;
+    delete this->supervisor;
 }

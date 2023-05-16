@@ -30,6 +30,9 @@ Block *pop_block(Module *m) {
 
     if (frame->block->block_type == 0xff) {
         CallbackHandler::resolving_event = false;
+        // free if event guard
+        free(frame->block);
+        frame->block = nullptr;
         frame = &m->callstack[m->csp--];
         t = frame->block->type;
     }
@@ -37,6 +40,9 @@ Block *pop_block(Module *m) {
     if (frame->block->block_type == 0xfe) {
         m->warduino->program_state = PROXYhalt;
         m->warduino->debugger->sendProxyCallResult(m);
+        // free if proxy guard
+        free(frame->block);
+        frame->block = nullptr;
         frame = &m->callstack[m->csp--];
         t = frame->block->type;
     }
@@ -1525,9 +1531,16 @@ bool interpret(Module *m, bool waiting) {
         // no event currently resolving
         CallbackHandler::resolve_event();
 
-        // Skip the main loop if paused or drone
+        // Sleep interpret loop if 'paused' or 'waiting drone'
         if (m->warduino->program_state == WARDUINOpause ||
             m->warduino->program_state == PROXYhalt) {
+            // wait until new debug messages arrive
+            if (m->warduino->program_state == WARDUINOpause) {
+                std::unique_lock<std::mutex> lock(
+                    m->warduino->debugger->messageQueueMutex);
+                m->warduino->debugger->messageQueueConditionVariable.wait(
+                    lock, [m] { return m->warduino->debugger->freshMessages; });
+            }
             continue;
         }
 

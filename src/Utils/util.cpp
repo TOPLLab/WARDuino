@@ -118,6 +118,33 @@ StackValue *readWasmArgs(Type function, uint8_t *data) {
     return args;
 }
 
+bool deserialiseStackValue(uint8_t *input, bool decodeType, StackValue *value) {
+    if (decodeType) {
+        uint8_t valtypes[] = {I32, I64, F32, F64};
+        uint8_t type_index = *input++;
+        if (type_index >= sizeof(valtypes)) return false;
+        value->value.uint64 = 0;  // init whole union to 0
+        value->value_type = valtypes[type_index];
+    }
+    switch (value->value_type) {
+        case I32:
+            value->value.uint32 = read_LEB_signed(&input, 32);
+            break;
+        case I64:
+            value->value.int64 = read_LEB_signed(&input, 64);
+            break;
+        case F32:
+            memcpy(&value->value.uint32, input, 4);
+            break;
+        case F64:
+            memcpy(&value->value.uint64, input, 8);
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
 // Strings
 
 // Reads a string from the bytes array at pos that starts with a LEB length

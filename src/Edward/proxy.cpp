@@ -38,10 +38,10 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
         return;
     }
 
+    // push function to callstack
+    setup_call(m, rfc->fidx);
     // push proxy guard block to stack
     this->pushProxyGuard(m);
-    // push function to stack
-    setup_call(m, rfc->fidx);
 
     m->warduino->program_state = PROXYrun;
 }
@@ -113,7 +113,7 @@ void Proxy::pushProxyGuard(Module *m) {
     if (m == nullptr) {
         return;
     }
-    auto *guard = new Block();
-    guard->block_type = 255;  // 0xfe proxy guard
+    auto *guard = (Block *)malloc(sizeof(struct Block));
+    guard->block_type = 0xfe;  // 0xfe proxy guard
     push_block(m, guard, m->sp);
 }

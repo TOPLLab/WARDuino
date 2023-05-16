@@ -3,17 +3,16 @@
 //
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <pthread.h>
 #include <termios.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
+#include <thread>
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
-#include "../../tests/integration/wasm_tests.h"
 #include "warduino/config.h"
 
 // Constants
@@ -40,15 +39,6 @@ void print_help() {
     fprintf(stdout,
             "    --loop         Let the runtime loop infinitely on exceptions "
             "(default: false)\n");
-    fprintf(stdout,
-            "    --test         Run in test mode with .wast file with module "
-            "as argument\n");
-    fprintf(stdout,
-            "    --asserts      Name of file containing asserts to run against "
-            "loaded module\n");
-    fprintf(stdout,
-            "    --watcompiler  Command to compile Wat files to Wasm "
-            "binaries (default: wat2wasm)\n");
     fprintf(stdout,
             "    --no-debug     Run without debug thread"
             "(default: false)\n");
@@ -114,10 +104,10 @@ error:
     return nullptr;
 }
 
-void *startDebuggerCommunication(void *arg) {
+void startDebuggerCommunication() {
     Channel *duplex = WARDuino::instance()->debugger->channel;
     if (duplex == nullptr) {
-        return nullptr;
+        return;
     }
 
     duplex->open();
@@ -264,7 +254,6 @@ int main(int argc, const char *argv[]) {
     ARGV_SHIFT();  // Skip command name
 
     bool return_exception = true;
-    bool run_tests = false;
     bool no_debug = false;
     bool no_socket = false;
     const char *socket = "8192";
@@ -276,9 +265,6 @@ int main(int argc, const char *argv[]) {
 
     const char *fname = nullptr;
     std::vector<StackValue> arguments = std::vector<StackValue>();
-
-    const char *asserts_file = nullptr;
-    const char *watcompiler = "wat2wasm";
 
     if (argc > 0 && argv[0][0] != '-') {
         ARGV_GET(file_name);
@@ -304,13 +290,6 @@ int main(int argc, const char *argv[]) {
             return 0;
         } else if (!strcmp("--loop", arg)) {
             return_exception = false;
-        } else if (!strcmp("--test", arg)) {
-            run_tests = true;
-            ARGV_GET(file_name);
-        } else if (!strcmp("--asserts", arg)) {
-            ARGV_GET(asserts_file);
-        } else if (!strcmp("--watcompiler", arg)) {
-            ARGV_GET(watcompiler);
         } else if (!strcmp("--no-debug", arg)) {
             no_debug = true;
         } else if (!strcmp("--no-socket", arg)) {
@@ -356,11 +335,6 @@ int main(int argc, const char *argv[]) {
     if (argc != 0 || file_name == nullptr) {
         print_help();
         return 1;
-    }
-
-    if (run_tests) {
-        dbg_info("=== STARTING SPEC TESTS ===\n");
-        return run_wasm_test(*wac, file_name, asserts_file, watcompiler);
     }
 
     if (initiallyPaused) {
@@ -415,7 +389,7 @@ int main(int argc, const char *argv[]) {
         }
 
         // Start debugger (new thread)
-        pthread_t id;
+        std::thread communication;
         if (!no_debug) {
             auto *options =
                 (debugger_options *)malloc(sizeof(struct debugger_options));
@@ -424,7 +398,7 @@ int main(int argc, const char *argv[]) {
             setupDebuggerCommunication(options);
             free(options);
 
-            pthread_create(&id, nullptr, startDebuggerCommunication, nullptr);
+            communication = std::thread(startDebuggerCommunication);
         }
 
         // Run Wasm module
@@ -438,8 +412,7 @@ int main(int argc, const char *argv[]) {
         wac->unload_module(m);
         wac->debugger->stop();
 
-        int *ptr;
-        pthread_join(id, (void **)&ptr);
+        communication.join();
     }
 
     return 0;

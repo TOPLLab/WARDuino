@@ -1,9 +1,12 @@
 #pragma once
 
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <queue>  // std::queue
 #include <set>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -11,10 +14,6 @@
 #include "../Edward/proxy_supervisor.h"
 #include "../Utils/sockets.h"
 
-#ifndef ARDUINO
-#include <mutex>
-#include <thread>
-#endif
 struct Module;
 struct Block;
 struct StackValue;
@@ -47,14 +46,16 @@ enum InterruptTypes {
     interruptUPDATEFun = 0x20,
     interruptUPDATELocal = 0x21,
     interruptUPDATEModule = 0x22,
+    interruptUPDATEGlobal = 0x23,
+    interruptUPDATEStackValue = 0x24,
 
     // Remote REPL
     interruptINVOKE = 0x40,
 
     // Pull Debugging
-    interruptWOODDUMP = 0x60,
+    interruptSnapshot = 0x60,
     interruptOffset = 0x61,
-    interruptRecvState = 0x62,
+    interruptLoadSnapshot = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
     interruptProxify = 0x65,  // wifi SSID \0 wifi PASS \0
@@ -73,9 +74,6 @@ class Debugger {
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
-#ifndef ARDUINO
-    std::mutex mutexDebugMsgs;  // mutual exclude debugMessages
-#endif
     volatile bool interruptWrite{};
     volatile bool interruptRead{};
     bool interruptEven = true;
@@ -88,7 +86,7 @@ class Debugger {
     Proxy *proxy = nullptr;  // proxy module for debugger
 
     bool connected_to_proxy = false;
-    pthread_mutex_t supervisor_mutex;
+    std::mutex *supervisor_mutex;
 
     // Private methods
 
@@ -135,6 +133,10 @@ class Debugger {
 
     bool handleUpdateModule(Module *m, uint8_t *data);
 
+    bool handleUpdateGlobalValue(Module *m, uint8_t *data);
+
+    bool handleUpdateStackValue(Module *m, uint8_t *bytes);
+
     bool reset(Module *m);
 
     //// Handle out-of-place debugging
@@ -151,6 +153,9 @@ class Debugger {
 
    public:
     // Public fields
+    std::mutex messageQueueMutex;  // mutual exclude debugMessages
+    std::condition_variable messageQueueConditionVariable;
+    bool freshMessages = false;
     Channel *channel;
     ProxySupervisor *supervisor = nullptr;
 
@@ -160,6 +165,8 @@ class Debugger {
 
     // Constructor
     explicit Debugger(Channel *duplex);
+
+    ~Debugger();
 
     void setChannel(Channel *duplex);
 
@@ -185,9 +192,9 @@ class Debugger {
 
     void notifyBreakpoint(uint8_t *pc_ptr) const;
 
-    // Out-of-place debugging
+    // Out-of-place debugging: EDWARD
 
-    void woodDump(Module *m);
+    void snapshot(Module *m);
 
     void proxify();
 

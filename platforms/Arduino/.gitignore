@@ -1,0 +1,4 @@
+bin/
+.config
+Arduino.ino
+*.wasm

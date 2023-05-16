@@ -1,0 +1,15 @@
+{
+  "name": "warduino-testsuite",
+  "version": "1.0.0",
+  "scripts": {
+    "debugtest": "latch ./src/debugger.test.ts",
+    "primtest": "latch ./src/primitives.test.ts",
+    "spectest": "latch ./src/spec.test.ts"
+  },
+  "devDependencies": {
+    "latch": "file:./latch-0.0.1.tgz",
+    "mqtt": "^4.3.7",
+    "serialport": "^10.4.0",
+    "typescript": "^4.5.5"
+  }
+}
