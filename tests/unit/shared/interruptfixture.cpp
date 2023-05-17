@@ -37,6 +37,7 @@ void InterruptFixture::failAndPrintAllReceivedMessages(const char* failReason) {
 void InterruptFixture::TearDown() {
     warduino->unload_module(wasm_module);
     wasm_module = nullptr;
+    debugger->breakpoints.clear();
     debugger = nullptr;
     delete this->dbgOutput;
     delete callstackBuilder;
