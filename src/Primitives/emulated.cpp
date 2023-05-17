@@ -537,7 +537,7 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     return false;
 }
 
-Memory external_mem = {0, 0, 0, nullptr};
+Memory external_mem{};
 
 bool resolve_external_memory(char *symbol, Memory **val) {
     if (!strcmp(symbol, "memory")) {
