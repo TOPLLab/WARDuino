@@ -866,16 +866,22 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     while (program_state < end_state) {
         switch (*program_state++) {
             case pcState: {  // PC
-                m->pc_ptr = (uint8_t *)readPointer(&program_state);
-                debug("receiving pc %p\n", static_cast<void *>(m->pc_ptr));
+                uint32_t pc = read_B32(&program_state);
+                if (!isToPhysicalAddrPossible(pc, m)) {
+                    FATAL("cannot set pc on invalid address\n");
+                }
+                m->pc_ptr = toPhysicalAddress(pc, m);
+                debug("Updated pc %" PRIu32 "\n", pc);
                 break;
             }
             case breakpointsState: {  // breakpoints
                 uint8_t quantity_bps = *program_state++;
                 debug("receiving breakpoints %" PRIu8 "\n", quantity_bps);
                 for (size_t i = 0; i < quantity_bps; i++) {
-                    auto bp = (uint8_t *)readPointer(&program_state);
-                    this->addBreakpoint(bp);
+                    auto virtualBP = read_B32(&program_state);
+                    if (isToPhysicalAddrPossible(virtualBP, m)) {
+                        this->addBreakpoint(toPhysicalAddress(virtualBP, m));
+                    }
                 }
                 break;
             }
@@ -891,7 +897,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     Frame *f = m->callstack + m->csp;
                     f->sp = read_B32_signed(&program_state);
                     f->fp = read_B32_signed(&program_state);
-                    f->ra_ptr = (uint8_t *)readPointer(&program_state);
+                    auto virtualRA = read_B32(&program_state);
+                    f->ra_ptr = toPhysicalAddress(virtualRA, m);
                     if (block_type == 0) {  // a function
                         debug("function block\n");
                         uint32_t fidx = read_B32(&program_state);
@@ -920,8 +927,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                         f->block = guard;
                     } else {
                         debug("non function block\n");
-                        auto *block_key =
-                            (uint8_t *)readPointer(&program_state);
+                        auto virtualBK = read_B32(&program_state);
+                        auto *block_key = toPhysicalAddress(virtualBK, m);
                         /* debug("block_key=%p\n", static_cast<void
                          * *>(block_key)); */
                         f->block = m->block_lookup[block_key];
