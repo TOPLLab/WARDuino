@@ -15,3 +15,16 @@ Block *ModuleCompanion::getMainFunction() {
     else
         return &this->m->functions[fidx];
 }
+
+Block *ModuleCompanion::firstBlock(uint8_t type) {
+    auto find =
+        std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
+                     [&](const std::pair<uint8_t *, Block *> &pair) {
+                         return pair.second->block_type == type;
+                     });
+    Block *block = nullptr;
+    if (find != std::end(m->block_lookup)) {
+        block = find->second;
+    }
+    return block;
+}
