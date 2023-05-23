@@ -54,6 +54,7 @@ enum InterruptTypes {
 
     // Pull Debugging
     interruptSnapshot = 0x60,
+    interruptInspect = 0x61,
     interruptLoadSnapshot = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
@@ -123,6 +124,8 @@ class Debugger {
     void dumpEvents(long start, long size) const;
 
     void dumpCallbackmapping() const;
+
+    void inspect(Module *m, uint16_t sizeStateArray, uint8_t *state);
 
     //// Handle live code update
 
