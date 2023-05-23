@@ -34,6 +34,13 @@ void InterruptFixture::failAndPrintAllReceivedMessages(const char* failReason) {
            << errorMsg;
 }
 
+std::string InterruptFixture::fullErrorMessage(const char* msg) {
+    std::string errorMsg{msg};
+    errorMsg += "\nReceived following lines:\n";
+    this->dbgOutput->appendReadLines(&errorMsg);
+    return errorMsg;
+}
+
 void InterruptFixture::TearDown() {
     warduino->unload_module(wasm_module);
     wasm_module = nullptr;
