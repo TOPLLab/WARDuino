@@ -673,6 +673,17 @@ bool Debugger::handlePushedEvent(char *bytes) const {
     return true;
 }
 
+enum ExecutionState {
+    pcState = 0x01,
+    breakpointsState = 0x02,
+    callstackState = 0x03,
+    globalsState = 0x04,
+    tableState = 0x05,
+    memState = 0x06,
+    branchingTableState = 0x07,
+    stackState = 0x08,
+};
+
 void Debugger::snapshot(Module *m) {
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     debug("asked for doDump\n");
@@ -752,17 +763,6 @@ void Debugger::snapshot(Module *m) {
     }
     this->channel->write("]}}\n");
 }
-
-enum ExecutionState {
-    pcState = 0x01,
-    breakpointsState = 0x02,
-    callstackState = 0x03,
-    globalsState = 0x04,
-    tableState = 0x05,
-    memState = 0x06,
-    branchingTableState = 0x07,
-    stackState = 0x08,
-};
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {
     debug("freeing the program state\n");
