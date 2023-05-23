@@ -701,7 +701,7 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
     while (idx < sizeStateArray) {
         switch (state[idx++]) {
             case pcState: {  // PC
-                this->channel->write("\"pc\":%" PRIu32 ",", toVA(m->pc_ptr));
+                this->channel->write("\"pc\":%" PRIu32 "", toVA(m->pc_ptr));
                 addComma = true;
 
                 break;
@@ -726,7 +726,7 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                     Frame *f = &m->callstack[j];
                     uint8_t bt = f->block->block_type;
                     uint32_t block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
-                                             ? bt
+                                             ? 0
                                              : toVA(findOpcode(m, f->block));
                     uint32_t fidx = bt == 0 ? f->block->fidx : 0;
                     this->channel->write(
@@ -748,6 +748,7 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                     printValue(v, j, j == m->sp);
                 }
                 this->channel->write("]");
+                break;
             }
             case globalsState: {
                 this->channel->write("%s\"globals\":[", addComma ? "," : "");
