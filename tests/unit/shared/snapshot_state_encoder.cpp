@@ -9,10 +9,10 @@ enum State {
     breakpointsState = 0x02,
     callstackState = 0x03,
     globalsState = 0x04,
-    tblState = 0x05,
+    tableState = 0x05,
     memState = 0x06,
-    brtblState = 0x07,
-    stackvalsState = 0x08
+    branchingTableState = 0x07,
+    stackState = 0x08
 };
 
 uint8_t* getCodePointer(Block* block, Module* m) {
@@ -104,7 +104,7 @@ void SnapshotBinaryEncoder::createFirstMessage(
     offset += 4;
 
     // table
-    message[offset++] = tblState;
+    message[offset++] = tableState;
 
     uint8_t tableInitB32[4] = {0};
     encodeB32(table_initial, tableInitB32);

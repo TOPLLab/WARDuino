@@ -753,16 +753,15 @@ void Debugger::snapshot(Module *m) {
     this->channel->write("]}}\n");
 }
 
-enum ReceiveState {
+enum ExecutionState {
     pcState = 0x01,
     breakpointsState = 0x02,
     callstackState = 0x03,
     globalsState = 0x04,
-    tblState = 0x05,
+    tableState = 0x05,
     memState = 0x06,
-    brtblState = 0x07,
-    stackvalsState = 0x08,
-    pcErrorState = 0x09
+    branchingTableState = 0x07,
+    stackState = 0x08,
 };
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {
@@ -803,7 +802,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 m->global_count = 0;
                 break;
             }
-            case tblState: {
+            case tableState: {
                 debug("receiving table info\n");
                 m->table.initial = read_B32(&first_msg);
                 m->table.maximum = read_B32(&first_msg);
@@ -935,7 +934,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
-            case globalsState: {  // TODO merge globalsState stackvalsState into
+            case globalsState: {  // TODO merge globalsState stackState into
                                   // one case
                 debug("receiving global state\n");
                 uint32_t quantity_globals = read_B32(&program_state);
@@ -959,7 +958,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
-            case tblState: {
+            case tableState: {
                 uint32_t quantity = read_B32(&program_state);
                 for (size_t i = 0; i < quantity; i++) {
                     uint32_t ne = read_B32(&program_state);
@@ -993,7 +992,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 program_state += total_bytes;
                 break;
             }
-            case brtblState: {
+            case branchingTableState: {
                 debug("receiving br_table\n");
                 uint16_t begin_index = read_B16(&program_state);
                 uint16_t end_index = read_B16(&program_state);
@@ -1012,7 +1011,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
-            case stackvalsState: {
+            case stackState: {
                 // FIXME the float does add numbers at the end. The extra
                 // numbers are present in the send information when dump occurs
                 debug("receiving stack\n");
