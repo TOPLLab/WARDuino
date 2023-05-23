@@ -71,7 +71,7 @@ TEST_F(DumpFull, BreakpointsAreVirtualAddresses) {
         this->warduino->debugger->addBreakpoint(bp);
     }
 
-    warduino->debugger->snapshot(this->wasm_module);
+    this->doFullDump();
 
     nlohmann::basic_json<> parsed{};
     if (!this->dbgOutput->getJSONReply(&parsed)) {
