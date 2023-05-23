@@ -681,17 +681,6 @@ bool Debugger::handlePushedEvent(char *bytes) const {
     return true;
 }
 
-enum ExecutionState {
-    pcState = 0x01,
-    breakpointsState = 0x02,
-    callstackState = 0x03,
-    globalsState = 0x04,
-    tableState = 0x05,
-    memState = 0x06,
-    branchingTableState = 0x07,
-    stackState = 0x08,
-};
-
 void Debugger::snapshot(Module *m) {
     uint16_t numberBytes = 11;
     uint8_t state[] = {

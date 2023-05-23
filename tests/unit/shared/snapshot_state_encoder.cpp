@@ -4,17 +4,6 @@
 
 #include "../../src/Utils/util.h"
 
-enum State {
-    pcState = 0x01,
-    breakpointsState = 0x02,
-    callstackState = 0x03,
-    globalsState = 0x04,
-    tableState = 0x05,
-    memState = 0x06,
-    branchingTableState = 0x07,
-    stackState = 0x08
-};
-
 uint8_t* getCodePointer(Block* block, Module* m) {
     auto find =
         std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
