@@ -1,0 +1,244 @@
+#include <iostream>
+#include <unordered_set>
+
+#include "../../src/Utils/util.h"
+#include "../../src/WARDuino.h"
+#include "example_code/fac/fac_wasm.h"
+#include "gtest/gtest.h"
+#include "shared/interruptfixture.h"
+
+class Inspect : public InterruptFixture {
+   private:
+    uint8_t interruptInspect = 0x61;
+
+    void encodeB16(uint16_t value, uint8_t* buff) {
+        buff[0] = (value >> 8) & 0xFF;
+        buff[1] = value & 0xFF;
+    }
+
+    void prepareInterrupt(std::string* dest) {
+        // interruptSize
+        // 1: store interrupt
+        // + 2: store size of interrupt
+        // + size: one byte per kind of state inspected
+        uint32_t interruptSize = 1 + 2 + this->stateToInspect.size();
+
+        uint8_t* interrupt = (uint8_t*)malloc(interruptSize);
+        uint32_t offset = 0;
+        interrupt[offset++] = this->interruptInspect;
+        encodeB16(this->stateToInspect.size(), interrupt + offset);
+        offset += 2;
+
+        for (uint8_t state : stateToInspect) {
+            interrupt[offset++] = state;
+        }
+
+        char* hexa = (char*)malloc(interruptSize * 2 + 1);  // +1 for newline
+
+        chars_as_hexa((unsigned char*)hexa, interrupt, interruptSize);
+        hexa[interruptSize * 2] = '\n';
+
+        free(interrupt);
+        dest->assign(hexa);
+    }
+
+   protected:
+    Inspect() : InterruptFixture("Inspect", fac_wasm, fac_wasm_len) {}
+
+    std::vector<uint8_t> stateToInspect{};
+
+    void SetUp() override {
+        InterruptFixture::SetUp();
+        Block* func = this->moduleCompanion->getMainFunction();
+        this->callstackBuilder->pushFunctionCall(func->fidx);
+    }
+
+    void TearDown() override {
+        InterruptFixture::TearDown();
+        this->stateToInspect.clear();
+    }
+
+    void failInspectNotReceived() {
+        this->failAndPrintAllReceivedMessages(
+            "Snapshot did not print expected JSON. Received lines:\n");
+    }
+
+    void inspect() {
+        std::string msg{};
+        this->prepareInterrupt(&msg);
+        this->debugger->addDebugMessage(msg.size(), (uint8_t*)msg.c_str());
+        this->debugger->checkDebugMessages(this->wasm_module,
+                                           &this->warduino->program_state);
+    }
+
+    bool containsOnlyKeys(const nlohmann::json& j,
+                          const std::unordered_set<std::string>& keySet) {
+        for (const auto& [key, value] : j.items()) {
+            if (keySet.find(key) == keySet.end()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool containsNoKeys(const nlohmann::json& j) {
+        for (const auto& [key, value] : j.items()) {
+            return false;
+        }
+        return true;
+    }
+
+    bool containsKey(const nlohmann::json& j, const std::string& k) {
+        return j.find(k) != j.end();
+    }
+};
+
+TEST_F(Inspect, InspectNothingShouldGiveEmptyJSON) {
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    ASSERT_TRUE(this->containsNoKeys(parsed))
+        << "Inspect of nothing should print an empty json";
+}
+
+TEST_F(Inspect, InspectPC) {
+    this->stateToInspect.push_back(pcState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    ASSERT_TRUE(this->containsKey(parsed, {"pc"}))
+        << fullErrorMessage("Inspect did not print the expected PC state");
+    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"pc"}))
+        << fullErrorMessage("Inspect did print more than just the PC state");
+}
+
+TEST_F(Inspect, InspectBreakpoints) {
+    this->stateToInspect.push_back(breakpointsState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    ASSERT_TRUE(this->containsKey(parsed, {"breakpoints"})) << fullErrorMessage(
+        "Inspect did not print the expected breakpoints state");
+    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"breakpoints"}))
+        << fullErrorMessage(
+               "Inspect did print more than just the breakpoints state");
+}
+
+TEST_F(Inspect, InspectCallstack) {
+    this->stateToInspect.push_back(callstackState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    ASSERT_TRUE(this->containsKey(parsed, {"callstack"})) << fullErrorMessage(
+        "Inspect did not print the expected callstack state");
+    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"callstack"}))
+        << fullErrorMessage(
+               "Inspect did print more than just the callstack state");
+}
+
+TEST_F(Inspect, InspectGlobals) {
+    this->stateToInspect.push_back(globalsState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    ASSERT_TRUE(this->containsKey(parsed, {"globals"}))
+        << fullErrorMessage("Inspect did not print the expected globals state");
+    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"globals"}))
+        << fullErrorMessage(
+               "Inspect did print more than just the globals state");
+}
+
+TEST_F(Inspect, InspectTable) {
+    this->stateToInspect.push_back(tableState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    ASSERT_TRUE(this->containsKey(parsed, {"table"}))
+        << fullErrorMessage("Inspect did not print the expected table state");
+    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"table"}))
+        << fullErrorMessage("Inspect did print more than just the table state");
+}
+
+TEST_F(Inspect, InspectMemory) {
+    this->stateToInspect.push_back(memState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    ASSERT_TRUE(this->containsKey(parsed, {"memory"}))
+        << fullErrorMessage("Inspect did not print the expected memory state");
+    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"memory"})) << fullErrorMessage(
+        "Inspect did print more than just the memory state");
+}
+
+TEST_F(Inspect, InspectBranchingTable) {
+    this->stateToInspect.push_back(branchingTableState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    ASSERT_TRUE(this->containsKey(parsed, {"br_table"})) << fullErrorMessage(
+        "Inspect did not print the expected branching table state");
+    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"br_table"}))
+        << fullErrorMessage(
+               "Inspect did print more than just the brancing table state.");
+}
+
+TEST_F(Inspect, InspectStack) {
+    this->stateToInspect.push_back(stackState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    ASSERT_TRUE(this->containsKey(parsed, {"stack"}))
+        << fullErrorMessage("Inspect did not print the expected stack state");
+    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"stack"}))
+        << fullErrorMessage("Inspect did print more than just the stack state");
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
