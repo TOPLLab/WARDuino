@@ -164,8 +164,9 @@ void SnapshotBinaryEncoder::encodeCallstack(std::vector<Frame>* frames) {
         this->stateToTransmit.push_back(frame.block->block_type);
         this->encodeSignedB32(frame.sp);
         this->encodeSignedB32(frame.fp);
-        uint32_t ra = toVirtualAddress(frame.ra_ptr, m);
-        this->encodeB32(ra);
+        int ra =
+            frame.ra_ptr == nullptr ? -1 : toVirtualAddress(frame.ra_ptr, m);
+        this->encodeSignedB32(ra);
         if (frame.block->block_type == 0) {  // func
             this->encodeB32(frame.block->fidx);
         } else if (frame.block->block_type != 0xff &&

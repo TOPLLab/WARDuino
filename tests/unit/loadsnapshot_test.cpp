@@ -301,6 +301,49 @@ TEST_F(LoadSnapshotCallstack, LoopFrame) {
     ASSERT_EQ(f2.block->block_type, loopType);
 }
 
+TEST_F(LoadSnapshotCallstack, FrameWithNegativeSPAndFP) {
+    this->sendFirstMessageWithEmptyState();
+
+    std::vector<Frame> frames = {};
+    Frame f{};
+    f.ra_ptr = toPhysicalAddress(33, this->wasm_module);
+    f.sp = -1;
+    f.fp = -33;  // random negative
+    Block* main = this->moduleCompanion->getMainFunction();
+    f.block = main;
+    frames.push_back(f);
+    this->state->encodeCallstack(&frames);
+
+    std::string msg{};
+    this->state->createStateMessage(&msg);
+    this->sendMessage(msg);
+    Frame f2 = this->wasm_module->callstack[0];
+    ASSERT_EQ(f2.sp, -1) << "A frame with a negative sp should be loaded";
+    ASSERT_EQ(f2.fp, -33) << "A frame with a negative fp should be loaded";
+}
+
+TEST_F(LoadSnapshotCallstack, FrameWithNullPtrAsReturnAddresShouldBeLoaded) {
+    // the return address should become a nullptr
+    this->sendFirstMessageWithEmptyState();
+
+    std::vector<Frame> frames = {};
+    Frame f{};
+    f.ra_ptr = nullptr;
+    f.sp = -1;
+    f.fp = -33;  // random negative
+    Block* main = this->moduleCompanion->getMainFunction();
+    f.block = main;
+    frames.push_back(f);
+    this->state->encodeCallstack(&frames);
+
+    std::string msg{};
+    this->state->createStateMessage(&msg);
+    this->sendMessage(msg);
+    Frame f2 = this->wasm_module->callstack[0];
+    ASSERT_EQ(f2.sp, -1);
+    ASSERT_EQ(f2.fp, -33);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
