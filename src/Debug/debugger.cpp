@@ -133,7 +133,8 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end();
 }
 
-void Debugger::notifyBreakpoint(uint32_t bp) const {
+void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) const {
+    uint32_t bp = toVirtualAddress(pc_ptr, m);
     this->channel->write("AT %" PRIu32 "!\n", bp);
 }
 

@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "../../src/WARDuino.h"
+#include "../../src/Utils/util.h"
 #include "example_code/fac/fac_wasm.h"
 #include "gtest/gtest.h"
 #include "shared/interruptfixture.h"
@@ -187,7 +187,9 @@ TEST_F(BreakpointInterrupt, InvalidBreakpointIsNotRemoved) {
 TEST_F(BreakpointInterrupt, NotifyBreakpointReachedPrintsVirtualAddress) {
     // notifiy bp reached at address `bp`
     uint32_t bp = 33;
-    this->debugger->notifyBreakpoint(bp);
+    uint8_t* physicalAddr = toPhysicalAddress(bp, this->wasm_module);
+
+    this->debugger->notifyBreakpoint(this->wasm_module, physicalAddr);
 
     std::string* notification = this->dbgOutput->getLine();
     ASSERT_NE(*notification, "")
