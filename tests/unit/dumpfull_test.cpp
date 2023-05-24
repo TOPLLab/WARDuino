@@ -145,8 +145,8 @@ TEST_F(DumpFullCallstackFrame, FirstFramePreservedReturnAddressIsZero) {
     }
     try {
         nlohmann::basic_json<> frame = parsed["callstack"][0];
-        ASSERT_EQ(0, frame["ra"]) << "First Frame should have as return "
-                                     "address zero since it points to nothing";
+        ASSERT_EQ(-1, frame["ra"]) << "First Frame should have as return "
+                                      "address -1 since it points to nothing";
         return;
     } catch (const nlohmann::detail::type_error& e) {
         FAIL() << "printed callstack json does not have key(s) or "
@@ -167,9 +167,9 @@ TEST_F(DumpFullCallstackFrame, FirstFramePreservedCallsiteAddressIsZero) {
     }
     try {
         nlohmann::basic_json<> frame = parsed["callstack"][0];
-        ASSERT_EQ(0, frame["callsite"])
+        ASSERT_EQ(-1, frame["callsite"])
             << "First Frame callsite address should be "
-               "zero as no other function called it";
+               "-1 as no other function called it";
         return;
     } catch (const nlohmann::detail::type_error& e) {
         FAIL() << "printed callstack json does not have key(s) or "
@@ -232,7 +232,7 @@ TEST_F(DumpFullCallstackFrame, FunctionFrameReturnAddressIsVirtual) {
     }
     try {
         nlohmann::basic_json<> frame1 = parsed["callstack"][0];
-        ASSERT_EQ(0, frame1["ra"]) << "invalid first frame's return addr";
+        ASSERT_EQ(-1, frame1["ra"]) << "invalid first frame's return addr";
         ASSERT_EQ(-1, frame1["sp"]) << "invalid first frame's sp";
         ASSERT_EQ(-1, frame1["fp"]) << "invalid first frame's fp";
 
@@ -268,7 +268,7 @@ TEST_F(DumpFullCallstackFrame, FunctionFrameCallsiteAdressIsVirtual) {
     Block* func = this->moduleCompanion->getMainFunction();
     uint32_t facMainFidx = func->fidx;
     this->callstackBuilder->pushFunctionCall(facMainFidx);
-    uint32_t frame1ExpectedCallsite = 0;
+    int frame1ExpectedCallsite = -1;
     uint32_t frame2ExpectedCallsite =
         (this->wasm_module->pc_ptr - 2) - this->wasm_module->bytes;
 

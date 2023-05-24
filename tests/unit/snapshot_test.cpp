@@ -186,7 +186,7 @@ TEST_F(SnapshotCallstackFrame, ReturnAddressIsVirtualAddress) {
     }
     try {
         nlohmann::basic_json<> frame1 = parsed["callstack"][0];
-        ASSERT_EQ(0, frame1["ra"]) << "invalid first frame's return addr";
+        ASSERT_EQ(-1, frame1["ra"]) << "invalid first frame's return addr";
         ASSERT_EQ(-1, frame1["sp"]) << "invalid first frame's sp";
         ASSERT_EQ(-1, frame1["fp"]) << "invalid first frame's fp";
 

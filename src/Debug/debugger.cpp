@@ -475,8 +475,8 @@ void Debugger::dumpCallstack(Module *m) const {
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
         uint8_t *callsite = nullptr;
-        uint32_t callsite_retaddr = 0;
-        uint32_t retaddr = 0;
+        int callsite_retaddr = -1;
+        int retaddr = -1;
         // first frame has no retrun address
         if (f->ra_ptr != nullptr) {
             callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
@@ -486,8 +486,8 @@ void Debugger::dumpCallstack(Module *m) const {
         this->channel->write(R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,)",
                              f->block->block_type, f->block->fidx, f->sp,
                              f->fp);
-        this->channel->write("\"start\":%" PRIu32 ",\"ra\":%" PRIu32
-                             ",\"callsite\":%" PRIu32 "}%s",
+        this->channel->write("\"start\":%" PRIu32
+                             ",\"ra\":%d,\"callsite\":%d}%s",
                              toVA(f->block->start_ptr), retaddr,
                              callsite_retaddr, (i < m->csp) ? "," : "]");
     }
@@ -704,16 +704,15 @@ void Debugger::snapshot(Module *m) {
     for (int j = 0; j <= m->csp; j++) {
         Frame *f = &m->callstack[j];
         uint8_t bt = f->block->block_type;
+        int ra = f->ra_ptr == nullptr ? -1 : toVA(f->ra_ptr);
         uint32_t block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
                                  ? 0
                                  : toVA(findOpcode(m, f->block));
         this->channel->write(
             R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"idx":%d,)", bt,
             f->block->fidx, f->sp, f->fp, j);
-        this->channel->write("\"block_key\":%" PRIu32 ",\"ra\":%" PRIu32 "}%s",
-                             block_key,
-                             f->ra_ptr == nullptr ? 0 : toVA(f->ra_ptr),
-                             (j < m->csp) ? "," : "");
+        this->channel->write("\"block_key\":%" PRIu32 ",\"ra\":%d}%s",
+                             block_key, ra, (j < m->csp) ? "," : "");
     }
 
     // Globals
