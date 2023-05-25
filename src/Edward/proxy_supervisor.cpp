@@ -274,12 +274,10 @@ bool ProxySupervisor::call(RFC *callee) {
     }
     // Fetch new callback mapping
     // convert message to hex TODO: move to proxyserver
-    //    char cmdBuffer[10] = "";
-    //    int cmdBufferLen = 0;
-    //    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping,
-    //    &cmdBufferLen);
-    //    WARDuino::instance()->debugger->supervisor->send(cmdBuffer,
-    //    cmdBufferLen);
+    char cmdBuffer[10] = "";
+    int cmdBufferLen = 0;
+    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
+    WARDuino::instance()->debugger->supervisor->send(cmdBuffer, cmdBufferLen);
     this->deserializeRFCResult(callee);
     return true;
 }
