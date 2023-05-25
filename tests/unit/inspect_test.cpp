@@ -190,7 +190,7 @@ TEST_F(Inspect, InspectTable) {
 }
 
 TEST_F(Inspect, InspectMemory) {
-    this->stateToInspect.push_back(memState);
+    this->stateToInspect.push_back(memoryState);
     this->inspect();
 
     nlohmann::basic_json<> parsed{};

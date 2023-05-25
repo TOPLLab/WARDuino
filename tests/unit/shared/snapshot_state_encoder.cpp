@@ -111,7 +111,7 @@ void SnapshotBinaryEncoder::createFirstMessage(
     offset += 4;
 
     // memory
-    message[offset++] = memState;
+    message[offset++] = memoryState;
 
     uint8_t memMaxB32[4] = {0};
     encodeB32(mem_max, memMaxB32);

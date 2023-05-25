@@ -37,7 +37,7 @@ enum ExecutionState {
     callstackState = 0x03,
     globalsState = 0x04,
     tableState = 0x05,
-    memState = 0x06,
+    memoryState = 0x06,
     branchingTableState = 0x07,
     stackState = 0x08,
 };

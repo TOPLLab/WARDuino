@@ -685,7 +685,7 @@ void Debugger::snapshot(Module *m) {
     uint16_t numberBytes = 11;
     uint8_t state[] = {
         pcState,    breakpointsState, callstackState,      globalsState,
-        tableState, memState,         branchingTableState, stackState};
+        tableState, memoryState,      branchingTableState, stackState};
     this->inspect(m, numberBytes, state);
 }
 
@@ -783,7 +783,7 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 this->channel->write("]}");
                 break;
             }
-            case memState: {
+            case memoryState: {
                 uint32_t total_elems = m->memory.pages * (uint32_t)PAGE_SIZE;
                 this->channel->write(
                     R"(%s"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
@@ -860,7 +860,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 m->table.size = 0;  // allows to accumulatively add entries
                 break;
             }
-            case memState: {
+            case memoryState: {
                 debug("receiving memory info\n");
                 // FIXME: init & max not needed
                 m->memory.maximum = read_B32(&first_msg);
@@ -1008,7 +1008,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
-            case memState: {
+            case memoryState: {
                 debug("receiving memory\n");
                 uint32_t start = read_B32(&program_state);
                 uint32_t limit = read_B32(&program_state);
