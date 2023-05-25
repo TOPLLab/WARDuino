@@ -7,7 +7,7 @@ option(BUILD_UNITTEST "Build for testing" OFF)
 
 if (ESP_PLATFORM)
     set(BUILD_ESP ON)
-endif()
+endif ()
 
 if (NOT BUILD_ESP AND NOT BUILD_EMULATOR AND NOT BUILD_UNITTEST)
     message(WARNING "No build target set. Nothing to do.")
@@ -71,7 +71,7 @@ if (BUILD_EMULATOR)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
 endif (BUILD_EMULATOR)
 
-if(BUILD_UNITTEST)
+if (BUILD_UNITTEST)
     enable_testing()
 
     message(VERBOSE "Building for unit tests ")
@@ -105,9 +105,9 @@ if(BUILD_UNITTEST)
 
     include(FetchContent)
     FetchContent_Declare(
-      googletest
-      GIT_REPOSITORY https://github.com/google/googletest.git
-      GIT_TAG release-1.12.1
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG release-1.12.1
     )
 
     # For Windows: Prevent overriding the parent project's compiler/linker settings
@@ -116,16 +116,20 @@ if(BUILD_UNITTEST)
 
     set(PATH_TO_UNIT_TEST ${PROJECT_SOURCE_DIR}/tests/unit)
 
+    aux_source_directory(${PATH_TO_UNIT_TEST}/shared/ SHARED_SRC)
+
+    message(DEBUG "Shared source code for unit tests path: " ${SHARED_SRC})
+
     file(GLOB TEST_SRC_FILES ${PATH_TO_UNIT_TEST}/*.cpp)
 
     message(DEBUG "Unit test source codes: " ${TEST_SRC_FILES})
 
-    foreach(TEST_FILE ${TEST_SRC_FILES})
+    foreach (TEST_FILE ${TEST_SRC_FILES})
         get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
         message(DEBUG "Add executable for " ${TEST_FILE})
-        add_executable(${TEST_NAME} ${TEST_FILE} ${SOURCE_FILES})
+        add_executable(${TEST_NAME} ${TEST_FILE} ${SOURCE_FILES} ${SHARED_SRC})
         target_link_libraries(${TEST_NAME} gtest_main)
         target_include_directories(${TEST_NAME} PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
         add_test(${TEST_NAME} ${TEST_NAME})
-    endforeach()
-endif(BUILD_UNITTEST)
+    endforeach ()
+endif (BUILD_UNITTEST)
