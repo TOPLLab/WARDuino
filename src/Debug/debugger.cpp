@@ -893,9 +893,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     f->sp = read_B32_signed(&program_state);
                     f->fp = read_B32_signed(&program_state);
                     auto virtualRA = read_B32_signed(&program_state);
-                    f->ra_ptr = virtualRA >= 0
-                                    ? toPhysicalAddress(virtualRA, m)
-                                    : nullptr;
+                    f->ra_ptr = virtualRA >= 0 ? toPhysicalAddress(virtualRA, m)
+                                               : nullptr;
                     if (block_type == 0) {  // a function
                         debug("function block\n");
                         uint32_t fidx = read_B32(&program_state);
