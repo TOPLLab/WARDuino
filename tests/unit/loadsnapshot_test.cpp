@@ -16,14 +16,15 @@
 
 class LoadSnapshot : public InterruptFixture {
    protected:
-    uint8_t interruptLoadSnapshot = 0x62;
     SnapshotBinaryEncoder* state = {};
-    LoadSnapshot() : InterruptFixture("LoadSnapshot", fac_wasm, fac_wasm_len) {}
+    LoadSnapshot()
+        : InterruptFixture("LoadSnapshot", interruptLoadSnapshot, fac_wasm,
+                           fac_wasm_len) {}
 
     void SetUp() override {
         InterruptFixture::SetUp();
-        this->state = new SnapshotBinaryEncoder(this->interruptLoadSnapshot,
-                                                this->wasm_module);
+        this->state =
+            new SnapshotBinaryEncoder(this->interruptNr, this->wasm_module);
     }
 
     void TearDown() override {

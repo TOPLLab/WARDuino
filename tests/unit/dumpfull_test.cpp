@@ -11,7 +11,9 @@ class DumpFull : public InterruptFixture {
     uint8_t interrupt[3] = {'1', '2', '\n'};
 
    protected:
-    DumpFull() : InterruptFixture("dumpfull", fac_wasm, fac_wasm_len) {}
+    DumpFull()
+        : InterruptFixture("dumpfull", interruptDUMPFull, fac_wasm,
+                           fac_wasm_len) {}
 
     void SetUp() override {
         InterruptFixture::SetUp();

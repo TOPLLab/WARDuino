@@ -1,11 +1,13 @@
 #include "interruptfixture.h"
 
-InterruptFixture::InterruptFixture(const char* t_interruptName, uint8_t* t_wasm,
+InterruptFixture::InterruptFixture(const char* t_interruptName,
+                                   uint8_t t_interruptNr, uint8_t* t_wasm,
                                    size_t t_wasm_len)
     : wasm(t_wasm),
       wasm_len(t_wasm_len),
       warduino(WARDuino::instance()),
-      interruptName(t_interruptName) {}
+      interruptName(t_interruptName),
+      interruptNr(t_interruptNr) {}
 
 InterruptFixture::~InterruptFixture() {}
 

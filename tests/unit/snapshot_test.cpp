@@ -7,7 +7,9 @@
 
 class Snapshot : public InterruptFixture {
    protected:
-    Snapshot() : InterruptFixture("Snapshot", fac_wasm, fac_wasm_len) {}
+    Snapshot()
+        : InterruptFixture("Snapshot", interruptSnapshot, fac_wasm,
+                           fac_wasm_len) {}
 
     void SetUp() override {
         InterruptFixture::SetUp();

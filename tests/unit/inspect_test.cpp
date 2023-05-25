@@ -9,8 +9,6 @@
 
 class Inspect : public InterruptFixture {
    private:
-    uint8_t interruptInspect = 0x61;
-
     void encodeB16(uint16_t value, uint8_t* buff) {
         buff[0] = (value >> 8) & 0xFF;
         buff[1] = value & 0xFF;
@@ -25,7 +23,7 @@ class Inspect : public InterruptFixture {
 
         uint8_t* interrupt = (uint8_t*)malloc(interruptSize);
         uint32_t offset = 0;
-        interrupt[offset++] = this->interruptInspect;
+        interrupt[offset++] = this->interruptNr;
         encodeB16(this->stateToInspect.size(), interrupt + offset);
         offset += 2;
 
@@ -43,7 +41,9 @@ class Inspect : public InterruptFixture {
     }
 
    protected:
-    Inspect() : InterruptFixture("Inspect", fac_wasm, fac_wasm_len) {}
+    Inspect()
+        : InterruptFixture("Inspect", interruptInspect, fac_wasm,
+                           fac_wasm_len) {}
 
     std::vector<uint8_t> stateToInspect{};
 
