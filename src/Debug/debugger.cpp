@@ -729,12 +729,12 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                                              ? 0
                                              : toVA(findOpcode(m, f->block));
                     uint32_t fidx = bt == 0 ? f->block->fidx : 0;
+                    int ra = f->ra_ptr == nullptr ? -1 : toVA(f->ra_ptr);
                     this->channel->write(
                         R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"idx":%d,)",
                         bt, fidx, f->sp, f->fp, j);
                     this->channel->write(
-                        "\"block_key\":%" PRIu32 ",\"ra\":%" PRIu32 "}%s",
-                        block_key, f->ra_ptr == nullptr ? 0 : toVA(f->ra_ptr),
+                        "\"block_key\":%" PRIu32 ",\"ra\":%d}%s", block_key, ra,
                         (j < m->csp) ? "," : "");
                 }
                 this->channel->write("]");
