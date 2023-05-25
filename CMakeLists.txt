@@ -26,7 +26,7 @@ if (BUILD_ESP)
     include($ENV{IDF_PATH}/tools/cmake/project.cmake "${PROJECT_BINARY_DIR}/../include")
 endif (BUILD_ESP)
 
-project(WARDuino VERSION 0.3.0)
+project(WARDuino VERSION 0.3.1)
 
 set(WARDUINO_VERSION_STRING "${PROJECT_VERSION}")
 configure_file(src/config.h.in include/warduino/config.h)
