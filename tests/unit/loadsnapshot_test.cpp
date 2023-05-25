@@ -340,8 +340,7 @@ TEST_F(LoadSnapshotCallstack, FrameWithNullPtrAsReturnAddresShouldBeLoaded) {
     this->state->createStateMessage(&msg);
     this->sendMessage(msg);
     Frame f2 = this->wasm_module->callstack[0];
-    ASSERT_EQ(f2.sp, -1);
-    ASSERT_EQ(f2.fp, -33);
+    ASSERT_EQ(f2.ra_ptr, nullptr);
 }
 
 int main(int argc, char** argv) {
