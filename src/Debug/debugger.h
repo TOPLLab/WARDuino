@@ -54,7 +54,6 @@ enum InterruptTypes {
 
     // Pull Debugging
     interruptSnapshot = 0x60,
-    interruptOffset = 0x61,
     interruptLoadSnapshot = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
@@ -105,7 +104,7 @@ class Debugger {
 
     void handleInterruptRUN(Module *m, RunningState *program_state);
 
-    void handleInterruptBP(const uint8_t *interruptData);
+    void handleInterruptBP(Module *m, uint8_t *interruptData);
 
     //// Information dumps
 
@@ -115,7 +114,7 @@ class Debugger {
 
     void dumpLocals(Module *m) const;
 
-    void dumpBreakpoints() const;
+    void dumpBreakpoints(Module *m) const;
 
     void dumpFunctions(Module *m) const;
 
@@ -190,7 +189,7 @@ class Debugger {
 
     bool isBreakpoint(uint8_t *loc);
 
-    void notifyBreakpoint(uint8_t *pc_ptr) const;
+    void notifyBreakpoint(Module *m, uint8_t *pc_ptr) const;
 
     // Out-of-place debugging: EDWARD
 

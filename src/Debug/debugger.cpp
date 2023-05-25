@@ -133,8 +133,9 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end();
 }
 
-void Debugger::notifyBreakpoint(uint8_t *pc_ptr) const {
-    this->channel->write("AT %p!\n", (void *)pc_ptr);
+void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) const {
+    uint32_t bp = toVirtualAddress(pc_ptr, m);
+    this->channel->write("AT %" PRIu32 "!\n", bp);
 }
 
 /**
@@ -193,7 +194,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptBPAdd:  // Breakpoint
         case interruptBPRem:  // Breakpoint remove
-            this->handleInterruptBP(interruptData);
+            this->handleInterruptBP(m, interruptData);
             free(interruptData);
             break;
         case interruptDUMP:
@@ -249,11 +250,6 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             *program_state = WARDUINOpause;
             free(interruptData);
             snapshot(m);
-            break;
-        case interruptOffset:
-            free(interruptData);
-            printf("offset\n");
-            this->channel->write("{\"offset\":\"%p\"}\n", (void *)m->bytes);
             break;
         case interruptLoadSnapshot:
             if (!this->receivingData) {
@@ -398,34 +394,28 @@ void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
     *program_state = WARDUINOrun;
 }
 
-void Debugger::handleInterruptBP(const uint8_t *interruptData) {
-    // TODO: segfault may happen here!
-    uint8_t len = interruptData[1];
-    uintptr_t bp = 0x0;
-    for (size_t i = 0; i < len; i++) {
-        bp <<= sizeof(uint8_t) * 8;
-        bp |= interruptData[i + 2];
+void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
+    uint8_t *bpData = interruptData + 1;
+    uint32_t virtualAddress = read_B32(&bpData);
+    if (isToPhysicalAddrPossible(virtualAddress, m)) {
+        uint8_t *bpt = toPhysicalAddress(virtualAddress, m);
+        if (*interruptData == 0x06) {
+            this->addBreakpoint(bpt);
+        } else {
+            this->deleteBreakpoint(bpt);
+        }
     }
-    auto *bpt = (uint8_t *)bp;
-    this->channel->write("BP %p!\n", static_cast<void *>(bpt));
-
-    if (*interruptData == 0x06) {
-        this->addBreakpoint(bpt);
-    } else {
-        this->deleteBreakpoint(bpt);
-    }
+    this->channel->write("BP %" PRIu32 "!\n", virtualAddress);
 }
 
 void Debugger::dump(Module *m, bool full) const {
+    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("{");
 
     // current PC
-    this->channel->write(R"("pc":"%p",)", (void *)m->pc_ptr);
+    this->channel->write("\"pc\":%" PRIu32 ",", toVA(m->pc_ptr));
 
-    // start of bytes
-    this->channel->write(R"("start":["%p"],)", (void *)m->bytes);
-
-    this->dumpBreakpoints();
+    this->dumpBreakpoints(m);
 
     this->dumpFunctions(m);
 
@@ -452,12 +442,12 @@ void Debugger::dumpStack(Module *m) const {
     this->channel->write("]}\n\n");
 }
 
-void Debugger::dumpBreakpoints() const {
+void Debugger::dumpBreakpoints(Module *m) const {
     this->channel->write("\"breakpoints\":[");
     {
         size_t i = 0;
         for (auto bp : this->breakpoints) {
-            this->channel->write(R"("%p"%s)", bp,
+            this->channel->write("%" PRIu32 "%s", toVirtualAddress(bp, m),
                                  (++i < this->breakpoints.size()) ? "," : "");
         }
     }
@@ -468,10 +458,10 @@ void Debugger::dumpFunctions(Module *m) const {
     this->channel->write("\"functions\":[");
 
     for (size_t i = m->import_count; i < m->function_count; i++) {
-        this->channel->write(R"({"fidx":"0x%x","from":"%p","to":"%p"}%s)",
-                             m->functions[i].fidx,
-                             static_cast<void *>(m->functions[i].start_ptr),
-                             static_cast<void *>(m->functions[i].end_ptr),
+        this->channel->write(R"({"fidx":"0x%x",)", m->functions[i].fidx);
+        this->channel->write("\"from\":%" PRIu32 ",\"to\":%" PRIu32 "}%s",
+                             toVirtualAddress(m->functions[i].start_ptr, m),
+                             toVirtualAddress(m->functions[i].end_ptr, m),
                              (i < m->function_count - 1) ? "," : "],");
     }
 }
@@ -480,15 +470,26 @@ void Debugger::dumpFunctions(Module *m) const {
  * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
  */
 void Debugger::dumpCallstack(Module *m) const {
+    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("\"callstack\":[");
     for (int i = 0; i <= m->csp; i++) {
         Frame *f = &m->callstack[i];
-        uint8_t *callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
-        this->channel->write(
-            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"start":"%p","ra":"%p","callsite":"%p"}%s)",
-            f->block->block_type, f->block->fidx, f->sp, f->fp,
-            f->block->start_ptr, static_cast<void *>(f->ra_ptr),
-            static_cast<void *>(callsite), (i < m->csp) ? "," : "]");
+        uint8_t *callsite = nullptr;
+        int callsite_retaddr = -1;
+        int retaddr = -1;
+        // first frame has no retrun address
+        if (f->ra_ptr != nullptr) {
+            callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
+            callsite_retaddr = toVA(callsite);
+            retaddr = toVA(f->ra_ptr);
+        }
+        this->channel->write(R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,)",
+                             f->block->block_type, f->block->fidx, f->sp,
+                             f->fp);
+        this->channel->write("\"start\":%" PRIu32
+                             ",\"ra\":%d,\"callsite\":%d}%s",
+                             toVA(f->block->start_ptr), retaddr,
+                             callsite_retaddr, (i < m->csp) ? "," : "]");
     }
 }
 
@@ -673,21 +674,19 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 }
 
 void Debugger::snapshot(Module *m) {
+    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     debug("asked for doDump\n");
     printf("asked for snapshot\n");
     this->channel->write("DUMP!\n");
     this->channel->write("{");
 
     // current PC
-    this->channel->write(R"("pc":"%p",)", (void *)m->pc_ptr);
-
-    // start of bytes
-    this->channel->write(R"("start":["%p"],)", (void *)m->bytes);
+    this->channel->write("\"pc\":%" PRIu32 ",", toVA(m->pc_ptr));
 
     this->channel->write("\"breakpoints\":[");
     size_t i = 0;
     for (auto bp : this->breakpoints) {
-        this->channel->write(R"("%p"%s)", bp,
+        this->channel->write("%" PRIu32 "%s", toVA(bp),
                              (++i < this->breakpoints.size()) ? "," : "");
     }
     this->channel->write("],");
@@ -705,13 +704,15 @@ void Debugger::snapshot(Module *m) {
     for (int j = 0; j <= m->csp; j++) {
         Frame *f = &m->callstack[j];
         uint8_t bt = f->block->block_type;
-        uint8_t *block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
-                                 ? nullptr
-                                 : findOpcode(m, f->block);
+        int ra = f->ra_ptr == nullptr ? -1 : toVA(f->ra_ptr);
+        uint32_t block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
+                                 ? 0
+                                 : toVA(findOpcode(m, f->block));
         this->channel->write(
-            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"block_key":"%p", "ra":"%p", "idx":%d}%s)",
-            f->block->block_type, f->block->fidx, f->sp, f->fp, block_key,
-            static_cast<void *>(f->ra_ptr), j, (j < m->csp) ? "," : "");
+            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"idx":%d,)", bt,
+            f->block->fidx, f->sp, f->fp, j);
+        this->channel->write("\"block_key\":%" PRIu32 ",\"ra\":%d}%s",
+                             block_key, ra, (j < m->csp) ? "," : "");
     }
 
     // Globals
@@ -860,16 +861,22 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     while (program_state < end_state) {
         switch (*program_state++) {
             case pcState: {  // PC
-                m->pc_ptr = (uint8_t *)readPointer(&program_state);
-                debug("receiving pc %p\n", static_cast<void *>(m->pc_ptr));
+                uint32_t pc = read_B32(&program_state);
+                if (!isToPhysicalAddrPossible(pc, m)) {
+                    FATAL("cannot set pc on invalid address\n");
+                }
+                m->pc_ptr = toPhysicalAddress(pc, m);
+                debug("Updated pc %" PRIu32 "\n", pc);
                 break;
             }
             case breakpointsState: {  // breakpoints
                 uint8_t quantity_bps = *program_state++;
                 debug("receiving breakpoints %" PRIu8 "\n", quantity_bps);
                 for (size_t i = 0; i < quantity_bps; i++) {
-                    auto bp = (uint8_t *)readPointer(&program_state);
-                    this->addBreakpoint(bp);
+                    auto virtualBP = read_B32(&program_state);
+                    if (isToPhysicalAddrPossible(virtualBP, m)) {
+                        this->addBreakpoint(toPhysicalAddress(virtualBP, m));
+                    }
                 }
                 break;
             }
@@ -885,7 +892,9 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     Frame *f = m->callstack + m->csp;
                     f->sp = read_B32_signed(&program_state);
                     f->fp = read_B32_signed(&program_state);
-                    f->ra_ptr = (uint8_t *)readPointer(&program_state);
+                    auto virtualRA = read_B32_signed(&program_state);
+                    f->ra_ptr = virtualRA >= 0 ? toPhysicalAddress(virtualRA, m)
+                                               : nullptr;
                     if (block_type == 0) {  // a function
                         debug("function block\n");
                         uint32_t fidx = read_B32(&program_state);
@@ -914,8 +923,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                         f->block = guard;
                     } else {
                         debug("non function block\n");
-                        auto *block_key =
-                            (uint8_t *)readPointer(&program_state);
+                        auto virtualBK = read_B32(&program_state);
+                        auto *block_key = toPhysicalAddress(virtualBK, m);
                         /* debug("block_key=%p\n", static_cast<void
                          * *>(block_key)); */
                         f->block = m->block_lookup[block_key];

@@ -106,4 +106,31 @@ void chars_as_hexa(unsigned char *dest, unsigned char *source,
 
 unsigned short int sizeof_valuetype(uint32_t);
 
+/**
+ * Converts a physical address pointing to a Wasm instruction to a virtual
+ * address. Throws FATAL if conversion is not possible
+ *
+ * @param *physicalAddr pointer to Wasm
+ * @param *m pointer to module for which conversation needs to occur
+ * @return virtual address
+ */
+uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m);
+
+/**
+ * The reverse process of toVirtualAddress. Throws FATAL if conversion is not
+ * possible
+ * @param virtualAddr the virtual address
+ * @param *m pointer to module for which conversation needs to occur
+ * @return physical address
+ */
+uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m);
+
+/**
+ * Predicate that determines whether the conversion of a virtualAddress to a
+ * physical address is possible. possible
+ * @param virtualAddr the virtual address
+ * @param *m pointer to module
+ * @return boolean
+ */
+bool isToPhysicalAddrPossible(uint32_t virtualAddr, Module *m);
 #endif
