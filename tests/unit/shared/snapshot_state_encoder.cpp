@@ -178,7 +178,6 @@ void SnapshotBinaryEncoder::encodeCallbacks(std::vector<Callback>& callbacks) {
 
     for (auto topic : topics) {
         // encode the topic
-        encodeB32(topic.size());
         encodeString(topic);
 
         // search all indexes for the same topic
@@ -244,6 +243,9 @@ void SnapshotBinaryEncoder::encodeSignedB32(int32_t value, uint8_t* buffer) {
 }
 
 void SnapshotBinaryEncoder::encodeString(std::string s) {
+    encodeB32(s.size());
+
+    // encode string content
     uint8_t* buff = (uint8_t*)malloc(s.size());
     std::memcpy(buff, s.c_str(), s.size());
     for (int i = 0; i < s.size(); ++i) {
