@@ -219,6 +219,40 @@ TEST_F(Inspect, InspectStack) {
         << fullErrorMessage("Inspect did print more than just the stack state");
 }
 
+TEST_F(Inspect, InspectCallbacks) {
+    this->stateToInspect.push_back(callbacksState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"callbacks"})) << fullErrorMessage(
+        "Inspect did not print the expected callbacks state");
+    ASSERT_TRUE(comp.containsOnlyKeys({"callbacks"})) << fullErrorMessage(
+        "Inspect did print more than just the callbacks state");
+}
+
+TEST_F(Inspect, InspectEvents) {
+    this->stateToInspect.push_back(eventsState);
+    this->inspect();
+
+    nlohmann::basic_json<> parsed{};
+    if (!this->dbgOutput->getJSONReply(&parsed)) {
+        this->failInspectNotReceived();
+        return;
+    }
+
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"events"}))
+        << fullErrorMessage("Inspect did not print the expected events state");
+    ASSERT_TRUE(comp.containsOnlyKeys({"events"})) << fullErrorMessage(
+        "Inspect did print more than just the events state");
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
