@@ -682,11 +682,12 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 }
 
 void Debugger::snapshot(Module *m) {
-    uint16_t numberBytes = 11;
+    uint16_t numberBytes = 10;
     uint8_t state[] = {
-        pcState,    breakpointsState, callstackState,      globalsState,
-        tableState, memoryState,      branchingTableState, stackState};
-    this->inspect(m, numberBytes, state);
+        pcState,        breakpointsState, callstackState,      globalsState,
+        tableState,     memoryState,      branchingTableState, stackState,
+        callbacksState, eventsState};
+    inspect(m, numberBytes, state);
 }
 
 void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
