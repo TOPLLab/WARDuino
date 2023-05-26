@@ -39,6 +39,7 @@ class CallbackHandler {
     static void remove_callback(const Callback &c);
     static void clear_callbacks();
     static std::string dump_callbacks();
+    static std::string dump_callbacksV2(bool includeOuterCurlyBraces = true);
     static size_t callback_count(const std::string &topic);
     static void push_event(std::string topic, const char *payload,
                            unsigned int length);
