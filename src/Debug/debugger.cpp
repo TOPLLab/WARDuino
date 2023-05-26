@@ -1089,6 +1089,23 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
+            case callbacksState: {
+                uint32_t numberMappings = read_B32(&program_state);
+                for (auto idx = 0; idx < numberMappings; ++idx) {
+                    uint32_t callbackKeySize = read_B32(&program_state);
+                    char *callbackKey = (char *)malloc(callbackKeySize + 1);
+                    memcpy((void *)callbackKey, program_state, callbackKeySize);
+                    callbackKey[callbackKeySize] = '\0';
+                    program_state += callbackKeySize;
+                    uint32_t numberTableIndexes = read_B32(&program_state);
+                    for (auto j = 0; j < numberTableIndexes; ++j) {
+                        uint32_t tidx = read_B32(&program_state);
+                        std::string key{callbackKey};
+                        CallbackHandler::add_callback(Callback(m, key, tidx));
+                    }
+                }
+                break;
+            }
             default: {
                 FATAL("saveState: Received unknown program state\n");
             }
