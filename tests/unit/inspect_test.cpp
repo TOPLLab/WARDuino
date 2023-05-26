@@ -1,11 +1,8 @@
-#include <iostream>
-#include <unordered_set>
-
 #include "../../src/Utils/util.h"
-#include "../../src/WARDuino.h"
 #include "example_code/fac/fac_wasm.h"
 #include "gtest/gtest.h"
 #include "shared/interruptfixture.h"
+#include "shared/json_companion.h"
 
 class Inspect : public InterruptFixture {
    private:
@@ -70,27 +67,6 @@ class Inspect : public InterruptFixture {
         this->debugger->checkDebugMessages(this->wasm_module,
                                            &this->warduino->program_state);
     }
-
-    bool containsOnlyKeys(const nlohmann::json& j,
-                          const std::unordered_set<std::string>& keySet) {
-        for (const auto& [key, value] : j.items()) {
-            if (keySet.find(key) == keySet.end()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    bool containsNoKeys(const nlohmann::json& j) {
-        for (const auto& [key, value] : j.items()) {
-            return false;
-        }
-        return true;
-    }
-
-    bool containsKey(const nlohmann::json& j, const std::string& k) {
-        return j.find(k) != j.end();
-    }
 };
 
 TEST_F(Inspect, InspectNothingShouldGiveEmptyJSON) {
@@ -102,7 +78,8 @@ TEST_F(Inspect, InspectNothingShouldGiveEmptyJSON) {
         return;
     }
 
-    ASSERT_TRUE(this->containsNoKeys(parsed))
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsNoKeys())
         << "Inspect of nothing should print an empty json";
 }
 
@@ -116,9 +93,10 @@ TEST_F(Inspect, InspectPC) {
         return;
     }
 
-    ASSERT_TRUE(this->containsKey(parsed, {"pc"}))
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"pc"}))
         << fullErrorMessage("Inspect did not print the expected PC state");
-    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"pc"}))
+    ASSERT_TRUE(comp.containsOnlyKeys({"pc"}))
         << fullErrorMessage("Inspect did print more than just the PC state");
 }
 
@@ -132,11 +110,11 @@ TEST_F(Inspect, InspectBreakpoints) {
         return;
     }
 
-    ASSERT_TRUE(this->containsKey(parsed, {"breakpoints"})) << fullErrorMessage(
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"breakpoints"})) << fullErrorMessage(
         "Inspect did not print the expected breakpoints state");
-    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"breakpoints"}))
-        << fullErrorMessage(
-               "Inspect did print more than just the breakpoints state");
+    ASSERT_TRUE(comp.containsOnlyKeys({"breakpoints"})) << fullErrorMessage(
+        "Inspect did print more than just the breakpoints state");
 }
 
 TEST_F(Inspect, InspectCallstack) {
@@ -149,11 +127,11 @@ TEST_F(Inspect, InspectCallstack) {
         return;
     }
 
-    ASSERT_TRUE(this->containsKey(parsed, {"callstack"})) << fullErrorMessage(
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"callstack"})) << fullErrorMessage(
         "Inspect did not print the expected callstack state");
-    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"callstack"}))
-        << fullErrorMessage(
-               "Inspect did print more than just the callstack state");
+    ASSERT_TRUE(comp.containsOnlyKeys({"callstack"})) << fullErrorMessage(
+        "Inspect did print more than just the callstack state");
 }
 
 TEST_F(Inspect, InspectGlobals) {
@@ -166,11 +144,11 @@ TEST_F(Inspect, InspectGlobals) {
         return;
     }
 
-    ASSERT_TRUE(this->containsKey(parsed, {"globals"}))
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"globals"}))
         << fullErrorMessage("Inspect did not print the expected globals state");
-    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"globals"}))
-        << fullErrorMessage(
-               "Inspect did print more than just the globals state");
+    ASSERT_TRUE(comp.containsOnlyKeys({"globals"})) << fullErrorMessage(
+        "Inspect did print more than just the globals state");
 }
 
 TEST_F(Inspect, InspectTable) {
@@ -183,9 +161,10 @@ TEST_F(Inspect, InspectTable) {
         return;
     }
 
-    ASSERT_TRUE(this->containsKey(parsed, {"table"}))
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"table"}))
         << fullErrorMessage("Inspect did not print the expected table state");
-    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"table"}))
+    ASSERT_TRUE(comp.containsOnlyKeys({"table"}))
         << fullErrorMessage("Inspect did print more than just the table state");
 }
 
@@ -199,9 +178,10 @@ TEST_F(Inspect, InspectMemory) {
         return;
     }
 
-    ASSERT_TRUE(this->containsKey(parsed, {"memory"}))
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"memory"}))
         << fullErrorMessage("Inspect did not print the expected memory state");
-    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"memory"})) << fullErrorMessage(
+    ASSERT_TRUE(comp.containsOnlyKeys({"memory"})) << fullErrorMessage(
         "Inspect did print more than just the memory state");
 }
 
@@ -215,11 +195,11 @@ TEST_F(Inspect, InspectBranchingTable) {
         return;
     }
 
-    ASSERT_TRUE(this->containsKey(parsed, {"br_table"})) << fullErrorMessage(
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"br_table"})) << fullErrorMessage(
         "Inspect did not print the expected branching table state");
-    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"br_table"}))
-        << fullErrorMessage(
-               "Inspect did print more than just the brancing table state.");
+    ASSERT_TRUE(comp.containsOnlyKeys({"br_table"})) << fullErrorMessage(
+        "Inspect did print more than just the brancing table state.");
 }
 
 TEST_F(Inspect, InspectStack) {
@@ -232,9 +212,10 @@ TEST_F(Inspect, InspectStack) {
         return;
     }
 
-    ASSERT_TRUE(this->containsKey(parsed, {"stack"}))
+    JSONCompanion comp{parsed};
+    ASSERT_TRUE(comp.containsKey({"stack"}))
         << fullErrorMessage("Inspect did not print the expected stack state");
-    ASSERT_TRUE(this->containsOnlyKeys(parsed, {"stack"}))
+    ASSERT_TRUE(comp.containsOnlyKeys({"stack"}))
         << fullErrorMessage("Inspect did print more than just the stack state");
 }
 
