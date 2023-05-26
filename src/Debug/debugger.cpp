@@ -797,6 +797,20 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 this->channel->write("]}");  // closing memory
                 break;
             }
+            case callbacksState: {
+                bool noOuterBraces = false;
+                this->channel->write(
+                    "%s%s", addComma ? "," : "",
+                    CallbackHandler::dump_callbacksV2(noOuterBraces).c_str());
+                addComma = true;
+                break;
+            }
+            case eventsState: {
+                this->channel->write("%s", addComma ? "," : "");
+                this->dumpEvents(0, CallbackHandler::event_count());
+                addComma = true;
+                break;
+            }
             default: {
                 debug("dumpExecutionState: Received unknown state request\n");
                 break;
