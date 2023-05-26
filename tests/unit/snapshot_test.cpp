@@ -4,6 +4,7 @@
 #include "example_code/fac/fac_wasm.h"
 #include "gtest/gtest.h"
 #include "shared/interruptfixture.h"
+#include "shared/json_companion.h"
 
 class Snapshot : public InterruptFixture {
    protected:
@@ -29,6 +30,38 @@ TEST_F(Snapshot, IsValidJSON) {
     if (!this->dbgOutput->getJSONReply(&fullDump)) {
         this->failSnapshotNotReceived();
     }
+}
+
+TEST_F(Snapshot, ContainsEachStateKind) {
+    this->debugger->snapshot((this->wasm_module));
+    nlohmann::basic_json<> snapshot{};
+    if (!this->dbgOutput->getJSONReply(&snapshot)) {
+        this->failSnapshotNotReceived();
+        return;
+    }
+
+    // the following keys is the content that the snapshot should print
+    std::unordered_set<std::string> expectedKeys{
+        "pc",    "breakpoints", "callstack", "stack",     "globals",
+        "table", "br_table",    "memory",    "callbacks", "events"};
+
+    JSONCompanion comp{snapshot};
+    std::unordered_set<std::string> unExpectedKeys =
+        comp.differenceKeys(expectedKeys);
+
+    std::string errorMsg{
+        "Snapshot contains more keys than the expected keys.\nExpected keys: "};
+
+    for (auto k : expectedKeys) {
+        errorMsg += k;
+        errorMsg += ", ";
+    }
+    errorMsg += "\nUnexpected keys: ";
+    for (auto k : unExpectedKeys) {
+        errorMsg += k;
+        errorMsg += ", ";
+    }
+    ASSERT_TRUE(unExpectedKeys.size() == 0) << errorMsg;
 }
 
 TEST_F(Snapshot, PCIsVirtualAddress) {
