@@ -38,4 +38,6 @@ class SnapshotBinaryEncoder {
     void encodeCallstack(std::vector<Frame>* frames);
 
     void encodeCallbacks(std::vector<Callback>& callbacks);
+
+    void encodeEvents(std::vector<Event>& events);
 };

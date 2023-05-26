@@ -232,6 +232,55 @@ TEST_F(LoadSnapshot, Callbacks) {
     }
 }
 
+TEST_F(LoadSnapshot, Events) {
+    this->sendFirstMessageWithEmptyState();
+
+    // creating events
+    std::map<std::string, std::string> eventsMap{
+        {"topic10", "payload10"}, {"topic22", "payload22"}, {"topic33", ""}};
+
+    std::vector<Event> expectedEvents{};
+    for (const auto& pair : eventsMap) {
+        expectedEvents.push_back(Event{pair.first, pair.second});
+    }
+
+    // sending the events to load  via loadsnapshot
+    this->state->encodeEvents(expectedEvents);
+    std::string msg{};
+    this->state->createStateMessage(&msg);
+    this->sendMessage(msg);
+
+    // printing the current events
+    this->sendInterruptNoPayload(interruptDUMPAllEvents);
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
+        FAIL() << fullErrorMessage(
+            "Did not receive valid JSON reply for dumpedEvents interrupt. "
+            "Received:\n");
+    }
+
+    // testing if the printed events match the expected events
+    try {
+        auto events = reply["events"];
+        ASSERT_EQ(events.size(), 3) << "the two events did not get printed";
+        for (auto ev : events) {
+            std::string topic = ev["topic"];
+            ASSERT_TRUE(eventsMap.count(topic))
+                << "dumpedEvents dumped an event with an unexpected topic";
+
+            std::string expectedPayload = eventsMap[topic];
+            std::string payload = ev["payload"];
+            ASSERT_EQ(expectedPayload, payload)
+                << "the dumped event has an unexpected payload.";
+        }
+    } catch (const nlohmann::detail::type_error& e) {
+        FAIL() << "printed json does not have the expected keys (events, topic "
+                  "and/or payload) or values cannot be converted to the "
+                  "expected types\n"
+               << "exception message: " << e.what();
+    }
+}
+
 TEST_F(LoadSnapshotCallstack, FuncFrame) {
     this->sendFirstMessageWithEmptyState();
 

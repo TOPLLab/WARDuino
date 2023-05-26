@@ -197,6 +197,14 @@ void SnapshotBinaryEncoder::encodeCallbacks(std::vector<Callback>& callbacks) {
         }
     }
 }
+void SnapshotBinaryEncoder::encodeEvents(std::vector<Event>& events) {
+    this->stateToTransmit.push_back(eventsState);
+    encodeB32(events.size());
+    for (auto ev : events) {
+        encodeString(ev.topic);
+        encodeString(ev.payload);
+    }
+}
 
 void SnapshotBinaryEncoder::encodeB32(uint32_t value, uint8_t* buffer) {
     uint8_t* buff = buffer == nullptr ? (uint8_t*)malloc(4) : buffer;
