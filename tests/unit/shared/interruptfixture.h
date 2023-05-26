@@ -26,4 +26,5 @@ class InterruptFixture : public ::testing::Test {
     void failAndPrintAllReceivedMessages(const char* failReason);
     void TearDown() override;
     std::string fullErrorMessage(const char* msg);
+    void sendInterruptNoPayload(uint8_t interruptNr);
 };

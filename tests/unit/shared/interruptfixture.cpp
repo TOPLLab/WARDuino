@@ -1,5 +1,7 @@
 #include "interruptfixture.h"
 
+#include "../../../src/Utils/util.h"
+
 InterruptFixture::InterruptFixture(const char* t_interruptName,
                                    uint8_t t_interruptNr, uint8_t* t_wasm,
                                    size_t t_wasm_len)
@@ -51,4 +53,16 @@ void InterruptFixture::TearDown() {
     delete this->dbgOutput;
     delete callstackBuilder;
     delete moduleCompanion;
+}
+
+// creates an interruptMsg that does not expect any payload
+void InterruptFixture::sendInterruptNoPayload(uint8_t interruptNr) {
+    char hexa[3] = {};
+    chars_as_hexa((unsigned char*)hexa, &interruptNr, 1);
+    hexa[2] = '\n';
+
+    const uint8_t* content = (uint8_t*)hexa;
+    this->debugger->addDebugMessage(3, content);
+    this->debugger->checkDebugMessages(this->wasm_module,
+                                       &this->warduino->program_state);
 }

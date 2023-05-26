@@ -6,10 +6,6 @@
 #include "shared/interruptfixture.h"
 
 class DumpFull : public InterruptFixture {
-   private:
-    size_t interruptSize = 3;
-    uint8_t interrupt[3] = {'1', '2', '\n'};
-
    protected:
     DumpFull()
         : InterruptFixture("dumpfull", interruptDUMPFull, fac_wasm,
@@ -26,11 +22,7 @@ class DumpFull : public InterruptFixture {
             "Dumpfull did not print expected JSON. Received lines:\n");
     }
 
-    void doFullDump() {
-        this->debugger->addDebugMessage(interruptSize, interrupt);
-        this->debugger->checkDebugMessages(this->wasm_module,
-                                           &this->warduino->program_state);
-    }
+    void doFullDump() { this->sendInterruptNoPayload(interruptDUMPFull); }
 };
 
 TEST_F(DumpFull, IsValidJSON) {
