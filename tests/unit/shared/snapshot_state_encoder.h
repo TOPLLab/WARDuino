@@ -36,4 +36,6 @@ class SnapshotBinaryEncoder {
     void encodeBreakpoints(std::set<uint32_t> breakpoints);
 
     void encodeCallstack(std::vector<Frame>* frames);
+
+    void encodeCallbacks(std::vector<Callback>& callbacks);
 };

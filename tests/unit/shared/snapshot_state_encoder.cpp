@@ -167,6 +167,38 @@ void SnapshotBinaryEncoder::encodeCallstack(std::vector<Frame>* frames) {
     }
 }
 
+void SnapshotBinaryEncoder::encodeCallbacks(std::vector<Callback>& callbacks) {
+    this->stateToTransmit.push_back(callbacksState);
+    // encode number of topics
+    std::set<std::string> topics{};
+    for (auto callback : callbacks) {
+        topics.insert(callback.topic);
+    }
+    encodeB32(topics.size());
+
+    for (auto topic : topics) {
+        // encode the topic
+        encodeB32(topic.size());
+        encodeString(topic);
+
+        // search all indexes for the same topic
+        std::set<uint32_t> indexes{};
+        for (auto callback : callbacks) {
+            if (callback.topic != topic) {
+                continue;
+            }
+            indexes.insert(callback.table_index);
+        }
+
+        // encode amount table indexes
+        encodeB32(indexes.size());
+        // encode each table index
+        for (auto tidx : indexes) {
+            encodeB32(tidx);
+        }
+    }
+}
+
 void SnapshotBinaryEncoder::encodeB32(uint32_t value, uint8_t* buffer) {
     uint8_t* buff = buffer == nullptr ? (uint8_t*)malloc(4) : buffer;
 
