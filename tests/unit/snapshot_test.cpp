@@ -202,8 +202,8 @@ TEST_F(SnapshotCallstackFrame, ReturnAddressIsVirtualAddress) {
      * Callstack contains 2 frames in the following order:
      * 1. one frame for main function call where the sp, fp, return address
      * point to unexisting code
-     * 2. one frame for a main function where the return address points to start
-     * of main function of the first callstack frame
+     * 2. one frame for a main function where the return address points to
+     * start of main function of the first callstack frame
      */
 
     Block* func = this->moduleCompanion->getMainFunction();
