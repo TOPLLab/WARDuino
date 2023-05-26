@@ -224,6 +224,11 @@ TEST_F(LoadSnapshot, Callbacks) {
     } catch (const nlohmann::detail::parse_error& e) {
         FAIL() << "dumped callbacks is invalid json. Received "
                << dumpedCallbacks;
+    } catch (const nlohmann::detail::type_error& e) {
+        FAIL() << "printed json does not have the expected keys (callbacks, "
+                  "callbackid, and or tableIndexes or values cannot be "
+                  "converted to the expected types\n"
+               << "exception message: " << e.what();
     }
 }
 
