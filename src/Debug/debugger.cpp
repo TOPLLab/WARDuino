@@ -1106,6 +1106,27 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
+            case eventsState: {
+                uint32_t numberEvents = read_B32(&program_state);
+                for (auto idx = 0; idx < numberEvents; ++idx) {
+                    // read topic
+                    uint32_t topicSize = read_B32(&program_state);
+                    char *topic = (char *)malloc(topicSize + 1);
+                    memcpy((void *)topic, program_state, topicSize);
+                    topic[topicSize] = '\0';
+                    program_state += topicSize;
+
+                    // read payload
+                    uint32_t payloadSize = read_B32(&program_state);
+                    char *payload = (char *)malloc(payloadSize + 1);
+                    memcpy((void *)payload, program_state, payloadSize);
+                    payload[payloadSize] = '\0';
+                    program_state += payloadSize;
+
+                    CallbackHandler::push_event(topic, payload, payloadSize);
+                }
+                break;
+            }
             default: {
                 FATAL("saveState: Received unknown program state\n");
             }
