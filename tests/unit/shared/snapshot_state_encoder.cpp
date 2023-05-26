@@ -210,3 +210,12 @@ void SnapshotBinaryEncoder::encodeSignedB32(int32_t value, uint8_t* buffer) {
         free(buff);
     }
 }
+
+void SnapshotBinaryEncoder::encodeString(std::string s) {
+    uint8_t* buff = (uint8_t*)malloc(s.size());
+    std::memcpy(buff, s.c_str(), s.size());
+    for (int i = 0; i < s.size(); ++i) {
+        this->stateToTransmit.push_back(buff[i]);
+    }
+    free(buff);
+}
