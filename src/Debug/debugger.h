@@ -52,7 +52,7 @@ enum InterruptTypes {
     interruptSTEP = 0x04,
     interruptBPAdd = 0x06,
     interruptBPRem = 0x07,
-    interruptLoadSnapshot = 0x09,
+    interruptInspect = 0x09,
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
     interruptDUMPFull = 0x12,
@@ -68,7 +68,7 @@ enum InterruptTypes {
 
     // Pull Debugging
     interruptSnapshot = 0x60,
-    interruptInspect = 0x61,
+    interruptLoadSnapshot = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
     interruptProxify = 0x65,  // wifi SSID \0 wifi PASS \0
