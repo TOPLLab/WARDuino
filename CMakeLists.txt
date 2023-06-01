@@ -37,7 +37,7 @@ set(SOURCE_FILES
         src/Utils/util.cpp
         src/Utils/util_arduino.cpp
         src/Utils/macros.cpp
-        #src/Utils/sockets.cpp
+        src/Utils/sockets.cpp
         src/Debug/debugger.cpp
         src/Edward/proxy.cpp
         #src/Edward/proxy_supervisor.cpp

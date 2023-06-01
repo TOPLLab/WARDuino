@@ -1,8 +1,10 @@
 #include "sockets.h"
 
+#ifndef PICO
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#endif
 #include <unistd.h>
 
 #include <csignal>
@@ -11,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#ifndef PICO
 // Socket Debugger Interface
 void setFileDescriptorOptions(int socket_fd) {
     int opt = 1;
@@ -71,6 +74,7 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     }
     return new_socket;
 }
+#endif
 
 Sink::Sink(FILE *out) {
     this->outStream = out;
@@ -94,6 +98,7 @@ ssize_t Duplex::read(void *out, size_t size) {
     return ::read(this->inDescriptor, out, size);
 }
 
+
 FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) {
     this->fd = fileDescriptor;
 }
@@ -109,6 +114,8 @@ int FileDescriptorChannel::write(const char *fmt, ...) const {
 ssize_t FileDescriptorChannel::read(void *out, size_t size) {
     return ::read(this->fd, out, size);
 }
+
+#ifndef PICO
 
 WebSocket::WebSocket(int port) {
     this->port = port;
@@ -158,3 +165,4 @@ void WebSocket::close() {
     sendAlarm();  // stop possible blocking accept call
     shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
 }
+#endif

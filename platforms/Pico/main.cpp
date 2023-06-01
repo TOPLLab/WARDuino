@@ -10,7 +10,7 @@ unsigned char* wasm = upload_wasm;
 
 WARDuino *wac;
 
-/*void startDebuggerStd() {
+void startDebuggerStd() {
     Channel* duplex = new Duplex(stdin, stdout);
     wac->debugger->setChannel(duplex);
     duplex->open();
@@ -24,16 +24,14 @@ WARDuino *wac;
             wac->handleInterrupt(valread - 1, buffer);
         }
     }
-}*/
+}
 
 int main() {
     stdio_init_all();
     
-    printf("Warduino hello!\n");
-    
-    WARDuino* wac = WARDuino::instance();
+    wac = WARDuino::instance();
     Module* m = wac->load_module(wasm, wasm_len, {});
-   //multicore_launch_core1(startDebuggerStd);
+    multicore_launch_core1(startDebuggerStd);
     
     wac->run_module(m);
     wac->unload_module(m);
