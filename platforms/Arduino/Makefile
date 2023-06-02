@@ -43,6 +43,8 @@ ifndef FQBN
 endif
 	arduino-cli compile --fqbn $(FQBN) Arduino.ino
 
+recompile: clean compile
+
 monitor: 
 ifndef PORT
 	$(error PORT is not set. Use a .config file)
