@@ -44,11 +44,14 @@ set(SOURCE_FILES
         src/Edward/RFC.cpp)
 
 #add_executable(wdcli main-test.c)
-add_executable(wdcli platforms/Pico/main.cpp ${SOURCE_FILES})
-target_link_libraries(wdcli pico_stdlib pico_multicore)
-target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
+add_executable(warduino platforms/Pico/main.cpp ${SOURCE_FILES})
+target_link_libraries(warduino pico_stdlib pico_multicore)
+target_include_directories(warduino PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
 
-pico_enable_stdio_usb(wdcli 1)
-pico_enable_stdio_uart(wdcli 0)
-#pico_enable_stdio_uart(wdcli 1)
-pico_add_extra_outputs(wdcli)
+pico_enable_stdio_usb(warduino 1)
+pico_enable_stdio_uart(warduino 0)
+#pico_enable_stdio_uart(warduino 1)
+pico_add_extra_outputs(warduino)
+
+add_custom_target(flash COMMAND sudo picotool load -v -x warduino.uf2 -f)
+
