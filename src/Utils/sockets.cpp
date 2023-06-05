@@ -123,6 +123,7 @@ void WebSocket::open() {
     bindSocketToAddress(this->fileDescriptor, address);
     startListening(this->fileDescriptor);
     printf("Listening on port 127.0.0.1:%i\n", this->port);
+    fflush(stdout);
 
     // block until a connection is established
     this->socket = listenForIncomingConnection(this->fileDescriptor, address);

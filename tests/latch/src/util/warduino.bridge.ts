@@ -69,6 +69,7 @@ export function connectSocket(interpreter: string, program: string, port: number
                 reject(`Could not connect. Error:  ${error}`);
             });
         } else {
+            process.kill();
             reject();
         }
     });
