@@ -30,3 +30,43 @@ jobs:
         run: ctest -VV
         working-directory: build-unit-tests
 
+  latch:
+    name: Run official testsuite
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Build warduino cli
+        run: |
+          cmake . -D BUILD_EMULATOR=ON
+          cmake --build .
+          echo "EMULATOR=$(realpath ./wdcli)" >> $GITHUB_ENV
+
+      - name: Build WABT  # Build latest version
+        run: |
+          git clone --recursive https://github.com/WebAssembly/wabt
+          cd wabt
+          git submodule update --init
+          mkdir build; cd build
+          cmake ..
+          cmake --build .
+
+      - name: Verify wat2wasm
+        run: |
+          echo "WABT=$(readlink -f ./wabt/build)" >> $GITHUB_ENV
+          ./wabt/build/wat2wasm --version
+
+      - run: npm install
+        working-directory: tests/latch/
+
+      - name: Run Latch
+        run: npm run spectest
+        working-directory: tests/latch/
+
