@@ -54,4 +54,5 @@ pico_enable_stdio_uart(warduino 0)
 pico_add_extra_outputs(warduino)
 
 add_custom_target(flash COMMAND sudo picotool load -v -x warduino.uf2 -f)
+add_custom_target(compile COMMAND xxd -i upload.wasm > ${CMAKE_SOURCE_DIR}/platforms/Pico/upload.h)
 
