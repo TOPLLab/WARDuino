@@ -25,8 +25,8 @@ endif
 
 Arduino.ino: bin/upload.h Arduino.ino.template
 	cat Arduino.ino.template > $@
-	sed  "s/{{PAUSED}}/$(COMMAND)/" Arduino.ino > Arduino.tmp
-	mv Arduino.tmp Arduino.ino
+	sed  "s/{{PAUSED}}/$(COMMAND)/" $@ > Arduino.tmp
+	mv Arduino.tmp $@
 
 
 flash: Arduino.ino
