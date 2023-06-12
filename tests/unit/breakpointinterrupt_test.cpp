@@ -19,13 +19,12 @@ class BreakpointInterrupt : public InterruptFixture {
     }
 
     void sendBpInterrupt(uint32_t bpAddress) {
-        uint8_t nr = this->interruptNr;
-        char interruptNrHexa[2] = {'0'};
-        chars_as_hexa((unsigned char*)interruptNrHexa, &nr, 1);
+        std::string nr{};
+        Serialiser::uint8ToHexString(this->interruptNr, nr);
+        std::string bp{};
+        Serialiser::uint32ToHexString(bpAddress, bp);
 
-        std::string interrupt{interruptNrHexa};
-        interrupt += Serialiser::uint32ToHexString(bpAddress);
-        interrupt += '\n';
+        std::string interrupt = nr + bp + "\n";
         this->debugger->addDebugMessage(interrupt.size(),
                                         (uint8_t*)interrupt.c_str());
         this->debugger->checkDebugMessages(this->wasm_module,
