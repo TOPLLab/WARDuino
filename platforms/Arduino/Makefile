@@ -10,8 +10,8 @@ else
 endif
 
 clean:
-	rm Arduino.ino -f
-	rm bin -rf
+	rm -f Arduino.ino 
+	rm -rf bin 
 
 bin:
 	mkdir bin
@@ -25,7 +25,8 @@ endif
 
 Arduino.ino: bin/upload.h Arduino.ino.template
 	cat Arduino.ino.template > $@
-	sed -i "s/{{PAUSED}}/$(COMMAND)/" $@
+	sed  "s/{{PAUSED}}/$(COMMAND)/" Arduino.ino > Arduino.tmp
+	mv Arduino.tmp Arduino.ino
 
 
 flash: Arduino.ino
