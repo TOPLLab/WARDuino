@@ -50,7 +50,8 @@ void SnapshotBinaryEncoder::createStateMessage(std::string* dest,
 
     // *2 for conversion to hexa
     uint32_t sizeMsgInHexa = sizeMessage * 2;
-    char* hexa = (char*)malloc(sizeMsgInHexa + 1);  // + 1 for newline
+    char* hexa = (char*)malloc(sizeMsgInHexa +
+                               2);  // + 2 for newline and string termination
     chars_as_hexa((unsigned char*)hexa, encoding,
                   sizeMessage);  // exclude newline
 
@@ -58,6 +59,8 @@ void SnapshotBinaryEncoder::createStateMessage(std::string* dest,
 
     // add newline
     hexa[sizeMsgInHexa] = '\n';
+    // string termination
+    hexa[sizeMsgInHexa + 1] = '\0';
     dest->assign(hexa);
 }
 
@@ -129,11 +132,12 @@ void SnapshotBinaryEncoder::createFirstMessage(
 
     // transform to hexastring
     uint32_t sizeMessageInHexa = sizeMessage * 2;
-    char* hexa =
-        (char*)malloc(sizeMessageInHexa + 1);  // + 1 for newline termination
+    char* hexa = (char*)malloc(sizeMessageInHexa +
+                               2);  // + 2 for newline and string termination
 
     chars_as_hexa((unsigned char*)hexa, message, sizeMessage);
     hexa[sizeMessageInHexa] = '\n';
+    hexa[sizeMessageInHexa + 1] = '\0';
     dest->assign(hexa);
 }
 
