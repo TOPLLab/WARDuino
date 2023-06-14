@@ -4,17 +4,6 @@
 
 #include "../../src/Utils/util.h"
 
-enum State {
-    pcState = 0x01,
-    breakpointsState = 0x02,
-    callstackState = 0x03,
-    globalsState = 0x04,
-    tblState = 0x05,
-    memState = 0x06,
-    brtblState = 0x07,
-    stackvalsState = 0x08
-};
-
 uint8_t* getCodePointer(Block* block, Module* m) {
     auto find =
         std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
@@ -61,7 +50,8 @@ void SnapshotBinaryEncoder::createStateMessage(std::string* dest,
 
     // *2 for conversion to hexa
     uint32_t sizeMsgInHexa = sizeMessage * 2;
-    char* hexa = (char*)malloc(sizeMsgInHexa + 1);  // + 1 for newline
+    char* hexa = (char*)malloc(sizeMsgInHexa +
+                               2);  // + 2 for newline and string termination
     chars_as_hexa((unsigned char*)hexa, encoding,
                   sizeMessage);  // exclude newline
 
@@ -69,6 +59,8 @@ void SnapshotBinaryEncoder::createStateMessage(std::string* dest,
 
     // add newline
     hexa[sizeMsgInHexa] = '\n';
+    // string termination
+    hexa[sizeMsgInHexa + 1] = '\0';
     dest->assign(hexa);
 }
 
@@ -104,7 +96,7 @@ void SnapshotBinaryEncoder::createFirstMessage(
     offset += 4;
 
     // table
-    message[offset++] = tblState;
+    message[offset++] = tableState;
 
     uint8_t tableInitB32[4] = {0};
     encodeB32(table_initial, tableInitB32);
@@ -122,7 +114,7 @@ void SnapshotBinaryEncoder::createFirstMessage(
     offset += 4;
 
     // memory
-    message[offset++] = memState;
+    message[offset++] = memoryState;
 
     uint8_t memMaxB32[4] = {0};
     encodeB32(mem_max, memMaxB32);
@@ -140,11 +132,12 @@ void SnapshotBinaryEncoder::createFirstMessage(
 
     // transform to hexastring
     uint32_t sizeMessageInHexa = sizeMessage * 2;
-    char* hexa =
-        (char*)malloc(sizeMessageInHexa + 1);  // + 1 for newline termination
+    char* hexa = (char*)malloc(sizeMessageInHexa +
+                               2);  // + 2 for newline and string termination
 
     chars_as_hexa((unsigned char*)hexa, message, sizeMessage);
     hexa[sizeMessageInHexa] = '\n';
+    hexa[sizeMessageInHexa + 1] = '\0';
     dest->assign(hexa);
 }
 
@@ -175,6 +168,45 @@ void SnapshotBinaryEncoder::encodeCallstack(std::vector<Frame>* frames) {
                 toVirtualAddress(getCodePointer(frame.block, m), m);
             this->encodeB32(blockKey);
         }
+    }
+}
+
+void SnapshotBinaryEncoder::encodeCallbacks(std::vector<Callback>& callbacks) {
+    this->stateToTransmit.push_back(callbacksState);
+    // encode number of topics
+    std::set<std::string> topics{};
+    for (auto callback : callbacks) {
+        topics.insert(callback.topic);
+    }
+    encodeB32(topics.size());
+
+    for (auto topic : topics) {
+        // encode the topic
+        encodeString(topic);
+
+        // search all indexes for the same topic
+        std::set<uint32_t> indexes{};
+        for (auto callback : callbacks) {
+            if (callback.topic != topic) {
+                continue;
+            }
+            indexes.insert(callback.table_index);
+        }
+
+        // encode amount table indexes
+        encodeB32(indexes.size());
+        // encode each table index
+        for (auto tidx : indexes) {
+            encodeB32(tidx);
+        }
+    }
+}
+void SnapshotBinaryEncoder::encodeEvents(std::vector<Event>& events) {
+    this->stateToTransmit.push_back(eventsState);
+    encodeB32(events.size());
+    for (auto ev : events) {
+        encodeString(ev.topic);
+        encodeString(ev.payload);
     }
 }
 
@@ -220,4 +252,16 @@ void SnapshotBinaryEncoder::encodeSignedB32(int32_t value, uint8_t* buffer) {
         }
         free(buff);
     }
+}
+
+void SnapshotBinaryEncoder::encodeString(std::string s) {
+    encodeB32(s.size());
+
+    // encode string content
+    uint8_t* buff = (uint8_t*)malloc(s.size());
+    std::memcpy(buff, s.c_str(), s.size());
+    for (int i = 0; i < s.size(); ++i) {
+        this->stateToTransmit.push_back(buff[i]);
+    }
+    free(buff);
 }

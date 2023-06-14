@@ -4,6 +4,7 @@
 #include "example_code/fac/fac_wasm.h"
 #include "gtest/gtest.h"
 #include "shared/interruptfixture.h"
+#include "shared/json_companion.h"
 #include "shared/snapshot_state_encoder.h"
 
 /*
@@ -16,14 +17,15 @@
 
 class LoadSnapshot : public InterruptFixture {
    protected:
-    uint8_t interruptLoadSnapshot = 0x62;
     SnapshotBinaryEncoder* state = {};
-    LoadSnapshot() : InterruptFixture("LoadSnapshot", fac_wasm, fac_wasm_len) {}
+    LoadSnapshot()
+        : InterruptFixture("LoadSnapshot", interruptLoadSnapshot, fac_wasm,
+                           fac_wasm_len) {}
 
     void SetUp() override {
         InterruptFixture::SetUp();
-        this->state = new SnapshotBinaryEncoder(this->interruptLoadSnapshot,
-                                                this->wasm_module);
+        this->state =
+            new SnapshotBinaryEncoder(this->interruptNr, this->wasm_module);
     }
 
     void TearDown() override {
@@ -146,6 +148,136 @@ TEST_F(LoadSnapshot, InvalidBreakpointsAreNotLoaded) {
         uint32_t bp = toVirtualAddress(bpPointer, this->wasm_module);
         ASSERT_EQ(bp, validBP)
             << " the only valid breakpoint is not part of the breakpoints";
+    }
+}
+
+TEST_F(LoadSnapshot, Callbacks) {
+    this->sendFirstMessageWithEmptyState();
+    std::vector<Callback> callbacks{};
+
+    // register 3 callbacks for topic10
+    std::string topic10 = "interrupt_10";
+    std::set<uint32_t> topic10Indexes = {11, 12, 13};
+    for (auto tidx : topic10Indexes) {
+        callbacks.push_back(Callback(this->wasm_module, topic10.c_str(), tidx));
+    }
+
+    // register 2 callbacks for topic22
+    std::string topic22 = "interrupt_22";
+    std::set<uint32_t> topic22Indexes = {21, 22};
+    for (auto tidx : topic22Indexes) {
+        callbacks.push_back(Callback(this->wasm_module, topic22.c_str(), tidx));
+    }
+
+    this->state->encodeCallbacks(callbacks);
+    std::string msg{};
+    this->state->createStateMessage(&msg);
+    this->sendMessage(msg);
+
+    std::string dumpedCallbacks{};
+    try {
+        dumpedCallbacks = CallbackHandler::dump_callbacksV2();
+        nlohmann::basic_json<> parsed = nlohmann::json::parse(dumpedCallbacks);
+        // auto cbs = parsed["callbacks"];
+
+        // testing that callbacks for each topic got registered
+        std::set<std::string> expectedTopics{topic22, topic10};
+        std::set<std::string> dumpedTopics{};
+        for (auto dumpedCallback : parsed["callbacks"]) {
+            dumpedTopics.insert(dumpedCallback["callbackid"]);
+        }
+        ASSERT_EQ(dumpedTopics.size(), 2)
+            << "we expect callbacks for 2 different topics";
+
+        for (auto dumpedTopic : dumpedTopics) {
+            ASSERT_TRUE(expectedTopics.count(dumpedTopic))
+                << "callbacks for unexpected topic " << dumpedTopic
+                << " got dumped";
+        }
+
+        // testing that for each topic the right amount of callbacks got
+        // registered
+        for (auto dumpedCallback : parsed["callbacks"]) {
+            if (dumpedCallback["callbackid"] != topic10 &&
+                dumpedCallback["callbackid"] != topic22) {
+                FAIL() << "loaded an invalid callback. " << dumpedCallback;
+            }
+
+            std::set<uint32_t> loadedIndexes = dumpedCallback["tableIndexes"];
+            std::set<uint32_t> expectedIndexes =
+                dumpedCallback["callbackid"] == topic22 ? topic22Indexes
+                                                        : topic10Indexes;
+            std::string topic =
+                dumpedCallback["callbackid"] == topic22 ? topic22 : topic10;
+            ASSERT_EQ(expectedIndexes.size(), loadedIndexes.size())
+                << "mismatch in the number of loaded table index for callbacks "
+                   "with topic "
+                << topic;
+            for (auto tidx : expectedIndexes) {
+                ASSERT_TRUE(loadedIndexes.count(tidx))
+                    << "table idx " << tidx
+                    << " is not loaded as expected for "
+                       "topic "
+                    << topic;
+            }
+        }
+    } catch (const nlohmann::detail::parse_error& e) {
+        FAIL() << "dumped callbacks is invalid json. Received "
+               << dumpedCallbacks;
+    } catch (const nlohmann::detail::type_error& e) {
+        FAIL() << "printed json does not have the expected keys (callbacks, "
+                  "callbackid, and or tableIndexes or values cannot be "
+                  "converted to the expected types\n"
+               << "exception message: " << e.what();
+    }
+}
+
+TEST_F(LoadSnapshot, Events) {
+    this->sendFirstMessageWithEmptyState();
+
+    // creating events
+    std::map<std::string, std::string> eventsMap{
+        {"topic10", "payload10"}, {"topic22", "payload22"}, {"topic33", ""}};
+
+    std::vector<Event> expectedEvents{};
+    for (const auto& pair : eventsMap) {
+        expectedEvents.push_back(Event{pair.first, pair.second});
+    }
+
+    // sending the events to load  via loadsnapshot
+    this->state->encodeEvents(expectedEvents);
+    std::string msg{};
+    this->state->createStateMessage(&msg);
+    this->sendMessage(msg);
+
+    // printing the current events
+    this->sendInterruptNoPayload(interruptDUMPAllEvents);
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
+        FAIL() << fullErrorMessage(
+            "Did not receive valid JSON reply for dumpedEvents interrupt. "
+            "Received:\n");
+    }
+
+    // testing if the printed events match the expected events
+    try {
+        auto events = reply["events"];
+        ASSERT_EQ(events.size(), 3) << "the two events did not get printed";
+        for (auto ev : events) {
+            std::string topic = ev["topic"];
+            ASSERT_TRUE(eventsMap.count(topic))
+                << "dumpedEvents dumped an event with an unexpected topic";
+
+            std::string expectedPayload = eventsMap[topic];
+            std::string payload = ev["payload"];
+            ASSERT_EQ(expectedPayload, payload)
+                << "the dumped event has an unexpected payload.";
+        }
+    } catch (const nlohmann::detail::type_error& e) {
+        FAIL() << "printed json does not have the expected keys (events, topic "
+                  "and/or payload) or values cannot be converted to the "
+                  "expected types\n"
+               << "exception message: " << e.what();
     }
 }
 
@@ -340,8 +472,7 @@ TEST_F(LoadSnapshotCallstack, FrameWithNullPtrAsReturnAddresShouldBeLoaded) {
     this->state->createStateMessage(&msg);
     this->sendMessage(msg);
     Frame f2 = this->wasm_module->callstack[0];
-    ASSERT_EQ(f2.sp, -1);
-    ASSERT_EQ(f2.fp, -33);
+    ASSERT_EQ(f2.ra_ptr, nullptr);
 }
 
 int main(int argc, char** argv) {

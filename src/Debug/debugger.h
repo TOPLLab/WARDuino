@@ -31,6 +31,19 @@ enum RunningState {
                // sends messages for primitives, do forward interrupts)
 };
 
+enum ExecutionState {
+    pcState = 0x01,
+    breakpointsState = 0x02,
+    callstackState = 0x03,
+    globalsState = 0x04,
+    tableState = 0x05,
+    memoryState = 0x06,
+    branchingTableState = 0x07,
+    stackState = 0x08,
+    callbacksState = 0x09,
+    eventsState = 0x0A
+};
+
 enum InterruptTypes {
     // Remote Debugging
     interruptRUN = 0x01,
@@ -39,6 +52,7 @@ enum InterruptTypes {
     interruptSTEP = 0x04,
     interruptBPAdd = 0x06,
     interruptBPRem = 0x07,
+    interruptInspect = 0x09,
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
     interruptDUMPFull = 0x12,
@@ -123,6 +137,8 @@ class Debugger {
     void dumpEvents(long start, long size) const;
 
     void dumpCallbackmapping() const;
+
+    void inspect(Module *m, uint16_t sizeStateArray, uint8_t *state);
 
     //// Handle live code update
 
