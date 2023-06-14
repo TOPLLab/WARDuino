@@ -251,6 +251,14 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             snapshot(m);
             break;
+        case interruptInspect: {
+            uint8_t *data = interruptData + 1;
+            uint16_t numberBytes = read_B16(&data);
+            uint8_t *state = interruptData + 3;
+            inspect(m, numberBytes, state);
+            free(interruptData);
+            break;
+        }
         case interruptLoadSnapshot:
             if (!this->receivingData) {
                 *program_state = WARDUINOpause;
@@ -674,96 +682,144 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 }
 
 void Debugger::snapshot(Module *m) {
+    uint16_t numberBytes = 10;
+    uint8_t state[] = {
+        pcState,        breakpointsState, callstackState,      globalsState,
+        tableState,     memoryState,      branchingTableState, stackState,
+        callbacksState, eventsState};
+    inspect(m, numberBytes, state);
+}
+
+void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
+    debug("asked for inspect\n");
+    uint16_t idx = 0;
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
-    debug("asked for doDump\n");
-    printf("asked for snapshot\n");
+    bool addComma = false;
+
     this->channel->write("DUMP!\n");
     this->channel->write("{");
 
-    // current PC
-    this->channel->write("\"pc\":%" PRIu32 ",", toVA(m->pc_ptr));
+    while (idx < sizeStateArray) {
+        switch (state[idx++]) {
+            case pcState: {  // PC
+                this->channel->write("\"pc\":%" PRIu32 "", toVA(m->pc_ptr));
+                addComma = true;
 
-    this->channel->write("\"breakpoints\":[");
-    size_t i = 0;
-    for (auto bp : this->breakpoints) {
-        this->channel->write("%" PRIu32 "%s", toVA(bp),
-                             (++i < this->breakpoints.size()) ? "," : "");
+                break;
+            }
+            case breakpointsState: {
+                this->channel->write("%s\"breakpoints\":[",
+                                     addComma ? "," : "");
+                addComma = true;
+                size_t i = 0;
+                for (auto bp : this->breakpoints) {
+                    this->channel->write(
+                        "%" PRIu32 "%s", toVA(bp),
+                        (++i < this->breakpoints.size()) ? "," : "");
+                }
+                this->channel->write("]");
+                break;
+            }
+            case callstackState: {
+                this->channel->write("%s\"callstack\":[", addComma ? "," : "");
+                addComma = true;
+                for (int j = 0; j <= m->csp; j++) {
+                    Frame *f = &m->callstack[j];
+                    uint8_t bt = f->block->block_type;
+                    uint32_t block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
+                                             ? 0
+                                             : toVA(findOpcode(m, f->block));
+                    uint32_t fidx = bt == 0 ? f->block->fidx : 0;
+                    int ra = f->ra_ptr == nullptr ? -1 : toVA(f->ra_ptr);
+                    this->channel->write(
+                        R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"idx":%d,)",
+                        bt, fidx, f->sp, f->fp, j);
+                    this->channel->write(
+                        "\"block_key\":%" PRIu32 ",\"ra\":%d}%s", block_key, ra,
+                        (j < m->csp) ? "," : "");
+                }
+                this->channel->write("]");
+                break;
+            }
+            case stackState: {
+                this->channel->write("%s\"stack\":[", addComma ? "," : "");
+                addComma = true;
+                for (int j = 0; j <= m->sp; j++) {
+                    auto v = &m->stack[j];
+                    printValue(v, j, j == m->sp);
+                }
+                this->channel->write("]");
+                break;
+            }
+            case globalsState: {
+                this->channel->write("%s\"globals\":[", addComma ? "," : "");
+                addComma = true;
+                for (uint32_t j = 0; j < m->global_count; j++) {
+                    auto v = m->globals + j;
+                    printValue(v, j, j == (m->global_count - 1));
+                }
+                this->channel->write("]");  // closing globals
+                break;
+            }
+            case tableState: {
+                this->channel->write(
+                    R"(%s"table":{"max":%d, "init":%d, "elements":[)",
+                    addComma ? "," : "", m->table.maximum, m->table.initial);
+                addComma = true;
+                for (uint32_t j = 0; j < m->table.size; j++) {
+                    this->channel->write("%" PRIu32 "%s", m->table.entries[j],
+                                         (j + 1) == m->table.size ? "" : ",");
+                }
+                this->channel->write("]}");  // closing table
+                break;
+            }
+            case branchingTableState: {
+                this->channel->write(
+                    R"(%s"br_table":{"size":"0x%x","labels":[)",
+                    addComma ? "," : "", BR_TABLE_SIZE);
+                for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
+                    this->channel->write("%" PRIu32 "%s", m->br_table[j],
+                                         (j + 1) == BR_TABLE_SIZE ? "" : ",");
+                }
+                this->channel->write("]}");
+                break;
+            }
+            case memoryState: {
+                uint32_t total_elems = m->memory.pages * (uint32_t)PAGE_SIZE;
+                this->channel->write(
+                    R"(%s"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
+                    addComma ? "," : "", m->memory.pages, m->memory.maximum,
+                    m->memory.initial);
+                addComma = true;
+                for (uint32_t j = 0; j < total_elems; j++) {
+                    this->channel->write("%" PRIu8 "%s", m->memory.bytes[j],
+                                         (j + 1) == total_elems ? "" : ",");
+                }
+                this->channel->write("]}");  // closing memory
+                break;
+            }
+            case callbacksState: {
+                bool noOuterBraces = false;
+                this->channel->write(
+                    "%s%s", addComma ? "," : "",
+                    CallbackHandler::dump_callbacksV2(noOuterBraces).c_str());
+                addComma = true;
+                break;
+            }
+            case eventsState: {
+                this->channel->write("%s", addComma ? "," : "");
+                this->dumpEvents(0, CallbackHandler::event_count());
+                addComma = true;
+                break;
+            }
+            default: {
+                debug("dumpExecutionState: Received unknown state request\n");
+                break;
+            }
+        }
     }
-    this->channel->write("],");
-
-    // stack
-    this->channel->write("\"stack\":[");
-    for (int j = 0; j <= m->sp; j++) {
-        auto v = &m->stack[j];
-        printValue(v, j, j == m->sp);
-    }
-    this->channel->write("],");
-
-    // Callstack
-    this->channel->write("\"callstack\":[");
-    for (int j = 0; j <= m->csp; j++) {
-        Frame *f = &m->callstack[j];
-        uint8_t bt = f->block->block_type;
-        int ra = f->ra_ptr == nullptr ? -1 : toVA(f->ra_ptr);
-        uint32_t block_key = (bt == 0 || bt == 0xff || bt == 0xfe)
-                                 ? 0
-                                 : toVA(findOpcode(m, f->block));
-        this->channel->write(
-            R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"idx":%d,)", bt,
-            f->block->fidx, f->sp, f->fp, j);
-        this->channel->write("\"block_key\":%" PRIu32 ",\"ra\":%d}%s",
-                             block_key, ra, (j < m->csp) ? "," : "");
-    }
-
-    // Globals
-    this->channel->write("],\"globals\":[");
-    for (uint32_t j = 0; j < m->global_count; j++) {
-        auto v = m->globals + j;
-        printValue(v, j, j == (m->global_count - 1));
-    }
-    this->channel->write("]");  // closing globals
-
-    this->channel->write(R"(,"table":{"max":%d, "init":%d, "elements":[)",
-                         m->table.maximum, m->table.initial);
-
-    for (uint32_t j = 0; j < m->table.size; j++) {
-        this->channel->write("%" PRIu32 "%s", m->table.entries[j],
-                             (j + 1) == m->table.size ? "" : ",");
-    }
-    this->channel->write("]}");  // closing table
-
-    // memory
-    uint32_t total_elems =
-        m->memory.pages * (uint32_t)PAGE_SIZE;  // TODO debug PAGE_SIZE
-    this->channel->write(
-        R"(,"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
-        m->memory.pages, m->memory.maximum, m->memory.initial);
-    for (uint32_t j = 0; j < total_elems; j++) {
-        this->channel->write("%" PRIu8 "%s", m->memory.bytes[j],
-                             (j + 1) == total_elems ? "" : ",");
-    }
-    this->channel->write("]}");  // closing memory
-
-    this->channel->write(R"(,"br_table":{"size":"0x%x","labels":[)",
-                         BR_TABLE_SIZE);
-    for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
-        this->channel->write("%" PRIu32 "%s", m->br_table[j],
-                             (j + 1) == BR_TABLE_SIZE ? "" : ",");
-    }
-    this->channel->write("]}}\n");
+    this->channel->write("}\n");
 }
-
-enum ReceiveState {
-    pcState = 0x01,
-    breakpointsState = 0x02,
-    callstackState = 0x03,
-    globalsState = 0x04,
-    tblState = 0x05,
-    memState = 0x06,
-    brtblState = 0x07,
-    stackvalsState = 0x08,
-    pcErrorState = 0x09
-};
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {
     debug("freeing the program state\n");
@@ -803,7 +859,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 m->global_count = 0;
                 break;
             }
-            case tblState: {
+            case tableState: {
                 debug("receiving table info\n");
                 m->table.initial = read_B32(&first_msg);
                 m->table.maximum = read_B32(&first_msg);
@@ -819,7 +875,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 m->table.size = 0;  // allows to accumulatively add entries
                 break;
             }
-            case memState: {
+            case memoryState: {
                 debug("receiving memory info\n");
                 // FIXME: init & max not needed
                 m->memory.maximum = read_B32(&first_msg);
@@ -935,7 +991,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
-            case globalsState: {  // TODO merge globalsState stackvalsState into
+            case globalsState: {  // TODO merge globalsState stackState into
                                   // one case
                 debug("receiving global state\n");
                 uint32_t quantity_globals = read_B32(&program_state);
@@ -959,7 +1015,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
-            case tblState: {
+            case tableState: {
                 uint32_t quantity = read_B32(&program_state);
                 for (size_t i = 0; i < quantity; i++) {
                     uint32_t ne = read_B32(&program_state);
@@ -967,7 +1023,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
-            case memState: {
+            case memoryState: {
                 debug("receiving memory\n");
                 uint32_t start = read_B32(&program_state);
                 uint32_t limit = read_B32(&program_state);
@@ -993,7 +1049,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 program_state += total_bytes;
                 break;
             }
-            case brtblState: {
+            case branchingTableState: {
                 debug("receiving br_table\n");
                 uint16_t begin_index = read_B16(&program_state);
                 uint16_t end_index = read_B16(&program_state);
@@ -1012,7 +1068,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 break;
             }
-            case stackvalsState: {
+            case stackState: {
                 // FIXME the float does add numbers at the end. The extra
                 // numbers are present in the send information when dump occurs
                 debug("receiving stack\n");
@@ -1030,6 +1086,44 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     sv->value_type = valtypes[type_index];
                     memcpy(&sv->value, program_state, qb);
                     program_state += qb;
+                }
+                break;
+            }
+            case callbacksState: {
+                uint32_t numberMappings = read_B32(&program_state);
+                for (auto idx = 0; idx < numberMappings; ++idx) {
+                    uint32_t callbackKeySize = read_B32(&program_state);
+                    char *callbackKey = (char *)malloc(callbackKeySize + 1);
+                    memcpy((void *)callbackKey, program_state, callbackKeySize);
+                    callbackKey[callbackKeySize] = '\0';
+                    program_state += callbackKeySize;
+                    uint32_t numberTableIndexes = read_B32(&program_state);
+                    for (auto j = 0; j < numberTableIndexes; ++j) {
+                        uint32_t tidx = read_B32(&program_state);
+                        std::string key{callbackKey};
+                        CallbackHandler::add_callback(Callback(m, key, tidx));
+                    }
+                }
+                break;
+            }
+            case eventsState: {
+                uint32_t numberEvents = read_B32(&program_state);
+                for (auto idx = 0; idx < numberEvents; ++idx) {
+                    // read topic
+                    uint32_t topicSize = read_B32(&program_state);
+                    char *topic = (char *)malloc(topicSize + 1);
+                    memcpy((void *)topic, program_state, topicSize);
+                    topic[topicSize] = '\0';
+                    program_state += topicSize;
+
+                    // read payload
+                    uint32_t payloadSize = read_B32(&program_state);
+                    char *payload = (char *)malloc(payloadSize + 1);
+                    memcpy((void *)payload, program_state, payloadSize);
+                    payload[payloadSize] = '\0';
+                    program_state += payloadSize;
+
+                    CallbackHandler::push_event(topic, payload, payloadSize);
                 }
                 break;
             }

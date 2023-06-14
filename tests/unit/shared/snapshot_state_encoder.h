@@ -19,6 +19,8 @@ class SnapshotBinaryEncoder {
 
     void encodeSignedB32(int32_t value, uint8_t* buffer = nullptr);
 
+    void encodeString(std::string s);
+
    public:
     SnapshotBinaryEncoder(uint8_t t_interruptNumber, Module* t_module);
 
@@ -34,4 +36,8 @@ class SnapshotBinaryEncoder {
     void encodeBreakpoints(std::set<uint32_t> breakpoints);
 
     void encodeCallstack(std::vector<Frame>* frames);
+
+    void encodeCallbacks(std::vector<Callback>& callbacks);
+
+    void encodeEvents(std::vector<Event>& events);
 };

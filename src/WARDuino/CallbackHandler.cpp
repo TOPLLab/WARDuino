@@ -167,6 +167,26 @@ std::string CallbackHandler::dump_callbacks() {
     return repr;
 }
 
+std::string CallbackHandler::dump_callbacksV2(bool includeOuterCurlyBraces) {
+    // prints json as {"ballbackid": "interrupt_10", "tableIndexes": [ 0, 2]}
+    std::string repr =
+        includeOuterCurlyBraces ? R"({"callbacks": [)" : R"("callbacks": [)";
+    auto iterator = CallbackHandler::callbacks->begin();
+    while (iterator != CallbackHandler::callbacks->end()) {
+        repr +=
+            R"({"callbackid":")" + iterator->first + R"(", "tableIndexes":[)";
+        auto callback = std::begin(*iterator->second);
+        while (callback != std::end(*iterator->second)) {
+            repr += std::to_string(callback->table_index);
+            repr += (++callback != iterator->second->end()) ? ", " : "";
+        }
+        repr += "]}";
+        repr += (++iterator != CallbackHandler::callbacks->end()) ? ", " : "";
+    }
+    repr += includeOuterCurlyBraces ? "]}" : "]";
+    return repr;
+}
+
 // Callback class
 
 Callback::Callback(Module *m, std::string id, uint32_t tidx) {
