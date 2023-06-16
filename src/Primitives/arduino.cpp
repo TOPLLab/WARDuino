@@ -65,17 +65,17 @@ ISREntry ISRs[ALL_ISRS];
 int isr_index = 0;
 
 /* Private macro to install an ISR */
-#define install_isr(number)                                          \
-    {                                                                \
-        dbg_info("installing isr number: %d  of %d with name: %s\n", \
-                 isr_index + 1, ALL_ISRS, isr_##number);             \
-        if (isr_index < ALL_ISRS) {                                  \
-            ISREntry *p = &ISRs[isr_index++];                        \
-            p->pin = number;                                         \
-            p->ISR_callback = &(isr_##number);                       \
-        } else {                                                     \
-            FATAL("isr_index out of bounds");                        \
-        }                                                            \
+#define install_isr(number)                                         \
+    {                                                               \
+        dbg_info("installing isr number: %d of %d with name: %s\n", \
+                 isr_index + 1, ALL_ISRS, isr_##number);            \
+        if (isr_index < ALL_ISRS) {                                 \
+            ISREntry *p = &ISRs[isr_index++];                       \
+            p->pin = number;                                        \
+            p->ISR_callback = &(isr_##number);                      \
+        } else {                                                    \
+            FATAL("isr_index out of bounds");                       \
+        }                                                           \
     }
 
 #define INTERRUPT_TOPIC_PREFIX "interrupt_"
@@ -610,7 +610,12 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 
     int index = resolve_isr(pin);
     if (index < 0) {
-        dbg_info("subscribe_interrupt: no ISR found for pin %i", pin);
+        dbg_info("subscribe_interrupt: no ISR found for pin %i\n", pin);
+        return false;
+    }
+
+    if (tidx < 0 || m->table.size < tidx) {
+        dbg_info("subscribe_interrupt: out of range table index %i\n", tidx);
         return false;
     }
 
