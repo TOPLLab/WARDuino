@@ -131,7 +131,7 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 37
+#define NUM_PRIMITIVES_ARDUINO 38
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -519,6 +519,14 @@ def_prim(chip_analog_read, oneToOneI32) {
     return true;
 }
 
+def_prim(chip_analog_write, twoToNoneU32) {
+    uint8_t pin = arg1.uint32;
+    uint8_t brightness = arg0.uint32;
+    pop_args(2);
+    analogWrite(pin, brightness);
+    return true;
+}
+
 // warning: undefined symbol: write_spi_byte
 def_prim(write_spi_byte, oneToNoneU32) {
     write_spi_byte(arg0.uint32);
@@ -568,7 +576,7 @@ def_prim(clear_pixels, NoneToNoneU32) {
 
 // LED Control primitives
 
-def_prim(chip_analog_write, threeToNoneU32) {
+def_prim(chip_ledc_set_duty, threeToNoneU32) {
     uint8_t channel = arg2.uint32;
     uint32_t value = arg1.uint32;
     uint32_t maxValue = arg0.uint32;
@@ -608,9 +616,16 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
     uint8_t mode = arg0.uint32;
 
+    printf("subscribe_interrupt(%i, %i, %i)\n", pin, tidx, mode);
+
     int index = resolve_isr(pin);
     if (index < 0) {
         dbg_info("subscribe_interrupt: no ISR found for pin %i\n", pin);
+        return false;
+    }
+
+    if (tidx < 0 || m->table.size < tidx) {
+        dbg_info("subscribe_interrupt: out of range table index %i\n", tidx);
         return false;
     }
 
@@ -978,6 +993,7 @@ void install_primitives() {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
+    install_primitive(chip_ledc_set_duty);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();
