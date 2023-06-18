@@ -25,7 +25,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 28
+#define NUM_PRIMITIVES_ARDUINO 29
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -393,6 +393,12 @@ def_prim(chip_analog_read, oneToOneI32) {
     return true;
 }
 
+def_prim(chip_analog_write, twoToNoneU32) {
+    debug("EMU: chip_analog_write(%u,%u) \n", arg1.uint32, arg0.uint32);
+    pop_args(2);
+    return true;
+}
+
 def_prim(chip_delay, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
@@ -454,7 +460,7 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 }
 
 // Temporary Primitives needed for analogWrite in ESP32
-def_prim(chip_analog_write, threeToNoneU32) {
+def_prim(chip_ledc_set_duty, threeToNoneU32) {
     uint8_t channel = arg2.uint32;
     uint32_t value = arg1.uint32;
     uint32_t maxValue = arg0.uint32;
@@ -523,6 +529,7 @@ void install_primitives() {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
+    install_primitive(chip_ledc_set_duty);
 }
 
 //------------------------------------------------------
