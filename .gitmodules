@@ -1,6 +1,3 @@
-[submodule "tests/sexpr-parser"]
-	path = tests/integration/sexpr-parser
-	url = git@github.com:benthepoet/c-sexpr-parser.git
 [submodule "lib/json"]
 	path = lib/json
 	url = https://github.com/nlohmann/json
