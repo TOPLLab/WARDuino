@@ -438,6 +438,12 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t mode = arg0.uint32;
 
     debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, tidx, mode);
+
+    if (tidx < 0 || m->table.size < tidx) {
+        debug("subscribe_interrupt: out of range table index %i\n", tidx);
+        return false;
+    }
+
     std::string topic = "interrupt_";
     topic.append(std::to_string(pin));
 
