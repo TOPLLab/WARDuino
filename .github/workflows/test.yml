@@ -51,8 +51,9 @@ jobs:
 
       - name: Build WABT  # Build latest version
         run: |
-          git clone --recursive https://github.com/WebAssembly/wabt
+          git clone --recursive https://github.com/TOPLLab/wabt.git
           cd wabt
+          git checkout develop
           git submodule update --init
           mkdir build; cd build
           cmake ..
