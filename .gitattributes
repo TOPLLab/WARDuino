@@ -1,0 +1,2 @@
+benchmarks/*.sh linguist-vendored
+*.wast linguist-vendored
