@@ -102,7 +102,7 @@ arduino-cli lib install "Adafruit NeoPixel" # for some primitives
 ```
 
 To build for Arduino with WIFI support you need to also install the following third-party libraries.
-(Wou might need to set `enable_unsafe_install` to `true` in your arduino config ) <!-- Todo remove one day  ---!>
+(You might need to set `enable_unsafe_install` to `true` in your arduino config)
 
 ```bash
 arduino-cli lib install FreeRTOS
