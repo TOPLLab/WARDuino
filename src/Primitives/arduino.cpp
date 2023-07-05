@@ -616,7 +616,7 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
     uint8_t mode = arg0.uint32;
 
-    printf("subscribe_interrupt(%i, %i, %i)\n", pin, tidx, mode);
+    dbg_info("subscribe_interrupt(%i, %i, %i)\n", pin, tidx, mode);
 
     int index = resolve_isr(pin);
     if (index < 0) {
