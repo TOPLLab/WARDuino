@@ -412,17 +412,15 @@ void Debugger::handleSTEP(Module *m, RunningState *program_state) {
     this->skipBreakpoint = m->pc_ptr;
 }
 
-bool atCall(Module *m) {
-    uint8_t const opcode = *m->pc_ptr;
-    return opcode == 0x10 || opcode == 0x11;
-}
-
 void Debugger::handleSTEPOver(Module *m, RunningState *program_state) {
-    if (atCall(m)) {
-        // step over call
+    uint8_t const opcode = *m->pc_ptr;
+    if (opcode == 0x10) {  // step over direct call
         this->mark = m->pc_ptr + 2;
         *program_state = WARDUINOrun;
         // warning: ack will be BP hit
+    } else if (opcode == 0x11) {  // step over indirect call
+        this->mark = m->pc_ptr + 3;
+        *program_state = WARDUINOrun;
     } else {
         // normal step
         this->handleSTEP(m, program_state);
