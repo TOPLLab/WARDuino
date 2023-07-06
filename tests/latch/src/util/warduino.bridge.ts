@@ -28,7 +28,7 @@ export function isReadable(x: Readable | null): x is Readable {
 }
 
 export function startWARDuino(interpreter: string, program: string, port: number, args: string[] = []): ChildProcess {
-    const _args: string[] = [program, '--socket', (port).toString()].concat(args);
+    const _args: string[] = [program, '--socket', (port).toString(), '--paused'].concat(args);
     return spawn(interpreter, _args);
 }
 
