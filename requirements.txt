@@ -1,5 +1,0 @@
-gitdb==4.0.9
-GitPython==3.1.30
-pyparsing==3.0.6
-smmap==5.0.0
-typing-extensions==4.0.0

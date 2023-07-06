@@ -18,7 +18,7 @@
     <span> | </span>
     <a href="./README.md#webassembly-specification-tests">Run Specification tests</a>
     <span> | </span>
-    <a href="./documentation/">Documentation</a>
+    <a href="https://topllab.github.io/WARDuino/guide/get-started.html">Documentation</a>
   </h4>
 
 </div>
@@ -139,8 +139,8 @@ make
 ## WebAssembly Specification tests
 
 ```shell
-python3 -m pip install -r requirements.txt
-./tests/integration/run_spec_tests.py --interpreter "build-emu/wdcli" --compiler "wat2wasm"
+cd tests/latch
+npm run spectest
 ```
 
 ## Technical support and feedback
