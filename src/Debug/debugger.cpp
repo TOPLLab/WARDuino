@@ -130,10 +130,12 @@ void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
 void Debugger::deleteBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
 
 bool Debugger::isBreakpoint(uint8_t *loc) {
-    return this->breakpoints.find(loc) != this->breakpoints.end();
+    return this->breakpoints.find(loc) != this->breakpoints.end() ||
+           this->mark == loc;
 }
 
-void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) const {
+void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) {
+    this->mark = nullptr;
     uint32_t bp = toVirtualAddress(pc_ptr, m);
     this->channel->write("AT %" PRIu32 "!\n", bp);
 }
@@ -187,9 +189,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptSTEP:
-            this->channel->write("STEP!\n");
-            *program_state = WARDUINOstep;
-            this->skipBreakpoint = m->pc_ptr;
+            this->handleSTEP(m, program_state);
+            free(interruptData);
+            break;
+        case interruptSTEPOver:
+            this->handleSTEPOver(m, program_state);
             free(interruptData);
             break;
         case interruptBPAdd:  // Breakpoint
@@ -400,6 +404,29 @@ void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
         this->skipBreakpoint = m->pc_ptr;
     }
     *program_state = WARDUINOrun;
+}
+
+void Debugger::handleSTEP(Module *m, RunningState *program_state) {
+    this->channel->write("STEP!\n");
+    *program_state = WARDUINOstep;
+    this->skipBreakpoint = m->pc_ptr;
+}
+
+bool atCall(Module *m) {
+    uint8_t const opcode = *m->pc_ptr;
+    return opcode == 0x10 || opcode == 0x11;
+}
+
+void Debugger::handleSTEPOver(Module *m, RunningState *program_state) {
+    if (atCall(m)) {
+        // step over call
+        this->mark = m->pc_ptr + 2;
+        *program_state = WARDUINOrun;
+        // warning: ack will be BP hit
+    } else {
+        // normal step
+        this->handleSTEP(m, program_state);
+    }
 }
 
 void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
