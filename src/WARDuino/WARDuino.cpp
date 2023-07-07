@@ -930,7 +930,7 @@ int WARDuino::run_module(Module *m) {
     }
 
     // wait
-    m->warduino->program_state = WARDUINOpause;
+    m->warduino->debugger->pauseRuntime(m);
     return interpret(m, true);
 }
 
@@ -1044,7 +1044,7 @@ void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
     }
 
     // wait
-    m->warduino->program_state = WARDUINOpause;
+    m->warduino->debugger->pauseRuntime(m);
 }
 
 uint32_t WARDuino::get_main_fidx(Module *m) {

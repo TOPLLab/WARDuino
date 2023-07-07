@@ -1517,7 +1517,7 @@ bool interpret(Module *m, bool waiting) {
 
     while ((!program_done && success) || waiting) {
         if (m->warduino->program_state == WARDUINOstep) {
-            m->warduino->program_state = WARDUINOpause;
+            m->warduino->debugger->pauseRuntime(m);
         }
 
         while (m->warduino->program_state != WARDUINOinit &&
@@ -1550,7 +1550,7 @@ bool interpret(Module *m, bool waiting) {
         if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
             m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
             m->warduino->program_state != PROXYrun) {
-            m->warduino->program_state = WARDUINOpause;
+            m->warduino->debugger->pauseRuntime(m);
             m->warduino->debugger->notifyBreakpoint(m, m->pc_ptr);
             continue;
         }

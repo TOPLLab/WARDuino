@@ -196,6 +196,8 @@ class Debugger {
 
     void stop();
 
+    void pauseRuntime(Module *m);  // pause runtime for given module
+
     // Interrupts
 
     void addDebugMessage(size_t len, const uint8_t *buff);
