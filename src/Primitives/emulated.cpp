@@ -440,8 +440,15 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
-    uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
+    uint32_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
     uint8_t mode = arg0.uint32;
+
+    uint8_t *maddr = m->memory.bytes + tidx;
+    if (maddr < m->memory.bytes) {
+        debug("subscribe_interrupt: memory access overflow\n", tidx);
+        return false;
+    }
+    memcpy(&tidx, maddr, 4);
 
     debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, tidx, mode);
 
