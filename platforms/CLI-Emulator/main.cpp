@@ -337,13 +337,13 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
+    m->warduino = wac;
+
     if (initiallyPaused) {
         wac->program_state = WARDUINOpause;
     }
 
     if (m) {
-        m->warduino = wac;
-
         if (strcmp(mode, "proxy") == 0) {
             // Run in proxy mode
             wac->debugger->proxify();
