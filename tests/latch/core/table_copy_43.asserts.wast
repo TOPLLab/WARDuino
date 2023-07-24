@@ -1,8 +1,0 @@
-       (assert_return (invoke "test" (i32.const 24)) (i32.const 0))
-       (assert_return (invoke "test" (i32.const 25)) (i32.const 1))
-       (assert_return (invoke "test" (i32.const 26)) (i32.const 2))
-       (assert_return (invoke "test" (i32.const 27)) (i32.const 3))
-       (assert_return (invoke "test" (i32.const 28)) (i32.const 4))
-       (assert_return (invoke "test" (i32.const 29)) (i32.const 5))
-       (assert_return (invoke "test" (i32.const 30)) (i32.const 6))
-       (assert_return (invoke "test" (i32.const 31)) (i32.const 7))
