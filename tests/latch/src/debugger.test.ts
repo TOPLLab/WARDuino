@@ -3,6 +3,7 @@
 import {
     Behaviour,
     Description,
+    EmulatorBridge,
     Expectation,
     Expected,
     Framework,
@@ -11,7 +12,9 @@ import {
     Step,
     TestScenario
 } from 'latch';
-import {EMULATOR, EmulatorBridge} from './util/warduino.bridge';
+
+export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
+
 
 const EXAMPLES: string = 'examples/';
 

@@ -1,7 +1,10 @@
 import {
-    Action, DependenceScheduler,
+    Action,
+    DependenceScheduler,
+    EmulatorBridge,
     Expected,
     Framework,
+    HardwareBridge,
     HybridScheduler,
     Instance,
     Instruction,
@@ -9,8 +12,10 @@ import {
     TestScenario,
     Type
 } from 'latch';
-import {ARDUINO, EMULATOR, EmulatorBridge, HardwareBridge} from './util/warduino.bridge';
 import * as mqtt from 'mqtt';
+
+export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
+export const ARDUINO: string = `${require('os').homedir()}/Arduino/libraries/WARDuino/platforms/Arduino/`;
 
 const framework = Framework.getImplementation();
 
