@@ -340,7 +340,7 @@ int main(int argc, const char *argv[]) {
     m->warduino = wac;
 
     if (initiallyPaused) {
-        wac->program_state = WARDUINOpause;
+        wac->debugger->pauseRuntime(m);
     }
 
     if (m) {

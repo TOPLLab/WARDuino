@@ -50,6 +50,7 @@ enum InterruptTypes {
     interruptHALT = 0x02,
     interruptPAUSE = 0x03,
     interruptSTEP = 0x04,
+    interruptSTEPOver = 0x05,
     interruptBPAdd = 0x06,
     interruptBPRem = 0x07,
     interruptInspect = 0x09,
@@ -118,6 +119,10 @@ class Debugger {
 
     void handleInterruptRUN(Module *m, RunningState *program_state);
 
+    void handleSTEP(Module *m, RunningState *program_state);
+
+    void handleSTEPOver(Module *m, RunningState *program_state);
+
     void handleInterruptBP(Module *m, uint8_t *interruptData);
 
     //// Information dumps
@@ -175,6 +180,8 @@ class Debugger {
     ProxySupervisor *supervisor = nullptr;
 
     std::set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
+    uint8_t *mark = 0;  // a unique temporary breakpoint that gets removed
+                        // whenever a breakpoint is hit
     uint8_t *skipBreakpoint =
         nullptr;  // Breakpoint to skip in the next interpretation step
 
@@ -188,6 +195,8 @@ class Debugger {
     // Public methods
 
     void stop();
+
+    void pauseRuntime(Module *m);  // pause runtime for given module
 
     // Interrupts
 
@@ -205,7 +214,7 @@ class Debugger {
 
     bool isBreakpoint(uint8_t *loc);
 
-    void notifyBreakpoint(Module *m, uint8_t *pc_ptr) const;
+    void notifyBreakpoint(Module *m, uint8_t *pc_ptr);
 
     // Out-of-place debugging: EDWARD
 

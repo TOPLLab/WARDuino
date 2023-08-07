@@ -92,11 +92,37 @@ const dumpFullTest: TestScenario = {
 
 framework.test(dumpFullTest);
 
+const runTest: TestScenario = {
+    title: 'Test RUN',
+    program: `${EXAMPLES}blink.wast`,
+    dependencies: [dumpTest],
+    steps: [DUMP, {
+        title: 'Send RUN command',
+        instruction: Instruction.run,
+        delay: 100,
+        expectResponse: false
+    }, {
+        title: 'CHECK: execution continues',
+        instruction: Instruction.dump,
+        expected: [{
+            'pc': {kind: 'description', value: Description.defined} as Expected<string>
+        }, {
+            'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
+        }]
+    }]
+};
+
+framework.test(runTest);
+
 const pauseTest: TestScenario = {
     title: 'Test PAUSE',
     program: `${EXAMPLES}blink.wast`,
     dependencies: [dumpTest],
     steps: [{
+        title: 'Send RUN command',
+        instruction: Instruction.run,
+        expectResponse: false
+    }, {
         title: 'Send PAUSE command',
         instruction: Instruction.pause,
         expectResponse: false
@@ -124,59 +150,60 @@ const stepTest: TestScenario = {
     program: `${EXAMPLES}blink.wast`,
     dependencies: [dumpTest],
     steps: [{
-        title: 'Send PAUSE command',
-        instruction: Instruction.pause,
-        expectResponse: false
-    }, DUMP, {
+        title: 'Send DUMP command',
+        instruction: Instruction.dump,
+        expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
+    }, {
         title: 'Send STEP command',
         instruction: Instruction.step,
         expectResponse: false
     }, {
         title: 'CHECK: execution took one step',
         instruction: Instruction.dump,
-        expected: [{
-            'pc': {kind: 'description', value: Description.defined} as Expected<string>
-        }, {
-            'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
-        }]
+        expected: [{'pc': {kind: 'primitive', value: 172} as Expected<number>}]
     }]
 };
 
 framework.test(stepTest);
 
-const runTest: TestScenario = {
-    title: 'Test RUN',
-    program: `${EXAMPLES}blink.wast`,
+const stepOverTest: TestScenario = {
+    title: 'Test STEP OVER',
+    program: `${EXAMPLES}call.wast`,
     dependencies: [dumpTest],
     steps: [{
-        title: 'Send PAUSE command',
-        instruction: Instruction.pause,
-        expectResponse: false
-    }, DUMP, {
-        title: 'CHECK: execution is stopped',
-        instruction: Instruction.dump,
-        expected: [{
-            'pc': {kind: 'description', value: Description.defined} as Expected<string>
+            title: 'Send DUMP command',
+            instruction: Instruction.dump,
+            expected: [{'pc': {kind: 'primitive', value: 167} as Expected<number>}]
         }, {
-            'pc': {kind: 'behaviour', value: Behaviour.unchanged} as Expected<string>
-        }]
-    }, {
-        title: 'Send RUN command',
-        instruction: Instruction.run,
-        delay: 100,
-        expectResponse: false
-    }, {
-        title: 'CHECK: execution continues',
-        instruction: Instruction.dump,
-        expected: [{
-            'pc': {kind: 'description', value: Description.defined} as Expected<string>
+            title: 'Send STEP OVER command',
+            instruction: Instruction.stepOver,
+            delay: 500,
+            expectResponse: false
         }, {
-            'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
+            title: 'CHECK: execution stepped over direct call',
+            instruction: Instruction.dump,
+            expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
+        }, {
+            title: 'Send STEP OVER command',
+            instruction: Instruction.stepOver,
+            expectResponse: false
+        }, {
+            title: 'CHECK: execution took one step',
+            instruction: Instruction.dump,
+            expected: [{'pc': {kind: 'primitive', value: 171} as Expected<number>}]
+        }, {
+            title: 'Send STEP OVER command',
+            instruction: Instruction.stepOver,
+            delay: 500,
+            expectResponse: false
+        }, {
+            title: 'CHECK: execution stepped over indirect call',
+            instruction: Instruction.dump,
+            expected: [{'pc': {kind: 'primitive', value: 174} as Expected<number>}]
         }]
-    }]
-};
+}
 
-framework.test(runTest);
+framework.test(stepOverTest);
 
 // EDWARD tests with mock proxy
 

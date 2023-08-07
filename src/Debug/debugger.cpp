@@ -130,10 +130,12 @@ void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
 void Debugger::deleteBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
 
 bool Debugger::isBreakpoint(uint8_t *loc) {
-    return this->breakpoints.find(loc) != this->breakpoints.end();
+    return this->breakpoints.find(loc) != this->breakpoints.end() ||
+           this->mark == loc;
 }
 
-void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) const {
+void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) {
+    this->mark = nullptr;
     uint32_t bp = toVirtualAddress(pc_ptr, m);
     this->channel->write("AT %" PRIu32 "!\n", bp);
 }
@@ -182,14 +184,16 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             exit(0);
         case interruptPAUSE:
-            *program_state = WARDUINOpause;
+            this->pauseRuntime(m);
             this->channel->write("PAUSE!\n");
             free(interruptData);
             break;
         case interruptSTEP:
-            this->channel->write("STEP!\n");
-            *program_state = WARDUINOstep;
-            this->skipBreakpoint = m->pc_ptr;
+            this->handleSTEP(m, program_state);
+            free(interruptData);
+            break;
+        case interruptSTEPOver:
+            this->handleSTEPOver(m, program_state);
             free(interruptData);
             break;
         case interruptBPAdd:  // Breakpoint
@@ -198,18 +202,18 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptDUMP:
-            *program_state = WARDUINOpause;
+            this->pauseRuntime(m);
             this->dump(m);
             free(interruptData);
             break;
         case interruptDUMPLocals:
-            *program_state = WARDUINOpause;
+            this->pauseRuntime(m);
             this->dumpLocals(m);
             this->channel->write("\n");
             free(interruptData);
             break;
         case interruptDUMPFull:
-            *program_state = WARDUINOpause;
+            this->pauseRuntime(m);
             this->dump(m, true);
             free(interruptData);
             break;
@@ -247,7 +251,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptSnapshot:
-            *program_state = WARDUINOpause;
+            this->pauseRuntime(m);
             free(interruptData);
             snapshot(m);
             break;
@@ -261,7 +265,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         }
         case interruptLoadSnapshot:
             if (!this->receivingData) {
-                *program_state = WARDUINOpause;
+                this->pauseRuntime(m);
                 debug("paused program execution\n");
                 CallbackHandler::manual_event_resolution = true;
                 dbg_info("Manual event resolution is on.");
@@ -400,6 +404,27 @@ void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
         this->skipBreakpoint = m->pc_ptr;
     }
     *program_state = WARDUINOrun;
+}
+
+void Debugger::handleSTEP(Module *m, RunningState *program_state) {
+    this->channel->write("STEP!\n");
+    *program_state = WARDUINOstep;
+    this->skipBreakpoint = m->pc_ptr;
+}
+
+void Debugger::handleSTEPOver(Module *m, RunningState *program_state) {
+    uint8_t const opcode = *m->pc_ptr;
+    if (opcode == 0x10) {  // step over direct call
+        this->mark = m->pc_ptr + 2;
+        *program_state = WARDUINOrun;
+        // warning: ack will be BP hit
+    } else if (opcode == 0x11) {  // step over indirect call
+        this->mark = m->pc_ptr + 3;
+        *program_state = WARDUINOrun;
+    } else {
+        // normal step
+        this->handleSTEP(m, program_state);
+    }
 }
 
 void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
@@ -1240,6 +1265,12 @@ void Debugger::stop() {
         this->channel->close();
         this->channel = nullptr;
     }
+}
+
+//
+void Debugger::pauseRuntime(Module *m) {
+    m->warduino->program_state = WARDUINOpause;
+    this->mark = nullptr;
 }
 
 bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
