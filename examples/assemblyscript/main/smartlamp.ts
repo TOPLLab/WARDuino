@@ -1,72 +1,63 @@
-import * as wd from "../lib/warduino";
+import {digitalRead, digitalWrite, InterruptMode, MQTT, pinMode,
+        PinMode, PinVoltage, print, sleep, WiFi} from "as-warduino/assembly";
+import * as config from "./config";
 
-const BUTTON = 25;
-const LED = 26;
-const SSID = "local-network";
-const PASSWORD = "network-password";
-const CLIENT_ID = "random-mqtt-client-id";
-
-function until_connected(connect: () => void,
-                         connected: () => boolean,
-                         retry: () => boolean): void {
-    connect();
-    while (!connected()) {
-        wd.delay(1000);
-        if (retry) connect();
+function until(attempt: () => void,
+               done: () => boolean): void {
+    while (!done()) {
+        sleep(1);
+        attempt();
     }
 }
 
 function callback(topic: string,
                   payload: string): void {
-    wd.print("Message [" + topic + "] " + payload + "\n");
+    print("Message [" + topic + "] " + payload + "\n");
 
     if (payload.includes("on")) {
-        wd.digital_write(LED, wd.HIGH);  // Turn the LED on
+        digitalWrite(config.LED, PinVoltage.HIGH);  // Turn the LED on
     } else {
-        wd.digital_write(LED, wd.LOW);   // Turn the LED off
+        digitalWrite(config.LED, PinVoltage.LOW);   // Turn the LED off
     }
 }
 
-function toggle_led(): void {
+function toggleLed(): void {
     // Get current status of LED
-    let status = wd.digital_read(LED);
+    let status = digitalRead(config.LED);
     // Toggle LED
-    wd.digital_write(LED, !status);
+    digitalWrite(config.LED, !status);
 }
 
 export function main(): void {
     // Set pin modes
-    wd.pin_mode(LED, wd.OUTPUT);
-    wd.pin_mode(BUTTON, wd.INPUT);
+    pinMode(config.LED, PinMode.OUTPUT);
+    pinMode(config.BUTTON, PinMode.INPUT);
 
     // Connect to Wi-Fi
-    until_connected(
-        () => { wd.wifi_connect(SSID, PASSWORD); },
-        wd.wifi_connected,
-        () => { return wd.wifi_status() === 6; });
+    until(
+        () => { WiFi.connect(config.SSID, config.PASSWORD); },
+        WiFi.connected);
     let message = "Connected to wifi network with ip: ";
-    wd.print(message.concat(wd.wifi_localip()));
+    print(message.concat(WiFi.localip()));
 
     // Connect to MQTT broker
-    wd.mqtt_init("192.168.0.24", 1883);
-    until_connected(
-        () => { wd.mqtt_connect(CLIENT_ID); wd.mqtt_loop(); },
-        wd.mqtt_connected,
-        () => { return true; });
+    MQTT.init("192.168.0.24", 1883);
+    until(
+        () => { MQTT.connect(config.CLIENT_ID); MQTT.loop(); },
+        MQTT.connected);
 
     // Subscribe to MQTT topic and turn on LED
-    wd.mqtt_subscribe("LED", callback);
-    wd.mqtt_publish("LED", "on");
+    MQTT.subscribe("LED", callback);
+    MQTT.publish("LED", "on");
 
     // Subscribe to button interrupt
-    wd.interrupt_on(BUTTON, wd.CHANGED, toggle_led);
-
+    interruptOn(config.BUTTON, InterruptMode.CHANGED, toggleLed);
+   
     while (true) {
-        until_connected(
-            () => { wd.mqtt_connect(CLIENT_ID); wd.mqtt_loop(); },
-            wd.mqtt_connected,
-            () => { return true; });
+        until(
+            () => { MQTT.connect(config.CLIENT_ID); MQTT.loop(); },
+            MQTT.connected);
 
-        wd.sleep(5); // Sleep for 5 seconds
+        sleep(5); // Sleep for 5 seconds
     }
 }

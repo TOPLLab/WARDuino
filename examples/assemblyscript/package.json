@@ -1,20 +1,19 @@
 {
-  "name": "smartlamp",
-  "version": "0.1.0",
-  "description": "WARDuino smartlamp demo with AssemblyScript",
+  "name": "as-examples",
+  "version": "1.0.0",
+  "description": "WARDuino examples in AssemblyScript",
+  "main": "src/analog.ts",
+  "type": "module",
   "scripts": {
-    "compile": "asc main/smartlamp.ts --optimize -O3z --converge --target release --use abort= --textFile=\"build/smartlamp.wast\" ",
-    "optimize": "wasm-opt -O3 build/smartlamp.wasm -o src.wasm && wasm-strip src.wasm",
-    "build": "xxd -i src.wasm > main/src.wasm.h",
-    "flash": "mkdir -p idf; cd idf; cmake ..; make flash",
-    "all": "npm run compile && npm run optimize && npm run build && npm run flash"
+    "build": "npm run build:debug && npm run build:release",
+    "build:debug": "npx asc --config asconfig.json --target debug",
+    "build:release": "npx asc --config asconfig.json --target release"
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@assemblyscript/loader": "^0.17.1"
-  },
   "devDependencies": {
-    "assemblyscript": "^0.17.14"
+    "as-warduino": "file:./as-warduino-0.1.1.tgz",
+    "assemblyscript": "^0.27.5",
+    "typescript": "^5.1.6"
   }
 }

@@ -1,15 +1,15 @@
 [package]
-name = "button"
+name = "examples"
 version = "0.1.0"
 authors = ["Tom Lauwaerts <tom.lauwaerts@ugent.be>"]
 edition = "2018"
 
 [lib]
-path = "main/button.rs"
+path = "main/main.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-warduino = { path = "lib/warduino" }
+warduino = { path = "../../lib/warduino" }
 
 [profile.dev]
 panic = "abort"
