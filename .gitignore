@@ -33,3 +33,5 @@ _deps
 
 core
 venv
+
+*.wasm
