@@ -2,8 +2,12 @@
 name = "warduino"
 version = "0.1.0"
 authors = ["Tom Lauwaerts <tom.lauwaerts@ugent.be>"]
+description = "Library for WARDuino primitives"
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+keywords = ["warduino", "wasm"]
+license = "MPL-2.0"
 
 [dependencies]
+num = "0.4"
+num-traits = "0.2"
+num-derive = "0.3"

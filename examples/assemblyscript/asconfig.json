@@ -1,11 +1,32 @@
 {
+  "entries": [
+    "src/main.ts"
+  ],
   "targets": {
+    "debug": {
+      "debug": true,
+      "outFile": "bin/main.debug.wasm",
+      "textFile": "bin/main.debug.wast"
+    },
     "release": {
-      "binaryFile": "build/smartlamp.wasm",
-      "textFile": "build/smartlamp.wat",
-      "sourceMap": false,
-      "optimize": true
+      "converge": true,
+      "optimizeLevel": 3,
+      "outFile": "bin/main.wasm",
+      "shrinkLevel": 2
     }
   },
-  "options": {}
+  "options": {
+      "disable": [
+          "mutable-globals",
+          "sign-extension",
+          "nontrapping-f2i",
+          "bulk-memory"
+      ],
+      "exportTable": true,
+      "exportRuntime": false,
+      "maximumMemory": 2,
+      "noAssert": false,
+      "runtime": "stub",
+      "sourceMap": true
+  }
 }
