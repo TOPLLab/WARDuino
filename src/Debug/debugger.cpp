@@ -10,6 +10,7 @@
 #endif
 
 #include "../Memory/mem.h"
+#include "../Primitives/primitives.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 
@@ -707,11 +708,11 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 }
 
 void Debugger::snapshot(Module *m) {
-    uint16_t numberBytes = 10;
+    uint16_t numberBytes = 11;
     uint8_t state[] = {
         pcState,        breakpointsState, callstackState,      globalsState,
         tableState,     memoryState,      branchingTableState, stackState,
-        callbacksState, eventsState};
+        callbacksState, eventsState,     ioState};
     inspect(m, numberBytes, state);
 }
 
@@ -837,6 +838,21 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 addComma = true;
                 break;
             }
+            case ioState: {
+                this->channel->write("%s", addComma ? "," : "");
+                this->channel->write("\"io\": [");
+                bool comma = false;
+                for (auto key : m->io) {
+                    this->channel->write("%s{", comma ? ", ": "");
+                    this->channel->write("\"pin\": %d,", key.first);
+                    this->channel->write("\"value\": %d", key.second);
+                    this->channel->write("}");
+                    comma = true;
+                }
+                this->channel->write("]");
+                addComma = true;
+                break;
+            }
             default: {
                 debug("dumpExecutionState: Received unknown state request\n");
                 break;
@@ -936,7 +952,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     uint8_t *program_state = nullptr;
     uint8_t *end_state = nullptr;
     program_state = interruptData + 1;  // skip interruptLoadSnapshot
-    end_state = program_state + read_B32(&program_state);
+    uint32_t len = read_B32(&program_state);
+    end_state = program_state + len;
 
     debug("saving program_state\n");
     while (program_state < end_state) {
@@ -1149,6 +1166,32 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     program_state += payloadSize;
 
                     CallbackHandler::push_event(topic, payload, payloadSize);
+                }
+                break;
+            }
+            case ioState: {
+                debug("receiving ioState\n");
+                uint8_t io_state_count = *program_state++;
+                for (int i = 0; i < io_state_count; i++) {
+                    uint8_t pin = *program_state++;
+                    uint8_t value = *program_state++;
+                    debug("pin %d = %d\n", pin, value);
+
+                    // Resolve chip_digital_write.
+                    Primitive primitive;
+                    resolve_primitive((char*) "chip_digital_write", &primitive);
+                    Module temp_module;
+                    // Push pin and value to the stack.
+                    temp_module.stack = new StackValue[2];
+                    temp_module.stack[0].value_type = I32;
+                    temp_module.stack[0].value.uint32 = pin;
+                    temp_module.stack[1].value_type = I32;
+                    temp_module.stack[1].value.uint32 = value;
+                    temp_module.sp = 1;
+                    // Run primitive function.
+                    primitive(&temp_module);
+
+                    m->io[pin] = value;
                 }
                 break;
             }

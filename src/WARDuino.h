@@ -168,6 +168,7 @@ typedef struct Module {
     int csp = -1;                  // callstack pointer
     Frame *callstack = nullptr;    // callstack
     uint32_t *br_table = nullptr;  // br_table branch indexes
+    std::map<uint8_t, uint8_t> io; // io state map
 
     char *exception = nullptr;  // exception is set when the program fails
 } Module;
