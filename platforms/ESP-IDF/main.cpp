@@ -47,7 +47,8 @@ void app_main(void) {
     m = wac->load_module(wasm, wasm_len, {});
     //    uint8_t command[] = {'0', '3', '\n'};
     //    wac->handleInterrupt(3, command);
-    xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 10 /**tskIDLE_PRIORITY*/, NULL);
+    xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL,
+                10 /**tskIDLE_PRIORITY*/, NULL);
     printf("START\n\n");
     wac->run_module(m);
     printf("END\n\n");
