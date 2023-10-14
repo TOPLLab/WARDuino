@@ -486,7 +486,6 @@ def_prim(chip_digital_write, twoToNoneU32) {
     uint8_t pin = arg1.uint32;
     uint8_t val = arg0.uint32;
     digitalWrite(pin, val);
-    m->io[pin] = val;
     pop_args(2);
     return true;
 }

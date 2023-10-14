@@ -315,7 +315,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     m->byte_count = byte_count;
     // run constructor with already allocated memory
     new (&m->block_lookup) std::map<uint8_t *, Block *>;
-    new (&m->io) std::map<uint8_t, uint8_t>;
     m->start_function = UNDEF;
 
     // Check the module
@@ -1029,7 +1028,6 @@ void WARDuino::free_module_state(Module *m) {
     m->table.size = 0;
 
     m->block_lookup.clear();
-    m->io.clear();
 }
 
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {

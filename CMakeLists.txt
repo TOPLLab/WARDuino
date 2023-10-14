@@ -50,7 +50,8 @@ if (BUILD_EMULATOR)
             src/Debug/debugger.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
-            src/Edward/RFC.cpp)
+            src/Edward/RFC.cpp
+            src/IO/io-emulated.cpp)
 
     add_definitions(-DINFO=0)
     add_definitions(-DDEBUG=0)

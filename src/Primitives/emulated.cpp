@@ -374,7 +374,6 @@ def_prim(chip_pin_mode, twoToNoneU32) {
 
 def_prim(chip_digital_write, twoToNoneU32) {
     debug("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
-    m->io[(uint8_t) arg1.uint32] = (uint8_t) arg0.uint32;
     pop_args(2);
     return true;
 }

@@ -9,6 +9,7 @@
 #include "../../lib/json/single_include/nlohmann/json.hpp"
 #endif
 
+#include "../IO/io.h"
 #include "../Memory/mem.h"
 #include "../Primitives/primitives.h"
 #include "../Utils//util.h"
@@ -842,12 +843,18 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 this->channel->write("%s", addComma ? "," : "");
                 this->channel->write("\"io\": [");
                 bool comma = false;
-                for (auto key : m->io) {
+                std::vector<PinState*> pinStates = get_io_state();
+                for (auto pinState : pinStates) {
+                    // Currently we just skip input pins and only return output pins.
+                    if (!pinState->output)
+                        continue;
+
                     this->channel->write("%s{", comma ? ", ": "");
-                    this->channel->write("\"pin\": %d,", key.first);
-                    this->channel->write("\"value\": %d", key.second);
+                    this->channel->write("\"pin\": %d,", pinState->pin);
+                    this->channel->write("\"value\": %d", pinState->value);
                     this->channel->write("}");
                     comma = true;
+                    delete pinState;
                 }
                 this->channel->write("]");
                 addComma = true;
@@ -1180,8 +1187,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     // Resolve chip_digital_write.
                     Primitive primitive;
                     resolve_primitive((char*) "chip_digital_write", &primitive);
-                    Module temp_module;
                     // Push pin and value to the stack.
+                    Module temp_module;
                     temp_module.stack = new StackValue[2];
                     temp_module.stack[0].value_type = I32;
                     temp_module.stack[0].value.uint32 = pin;
@@ -1190,8 +1197,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     temp_module.sp = 1;
                     // Run primitive function.
                     primitive(&temp_module);
-
-                    m->io[pin] = value;
+                    delete[] temp_module.stack;
                 }
                 break;
             }
