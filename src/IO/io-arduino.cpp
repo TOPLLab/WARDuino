@@ -6,7 +6,7 @@
 
 std::vector<PinState*> get_io_state() {
     std::vector<PinState*> ioState;
-    for (int i = 0; i < SOC_GPIO_PIN_COUNT; i++) {
+    for (int i = 0; i < NUM_DIGITAL_PINS; i++) {
         auto *state = new PinState();
         ioState.push_back(state);
         state->pin = i;
