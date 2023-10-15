@@ -845,12 +845,9 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 bool comma = false;
                 std::vector<PinState*> pinStates = get_io_state();
                 for (auto pinState : pinStates) {
-                    // Currently we just skip input pins and only return output pins.
-                    if (!pinState->output)
-                        continue;
-
                     this->channel->write("%s{", comma ? ", ": "");
                     this->channel->write("\"pin\": %d,", pinState->pin);
+                    this->channel->write("\"output\": %s,", pinState->output ? "true" : "false");
                     this->channel->write("\"value\": %d", pinState->value);
                     this->channel->write("}");
                     comma = true;
@@ -1181,8 +1178,13 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 uint8_t io_state_count = *program_state++;
                 for (int i = 0; i < io_state_count; i++) {
                     uint8_t pin = *program_state++;
+                    uint8_t output = *program_state++;
                     uint8_t value = *program_state++;
-                    debug("pin %d = %d\n", pin, value);
+                    debug("pin %d(%s) = %d\n", pin, output ? "output" : "input", value);
+
+                    // If the pin is not an output then we should not write a value to it.
+                    if (!output)
+                        continue;
 
                     // Resolve chip_digital_write.
                     Primitive primitive;
