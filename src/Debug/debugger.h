@@ -81,7 +81,11 @@ enum InterruptTypes {
     interruptPOPEvent = 0x72,
     interruptPUSHEvent = 0x73,
     interruptDUMPCallbackmapping = 0x74,
-    interruptRecvCallbackmapping = 0x75
+    interruptRecvCallbackmapping = 0x75,
+
+    // Pin value override
+    interruptSetOverridePinValue = 0x80,
+    interruptUnsetOverridePinValue = 0x81,
 };
 
 class Debugger {
@@ -171,6 +175,10 @@ class Debugger {
     static uintptr_t readPointer(uint8_t **data);
 
     static void updateCallbackmapping(Module *m, const char *interruptData);
+
+    void overridePinValue(Module *m, uint8_t *interruptData) const;
+
+    void removeOverridePinValue(Module *m, uint8_t *interruptData) const;
 
    public:
     // Public fields

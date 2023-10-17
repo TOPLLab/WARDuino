@@ -169,6 +169,8 @@ typedef struct Module {
     Frame *callstack = nullptr;    // callstack
     uint32_t *br_table = nullptr;  // br_table branch indexes
 
+    std::map<uint8_t, int32_t> io_override; // overwritten io values
+
     char *exception = nullptr;  // exception is set when the program fails
 } Module;
 

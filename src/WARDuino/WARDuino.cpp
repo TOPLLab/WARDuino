@@ -315,6 +315,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     m->byte_count = byte_count;
     // run constructor with already allocated memory
     new (&m->block_lookup) std::map<uint8_t *, Block *>;
+    new (&m->io_override) std::map<uint8_t, double>;
     m->start_function = UNDEF;
 
     // Check the module

@@ -325,6 +325,14 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->dumpCallbackmapping();
             free(interruptData);
             break;
+        case interruptSetOverridePinValue:
+            this->overridePinValue(m, interruptData);
+            free(interruptData);
+            break;
+        case interruptUnsetOverridePinValue:
+            this->removeOverridePinValue(m, interruptData);
+            free(interruptData);
+            break;
         default:
             // handle later
             this->channel->write("COULD not parse interrupt data!\n");
@@ -602,6 +610,23 @@ void Debugger::dumpCallbackmapping() const {
     this->channel->write("%s\n", CallbackHandler::dump_callbacks().c_str());
 }
 
+void Debugger::overridePinValue(Module *m, uint8_t *interruptData) const {
+    interruptData += 1; // Skip interruptSetOverridePinValue
+    uint8_t pin = *interruptData++;
+    uint32_t uValue = read_B32(&interruptData);
+    m->io_override[pin] = (int32_t) uValue;
+
+    this->channel->write("Override %d = %d\n", pin, uValue);
+}
+
+void Debugger::removeOverridePinValue(Module *m, uint8_t *interruptData) const {
+    interruptData += 1; // Skip interruptUnsetOverridePinValue
+    uint8_t pin = *interruptData++;
+    m->io_override.erase(pin);
+
+    this->channel->write("Remove override for pin %d\n", pin);
+}
+
 /**
  * Read the change in bytes array.
  *
@@ -843,7 +868,7 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 this->channel->write("%s", addComma ? "," : "");
                 this->channel->write("\"io\": [");
                 bool comma = false;
-                std::vector<PinState*> pinStates = get_io_state();
+                std::vector<PinState*> pinStates = get_io_state(m);
                 for (auto pinState : pinStates) {
                     this->channel->write("%s{", comma ? ", ": "");
                     this->channel->write("\"pin\": %d,", pinState->pin);

@@ -508,6 +508,10 @@ def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     uint8_t res = digitalRead(pin);
     pop_args(1);
+    if (m->io_override.find(pin) != m->io_override.end()) {
+        pushUInt32((uint32_t) m->io_override[pin]);
+        return true;
+    }
     pushUInt32(res);
     return true;
 }
@@ -515,6 +519,10 @@ def_prim(chip_digital_read, oneToOneU32) {
 def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
+    if (m->io_override.find(pin) != m->io_override.end()) {
+        pushInt32(m->io_override[pin]);
+        return true;
+    }
     pushInt32(analogRead(pin));
     return true;
 }
