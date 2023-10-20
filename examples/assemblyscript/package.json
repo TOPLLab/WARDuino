@@ -2,7 +2,7 @@
   "name": "as-examples",
   "version": "1.0.0",
   "description": "WARDuino examples in AssemblyScript",
-  "main": "src/analog.ts",
+  "main": "main/blink.ts",
   "type": "module",
   "scripts": {
     "build": "npm run build:debug && npm run build:release",

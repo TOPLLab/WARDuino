@@ -1,6 +1,6 @@
 {
   "entries": [
-    "src/main.ts"
+    "main/ascii.ts"
   ],
   "targets": {
     "debug": {
