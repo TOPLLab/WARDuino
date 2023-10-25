@@ -11,7 +11,7 @@
     <a href="https://github.com/TOPLLab/WARDuino/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
   </p>
 
-  <h4>
+  <b>
     <a href="./README.md#build-and-development-instructions">Installation</a>
     <span> | </span>
     <a href="./examples/">Examples</a>
@@ -19,7 +19,7 @@
     <a href="./README.md#webassembly-specification-tests">Run Specification tests</a>
     <span> | </span>
     <a href="https://topllab.github.io/WARDuino/guide/get-started.html">Documentation</a>
-  </h4>
+  </b>
 
 </div>
 
@@ -32,11 +32,13 @@ This project is released under the Mozilla Public License 2.0, and is being deve
 + The virtual machine allows developers to implement their own primitives in C++, which are callable from Wasm.
 + The WARDuino project also includes a [VS Code extension](https://github.com/TOPLLab/WARDuino-VSCode) to use both the remote debugging and the out-of-place debugging facilities offered by the virtual machine.
 
-*Note: WARDuino is not 1.0, since this is an active research project. Expect possible bugs or performance issues.*
+> [!WARNING]
+> WARDuino is not 1.0, since this is an active research project. Expect possible bugs or performance issues.
 
 ## Build and Development Instructions
 
-Supported platforms: Linux (Ubuntu), macOS, ESP-IDF, Arduino
+> [!NOTE]
+> **Supported platforms:** Linux (Ubuntu), macOS, ESP-IDF, Arduino
 
 The project uses CMake. Quick install looks like this:
 
@@ -55,7 +57,8 @@ The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, an
 
 ### Build for ESP-IDF
 
-> warning: primitive support for IDF is under construction
+> [!WARNING]
+> Primitive support for IDF is under construction.
 
 Before you can compile and flash with ESP-IDF, you must install and enable [the toolchain](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html).
 You also need to disable the watchdog timer:
@@ -147,9 +150,9 @@ npm run spectest
 
 For a feature request or bug report, create a [GitHub issue](https://github.com/TOPLLab/WARDuino/issues).
 
-## LICENCE
+## Acknowledgments
 
-WARDuino by Robbert Gurdeep Singh, Tom Lauwaerts, Christophe Scholliers and Joel Martin is licensed under a [MPL-2.0 License](./LICENSE).
+WARDuino by Robbert Gurdeep Singh, Tom Lauwaerts, Carlos Rojas Castillo, and Christophe Scholliers is licensed under a [MPL-2.0 License](./LICENSE).
 This is a derivative work of [kanaka/wac](https://github.com/kanaka/wac) by Joel Martin.
 
 If you need to cite WARDuino in your research, use:
