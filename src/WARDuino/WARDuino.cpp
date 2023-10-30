@@ -533,11 +533,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         }
                         case 0x03:  // Global
                         {
-                            m->global_count += 1;
-                            m->globals = (StackValue *)arecalloc(
-                                m->globals, m->global_count - 1,
-                                m->global_count, sizeof(StackValue), "globals");
-                            StackValue *glob = &m->globals[m->global_count - 1];
+                            m->globals.emplace_back();
+                            StackValue *glob = &m->globals[m->global_count++];
                             glob->value_type = content_type;
 
                             switch (
@@ -626,9 +623,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     (void)mutability;
                     uint32_t gidx = m->global_count;
                     m->global_count += 1;
-                    m->globals = (StackValue *)arecalloc(
-                        m->globals, gidx, m->global_count, sizeof(StackValue),
-                        "globals");
+                    m->globals.emplace_back();
                     m->globals[gidx].value_type = type;
 
                     // Run the init_expr to get global value
@@ -954,10 +949,7 @@ void WARDuino::free_module_state(Module *m) {
         m->functions.clear();
     }
 
-    if (m->globals != nullptr) {
-        free(m->globals);
-        m->globals = nullptr;
-    }
+    m->globals.clear();
 
     if (m->table.entries != nullptr) {
         free(m->table.entries);
