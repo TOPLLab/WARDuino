@@ -31,7 +31,7 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
 
     if (rfc->fidx < m->import_count) {
         // execute primitives directly
-        ((Primitive)m->functions[rfc->fidx].func_ptr)(m);
+        ((Primitive)m->functions[rfc->fidx]->func_ptr)(m);
         // send result directly
         m->warduino->program_state = PROXYhalt;
         m->warduino->debugger->sendProxyCallResult(m);
