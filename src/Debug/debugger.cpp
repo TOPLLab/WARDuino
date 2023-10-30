@@ -781,7 +781,7 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 this->channel->write("%s\"globals\":[", addComma ? "," : "");
                 addComma = true;
                 for (uint32_t j = 0; j < m->global_count; j++) {
-                    auto v = m->globals + j;
+                    auto v = &m->globals[j];
                     printValue(v, j, j == (m->global_count - 1));
                 }
                 this->channel->write("]");  // closing globals
@@ -869,10 +869,8 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 // TODO if global_count != amount Otherwise set all to zero
                 if (m->global_count != amount) {
                     debug("globals freeing state and then allocating\n");
-                    if (m->global_count > 0) free(m->globals);
-                    if (amount > 0)
-                        m->globals = (StackValue *)acalloc(
-                            amount, sizeof(StackValue), "globals");
+                    m->globals.clear();
+                    m->globals.resize(amount);
                 } else {
                     debug("globals setting existing state to zero\n");
                     for (uint32_t i = 0; i < m->global_count; i++) {
