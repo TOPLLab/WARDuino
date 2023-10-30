@@ -386,7 +386,7 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
         return;
     }
 
-    Type func = *m->functions[fidx].type;
+    Type func = *m->functions[fidx]->type;
     StackValue *args = readWasmArgs(func, interruptData);
 
     WARDuino *instance = WARDuino::instance();
@@ -491,10 +491,10 @@ void Debugger::dumpFunctions(Module *m) const {
     this->channel->write("\"functions\":[");
 
     for (size_t i = m->import_count; i < m->function_count; i++) {
-        this->channel->write(R"({"fidx":"0x%x",)", m->functions[i].fidx);
+        this->channel->write(R"({"fidx":"0x%x",)", m->functions[i]->fidx);
         this->channel->write("\"from\":%" PRIu32 ",\"to\":%" PRIu32 "}%s",
-                             toVirtualAddress(m->functions[i].start_ptr, m),
-                             toVirtualAddress(m->functions[i].end_ptr, m),
+                             toVirtualAddress(m->functions[i]->start_ptr, m),
+                             toVirtualAddress(m->functions[i]->end_ptr, m),
                              (i < m->function_count - 1) ? "," : "],");
     }
 }
@@ -616,7 +616,7 @@ bool Debugger::handleChangedFunction(Module *m, uint8_t *bytes) {
 
     uint32_t b = read_LEB_32(&pos);  // read id
 
-    Block *function = &m->functions[m->import_count + b];
+    Block *function = m->functions[m->import_count + b];
     uint32_t body_size = read_LEB_32(&pos);
     uint8_t *payload_start = pos;
     uint32_t local_count = read_LEB_32(&pos);
@@ -980,7 +980,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                         debug("function block\n");
                         uint32_t fidx = read_B32(&program_state);
                         /* debug("function block idx=%" PRIu32 "\n", fidx); */
-                        f->block = m->functions + fidx;
+                        f->block = m->functions[fidx];
 
                         if (f->block->fidx != fidx) {
                             FATAL("incorrect fidx: exp %" PRIu32 " got %" PRIu32
@@ -1188,7 +1188,7 @@ void Debugger::handleProxyCall(Module *m, RunningState *program_state,
     uint32_t fidx = read_L32(&data);
     dbg_info("Proxycall func %" PRIu32 "\n", fidx);
 
-    Block *func = &m->functions[fidx];
+    Block *func = m->functions[fidx];
     StackValue *args = Proxy::readRFCArgs(func, data);
     dbg_trace("Enqueuing callee %" PRIu32 "\n", func->fidx);
 
