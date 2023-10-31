@@ -368,16 +368,14 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                     // read vector params
                     type->param_count = read_LEB_32(&pos);
-                    type->params = (uint32_t *)acalloc(
-                        type->param_count, sizeof(uint32_t), "type->params");
+                    type->params = new uint32_t[type->param_count];
                     for (uint32_t p = 0; p < type->param_count; p++) {
                         type->params[p] = read_LEB_32(&pos);
                     }
 
                     // read vector results
                     type->result_count = read_LEB_32(&pos);
-                    type->results = (uint32_t *)acalloc(
-                        type->result_count, sizeof(uint32_t), "type->results");
+                    type->results = new uint32_t[type->result_count];
                     for (uint32_t r = 0; r < type->result_count; r++) {
                         type->results[r] = read_LEB_32(&pos);
                     }
@@ -592,8 +590,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 parse_table_type(m, &pos);
                 // If it's not imported then don't mangle it
                 m->options.mangle_table_index = false;
-                m->table.entries = (uint32_t *)acalloc(
-                    m->table.size, sizeof(uint32_t), "Module->table.entries");
+                m->table.entries = new uint32_t[m->table.size]{};
                 //}
                 break;
             }
@@ -777,9 +774,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     }
 
                     if (function->local_count > 0) {
-                        function->local_value_type = (uint8_t *)acalloc(
-                            function->local_count, sizeof(uint8_t),
-                            "function->local_value_type");
+                        function->local_value_type = new uint8_t[function->local_count];
                     }
 
                     // Restore position and read the locals
