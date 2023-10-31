@@ -72,6 +72,9 @@ char *read_string(uint8_t **pos, uint32_t *result_len);
 std::string parse_utf8_string(const uint8_t *buffer, uint32_t size,
                               uint32_t offset);
 
+std::string parse_utf8_string(const std::vector<uint8_t>& buffer, uint32_t size,
+                              uint32_t offset);
+
 // Byte operations
 
 void sext_8_32(uint32_t *val);

@@ -515,7 +515,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         }
                         case 0x02:  // Memory
                         {
-                            ASSERT(!m->memory.bytes,
+                            ASSERT(m->memory.bytes.empty(),
                                    "More than 1 memory not supported\n");
                             auto *mval = (Memory *)val;
                             ASSERT(m->memory.initial <= mval->maximum,
@@ -603,9 +603,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 // for (uint32_t c=0; c<memory_count; c++) {
                 parse_memory_type(m, &pos);
                 //m->memory.bytes = new uint8_t [m->memory.pages * PAGE_SIZE]{};
-                m->memory.bytes = (uint8_t *)acalloc(
-                    m->memory.pages * PAGE_SIZE, 1,  // sizeof(uint32_t),
-                    "Module->memory.bytes");
+                m->memory.bytes.resize(m->memory.pages * PAGE_SIZE);
                 //}
                 break;
             }
@@ -743,7 +741,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         "  setting 0x%x bytes of memory at 0x%p + offset "
                         "0x%x\n",
                         size, m->memory.bytes, offset);
-                    memcpy(m->memory.bytes + offset, pos, size);
+                    memcpy(&m->memory.bytes[offset], pos, size);
                     pos += size;
                 }
 
@@ -951,9 +949,8 @@ void WARDuino::free_module_state(Module *m) {
         m->table.entries = nullptr;
     }
 
-    if (m->memory.bytes != nullptr) {
-        free(m->memory.bytes);
-        m->memory.bytes = nullptr;
+    if (!m->memory.bytes.empty()) {
+        m->memory.bytes.clear();
     }
 
     if (m->stack != nullptr) {
