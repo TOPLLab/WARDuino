@@ -908,11 +908,10 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                       m->memory.initial, pages);
                 // if(pages !=m->memory.pages){
                 // if(m->memory.pages !=0)
-                if (m->memory.bytes != nullptr) {
-                    free(m->memory.bytes);
+                if (!m->memory.bytes.empty()) {
+                    m->memory.bytes.clear();
                 }
-                m->memory.bytes = (uint8_t *)acalloc(pages * PAGE_SIZE, 1,
-                                                     "Module->memory.bytes");
+                m->memory.bytes.resize(pages * PAGE_SIZE);
                 m->memory.pages = pages;
                 // }
                 // else{
@@ -1055,16 +1054,16 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
                 uint32_t total_bytes = limit - start + 1;
                 uint8_t *mem_end =
-                    m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+                    m->memory.bytes.data() + m->memory.pages * (uint32_t)PAGE_SIZE;
                 debug("will copy #%" PRIu32 " bytes from %" PRIu32
                       " to %" PRIu32 " (incl.)\n",
                       total_bytes, start, limit);
-                if ((m->memory.bytes + start) + total_bytes > mem_end) {
+                if ((m->memory.bytes.data() + start) + total_bytes > mem_end) {
                     FATAL("memory overflow %p > %p\n",
                           static_cast<void *>(m->bytes + start + total_bytes),
                           static_cast<void *>(mem_end));
                 }
-                memcpy(m->memory.bytes + start, program_state, total_bytes);
+                memcpy(m->memory.bytes.data() + start, program_state, total_bytes);
                 for (auto i = start; i < (start + total_bytes); i++) {
                     debug("GOT byte idx %" PRIu32 " =%" PRIu8 "\n", i,
                           m->memory.bytes[i]);

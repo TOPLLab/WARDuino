@@ -597,9 +597,7 @@ bool i_instr_grow_memory(Module *m) {
         return true;
     }
     m->memory.pages += delta;
-    m->memory.bytes = (uint8_t *)arecalloc(
-        m->memory.bytes, prev_pages * PAGE_SIZE, m->memory.pages * PAGE_SIZE,
-        1 /*sizeof(uint32_t)*/, "Module->memory.bytes", true);
+    m->memory.bytes.resize(m->memory.pages * PAGE_SIZE);
     return true;
 }
 
@@ -621,11 +619,11 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     if (offset + addr < addr) {
         overflow = true;
     }
-    maddr = m->memory.bytes + offset + addr;
-    if (maddr < m->memory.bytes) {
+    maddr = m->memory.bytes.data() + offset + addr;
+    if (maddr < m->memory.bytes.data()) {
         overflow = true;
     }
-    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+    mem_end = m->memory.bytes.data() + m->memory.pages * (uint32_t)PAGE_SIZE;
     if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
         overflow = true;
     }
@@ -725,11 +723,11 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     if (offset + addr < addr) {
         overflow = true;
     }
-    maddr = m->memory.bytes + offset + addr;
-    if (maddr < m->memory.bytes) {
+    maddr = m->memory.bytes.data() + offset + addr;
+    if (maddr < m->memory.bytes.data()) {
         overflow = true;
     }
-    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+    mem_end = m->memory.bytes.data() + m->memory.pages * (uint32_t)PAGE_SIZE;
     if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
         overflow = true;
     }
