@@ -8,6 +8,8 @@
 #include "../Utils/util.h"
 #include "../Utils/util_arduino.h"
 
+#include "z3++.h"
+
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
 uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,  // loads
@@ -237,7 +239,21 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
     }
     push_block(m, block, m->sp);
 
+    z3::expr sym_cond = m->symbolic_stack[m->sp].value();
     uint32_t cond = m->stack[m->sp--].value.uint32;
+
+    z3::solver s(m->ctx);
+    s.add(sym_cond);
+    s.check();
+    std::cout << sym_cond << std::endl;
+    std::cout << s.get_model() << std::endl;
+
+    s.reset();
+    s.add(!sym_cond);
+    s.check();
+    std::cout << !sym_cond << std::endl;
+    std::cout << s.get_model() << std::endl;
+
     if (cond == 0) {  // if false (I32)
         // branch to else block or after end of if
         if (block->else_ptr == nullptr) {
@@ -787,20 +803,24 @@ bool i_instr_const(Module *m, uint8_t opcode) {
         case 0x41:  // i32.const
             target->value_type = I32;
             target->value.uint32 = read_LEB_signed(&m->pc_ptr, 32);
+            m->symbolic_stack[m->sp] = m->ctx.int_val(target->value.uint32);
             break;
         case 0x42:  // i64.const
             target->value_type = I64;
             target->value.int64 = read_LEB_signed(&m->pc_ptr, 64);
+            m->symbolic_stack[m->sp] = m->ctx.int_val(target->value.int64);
             break;
         case 0x43:  // f32.const
             target->value_type = F32;
             memcpy(&target->value.uint32, m->pc_ptr, 4);
             m->pc_ptr += 4;
+            m->symbolic_stack[m->sp] = m->ctx.real_val(target->value.uint32);
             break;
         case 0x44:  // f64.const
             target->value_type = F64;
             memcpy(&target->value.uint64, m->pc_ptr, 8);
             m->pc_ptr += 8;
+            m->symbolic_stack[m->sp] = m->ctx.real_val(target->value.uint64);
             break;
         default:
             return false;
@@ -834,7 +854,10 @@ bool i_instr_unairy_u32(Module *m, uint8_t opcode) {
 bool i_instr_math_u32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
+    z3::expr sym_a = m->symbolic_stack[0].value();
+    z3::expr sym_b = m->symbolic_stack[1].value();
     uint32_t c;
+    std::optional<z3::expr> c_sym;
     m->sp -= 1;
     switch (opcode) {
         case 0x46:
@@ -845,12 +868,14 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
             break;  // i32.ne
         case 0x48:
             c = static_cast<uint32_t>((int32_t)a < (int32_t)b);
+            c_sym = sym_a < sym_b;
             break;  // i32.lt_s
         case 0x49:
             c = static_cast<uint32_t>(a < b);
             break;  // i32.lt_u
         case 0x4a:
             c = static_cast<uint32_t>((int32_t)a > (int32_t)b);
+            c_sym = sym_a > sym_b;
             break;  // i32.gt_s
         case 0x4b:
             c = static_cast<uint32_t>(a > b);
@@ -872,6 +897,7 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
     }
     m->stack[m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = c;
+    m->symbolic_stack[m->sp] = c_sym;
     return true;
 }
 
@@ -1096,7 +1122,10 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
     // TODO: verify if this should not be done with int32_t instead
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
+    z3::expr a_sym = m->symbolic_stack[m->sp - 1].value();
+    z3::expr b_sym = m->symbolic_stack[m->sp].value();
     uint32_t c;
+    std::optional<z3::expr> c_sym;
     m->sp -= 1;
     if (opcode >= 0x6d && opcode <= 0x70 && b == 0) {
         sprintf(exception, "integer divide by zero");
@@ -1108,12 +1137,15 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
         // &c); break;  // i32.sub
         case 0x6a:
             c = a + b;
+            c_sym = a_sym + b_sym;
             break;  // i32.add
         case 0x6b:
             c = a - b;
+            c_sym = a_sym - b_sym;
             break;  // i32.sub
         case 0x6c:
             c = a * b;
+            c_sym = a_sym * b_sym;
             break;  // i32.mul
         case 0x6d:
             if (a == 0x80000000 && b == (uint32_t)-1) {
@@ -1121,9 +1153,11 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
                 return false;
             }
             c = (int32_t)a / (int32_t)b;
+            c_sym = a_sym / b_sym;
             break;  // i32.div_s
         case 0x6e:
             c = a / b;
+            c_sym = a_sym / b_sym;
             break;  // i32.div_u
         case 0x6f:
             if (a == 0x80000000 && b == (uint32_t)-1) {
@@ -1131,18 +1165,23 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
             } else {
                 c = (int32_t)a % (int32_t)b;
             };
+            c_sym = a_sym % b_sym;
             break;  // i32.rem_s
         case 0x70:
             c = a % b;
+            c_sym = a_sym % b_sym;
             break;  // i32.rem_u
         case 0x71:
             c = a & b;
+            c_sym = a_sym & b_sym;
             break;  // i32.and
         case 0x72:
             c = a | b;
+            c_sym = a_sym | b_sym;
             break;  // i32.or
         case 0x73:
             c = a ^ b;
+            c_sym = a_sym ^ b_sym;
             break;  // i32.xor
         case 0x74:
             c = a << b;
@@ -1167,6 +1206,7 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
     //    return false;
     //}
     m->stack[m->sp].value.uint32 = c;
+    m->symbolic_stack[m->sp] = c_sym;
     return true;
 }
 

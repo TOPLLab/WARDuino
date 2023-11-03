@@ -7,6 +7,9 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <optional>
+
+#include <z3++.h>
 
 #include "Debug/debugger.h"
 #include "Edward/proxy_supervisor.h"
@@ -164,7 +167,9 @@ typedef struct Module {
     uint8_t *pc_ptr = nullptr;     // program counter
     int sp = -1;                   // operand stack pointer
     int fp = -1;                   // current frame pointer into stack
-    StackValue *stack;   // main operand stack
+    std::array<StackValue, STACK_SIZE> stack;   // main operand stack
+    z3::context ctx;
+    std::array<std::optional<z3::expr>, STACK_SIZE> symbolic_stack;   // symbolic stack
     int csp = -1;                  // callstack pointer
     Frame *callstack = nullptr;    // callstack
     uint32_t *br_table = nullptr;  // br_table branch indexes

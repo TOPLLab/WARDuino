@@ -301,7 +301,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     uint8_t valueType;
 
     // Allocate stacks
-    m->stack = new StackValue[STACK_SIZE]{};
     m->callstack = new Frame[CALLSTACK_SIZE]{};
     m->br_table = new uint32_t[BR_TABLE_SIZE]{};
 
@@ -900,7 +899,7 @@ int WARDuino::run_module(Module *m) {
     // execute main
     if (fidx != UNDEF) {
         this->invoke(m, fidx);
-        return m->stack->value.uint32;
+        return m->stack[0].value.uint32;
     }
 
     // wait
@@ -951,11 +950,6 @@ void WARDuino::free_module_state(Module *m) {
 
     if (!m->memory.bytes.empty()) {
         m->memory.bytes.clear();
-    }
-
-    if (m->stack != nullptr) {
-        free(m->stack);
-        m->stack = nullptr;
     }
 
     if (m->callstack != nullptr) {

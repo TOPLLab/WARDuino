@@ -58,7 +58,7 @@ if (BUILD_EMULATOR)
     add_definitions(-DWARN=0)
 
     # Use C++11
-    set(CMAKE_CXX_STANDARD 11)
+    set(CMAKE_CXX_STANDARD 17)
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
@@ -69,6 +69,7 @@ if (BUILD_EMULATOR)
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
     target_link_libraries(wdcli PRIVATE Threads::Threads)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
+    target_link_libraries(wdcli PRIVATE z3)
 endif (BUILD_EMULATOR)
 
 if (BUILD_UNITTEST)
