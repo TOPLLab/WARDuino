@@ -1185,12 +1185,15 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
             break;  // i32.xor
         case 0x74:
             c = a << b;
+            c_sym = shl(a_sym, b_sym);
             break;  // i32.shl
         case 0x75:
             c = (int32_t)a >> b;  // NOLINT(hicpp-signed-bitwise)
+            c_sym = lshr(a_sym, b_sym);
             break;                // i32.shr_s
         case 0x76:
             c = a >> b;
+            c_sym = lshr(a_sym, b_sym);
             break;  // i32.shr_u
         case 0x77:
             c = rotl32(a, b);
