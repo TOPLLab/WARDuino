@@ -25,7 +25,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES_ARDUINO 30
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -273,6 +273,15 @@ def_prim(print_string, twoToNoneU32) {
     return true;
 }
 
+def_prim(sym_int, oneToNoneU32) {
+    int32_t index = arg0.int32;
+    // What is the concrete value?
+    pop_args(1);
+    pushInt32(0);
+    m->symbolic_stack[m->sp] = m->ctx.int_const(("x_" + std::to_string(index)).c_str());
+    return true;
+}
+
 def_prim(wifi_connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
@@ -498,6 +507,8 @@ void install_primitives() {
 
     install_primitive(print_int);
     install_primitive(print_string);
+
+    install_primitive(sym_int);
 
     install_primitive(wifi_connect);
     install_primitive(wifi_status);

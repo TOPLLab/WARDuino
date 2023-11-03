@@ -69,6 +69,7 @@ if (BUILD_EMULATOR)
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
     target_link_libraries(wdcli PRIVATE Threads::Threads)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
+    target_link_libraries(wdcli PRIVATE z3)
 endif (BUILD_EMULATOR)
 
 if (BUILD_UNITTEST)
