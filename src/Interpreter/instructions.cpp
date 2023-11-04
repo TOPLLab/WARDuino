@@ -243,15 +243,15 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
     uint32_t cond = m->stack[m->sp--].value.uint32;
 
     z3::solver s(m->ctx);
+    std::cout << sym_cond << std::endl;
     s.add(sym_cond);
     s.check();
-    std::cout << sym_cond << std::endl;
     std::cout << s.get_model() << std::endl;
 
     s.reset();
+    std::cout << !sym_cond << std::endl;
     s.add(!sym_cond);
     s.check();
-    std::cout << !sym_cond << std::endl;
     std::cout << s.get_model() << std::endl;
 
     if (cond == 0) {  // if false (I32)
@@ -536,6 +536,8 @@ bool i_instr_get_local(Module *m) {
           value_repr(&m->stack[m->fp + arg]));
 #endif
     m->stack[++m->sp] = m->stack[m->fp + arg];
+    m->symbolic_stack[m->sp] = m->symbolic_stack[m->fp + arg];
+    std::cout << "local.get " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
     return true;
 }
 
@@ -544,6 +546,8 @@ bool i_instr_get_local(Module *m) {
  */
 bool i_instr_set_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
+    m->symbolic_stack[m->fp + arg] = m->symbolic_stack[m->sp];
+    std::cout << "local.set " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
     m->stack[m->fp + arg] = m->stack[m->sp--];
 #if TRACE
     debug("      - arg: 0x%x, to %s (stack loc: %d)\n", arg,
@@ -558,6 +562,8 @@ bool i_instr_set_local(Module *m) {
 bool i_instr_tee_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp];
+    std::cout << "local.tee " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
+    m->symbolic_stack[m->fp + arg] = m->symbolic_stack[m->sp];
 #if TRACE
     debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
 #endif
