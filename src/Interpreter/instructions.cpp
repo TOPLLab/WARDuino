@@ -854,8 +854,8 @@ bool i_instr_unairy_u32(Module *m, uint8_t opcode) {
 bool i_instr_math_u32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
-    z3::expr sym_a = m->symbolic_stack[0].value();
-    z3::expr sym_b = m->symbolic_stack[1].value();
+    z3::expr sym_a = m->symbolic_stack[m->sp - 1].value();
+    z3::expr sym_b = m->symbolic_stack[m->sp].value();
     uint32_t c;
     std::optional<z3::expr> c_sym;
     m->sp -= 1;
