@@ -273,12 +273,12 @@ def_prim(print_string, twoToNoneU32) {
     return true;
 }
 
-def_prim(sym_int, oneToNoneU32) {
-    int32_t index = arg0.int32;
-    // What is the concrete value?
-    pop_args(1);
+int sym_counter = 0;
+
+def_prim(sym_int, NoneToOneU32) {
+    // What is the concrete value? Currently just 0.
     pushInt32(0);
-    m->symbolic_stack[m->sp] = m->ctx.int_const(("x_" + std::to_string(index)).c_str());
+    m->symbolic_stack[m->sp] = m->ctx.int_const(("x_" + std::to_string(sym_counter++)).c_str());
     return true;
 }
 
