@@ -860,9 +860,11 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x46:
             c = static_cast<uint32_t>(a == b);
+            c_sym = sym_a == sym_b;
             break;  // i32.eq
         case 0x47:
             c = static_cast<uint32_t>(a != b);
+            c_sym = sym_a != sym_b;
             break;  // i32.ne
         case 0x48:
             c = static_cast<uint32_t>((int32_t)a < (int32_t)b);
@@ -871,6 +873,7 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
             break;  // i32.lt_s
         case 0x49:
             c = static_cast<uint32_t>(a < b);
+            c_sym = sym_a < sym_b;
             break;  // i32.lt_u
         case 0x4a:
             c = static_cast<uint32_t>((int32_t)a > (int32_t)b);
@@ -878,18 +881,23 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
             break;  // i32.gt_s
         case 0x4b:
             c = static_cast<uint32_t>(a > b);
+            c_sym = sym_a > sym_b;
             break;  // i32.gt_u
         case 0x4c:
             c = static_cast<uint32_t>((int32_t)a <= (int32_t)b);
+            c_sym = sym_a <= sym_b;
             break;  // i32.le_s
         case 0x4d:
             c = static_cast<uint32_t>(a <= b);
+            c_sym = sym_a <= sym_b;
             break;  // i32.le_u
         case 0x4e:
             c = static_cast<uint32_t>((int32_t)a >= (int32_t)b);
+            c_sym = sym_a >= sym_b;
             break;  // i32.ge_s
         case 0x4f:
             c = static_cast<uint32_t>(a >= b);
+            c_sym = sym_a >= sym_b;
             break;  // i32.ge_u
         default:
             return false;
