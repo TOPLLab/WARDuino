@@ -246,18 +246,6 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
     m->path_condition = m->path_condition & (cond ? sym_cond: !sym_cond);
     std::cout << "Updated path condition = " << m->path_condition << std::endl;
 
-    z3::solver s(m->ctx);
-    std::cout << sym_cond << std::endl;
-    s.add(sym_cond);
-    s.check();
-    std::cout << s.get_model() << std::endl;
-
-    s.reset();
-    std::cout << !sym_cond << std::endl;
-    s.add(!sym_cond);
-    s.check();
-    std::cout << s.get_model() << std::endl;
-
     if (cond == 0) {  // if false (I32)
         // branch to else block or after end of if
         if (block->else_ptr == nullptr) {
@@ -878,8 +866,7 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
             break;  // i32.ne
         case 0x48:
             c = static_cast<uint32_t>((int32_t)a < (int32_t)b);
-            std::cout << sym_a << std::endl;
-            std::cout << sym_b << std::endl;
+            std::cout << sym_a << " < " << sym_b << std::endl;
             c_sym = sym_a < sym_b;
             break;  // i32.lt_s
         case 0x49:

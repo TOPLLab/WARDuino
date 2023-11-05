@@ -412,11 +412,14 @@ int main(int argc, const char *argv[]) {
 
         z3::expr global_condition = m->ctx.bool_val(true);
         int iteration_index = 0;
+        std::vector<std::unordered_map<std::string, StackValue>> models;
         while(true) {
             std::cout << std::endl << "=== CONCOLIC ITERATION " << iteration_index++ << " ===" << std::endl;
             m->symbolic_variable_count = 0;
             m->path_condition = m->ctx.bool_val(true);
             wac->run_module(m);
+
+            models.push_back(m->symbolic_concrete_values);
 
             // Start a new concolic iteration by solving !path_condition.
             // TODO: When should I use simplify? Does the solver automatically simplify things so I can just let it handle
@@ -440,6 +443,15 @@ int main(int argc, const char *argv[]) {
                 z3::func_decl func = model[i];
                 std::cout << func.name() << " = " << model.get_const_interp(func) << std::endl;
                 m->symbolic_concrete_values[func.name().str()].value.uint64 = model.get_const_interp(func).get_numeral_uint64();
+            }
+        }
+
+        std::cout << std::endl << "=== FINISHED ===" << std::endl;
+        std::cout << "Models found:" << std::endl;
+        for (size_t i = 0; i < models.size(); i++) {
+            std::cout << "- Model #" << i << ":" << std::endl;
+            for (const auto& entry : models[i]) {
+                std::cout << "  " << entry.first << " = " << entry.second.value.int32 << std::endl;
             }
         }
 
