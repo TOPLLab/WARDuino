@@ -898,8 +898,9 @@ int WARDuino::run_module(Module *m) {
 
     // execute main
     if (fidx != UNDEF) {
-        this->invoke(m, fidx);
-        return m->stack[0].value.uint32;
+        return this->invoke(m, fidx);
+        /*this->invoke(m, fidx);
+        return m->stack[m->sp].value.uint32;*/
     }
 
     // wait
