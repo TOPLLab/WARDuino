@@ -169,7 +169,10 @@ typedef struct Module {
     int fp = -1;                   // current frame pointer into stack
     std::array<StackValue, STACK_SIZE> stack;   // main operand stack
     z3::context ctx;
+    z3::expr path_condition = ctx.bool_val(true);
     std::array<std::optional<z3::expr>, STACK_SIZE> symbolic_stack;   // symbolic stack
+    int symbolic_variable_count = 0;
+    std::unordered_map<std::string, StackValue> symbolic_concrete_values; // Concrete values for symbolic variables
     int csp = -1;                  // callstack pointer
     Frame *callstack = nullptr;    // callstack
     uint32_t *br_table = nullptr;  // br_table branch indexes

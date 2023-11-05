@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <thread>
+#include <random>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
@@ -273,12 +274,20 @@ def_prim(print_string, twoToNoneU32) {
     return true;
 }
 
-int sym_counter = 0;
+std::random_device r;
+std::default_random_engine random_engine(r());
+std::uniform_int_distribution<int> uniform_dist(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
 
 def_prim(sym_int, NoneToOneU32) {
-    // What is the concrete value? Currently just 0.
-    pushInt32(0);
-    m->symbolic_stack[m->sp] = m->ctx.int_const(("x_" + std::to_string(sym_counter++)).c_str());
+    int32_t concrete_value = uniform_dist(random_engine);
+    std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
+    if (m->symbolic_concrete_values.find(var_name) != m->symbolic_concrete_values.end()) {
+        concrete_value = m->symbolic_concrete_values[var_name].value.int32;
+    }
+    std::cout << "New symbolic value " << var_name << ", start value = " << concrete_value << std::endl;
+    pushInt32(concrete_value);
+    m->symbolic_stack[m->sp] = m->ctx.int_const(var_name.c_str());
+    m->symbolic_concrete_values[var_name] = {.value_type = I32, .value = {.int32 = concrete_value}};
     return true;
 }
 
