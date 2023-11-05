@@ -242,6 +242,10 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
     z3::expr sym_cond = m->symbolic_stack[m->sp].value();
     uint32_t cond = m->stack[m->sp--].value.uint32;
 
+    // Update the path condition based on if the branch will be taken in the current execution or not.
+    m->path_condition = m->path_condition & (cond ? sym_cond: !sym_cond);
+    std::cout << "Updated path condition = " << m->path_condition << std::endl;
+
     z3::solver s(m->ctx);
     std::cout << sym_cond << std::endl;
     s.add(sym_cond);
@@ -874,6 +878,8 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
             break;  // i32.ne
         case 0x48:
             c = static_cast<uint32_t>((int32_t)a < (int32_t)b);
+            std::cout << sym_a << std::endl;
+            std::cout << sym_b << std::endl;
             c_sym = sym_a < sym_b;
             break;  // i32.lt_s
         case 0x49:

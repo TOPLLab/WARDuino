@@ -400,12 +400,46 @@ int main(int argc, const char *argv[]) {
 
         // Run Wasm module
         dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
-        if (fname != nullptr) {
+        /*if (fname != nullptr) {
             uint32_t fidx = wac->get_export_fidx(m, fname);
             wac->invoke(m, fidx, arguments.size(), &arguments[0]);
         } else {
             wac->run_module(m);
+        }*/
+
+        z3::expr global_condition = m->ctx.bool_val(true);
+        int iteration_index = 0;
+        while(true) {
+            std::cout << std::endl << "=== CONCOLIC ITERATION " << iteration_index++ << " ===" << std::endl;
+            m->symbolic_variable_count = 0;
+            m->path_condition = m->ctx.bool_val(true);
+            wac->run_module(m);
+
+            // Start a new concolic iteration by solving !path_condition.
+            // TODO: When should I use simplify? Does the solver automatically simplify things so I can just let it handle
+            // that? Maybe I should only use simplify when building up expressions during symbolic execution?
+            std::cout << "Execution finished, path condition = " << m->path_condition << std::endl;
+            z3::solver s(m->ctx);
+            std::cout << "!path_condition = " << !m->path_condition << std::endl;
+            std::cout << "!path_condition (simplified) = " << (!m->path_condition).simplify() << std::endl;
+            //s.add(!m->path_condition);
+            global_condition = global_condition & !m->path_condition; // Not this path and also not the previous paths
+            s.add(global_condition);
+            if (s.check() == z3::unsat) {
+                std::cout << "Explored all paths!" << std::endl;
+                break;
+            }
+            std::cout << "Solve !path_condition:" << std::endl << s.get_model() << std::endl;
+
+            std::cout << "Model:" << std::endl;
+            z3::model model = s.get_model();
+            for (int i = 0; i < (int) model.size(); i++) {
+                z3::func_decl func = model[i];
+                std::cout << func.name() << " = " << model.get_const_interp(func) << std::endl;
+                m->symbolic_concrete_values[func.name().str()].value.uint64 = model.get_const_interp(func).get_numeral_uint64();
+            }
         }
+
         wac->unload_module(m);
         wac->debugger->stop();
 
