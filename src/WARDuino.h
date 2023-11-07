@@ -119,12 +119,22 @@ typedef struct Table {
     uint32_t *entries = nullptr;
 } Table;
 
-typedef struct Memory {
+struct Memory {
     uint32_t initial = 0;      // initial size (64K pages)
     uint32_t maximum = 0;      // maximum size (64K pages)
     uint32_t pages = 0;        // current size (64K pages)
+    //std::vector<std::pair<uint8_t, z3::expr>> bytes;
     std::vector<uint8_t> bytes;
-} Memory;
+    std::vector<z3::expr> symbolic_bytes;
+
+    [[nodiscard]] uint8_t read_byte(uint32_t offset) const {
+        return bytes[offset];
+    }
+
+    void write_byte(uint32_t offset, uint8_t value) {
+        bytes[offset] = value;
+    }
+};
 
 typedef struct Options {
     // when true: host memory addresses will be outside allocated memory area
@@ -178,6 +188,11 @@ typedef struct Module {
     uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
+
+    void memory_resize(uint32_t new_pages) {
+        memory.bytes.resize(new_pages * PAGE_SIZE);
+        memory.symbolic_bytes.resize(new_pages * PAGE_SIZE, ctx.bv_val(0, 8));
+    }
 } Module;
 
 typedef bool (*Primitive)(Module *);

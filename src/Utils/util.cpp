@@ -177,6 +177,17 @@ std::string parse_utf8_string(const std::vector<uint8_t>& buffer, uint32_t size,
     return parse_utf8_string(buffer.data(), size, offset);
 }
 
+std::string parse_utf8_string(const Memory &memory, uint32_t size,
+                              uint32_t offset) {
+    std::string str;
+    size += offset;
+    while (offset < size) {
+        str += memory.read_byte(offset);
+        offset++;
+    }
+    return str;
+}
+
 // Math
 
 // Inplace sign extend
