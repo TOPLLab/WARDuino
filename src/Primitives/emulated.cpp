@@ -286,7 +286,8 @@ def_prim(sym_int, NoneToOneU32) {
     }
     std::cout << "New symbolic value " << var_name << ", start value = " << concrete_value << std::endl;
     pushInt32(concrete_value);
-    m->symbolic_stack[m->sp] = m->ctx.int_const(var_name.c_str());
+    //m->symbolic_stack[m->sp] = m->ctx.int_const(var_name.c_str());
+    m->symbolic_stack[m->sp] = m->ctx.bv_const(var_name.c_str(), 32);
     m->symbolic_concrete_values[var_name] = {.value_type = I32, .value = {.int32 = concrete_value}};
     return true;
 }
