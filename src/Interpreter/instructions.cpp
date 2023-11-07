@@ -843,6 +843,8 @@ bool i_instr_unairy_u32(Module *m, uint8_t opcode) {
         default:
             return false;
     }
+    m->symbolic_stack[m->sp] =
+        ite(m->symbolic_stack[m->sp].value() == 0, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
     return true;
 }
 
