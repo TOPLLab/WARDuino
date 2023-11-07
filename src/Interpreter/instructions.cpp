@@ -617,9 +617,11 @@ bool i_instr_grow_memory(Module *m) {
 
 template <int size>
 void load(Module *m, uint32_t offset, uint32_t addr) {
+    // Load concrete value.
     uint8_t *maddr = m->memory.bytes.data() + offset + addr;
     memcpy(&m->stack[m->sp].value, maddr, size);
-    m->stack[m->sp].value_type = I32;
+
+    // Load symbolic value.
     z3::expr_vector expressions(m->ctx);
     for (int i = size - 1; i >= 0; i--) {
         expressions.push_back(m->memory.symbolic_bytes[offset + addr + i]);
@@ -734,6 +736,24 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     return true;
 }
 
+template <int size>
+void store(Module *m, uint32_t offset, uint32_t addr, std::pair<StackValue, z3::expr> value) {
+    // Store concrete value.
+    uint8_t *maddr = m->memory.bytes.data() + offset + addr;
+    memcpy(maddr, &value.first.value, size);
+
+    // Store symbolic value.
+    for (int i = 0; i < size; i++) {
+        m->memory.symbolic_bytes[offset + addr + i] = value.second.extract((i + 1) * 8 - 1, i * 8);
+    }
+
+    std::cout << "store result = ";
+    for (int i = 0; i < size; i++) {
+        std::cout << m->memory.symbolic_bytes[offset + addr + i].simplify();
+    }
+    std::cout << std::endl;
+}
+
 bool i_instr_mem_store(Module *m, uint8_t opcode) {
     uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB_32(&m->pc_ptr);
@@ -774,40 +794,31 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     }
     switch (opcode) {
         case 0x36:
-            memcpy(maddr, &sval->value.uint32, 4);
-            for (int i = 0; i < 4; i++) {
-                m->memory.symbolic_bytes[offset + addr + i] = symbolic_stack_value.extract((i + 1) * 8 - 1, i * 8);
-            }
-            std::cout << "i32.store result = "
-                      << m->memory.symbolic_bytes[offset + addr + 0].simplify()
-                      << m->memory.symbolic_bytes[offset + addr + 1].simplify()
-                      << m->memory.symbolic_bytes[offset + addr + 2].simplify()
-                      << m->memory.symbolic_bytes[offset + addr + 3].simplify()
-                      << std::endl;
+            store<4>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
             break;  // i32.store
         case 0x37:
-            memcpy(maddr, &sval->value.uint64, 8);
+            store<8>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
             break;  // i64.store
         case 0x38:
-            memcpy(maddr, &sval->value.f32, 4);
+            store<4>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
             break;  // f32.store
         case 0x39:
-            memcpy(maddr, &sval->value.f64, 8);
+            store<8>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
             break;  // f64.store
         case 0x3a:
-            memcpy(maddr, &sval->value.uint32, 1);
+            store<1>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
             break;  // i32.store8
         case 0x3b:
-            memcpy(maddr, &sval->value.uint32, 2);
+            store<2>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
             break;  // i32.store16
         case 0x3c:
-            memcpy(maddr, &sval->value.uint64, 1);
+            store<1>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
             break;  // i64.store8
         case 0x3d:
-            memcpy(maddr, &sval->value.uint64, 2);
+            store<2>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
             break;  // i64.store16
         case 0x3e:
-            memcpy(maddr, &sval->value.uint64, 4);
+            store<4>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
             break;  // i64.store32
         default:
             return false;
