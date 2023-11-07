@@ -712,7 +712,7 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB_32(&m->pc_ptr);
     uint32_t offset = read_LEB_32(&m->pc_ptr);
-    StackValue *sval = &m->stack[m->sp--];
+    StackValue *concrete_stack_value = &m->stack[m->sp--];
     uint32_t addr = m->stack[m->sp--].value.uint32;
     bool overflow = false;
 
@@ -720,7 +720,7 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
         dbg_info(
             "      - unaligned store - flags: 0x%x,"
             " offset: 0x%x, addr: 0x%x, val: %s\n",
-            flags, offset, addr, value_repr(sval));
+            flags, offset, addr, value_repr(concrete_stack_value));
     }
     if (offset + addr < addr) {
         overflow = true;
@@ -736,7 +736,7 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     dbg_info(
         "      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p, value: "
         "%s\n",
-        addr, offset, maddr, mem_end, value_repr(sval));
+        addr, offset, maddr, mem_end, value_repr(concrete_stack_value));
     if (!m->options.disable_memory_bounds) {
         if (overflow) {
             dbg_warn("memory start: %p, memory end: %p, maddr: %p\n",
@@ -747,31 +747,31 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     }
     switch (opcode) {
         case 0x36:
-            memcpy(maddr, &sval->value.uint32, 4);
+            memcpy(maddr, &concrete_stack_value->value.uint32, 4);
             break;  // i32.store
         case 0x37:
-            memcpy(maddr, &sval->value.uint64, 8);
+            memcpy(maddr, &concrete_stack_value->value.uint64, 8);
             break;  // i64.store
         case 0x38:
-            memcpy(maddr, &sval->value.f32, 4);
+            memcpy(maddr, &concrete_stack_value->value.f32, 4);
             break;  // f32.store
         case 0x39:
-            memcpy(maddr, &sval->value.f64, 8);
+            memcpy(maddr, &concrete_stack_value->value.f64, 8);
             break;  // f64.store
         case 0x3a:
-            memcpy(maddr, &sval->value.uint32, 1);
+            memcpy(maddr, &concrete_stack_value->value.uint32, 1);
             break;  // i32.store8
         case 0x3b:
-            memcpy(maddr, &sval->value.uint32, 2);
+            memcpy(maddr, &concrete_stack_value->value.uint32, 2);
             break;  // i32.store16
         case 0x3c:
-            memcpy(maddr, &sval->value.uint64, 1);
+            memcpy(maddr, &concrete_stack_value->value.uint64, 1);
             break;  // i64.store8
         case 0x3d:
-            memcpy(maddr, &sval->value.uint64, 2);
+            memcpy(maddr, &concrete_stack_value->value.uint64, 2);
             break;  // i64.store16
         case 0x3e:
-            memcpy(maddr, &sval->value.uint64, 4);
+            memcpy(maddr, &concrete_stack_value->value.uint64, 4);
             break;  // i64.store32
         default:
             return false;
