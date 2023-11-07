@@ -239,7 +239,7 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
     }
     push_block(m, block, m->sp);
 
-    z3::expr sym_cond = m->symbolic_stack[m->sp].value();
+    z3::expr sym_cond = z3::ite(m->symbolic_stack[m->sp].value() != 0, m->ctx.bool_val(true), m->ctx.bool_val(false));
     uint32_t cond = m->stack[m->sp--].value.uint32;
 
     // Update the path condition based on if the branch will be taken in the current execution or not.
@@ -801,7 +801,7 @@ bool i_instr_const(Module *m, uint8_t opcode) {
         case 0x41:  // i32.const
             target->value_type = I32;
             target->value.uint32 = read_LEB_signed(&m->pc_ptr, 32);
-            m->symbolic_stack[m->sp] = m->ctx.int_val(target->value.uint32);
+            m->symbolic_stack[m->sp] = m->ctx.bv_val(target->value.uint32, 32);
             break;
         case 0x42:  // i64.const
             target->value_type = I64;
@@ -860,44 +860,44 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x46:
             c = static_cast<uint32_t>(a == b);
-            c_sym = sym_a == sym_b;
+            c_sym = z3::ite(sym_a == sym_b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.eq
         case 0x47:
             c = static_cast<uint32_t>(a != b);
-            c_sym = sym_a != sym_b;
+            c_sym = z3::ite(sym_a != sym_b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.ne
         case 0x48:
             c = static_cast<uint32_t>((int32_t)a < (int32_t)b);
             std::cout << sym_a << " < " << sym_b << std::endl;
-            c_sym = sym_a < sym_b;
+            c_sym = z3::ite(slt(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.lt_s
         case 0x49:
             c = static_cast<uint32_t>(a < b);
-            c_sym = sym_a < sym_b;
+            c_sym = z3::ite(ult(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.lt_u
         case 0x4a:
             c = static_cast<uint32_t>((int32_t)a > (int32_t)b);
-            c_sym = sym_a > sym_b;
+            c_sym = z3::ite(sgt(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.gt_s
         case 0x4b:
             c = static_cast<uint32_t>(a > b);
-            c_sym = sym_a > sym_b;
+            c_sym = z3::ite(ugt(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.gt_u
         case 0x4c:
             c = static_cast<uint32_t>((int32_t)a <= (int32_t)b);
-            c_sym = sym_a <= sym_b;
+            c_sym = z3::ite(sle(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.le_s
         case 0x4d:
             c = static_cast<uint32_t>(a <= b);
-            c_sym = sym_a <= sym_b;
+            c_sym = z3::ite(ule(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.le_u
         case 0x4e:
             c = static_cast<uint32_t>((int32_t)a >= (int32_t)b);
-            c_sym = sym_a >= sym_b;
+            c_sym = z3::ite(sge(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.ge_s
         case 0x4f:
             c = static_cast<uint32_t>(a >= b);
-            c_sym = sym_a >= sym_b;
+            c_sym = z3::ite(uge(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.ge_u
         default:
             return false;
@@ -1074,6 +1074,7 @@ bool i_instr_unairy_floating(Module *m, uint8_t opcode) {
         // unary f32
         case 0x8b:
             m->stack[m->sp].value.f32 = fabs(m->stack[m->sp].value.f32);
+            m->symbolic_stack[m->sp] = z3::abs(m->symbolic_stack[m->sp].value());
             break;  // f32.abs
         case 0x8c:
             m->stack[m->sp].value.f32 = -m->stack[m->sp].value.f32;
@@ -1164,7 +1165,7 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
             break;  // i32.div_s
         case 0x6e:
             c = a / b;
-            c_sym = a_sym / b_sym;
+            c_sym = z3::udiv(a_sym, b_sym);
             break;  // i32.div_u
         case 0x6f:
             if (a == 0x80000000 && b == (uint32_t)-1) {
@@ -1172,11 +1173,11 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
             } else {
                 c = (int32_t)a % (int32_t)b;
             };
-            c_sym = a_sym % b_sym;
+            c_sym = z3::srem(a_sym, b_sym);
             break;  // i32.rem_s
         case 0x70:
             c = a % b;
-            c_sym = a_sym % b_sym;
+            c_sym = z3::urem(a_sym, b_sym);
             break;  // i32.rem_u
         case 0x71:
             c = a & b;
@@ -1196,7 +1197,7 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
             break;  // i32.shl
         case 0x75:
             c = (int32_t)a >> b;  // NOLINT(hicpp-signed-bitwise)
-            c_sym = lshr(a_sym, b_sym);
+            c_sym = ashr(a_sym, b_sym);
             break;                // i32.shr_s
         case 0x76:
             c = a >> b;
