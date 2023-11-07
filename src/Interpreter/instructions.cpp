@@ -615,6 +615,19 @@ bool i_instr_grow_memory(Module *m) {
     return true;
 }
 
+template <int size>
+void load(Module *m, uint32_t offset, uint32_t addr) {
+    uint8_t *maddr = m->memory.bytes.data() + offset + addr;
+    memcpy(&m->stack[m->sp].value, maddr, size);
+    m->stack[m->sp].value_type = I32;
+    z3::expr_vector expressions(m->ctx);
+    for (int i = size - 1; i >= 0; i--) {
+        expressions.push_back(m->memory.symbolic_bytes[offset + addr + i]);
+    }
+    m->symbolic_stack[m->sp] = z3::concat(expressions);
+    std::cout << "load result = " << m->symbolic_stack[m->sp].value().simplify() << std::endl;
+}
+
 /**
  * 0x0d XXX
  */
@@ -654,73 +667,65 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     m->stack[++m->sp].value.uint64 = 0;  // initialize to 0
     switch (opcode) {
         case 0x28: {
-            memcpy(&m->stack[m->sp].value, maddr, 4);
+            load<4>(m, offset, addr);
             m->stack[m->sp].value_type = I32;
-            // Concat 4 symbolic memory bytes to create a bitvector of size 32
-            // TODO: Make sure order is correct
-            z3::expr_vector expressions(m->ctx);
-            for (int i = 3; i >= 0; i--) {
-                expressions.push_back(m->memory.symbolic_bytes[offset + addr + i]);
-            }
-            m->symbolic_stack[m->sp] = z3::concat(expressions);
-            std::cout << "i32.load result = " << m->symbolic_stack[m->sp].value().simplify() << std::endl;
             break;  // i32.load
         }
         case 0x29:
-            memcpy(&m->stack[m->sp].value, maddr, 8);
+            load<8>(m, offset, addr);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load
         case 0x2a:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
+            load<4>(m, offset, addr);
             m->stack[m->sp].value_type = F32;
             break;  // f32.load
         case 0x2b:
-            memcpy(&m->stack[m->sp].value, maddr, 8);
+            load<8>(m, offset, addr);
             m->stack[m->sp].value_type = F64;
             break;  // f64.load
         case 0x2c:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
+            load<1>(m, offset, addr);
             sext_8_32(&m->stack[m->sp].value.uint32);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load8_s
         case 0x2d:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
+            load<1>(m, offset, addr);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load8_u
         case 0x2e:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
+            load<2>(m, offset, addr);
             sext_16_32(&m->stack[m->sp].value.uint32);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load16_s
         case 0x2f:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
+            load<2>(m, offset, addr);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load16_u
         case 0x30:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
+            load<1>(m, offset, addr);
             sext_8_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load8_s
         case 0x31:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
+            load<1>(m, offset, addr);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load8_u
         case 0x32:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
+            load<2>(m, offset, addr);
             sext_16_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load16_s
         case 0x33:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
+            load<2>(m, offset, addr);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load16_u
         case 0x34:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
+            load<4>(m, offset, addr);
             sext_32_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load32_s
         case 0x35:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
+            load<4>(m, offset, addr);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load32_u
         default:
