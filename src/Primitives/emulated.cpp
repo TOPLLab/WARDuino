@@ -267,7 +267,7 @@ def_prim(print_int, oneToNoneU32) {
 def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
-    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    std::string text = parse_utf8_string(m->memory, size, addr);
     debug("EMU: print string at %i: ", addr);
     printf("%s", text.c_str());
     pop_args(2);
@@ -298,8 +298,8 @@ def_prim(wifi_connect, fourToNoneU32) {
     uint32_t pass = arg1.uint32;
     uint32_t len1 = arg0.uint32;
 
-    std::string ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid);
-    std::string pass_str = parse_utf8_string(m->memory.bytes, len1, pass);
+    std::string ssid_str = parse_utf8_string(m->memory, len0, ssid);
+    std::string pass_str = parse_utf8_string(m->memory, len1, pass);
     debug("EMU: connect to %s with password %s\n", ssid_str.c_str(),
           pass_str.c_str());
     pop_args(4);
@@ -322,7 +322,7 @@ def_prim(wifi_localip, twoToOneU32) {
     std::string ip = "192.168.0.181";
 
     for (unsigned long i = 0; i < ip.length(); i++) {
-        m->memory.bytes[buff + i] = (uint32_t)ip[i];
+        m->memory.write_byte(buff + i, ip[i]);
     }
     pop_args(2);
     pushInt32(buff);
@@ -336,7 +336,7 @@ def_prim(http_get, fourToOneU32) {
     int32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
     // Parse url
-    std::string text = parse_utf8_string(m->memory.bytes, length, url);
+    std::string text = parse_utf8_string(m->memory, length, url);
     debug("EMU: http get request %s\n", text.c_str());
     // Construct response
     std::string answer = "Response code: 200.";
@@ -345,7 +345,7 @@ def_prim(http_get, fourToOneU32) {
         return false;  // TRAP
     }
     for (unsigned long i = 0; i < answer.length(); i++) {
-        m->memory.bytes[response + i] = (uint32_t)answer[i];
+        m->memory.write_byte(response + i, answer[i]);
     }
 
     // Pop args and return response address
@@ -367,13 +367,13 @@ def_prim(http_post, tenToOneU32) {
     int32_t response = arg1.uint32;
     uint32_t size = arg0.uint32;
 
-    std::string url_parsed = parse_utf8_string(m->memory.bytes, url_len, url);
+    std::string url_parsed = parse_utf8_string(m->memory, url_len, url);
     std::string body_parsed =
-        parse_utf8_string(m->memory.bytes, body_len, body);
+        parse_utf8_string(m->memory, body_len, body);
     std::string content_type_parsed =
-        parse_utf8_string(m->memory.bytes, content_type_len, content_type);
+        parse_utf8_string(m->memory, content_type_len, content_type);
     std::string authorization_parsed =
-        parse_utf8_string(m->memory.bytes, authorization_len, authorization);
+        parse_utf8_string(m->memory, authorization_len, authorization);
     debug(
         "EMU: POST %s\n\t Content-type: '%s'\n\t Authorization: '%s'\n\t "
         "'%s'\n",
@@ -579,7 +579,11 @@ bool resolve_external_memory(char *symbol, Memory **val) {
             external_mem.initial = 256;
             external_mem.maximum = 256;
             external_mem.pages = 256;
-            external_mem.bytes.resize(external_mem.pages * PAGE_SIZE);
+            // TODO: Cleanly handle symbolic context here
+            // It needs access to the module for that.
+            //external_mem.bytes.resize(external_mem.pages * PAGE_SIZE);
+            //external_mem.bytes.resize(external_mem.pages * PAGE_SIZE, std::pair<uint8_t, z3::expr>(0, ctx.bv_val(0, 8)));
+            FATAL("TODO: SYMBOLIC EXTERNAL MEMORY");
         }
         *val = &external_mem;
         return true;

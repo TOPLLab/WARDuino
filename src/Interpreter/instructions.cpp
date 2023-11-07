@@ -611,7 +611,7 @@ bool i_instr_grow_memory(Module *m) {
         return true;
     }
     m->memory.pages += delta;
-    m->memory.bytes.resize(m->memory.pages * PAGE_SIZE);
+    m->memory_resize(m->memory.pages);
     return true;
 }
 
@@ -653,10 +653,19 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     }
     m->stack[++m->sp].value.uint64 = 0;  // initialize to 0
     switch (opcode) {
-        case 0x28:
+        case 0x28: {
             memcpy(&m->stack[m->sp].value, maddr, 4);
             m->stack[m->sp].value_type = I32;
+            // Concat 4 symbolic memory bytes to create a bitvector of size 32
+            // TODO: Make sure order is correct
+            z3::expr_vector expressions(m->ctx);
+            for (int i = 3; i >= 0; i--) {
+                expressions.push_back(m->memory.symbolic_bytes[offset + addr + i]);
+            }
+            m->symbolic_stack[m->sp] = z3::concat(expressions);
+            std::cout << "i32.load result = " << m->symbolic_stack[m->sp].value().simplify() << std::endl;
             break;  // i32.load
+        }
         case 0x29:
             memcpy(&m->stack[m->sp].value, maddr, 8);
             m->stack[m->sp].value_type = I64;
@@ -724,6 +733,7 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB_32(&m->pc_ptr);
     uint32_t offset = read_LEB_32(&m->pc_ptr);
+    z3::expr symbolic_stack_value = m->symbolic_stack[m->sp].value();
     StackValue *sval = &m->stack[m->sp--];
     uint32_t addr = m->stack[m->sp--].value.uint32;
     bool overflow = false;
@@ -760,6 +770,15 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x36:
             memcpy(maddr, &sval->value.uint32, 4);
+            for (int i = 0; i < 4; i++) {
+                m->memory.symbolic_bytes[offset + addr + i] = symbolic_stack_value.extract((i + 1) * 8 - 1, i * 8);
+            }
+            std::cout << "i32.store result = "
+                      << m->memory.symbolic_bytes[offset + addr + 0].simplify()
+                      << m->memory.symbolic_bytes[offset + addr + 1].simplify()
+                      << m->memory.symbolic_bytes[offset + addr + 2].simplify()
+                      << m->memory.symbolic_bytes[offset + addr + 3].simplify()
+                      << std::endl;
             break;  // i32.store
         case 0x37:
             memcpy(maddr, &sval->value.uint64, 8);
