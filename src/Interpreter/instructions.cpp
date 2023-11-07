@@ -759,7 +759,7 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     uint32_t flags = read_LEB_32(&m->pc_ptr);
     uint32_t offset = read_LEB_32(&m->pc_ptr);
     z3::expr symbolic_stack_value = m->symbolic_stack[m->sp].value();
-    StackValue *sval = &m->stack[m->sp--];
+    StackValue *concrete_stack_value = &m->stack[m->sp--];
     uint32_t addr = m->stack[m->sp--].value.uint32;
     bool overflow = false;
 
@@ -767,7 +767,7 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
         dbg_info(
             "      - unaligned store - flags: 0x%x,"
             " offset: 0x%x, addr: 0x%x, val: %s\n",
-            flags, offset, addr, value_repr(sval));
+            flags, offset, addr, value_repr(concrete_stack_value));
     }
     if (offset + addr < addr) {
         overflow = true;
@@ -783,7 +783,7 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     dbg_info(
         "      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p, value: "
         "%s\n",
-        addr, offset, maddr, mem_end, value_repr(sval));
+        addr, offset, maddr, mem_end, value_repr(concrete_stack_value));
     if (!m->options.disable_memory_bounds) {
         if (overflow) {
             dbg_warn("memory start: %p, memory end: %p, maddr: %p\n",
@@ -794,31 +794,31 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     }
     switch (opcode) {
         case 0x36:
-            store<4>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
+            store<4>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
             break;  // i32.store
         case 0x37:
-            store<8>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
+            store<8>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
             break;  // i64.store
         case 0x38:
-            store<4>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
+            store<4>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
             break;  // f32.store
         case 0x39:
-            store<8>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
+            store<8>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
             break;  // f64.store
         case 0x3a:
-            store<1>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
+            store<1>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
             break;  // i32.store8
         case 0x3b:
-            store<2>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
+            store<2>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
             break;  // i32.store16
         case 0x3c:
-            store<1>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
+            store<1>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
             break;  // i64.store8
         case 0x3d:
-            store<2>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
+            store<2>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
             break;  // i64.store16
         case 0x3e:
-            store<4>(m, offset, addr, std::pair(*sval, symbolic_stack_value));
+            store<4>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
             break;  // i64.store32
         default:
             return false;
