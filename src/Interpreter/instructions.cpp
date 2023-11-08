@@ -246,6 +246,9 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
     // Update the path condition based on if the branch will be taken in the current execution or not.
     m->path_condition = m->path_condition & (cond ? sym_cond: !sym_cond);
     std::cout << "Updated path condition = " << m->path_condition.simplify() << std::endl;
+    if (m->path_condition.is_const()) {
+        assert(m->path_condition.simplify().is_bool() && m->path_condition.simplify().is_true());
+    }
 
     if (cond == 0) {  // if false (I32)
         // branch to else block or after end of if
