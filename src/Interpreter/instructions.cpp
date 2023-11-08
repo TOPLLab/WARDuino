@@ -1288,7 +1288,10 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
 bool i_instr_binary_i64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp - 1].value.uint64;
     uint64_t e = m->stack[m->sp].value.uint64;
+    z3::expr sym_d = m->symbolic_stack[m->sp - 1].value();
+    z3::expr sym_e = m->symbolic_stack[m->sp].value();
     uint64_t f;
+    std::optional<z3::expr> sym_f;
     m->sp -= 1;
     if (opcode >= 0x7f && opcode <= 0x82 && e == 0) {
         sprintf(exception, "integer divide by zero");
@@ -1297,12 +1300,15 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x7c:
             f = d + e;
+            sym_f = sym_d + sym_e;
             break;  // i64.add
         case 0x7d:
             f = d - e;
+            sym_f = sym_d - sym_e;
             break;  // i64.sub
         case 0x7e:
             f = d * e;
+            sym_f = sym_d * sym_e;
             break;  // i64.mul
         case 0x7f:
             if (d == 0x8000000000000000 && e == (uint32_t)-1) {
@@ -1310,9 +1316,11 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
                 return false;
             }
             f = (int64_t)d / (int64_t)e;
+            sym_f = sym_d / sym_e;
             break;  // i64.div_s
         case 0x80:
             f = d / e;
+            sym_f = z3::udiv(sym_d, sym_e);
             break;  // i64.div_u
         case 0x81:
             if (d == 0x8000000000000000 && e == (uint32_t)-1) {
@@ -1320,27 +1328,35 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
             } else {
                 f = (int64_t)d % (int64_t)e;
             }
+            sym_f = z3::srem(sym_d, sym_e);
             break;  // i64.rem_s
         case 0x82:
             f = d % e;
+            sym_f = z3::urem(sym_d, sym_e);
             break;  // i64.rem_u
         case 0x83:
             f = d & e;
+            sym_f = sym_d & sym_e;
             break;  // i64.and
         case 0x84:
             f = d | e;
+            sym_f = sym_d | sym_e;
             break;  // i64.or
         case 0x85:
             f = d ^ e;
+            sym_f = sym_d ^ sym_e;
             break;  // i64.xor
         case 0x86:
             f = d << e;
+            sym_f = z3::shl(sym_d, sym_e);
             break;  // i64.shl
         case 0x87:
             f = ((int64_t)d) >> e;  // NOLINT(hicpp-signed-bitwise)
+            sym_f = z3::ashr(sym_d, sym_e);
             break;                  // i64.shr_s
         case 0x88:
             f = d >> e;
+            sym_f = z3::lshr(sym_d, sym_e);
             break;  // i64.shr_u
         case 0x89:
             f = rotl64(d, e);
@@ -1352,6 +1368,7 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
             return false;
     }
     m->stack[m->sp].value.uint64 = f;
+    m->symbolic_stack[m->sp] = sym_f;
 
     return true;
 }
