@@ -538,15 +538,19 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                 content_type) {  // NOLINT(hicpp-multiway-paths-covered)
                                 case I32:
                                     memcpy(&glob->value.uint32, val, 4);
+                                    m->symbolic_globals.push_back(m->ctx.bv_val(glob->value.uint32, 32));
                                     break;
                                 case I64:
                                     memcpy(&glob->value.uint64, val, 8);
+                                    m->symbolic_globals.push_back(m->ctx.bv_val(glob->value.uint64, 64));
                                     break;
                                 case F32:
                                     memcpy(&glob->value.f32, val, 4);
+                                    m->symbolic_globals.push_back(m->ctx.fpa_val(glob->value.f32));
                                     break;
                                 case F64:
                                     memcpy(&glob->value.f64, val, 8);
+                                    m->symbolic_globals.push_back(m->ctx.fpa_val(glob->value.f64));
                                     break;
                             }
                             debug(
@@ -622,6 +626,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     // Run the init_expr to get global value
                     run_init_expr(m, type, &pos);
 
+                    m->symbolic_globals.push_back(m->symbolic_stack[m->sp].value());
                     m->globals[gidx] = m->stack[m->sp--];
                 }
                 pos = start_pos + section_len;
