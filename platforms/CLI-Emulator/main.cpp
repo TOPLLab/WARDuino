@@ -415,7 +415,7 @@ int main(int argc, const char *argv[]) {
             m->symbolic_variable_count = 0;
             m->path_condition = m->ctx.bool_val(true);
             if (!wac->run_module(m)) {
-                std::cout << m->exception << std::endl;
+                std::cout << "Trap: " << m->exception << std::endl;
                 std::cout << "Model that caused issue:" << std::endl;
                 for (const auto& entry : m->symbolic_concrete_values) {
                     std::cout << "  " << entry.first << " = " << entry.second.value.int32 << std::endl;
