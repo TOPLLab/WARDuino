@@ -330,7 +330,13 @@ bool i_instr_br(Module *m) {
 bool i_instr_br_if(Module *m) {
     uint32_t depth = read_LEB_32(&m->pc_ptr);
 
+    z3::expr sym_cond = z3::ite(m->symbolic_stack[m->sp].value() != 0, m->ctx.bool_val(true), m->ctx.bool_val(false));
     uint32_t cond = m->stack[m->sp--].value.uint32;
+
+    // Update the path condition based on if the branch will be taken in the current execution or not.
+    m->path_condition = m->path_condition & (cond ? sym_cond: !sym_cond);
+    std::cout << "Updated path condition = " << m->path_condition << std::endl;
+
     if (cond) {  // if true
         m->csp -= depth;
         // set to end for pop_block
