@@ -66,6 +66,7 @@ Block *pop_block(Module *m) {
         // Save top value as result
         if (frame->sp < m->sp) {
             m->stack[frame->sp + 1] = m->stack[m->sp];
+            m->symbolic_stack[frame->sp + 1] = m->symbolic_stack[m->sp];
             m->sp = frame->sp + 1;
         }
     } else {
@@ -851,19 +852,19 @@ bool i_instr_const(Module *m, uint8_t opcode) {
         case 0x42:  // i64.const
             target->value_type = I64;
             target->value.int64 = read_LEB_signed(&m->pc_ptr, 64);
-            m->symbolic_stack[m->sp] = m->ctx.int_val(target->value.int64);
+            m->symbolic_stack[m->sp] = m->ctx.bv_val(target->value.uint64, 64);
             break;
         case 0x43:  // f32.const
             target->value_type = F32;
             memcpy(&target->value.uint32, m->pc_ptr, 4);
             m->pc_ptr += 4;
-            m->symbolic_stack[m->sp] = m->ctx.real_val(target->value.uint32);
+            m->symbolic_stack[m->sp] = m->ctx.fpa_val(target->value.f32);
             break;
         case 0x44:  // f64.const
             target->value_type = F64;
             memcpy(&target->value.uint64, m->pc_ptr, 8);
             m->pc_ptr += 8;
-            m->symbolic_stack[m->sp] = m->ctx.real_val(target->value.uint64);
+            m->symbolic_stack[m->sp] = m->ctx.fpa_val(target->value.f64);
             break;
         default:
             return false;
