@@ -698,47 +698,57 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
             break;  // f64.load
         case 0x2c:
             load<1>(m, offset, addr);
+            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 32 - 8);
             sext_8_32(&m->stack[m->sp].value.uint32);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load8_s
         case 0x2d:
             load<1>(m, offset, addr);
+            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 32 - 8);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load8_u
         case 0x2e:
             load<2>(m, offset, addr);
+            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 32 - 16);
             sext_16_32(&m->stack[m->sp].value.uint32);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load16_s
         case 0x2f:
             load<2>(m, offset, addr);
+            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 32 - 16);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load16_u
         case 0x30:
             load<1>(m, offset, addr);
+            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 64 - 8);
             sext_8_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load8_s
         case 0x31:
             load<1>(m, offset, addr);
+            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 64 - 8);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load8_u
         case 0x32:
             load<2>(m, offset, addr);
+            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 64 - 16);
             sext_16_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load16_s
         case 0x33:
             load<2>(m, offset, addr);
+            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 64 - 16);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load16_u
         case 0x34:
             load<4>(m, offset, addr);
+            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 64 - 32);
             sext_32_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load32_s
         case 0x35:
             load<4>(m, offset, addr);
+            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 64 - 32);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load32_u
         default:
