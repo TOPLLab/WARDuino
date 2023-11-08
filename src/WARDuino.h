@@ -173,6 +173,7 @@ typedef struct Module {
     Memory memory;
     uint32_t global_count = 0;      // number of globals
     std::vector<StackValue> globals;  // globals
+    std::vector<z3::expr> symbolic_globals;  // symbolic globals
     // Runtime state
     uint8_t *pc_ptr = nullptr;     // program counter
     int sp = -1;                   // operand stack pointer

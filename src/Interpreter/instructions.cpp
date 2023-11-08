@@ -244,7 +244,7 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
 
     // Update the path condition based on if the branch will be taken in the current execution or not.
     m->path_condition = m->path_condition & (cond ? sym_cond: !sym_cond);
-    std::cout << "Updated path condition = " << m->path_condition << std::endl;
+    std::cout << "Updated path condition = " << m->path_condition.simplify() << std::endl;
 
     if (cond == 0) {  // if false (I32)
         // branch to else block or after end of if
@@ -335,7 +335,7 @@ bool i_instr_br_if(Module *m) {
 
     // Update the path condition based on if the branch will be taken in the current execution or not.
     m->path_condition = m->path_condition & (cond ? sym_cond: !sym_cond);
-    std::cout << "Updated path condition = " << m->path_condition << std::endl;
+    std::cout << "Updated path condition = " << m->path_condition.simplify() << std::endl;
 
     if (cond) {  // if true
         m->csp -= depth;
@@ -519,6 +519,7 @@ bool i_instr_select(Module *m) {
     m->sp--;
     if (!cond) {  // use a instead of b
         m->stack[m->sp] = m->stack[m->sp + 1];
+        m->symbolic_stack[m->sp] = m->symbolic_stack[m->sp + 1];
     }
     return true;
 }
@@ -577,6 +578,8 @@ bool i_instr_get_global(Module *m) {
     debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
 #endif
     m->stack[++m->sp] = m->globals[arg];
+    m->symbolic_stack[m->sp] = m->symbolic_globals[arg];
+    std::cout << "global " << m->symbolic_globals[arg].simplify() << std::endl;
     return true;
 }
 
@@ -585,6 +588,7 @@ bool i_instr_get_global(Module *m) {
  */
 bool i_instr_set_global(Module *m) {
     uint32_t arg = read_LEB_32(&m->pc_ptr);
+    m->symbolic_globals[arg] = m->symbolic_stack[m->sp].value();
     m->globals[arg] = m->stack[m->sp--];
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->stack[m->sp + 1]));
