@@ -745,6 +745,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         "0x%x\n",
                         size, m->memory.bytes, offset);
                     memcpy(&m->memory.bytes[offset], pos, size);
+                    for (int i = 0; i < size; i++) {
+                        m->memory.symbolic_bytes[offset + i] = m->ctx.bv_val(pos[i], 8);
+                    }
                     pos += size;
                 }
 
