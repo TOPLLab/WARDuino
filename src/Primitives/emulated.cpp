@@ -279,7 +279,8 @@ std::default_random_engine random_engine(r());
 std::uniform_int_distribution<int> uniform_dist(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
 
 def_prim(sym_int, NoneToOneU32) {
-    int32_t concrete_value = uniform_dist(random_engine);
+    //int32_t concrete_value = uniform_dist(random_engine);
+    int32_t concrete_value = 0;
     std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
     if (m->symbolic_concrete_values.find(var_name) != m->symbolic_concrete_values.end()) {
         concrete_value = m->symbolic_concrete_values[var_name].value.int32;
