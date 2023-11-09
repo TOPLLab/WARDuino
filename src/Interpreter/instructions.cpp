@@ -1456,6 +1456,7 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
         case 0xa7:
             m->stack[m->sp].value.uint64 &= 0x00000000ffffffff;
             m->stack[m->sp].value_type = I32;
+            m->symbolic_stack[m->sp] = m->symbolic_stack[m->sp]->extract(31, 0);
             break;  // i32.wrap/i64
         case 0xa8:
             if (std::isnan(m->stack[m->sp].value.f32)) {
@@ -1509,10 +1510,12 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value.uint64 = m->stack[m->sp].value.uint32;
             sext_32_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
+            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 32);
             break;  // i64.extend_s/i32
         case 0xad:
             m->stack[m->sp].value.uint64 = m->stack[m->sp].value.uint32;
             m->stack[m->sp].value_type = I64;
+            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 32);
             break;  // i64.extend_u/i32
         case 0xae:
             if (std::isnan(m->stack[m->sp].value.f32)) {
