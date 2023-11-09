@@ -975,44 +975,58 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
 bool i_instr_math_u64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp - 1].value.uint64;
     uint64_t e = m->stack[m->sp].value.uint64;
+    z3::expr sym_d = m->symbolic_stack[m->sp - 1].value();
+    z3::expr sym_e = m->symbolic_stack[m->sp].value();
     uint32_t c;
+    std::optional<z3::expr> sym_c;
     m->sp -= 1;
     switch (opcode) {
         case 0x51:
             c = static_cast<uint32_t>(d == e);
+            sym_c = z3::ite(sym_d == sym_e, m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.eq
         case 0x52:
             c = static_cast<uint32_t>(d != e);
+            sym_c = z3::ite(sym_d != sym_e, m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.ne
         case 0x53:
             c = static_cast<uint32_t>((int64_t)d < (int64_t)e);
+            sym_c = z3::ite(slt(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.lt_s
         case 0x54:
             c = static_cast<uint32_t>(d < e);
+            sym_c = z3::ite(ult(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.lt_u
         case 0x55:
             c = static_cast<uint32_t>((int64_t)d > (int64_t)e);
+            sym_c = z3::ite(sgt(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.gt_s
         case 0x56:
             c = static_cast<uint32_t>(d > e);
+            sym_c = z3::ite(ugt(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.gt_u
         case 0x57:
             c = static_cast<uint32_t>((int64_t)d <= (int64_t)e);
+            sym_c = z3::ite(sle(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.le_s
         case 0x58:
             c = static_cast<uint32_t>(d <= e);
+            sym_c = z3::ite(ule(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.le_u
         case 0x59:
             c = static_cast<uint32_t>((int64_t)d >= (int64_t)e);
+            sym_c = z3::ite(sge(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.ge_s
         case 0x5a:
             c = static_cast<uint32_t>(d >= e);
+            sym_c = z3::ite(uge(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.ge_u
         default:
             return false;
     }
     m->stack[m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = c;
+    m->symbolic_stack[m->sp] = sym_c;
     return true;
 }
 
