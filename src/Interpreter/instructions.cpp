@@ -83,6 +83,25 @@ Block *pop_block(Module *m) {
     return frame->block;
 }
 
+z3::expr encode_as_symbolic(Module *m, StackValue *stack_value) {
+    z3::expr val = m->ctx.bv_val(0, 32); // Default value.
+    switch (stack_value->value_type) {
+        case I32:
+            val = m->ctx.bv_val(stack_value->value.int32, 32);
+            break;
+        case I64:
+            val = m->ctx.bv_val(stack_value->value.int64, 64);
+            break;
+        case F32:
+            val = m->ctx.fpa_val(stack_value->value.f32);
+            break;
+        case F64:
+            val = m->ctx.fpa_val(stack_value->value.f64);
+            break;
+    }
+    return val;
+}
+
 void setup_call(Module *m, uint32_t fidx) {
     Block *func = m->functions[fidx];
     Type *type = func->type;
@@ -110,6 +129,7 @@ void setup_call(Module *m, uint32_t fidx) {
         m->sp += 1;
         m->stack[m->sp].value_type = func->local_value_type[lidx];
         m->stack[m->sp].value.uint64 = 0;  // Initialize whole union to 0
+        m->symbolic_stack[m->sp] = encode_as_symbolic(m, &m->stack[m->sp]);
     }
 
     // Set program counter to start of function
@@ -540,7 +560,7 @@ bool i_instr_get_local(Module *m) {
 #endif
     m->stack[++m->sp] = m->stack[m->fp + arg];
     m->symbolic_stack[m->sp] = m->symbolic_stack[m->fp + arg];
-    std::cout << "local.get " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
+    //std::cout << "local.get " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
     return true;
 }
 
@@ -550,7 +570,7 @@ bool i_instr_get_local(Module *m) {
 bool i_instr_set_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->symbolic_stack[m->fp + arg] = m->symbolic_stack[m->sp];
-    std::cout << "local.set " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
+    //std::cout << "local.set " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
     m->stack[m->fp + arg] = m->stack[m->sp--];
 #if TRACE
     debug("      - arg: 0x%x, to %s (stack loc: %d)\n", arg,
@@ -565,7 +585,7 @@ bool i_instr_set_local(Module *m) {
 bool i_instr_tee_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp];
-    std::cout << "local.tee " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
+    //std::cout << "local.tee " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
     m->symbolic_stack[m->fp + arg] = m->symbolic_stack[m->sp];
 #if TRACE
     debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
@@ -607,6 +627,7 @@ bool i_instr_current_memory(Module *m) {
     read_LEB_32(&m->pc_ptr);  // ignore reserved
     m->stack[++m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = m->memory.pages;
+    m->symbolic_stack[m->sp] = m->memory.pages_symbolic;
     return true;
 }
 
@@ -624,8 +645,7 @@ bool i_instr_grow_memory(Module *m) {
         m->stack[m->sp].value.uint32 = static_cast<uint32_t>(-1);
         return true;
     }
-    m->memory.pages += delta;
-    m->memory_resize(m->memory.pages);
+    m->memory_resize(m->memory.pages + delta);
     return true;
 }
 
@@ -640,8 +660,8 @@ void load(Module *m, uint32_t offset, uint32_t addr) {
     for (int i = size - 1; i >= 0; i--) {
         expressions.push_back(m->memory.symbolic_bytes[offset + addr + i]);
     }
-    m->symbolic_stack[m->sp] = z3::concat(expressions);
-    std::cout << "load result = " << m->symbolic_stack[m->sp].value().simplify() << std::endl;
+    m->symbolic_stack[m->sp] = z3::concat(expressions).simplify();
+    //std::cout << "load result = " << m->symbolic_stack[m->sp].value().simplify() << std::endl;
 }
 
 /**
@@ -771,11 +791,11 @@ void store(Module *m, uint32_t offset, uint32_t addr, std::pair<StackValue, z3::
         m->memory.symbolic_bytes[offset + addr + i] = value.second.extract((i + 1) * 8 - 1, i * 8);
     }
 
-    std::cout << "store result = ";
+    /*std::cout << "store result = ";
     for (int i = 0; i < size; i++) {
         std::cout << m->memory.symbolic_bytes[offset + addr + i].simplify();
     }
-    std::cout << std::endl;
+    std::cout << std::endl;*/
 }
 
 bool i_instr_mem_store(Module *m, uint8_t opcode) {
@@ -1118,6 +1138,7 @@ bool i_instr_unairy_i32(Module *m, uint8_t opcode) {
             return false;
     }
     m->stack[m->sp].value.uint32 = c;
+    assert(false);
     return true;
 }
 
@@ -1138,6 +1159,7 @@ bool i_instr_unairy_i64(Module *m, uint8_t opcode) {
             return false;
     }
     m->stack[m->sp].value.uint64 = f;
+    assert(false);
     return true;
 }
 

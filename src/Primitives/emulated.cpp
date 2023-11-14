@@ -572,11 +572,11 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     return false;
 }
 
-Memory external_mem{};
+//Memory external_mem{};
 
 bool resolve_external_memory(char *symbol, Memory **val) {
     if (!strcmp(symbol, "memory")) {
-        if (external_mem.bytes.empty()) {
+        /*if (external_mem.bytes.empty()) {
             external_mem.initial = 256;
             external_mem.maximum = 256;
             external_mem.pages = 256;
@@ -586,7 +586,7 @@ bool resolve_external_memory(char *symbol, Memory **val) {
             //external_mem.bytes.resize(external_mem.pages * PAGE_SIZE, std::pair<uint8_t, z3::expr>(0, ctx.bv_val(0, 8)));
             FATAL("TODO: SYMBOLIC EXTERNAL MEMORY");
         }
-        *val = &external_mem;
+        *val = &external_mem;*/
         return true;
     }
 
