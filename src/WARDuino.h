@@ -125,7 +125,10 @@ struct Memory {
     uint32_t pages = 0;        // current size (64K pages)
     //std::vector<std::pair<uint8_t, z3::expr>> bytes;
     std::vector<uint8_t> bytes;
+    z3::expr symbolic_pages;
     std::vector<z3::expr> symbolic_bytes;
+
+    explicit Memory(z3::context &ctx) : symbolic_pages(ctx.bv_val(0, 32)) {}
 
     [[nodiscard]] uint8_t read_byte(uint32_t offset) const {
         return bytes[offset];
@@ -170,7 +173,8 @@ typedef struct Module {
     // same length as byte_count
     uint32_t start_function = -1;  // function to run on module load
     Table table;
-    Memory memory;
+    z3::context ctx;
+    Memory memory = Memory(ctx);
     uint32_t global_count = 0;      // number of globals
     std::vector<StackValue> globals;  // globals
     std::vector<z3::expr> symbolic_globals;  // symbolic globals
@@ -179,7 +183,6 @@ typedef struct Module {
     int sp = -1;                   // operand stack pointer
     int fp = -1;                   // current frame pointer into stack
     std::array<StackValue, STACK_SIZE> stack;   // main operand stack
-    z3::context ctx;
     z3::expr path_condition = ctx.bool_val(true);
     std::array<std::optional<z3::expr>, STACK_SIZE> symbolic_stack;   // symbolic stack
     int symbolic_variable_count = 0;
@@ -191,8 +194,10 @@ typedef struct Module {
     char *exception = nullptr;  // exception is set when the program fails
 
     void memory_resize(uint32_t new_pages) {
+        memory.pages = new_pages;
         memory.bytes.resize(new_pages * PAGE_SIZE);
         memory.symbolic_bytes.resize(new_pages * PAGE_SIZE, ctx.bv_val(0, 8));
+        memory.symbolic_pages = ctx.bv_val(new_pages, 32);
     }
 } Module;
 

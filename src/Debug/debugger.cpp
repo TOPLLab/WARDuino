@@ -912,7 +912,6 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                     m->memory.bytes.clear();
                 }
                 m->memory_resize(pages);
-                m->memory.pages = pages;
                 // }
                 // else{
                 //   //TODO fill memory.bytes with zeros
