@@ -1,12 +1,8 @@
-#include "instructions.h"
-
-#include <cmath>
-#include <cstring>
+#include "interpreter.h"
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
-#include "../Utils/util_arduino.h"
 
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
@@ -16,7 +12,7 @@ uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,  // loads
 //
 // Stack machine (byte code related functions)
 //
-void push_block(Module *m, Block *block, int sp) {
+void Interpreter::push_block(Module *m, Block *block, int sp) {
     m->csp += 1;
     m->callstack[m->csp].block = block;
     m->callstack[m->csp].sp = sp;
@@ -24,7 +20,7 @@ void push_block(Module *m, Block *block, int sp) {
     m->callstack[m->csp].ra_ptr = m->pc_ptr;
 }
 
-Block *pop_block(Module *m) {
+Block *Interpreter::pop_block(Module *m) {
     Frame *frame = &m->callstack[m->csp--];
     Type *t = frame->block->type;
 
@@ -80,8 +76,8 @@ Block *pop_block(Module *m) {
     return frame->block;
 }
 
-void setup_call(Module *m, uint32_t fidx) {
-    Block *func = &m->functions[fidx];
+void Interpreter::setup_call(Module *m, uint32_t fidx) {
+    Block *func = m->functions[fidx];
     Type *type = func->type;
 
     // Push current frame on the call stack
@@ -118,7 +114,7 @@ bool proxy_call(Module *m, uint32_t fidx) {
     dbg_info("Remote Function Call %d\n", fidx);
     ProxySupervisor *supervisor = m->warduino->debugger->supervisor;
     RFC *rfc;
-    Type *type = m->functions[fidx].type;
+    Type *type = m->functions[fidx]->type;
     if (type->param_count > 0) {
         m->sp -= type->param_count;
         StackValue *args = &m->stack[m->sp + 1];
@@ -199,7 +195,7 @@ Formal specification:
 /**
  * 0x02
  */
-bool i_instr_block(Module *m, uint8_t *block_ptr) {
+bool Interpreter::i_instr_block(Module *m, uint8_t *block_ptr) {
     read_LEB_32(&m->pc_ptr);  // ignore block type
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
@@ -214,7 +210,7 @@ bool i_instr_block(Module *m, uint8_t *block_ptr) {
 /**
  * 0x03
  */
-bool i_instr_loop(Module *m, uint8_t *block_ptr) {
+bool Interpreter::i_instr_loop(Module *m, uint8_t *block_ptr) {
     read_LEB_32(&m->pc_ptr);  // ignore block type
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
@@ -227,7 +223,7 @@ bool i_instr_loop(Module *m, uint8_t *block_ptr) {
 /**
  * 0x04 if
  */
-bool i_instr_if(Module *m, uint8_t *block_ptr) {
+bool Interpreter::i_instr_if(Module *m, uint8_t *block_ptr) {
     read_LEB_32(&m->pc_ptr);  // ignore block type
     Block *block = m->block_lookup[block_ptr];
 
@@ -259,7 +255,7 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
 /**
  * 0x05 else
  */
-bool i_instr_else(Module *m) {
+bool Interpreter::i_instr_else(Module *m) {
     Block *block = m->callstack[m->csp].block;
     m->pc_ptr = block->br_ptr;
 #if TRACE
@@ -271,7 +267,7 @@ bool i_instr_else(Module *m) {
 /**
  * 0x0b end
  */
-bool i_instr_end(Module *m, bool *prog_done) {
+bool Interpreter::i_instr_end(Module *m, bool *prog_done) {
     Block *block = pop_block(m);
     if (block == nullptr) {
         return false;  // an exception (set by pop_block)
@@ -305,7 +301,7 @@ bool i_instr_end(Module *m, bool *prog_done) {
 /**
  * 0x0c br
  */
-bool i_instr_br(Module *m) {
+bool Interpreter::i_instr_br(Module *m) {
     uint32_t depth = read_LEB_32(&m->pc_ptr);
     m->csp -= depth;
     // set to end for pop_block
@@ -319,7 +315,7 @@ bool i_instr_br(Module *m) {
 /**
  * 0x0d br_if
  */
-bool i_instr_br_if(Module *m) {
+bool Interpreter::i_instr_br_if(Module *m) {
     uint32_t depth = read_LEB_32(&m->pc_ptr);
 
     uint32_t cond = m->stack[m->sp--].value.uint32;
@@ -338,7 +334,7 @@ bool i_instr_br_if(Module *m) {
 /**
  * 0x0e br_table
  */
-bool i_instr_br_table(Module *m) {
+bool Interpreter::i_instr_br_table(Module *m) {
     uint32_t count = read_LEB_32(&m->pc_ptr);
     if (count > BR_TABLE_SIZE) {
         // TODO: check this prior to runtime
@@ -368,7 +364,7 @@ bool i_instr_br_table(Module *m) {
 /**
  * 0x0f return
  */
-bool i_instr_return(Module *m) {
+bool Interpreter::i_instr_return(Module *m) {
     while (m->csp >= 0 && m->callstack[m->csp].block->block_type != 0x00) {
         m->csp--;
     }
@@ -384,7 +380,7 @@ bool i_instr_return(Module *m) {
 /**
  * 0x10 call
  */
-bool i_instr_call(Module *m) {
+bool Interpreter::i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
 
     if (m->warduino->debugger->isProxied(fidx)) {
@@ -392,7 +388,7 @@ bool i_instr_call(Module *m) {
     }
 
     if (fidx < m->import_count) {
-        return ((Primitive)m->functions[fidx].func_ptr)(m);
+        return ((Primitive)m->functions[fidx]->func_ptr)(m);
     } else {
         if (m->csp >= CALLSTACK_SIZE) {
             sprintf(exception, "call stack exhausted");
@@ -409,7 +405,7 @@ bool i_instr_call(Module *m) {
 /**
  * 0x11 call_indirect
  */
-bool i_instr_call_indirect(Module *m) {
+bool Interpreter::i_instr_call_indirect(Module *m) {
     uint32_t tidx = read_LEB_32(&m->pc_ptr);  // TODO: use tidx?
     (void)tidx;
     read_LEB(&m->pc_ptr, 1);  // reserved immediate
@@ -441,7 +437,7 @@ bool i_instr_call_indirect(Module *m) {
     if (fidx < m->import_count) {
         // THUNK thunk_out(m, fidx);    // import/thunk call
     } else {
-        Block *func = &m->functions[fidx];
+        Block *func = m->functions[fidx];
         Type *ftype = func->type;
 
         if (m->csp >= CALLSTACK_SIZE) {
@@ -486,7 +482,7 @@ bool i_instr_call_indirect(Module *m) {
  * 0x1a drop
  * remove a value from the stack
  */
-bool i_instr_drop(Module *m) {
+bool Interpreter::i_instr_drop(Module *m) {
     m->sp--;
     return true;
 }
@@ -500,7 +496,7 @@ bool i_instr_drop(Module *m) {
  * if c : push val_1 to the stack
  * else : push val_2 to the stack
  */
-bool i_instr_select(Module *m) {
+bool Interpreter::i_instr_select(Module *m) {
     uint32_t cond = m->stack[m->sp--].value.uint32;
     m->sp--;
     if (!cond) {  // use a instead of b
@@ -513,7 +509,7 @@ bool i_instr_select(Module *m) {
  * 0x20 get_local
  * move the i-th local to the top of the stack
  */
-bool i_instr_get_local(Module *m) {
+bool Interpreter::i_instr_get_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg,
@@ -526,7 +522,7 @@ bool i_instr_get_local(Module *m) {
 /**
  * 0x21 set_local
  */
-bool i_instr_set_local(Module *m) {
+bool Interpreter::i_instr_set_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp--];
 #if TRACE
@@ -539,7 +535,7 @@ bool i_instr_set_local(Module *m) {
 /**
  * 0x0d tee_local
  */
-bool i_instr_tee_local(Module *m) {
+bool Interpreter::i_instr_tee_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp];
 #if TRACE
@@ -551,7 +547,7 @@ bool i_instr_tee_local(Module *m) {
 /**
  * 0x23 get_global
  */
-bool i_instr_get_global(Module *m) {
+bool Interpreter::i_instr_get_global(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
@@ -563,7 +559,7 @@ bool i_instr_get_global(Module *m) {
 /**
  * 0x24 set_global
  */
-bool i_instr_set_global(Module *m) {
+bool Interpreter::i_instr_set_global(Module *m) {
     uint32_t arg = read_LEB_32(&m->pc_ptr);
     m->globals[arg] = m->stack[m->sp--];
 #if TRACE
@@ -575,7 +571,7 @@ bool i_instr_set_global(Module *m) {
 /**
  * 0x3f current_memory
  */
-bool i_instr_current_memory(Module *m) {
+bool Interpreter::i_instr_current_memory(Module *m) {
     read_LEB_32(&m->pc_ptr);  // ignore reserved
     m->stack[++m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = m->memory.pages;
@@ -585,7 +581,7 @@ bool i_instr_current_memory(Module *m) {
 /**
  * 0x40 grow_memory
  */
-bool i_instr_grow_memory(Module *m) {
+bool Interpreter::i_instr_grow_memory(Module *m) {
     read_LEB_32(&m->pc_ptr);  // ignore reserved
     uint32_t prev_pages = m->memory.pages;
     uint32_t delta = m->stack[m->sp].value.uint32;
@@ -596,17 +592,19 @@ bool i_instr_grow_memory(Module *m) {
         m->stack[m->sp].value.uint32 = static_cast<uint32_t>(-1);
         return true;
     }
-    m->memory.pages += delta;
-    m->memory.bytes = (uint8_t *)arecalloc(
-        m->memory.bytes, prev_pages * PAGE_SIZE, m->memory.pages * PAGE_SIZE,
-        1 /*sizeof(uint32_t)*/, "Module->memory.bytes", true);
+    m->memory_resize(m->memory.pages + delta);
     return true;
+}
+
+void Interpreter::load(Module *m, uint32_t offset, uint32_t addr, int size, uint8_t value_type, bool sign_extend) {
+    uint8_t *maddr = m->memory.bytes.data() + offset + addr;
+    memcpy(&m->stack[m->sp].value, maddr, size);
 }
 
 /**
  * 0x0d XXX
  */
-bool i_instr_mem_load(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_mem_load(Module *m, uint8_t opcode) {
     bool overflow = false;
     uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB_32(&m->pc_ptr);
@@ -621,11 +619,11 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     if (offset + addr < addr) {
         overflow = true;
     }
-    maddr = m->memory.bytes + offset + addr;
-    if (maddr < m->memory.bytes) {
+    maddr = m->memory.bytes.data() + offset + addr;
+    if (maddr < m->memory.bytes.data()) {
         overflow = true;
     }
-    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+    mem_end = m->memory.bytes.data() + m->memory.pages * (uint32_t)PAGE_SIZE;
     if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
         overflow = true;
     }
@@ -641,65 +639,66 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     }
     m->stack[++m->sp].value.uint64 = 0;  // initialize to 0
     switch (opcode) {
-        case 0x28:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
+        case 0x28: {
+            load(m, offset, addr, 4, I32, false);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load
+        }
         case 0x29:
-            memcpy(&m->stack[m->sp].value, maddr, 8);
+            load(m, offset, addr, 8, I64, false);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load
         case 0x2a:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
+            load(m, offset, addr, 4, F32, false);
             m->stack[m->sp].value_type = F32;
             break;  // f32.load
         case 0x2b:
-            memcpy(&m->stack[m->sp].value, maddr, 8);
+            load(m, offset, addr, 8, F64, false);
             m->stack[m->sp].value_type = F64;
             break;  // f64.load
         case 0x2c:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
+            load(m, offset, addr, 1, I32, true);
             sext_8_32(&m->stack[m->sp].value.uint32);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load8_s
         case 0x2d:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
+            load(m, offset, addr, 1, I32, false);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load8_u
         case 0x2e:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
+            load(m, offset, addr, 2, I32, true);
             sext_16_32(&m->stack[m->sp].value.uint32);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load16_s
         case 0x2f:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
+            load(m, offset, addr, 2, I32, false);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load16_u
         case 0x30:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
+            load(m, offset, addr, 1, I64, true);
             sext_8_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load8_s
         case 0x31:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
+            load(m, offset, addr, 1, I64, false);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load8_u
         case 0x32:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
+            load(m, offset, addr, 2, I64, true);
             sext_16_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load16_s
         case 0x33:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
+            load(m, offset, addr, 2, I64, false);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load16_u
         case 0x34:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
+            load(m, offset, addr, 4, I64, true);
             sext_32_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load32_s
         case 0x35:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
+            load(m, offset, addr, 4, I64, false);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load32_u
         default:
@@ -708,11 +707,16 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool i_instr_mem_store(Module *m, uint8_t opcode) {
+void Interpreter::store(Module *m, uint32_t offset, uint32_t addr, int value_sp, int size) {
+    uint8_t *maddr = m->memory.bytes.data() + offset + addr;
+    memcpy(maddr, &m->stack[value_sp].value, size);
+}
+
+bool Interpreter::i_instr_mem_store(Module *m, uint8_t opcode) {
     uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB_32(&m->pc_ptr);
     uint32_t offset = read_LEB_32(&m->pc_ptr);
-    StackValue *concrete_stack_value = &m->stack[m->sp--];
+    int value_sp = m->sp--; // The position of the data we want to store.
     uint32_t addr = m->stack[m->sp--].value.uint32;
     bool overflow = false;
 
@@ -725,11 +729,11 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     if (offset + addr < addr) {
         overflow = true;
     }
-    maddr = m->memory.bytes + offset + addr;
-    if (maddr < m->memory.bytes) {
+    maddr = m->memory.bytes.data() + offset + addr;
+    if (maddr < m->memory.bytes.data()) {
         overflow = true;
     }
-    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+    mem_end = m->memory.bytes.data() + m->memory.pages * (uint32_t)PAGE_SIZE;
     if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
         overflow = true;
     }
@@ -747,31 +751,31 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     }
     switch (opcode) {
         case 0x36:
-            memcpy(maddr, &concrete_stack_value->value.uint32, 4);
+            store(m, offset, addr, value_sp, 4);
             break;  // i32.store
         case 0x37:
-            memcpy(maddr, &concrete_stack_value->value.uint64, 8);
+            store(m, offset, addr, value_sp, 8);
             break;  // i64.store
         case 0x38:
-            memcpy(maddr, &concrete_stack_value->value.f32, 4);
+            store(m, offset, addr, value_sp, 4);
             break;  // f32.store
         case 0x39:
-            memcpy(maddr, &concrete_stack_value->value.f64, 8);
+            store(m, offset, addr, value_sp, 8);
             break;  // f64.store
         case 0x3a:
-            memcpy(maddr, &concrete_stack_value->value.uint32, 1);
+            store(m, offset, addr, value_sp, 1);
             break;  // i32.store8
         case 0x3b:
-            memcpy(maddr, &concrete_stack_value->value.uint32, 2);
+            store(m, offset, addr, value_sp, 2);
             break;  // i32.store16
         case 0x3c:
-            memcpy(maddr, &concrete_stack_value->value.uint64, 1);
+            store(m, offset, addr, value_sp, 1);
             break;  // i64.store8
         case 0x3d:
-            memcpy(maddr, &concrete_stack_value->value.uint64, 2);
+            store(m, offset, addr, value_sp, 2);
             break;  // i64.store16
         case 0x3e:
-            memcpy(maddr, &concrete_stack_value->value.uint64, 4);
+            store(m, offset, addr, value_sp, 4);
             break;  // i64.store32
         default:
             return false;
@@ -782,7 +786,7 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
 /**
  * 0x41...0x44 const
  */
-bool i_instr_const(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_const(Module *m, uint8_t opcode) {
     StackValue *target = &m->stack[++m->sp];
 
     switch (opcode) {
@@ -813,7 +817,7 @@ bool i_instr_const(Module *m, uint8_t opcode) {
 /**
  * 0x45 eqz
  */
-bool i_instr_unairy_u32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_unary_u32(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x45:  // i32.eqz
             m->stack[m->sp].value.uint32 =
@@ -833,7 +837,7 @@ bool i_instr_unairy_u32(Module *m, uint8_t opcode) {
 /**
  * 0x0d binop32
  */
-bool i_instr_math_u32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_math_u32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
     uint32_t c;
@@ -880,7 +884,7 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
 /**
  * 0x0d binop64
  */
-bool i_instr_math_u64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_math_u64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp - 1].value.uint64;
     uint64_t e = m->stack[m->sp].value.uint64;
     uint32_t c;
@@ -927,7 +931,7 @@ bool i_instr_math_u64(Module *m, uint8_t opcode) {
 /**
  * 0x0d binop64
  */
-bool i_instr_math_f32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_math_f32(Module *m, uint8_t opcode) {
     float g = m->stack[m->sp - 1].value.f32;
     float h = m->stack[m->sp].value.f32;
     uint32_t c;
@@ -962,7 +966,7 @@ bool i_instr_math_f32(Module *m, uint8_t opcode) {
 /**
  * 0x0d binopf64
  */
-bool i_instr_math_f64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_math_f64(Module *m, uint8_t opcode) {
     double j = m->stack[m->sp - 1].value.f64;
     double k = m->stack[m->sp].value.f64;
 
@@ -995,7 +999,7 @@ bool i_instr_math_f64(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool i_instr_unairy_i32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_unary_i32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp].value.uint32;
     uint32_t c;
     switch (opcode) {
@@ -1015,7 +1019,7 @@ bool i_instr_unairy_i32(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool i_instr_unairy_i64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_unary_i64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp].value.uint64;
     uint64_t f;
     switch (opcode) {
@@ -1038,7 +1042,7 @@ bool i_instr_unairy_i64(Module *m, uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_unairy_floating(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_unary_floating(Module *m, uint8_t opcode) {
     switch (opcode) {
         // unary f32
         case 0x8b:
@@ -1094,7 +1098,7 @@ bool i_instr_unairy_floating(Module *m, uint8_t opcode) {
 /**
  * 0x0d binary_i32
  */
-bool i_instr_binary_i32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_binary_i32(Module *m, uint8_t opcode) {
     // TODO: verify if this should not be done with int32_t instead
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
@@ -1175,7 +1179,7 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_binary_i64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_binary_i64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp - 1].value.uint64;
     uint64_t e = m->stack[m->sp].value.uint64;
     uint64_t f;
@@ -1249,7 +1253,7 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_binary_f32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_binary_f32(Module *m, uint8_t opcode) {
     float g = m->stack[m->sp - 1].value.f32;
     float h = m->stack[m->sp].value.f32;
     float i;
@@ -1286,7 +1290,7 @@ bool i_instr_binary_f32(Module *m, uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_binary_f64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_binary_f64(Module *m, uint8_t opcode) {
     double j = m->stack[m->sp - 1].value.f64;
     double k = m->stack[m->sp].value.f64;
     double l;
@@ -1324,7 +1328,7 @@ bool i_instr_binary_f64(Module *m, uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_conversion(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_conversion(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0xa7:
             m->stack[m->sp].value.uint64 &= 0x00000000ffffffff;
@@ -1500,12 +1504,464 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
 /**
  * 0xe0 ... 0xe3 callback operations
  */
-bool i_instr_callback(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_callback(Module *m, uint8_t opcode) {
     // TODO
     return true;
 }
 
-bool interpret(Module *m, bool waiting) {
+std::string OPERATOR_INFO[] = {
+    // Control flow operators
+    "unreachable",           // 0x00
+    "nop",                   // 0x01
+    "block",                 // 0x02
+    "loop",                  // 0x03
+    "if",                    // 0x04
+    "else",                  // 0x05
+    "RESERVED",              // 0x06
+    "RESERVED",              // 0x07
+    "RESERVED",              // 0x08
+    "RESERVED",              // 0x09
+    "RESERVED",              // 0x0a
+    "end",                   // 0x0b
+    "br",                    // 0x0c
+    "br_if",                 // 0x0d
+    "br_table",              // 0x0e
+    "return",                // 0x0f
+
+    // Call operators
+    "call",                  // 0x10
+    "call_indirect",         // 0x11
+
+    "RESERVED",              // 0x12
+    "RESERVED",              // 0x13
+    "RESERVED",              // 0x14
+    "RESERVED",              // 0x15
+    "RESERVED",              // 0x16
+    "RESERVED",              // 0x17
+    "RESERVED",              // 0x18
+    "RESERVED",              // 0x19
+
+    // Parametric operators
+    "drop",                  // 0x1a
+    "select",                // 0x1b
+
+    "RESERVED",              // 0x1c
+    "RESERVED",              // 0x1d
+    "RESERVED",              // 0x1e
+    "RESERVED",              // 0x1f
+
+    // Variable access
+    "local.get",             // 0x20
+    "local.set",             // 0x21
+    "local.tee",             // 0x22
+    "global.get",            // 0x23
+    "global.set",            // 0x24
+
+    "RESERVED",              // 0x25
+    "RESERVED",              // 0x26
+    "RESERVED",              // 0x27
+
+    // Memory-related operator
+    "i32.load",              // 0x28
+    "i64.load",              // 0x29
+    "f32.load",              // 0x2a
+    "f64.load",              // 0x2b
+    "i32.load8_s",           // 0x2c
+    "i32.load8_u",           // 0x2d
+    "i32.load16_s",          // 0x2e
+    "i32.load16_u",          // 0x2f
+    "i64.load8_s",           // 0x30
+    "i64.load8_u",           // 0x31
+    "i64.load16_s",          // 0x32
+    "i64.load16_u",          // 0x33
+    "i64.load32_s",          // 0x34
+    "i64.load32_u",          // 0x35
+    "i32.store",             // 0x36
+    "i64.store",             // 0x37
+    "f32.store",             // 0x38
+    "f64.store",             // 0x39
+    "i32.store8",            // 0x3a
+    "i32.store16",           // 0x3b
+    "i64.store8",            // 0x3c
+    "i64.store16",           // 0x3d
+    "i64.store32",           // 0x3e
+    "current_memory",        // 0x3f
+    "grow_memory",           // 0x40
+
+    // Constants
+    "i32.const",             // 0x41
+    "i64.const",             // 0x42
+    "f32.const",             // 0x43
+    "f64.const",             // 0x44
+
+    // Comparison operators
+    "i32.eqz",               // 0x45
+    "i32.eq",                // 0x46
+    "i32.ne",                // 0x47
+    "i32.lt_s",              // 0x48
+    "i32.lt_u",              // 0x49
+    "i32.gt_s",              // 0x4a
+    "i32.gt_u",              // 0x4b
+    "i32.le_s",              // 0x4c
+    "i32.le_u",              // 0x4d
+    "i32.ge_s",              // 0x4e
+    "i32.ge_u",              // 0x4f
+
+    "i64.eqz",               // 0x50
+    "i64.eq",                // 0x51
+    "i64.ne",                // 0x52
+    "i64.lt_s",              // 0x53
+    "i64.lt_u",              // 0x54
+    "i64.gt_s",              // 0x55
+    "i64.gt_u",              // 0x56
+    "i64.le_s",              // 0x57
+    "i64.le_u",              // 0x58
+    "i64.ge_s",              // 0x59
+    "i64.ge_u",              // 0x5a
+
+    "f32.eq",                // 0x5b
+    "f32.ne",                // 0x5c
+    "f32.lt",                // 0x5d
+    "f32.gt",                // 0x5e
+    "f32.le",                // 0x5f
+    "f32.ge",                // 0x60
+
+    "f64.eq",                // 0x61
+    "f64.ne",                // 0x62
+    "f64.lt",                // 0x63
+    "f64.gt",                // 0x64
+    "f64.le",                // 0x65
+    "f64.ge",                // 0x66
+
+    // Numeric operators
+    "i32.clz",               // 0x67
+    "i32.ctz",               // 0x68
+    "i32.popcnt",            // 0x69
+    "i32.add",               // 0x6a
+    "i32.sub",               // 0x6b
+    "i32.mul",               // 0x6c
+    "i32.div_s",             // 0x6d
+    "i32.div_u",             // 0x6e
+    "i32.rem_s",             // 0x6f
+    "i32.rem_u",             // 0x70
+    "i32.and",               // 0x71
+    "i32.or",                // 0x72
+    "i32.xor",               // 0x73
+    "i32.shl",               // 0x74
+    "i32.shr_s",             // 0x75
+    "i32.shr_u",             // 0x76
+    "i32.rotl",              // 0x77
+    "i32.rotr",              // 0x78
+
+    "i64.clz",               // 0x79
+    "i64.ctz",               // 0x7a
+    "i64.popcnt",            // 0x7b
+    "i64.add",               // 0x7c
+    "i64.sub",               // 0x7d
+    "i64.mul",               // 0x7e
+    "i64.div_s",             // 0x7f
+    "i64.div_u",             // 0x80
+    "i64.rem_s",             // 0x81
+    "i64.rem_u",             // 0x82
+    "i64.and",               // 0x83
+    "i64.or",                // 0x84
+    "i64.xor",               // 0x85
+    "i64.shl",               // 0x86
+    "i64.shr_s",             // 0x87
+    "i64.shr_u",             // 0x88
+    "i64.rotl",              // 0x89
+    "i64.rotr",              // 0x8a
+
+    "f32.abs",               // 0x8b
+    "f32.neg",               // 0x8c
+    "f32.ceil",              // 0x8d
+    "f32.floor",             // 0x8e
+    "f32.trunc",             // 0x8f
+    "f32.nearest",           // 0x90
+    "f32.sqrt",              // 0x91
+    "f32.add",               // 0x92
+    "f32.sub",               // 0x93
+    "f32.mul",               // 0x94
+    "f32.div",               // 0x95
+    "f32.min",               // 0x96
+    "f32.max",               // 0x97
+    "f32.copysign",          // 0x98
+
+    "f64.abs",               // 0x99
+    "f64.neg",               // 0x9a
+    "f64.ceil",              // 0x9b
+    "f64.floor",             // 0x9c
+    "f64.trunc",             // 0x9d
+    "f64.nearest",           // 0x9e
+    "f64.sqrt",              // 0x9f
+    "f64.add",               // 0xa0
+    "f64.sub",               // 0xa1
+    "f64.mul",               // 0xa2
+    "f64.div",               // 0xa3
+    "f64.min",               // 0xa4
+    "f64.max",               // 0xa5
+    "f64.copysign",          // 0xa6
+
+    // Conversions
+    "i32.wrap_i64",          // 0xa7
+    "i32.trunc_f32_s",       // 0xa8
+    "i32.trunc_f32_u",       // 0xa9
+    "i32.trunc_f64_s",       // 0xaa
+    "i32.trunc_f64_u",       // 0xab
+
+    "i64.extend_i32_s",      // 0xac
+    "i64.extend_i32_u",      // 0xad
+    "i64.trunc_f32_s",       // 0xae
+    "i64.trunc_f32_u",       // 0xaf
+    "i64.trunc_f64_s",       // 0xb0
+    "i64.trunc_f64_u",       // 0xb1
+
+    "f32.convert_i32_s",     // 0xb2
+    "f32.convert_i32_u",     // 0xb3
+    "f32.convert_i64_s",     // 0xb4
+    "f32.convert_i64_u",     // 0xb5
+    "f32.demote_f64",        // 0xb6
+
+    "f64.convert_i32_s",     // 0xb7
+    "f64.convert_i32_u",     // 0xb8
+    "f64.convert_i64_s",     // 0xb9
+    "f64.convert_i64_u",     // 0xba
+    "f64.promote_f32",       // 0xbb
+
+    // Reinterpretations
+    "i32.reinterpret_f32",   // 0xbc
+    "i64.reinterpret_f64",   // 0xbd
+    "f32.reinterpret_i32",   // 0xbe
+    "f64.reinterpret_i64"    // 0xbf
+};
+
+/*int INSTR_ARGS[] = {
+    // Control flow operators
+    0,           // 0x00
+    0,                   // 0x01
+    0,                 // 0x02
+    0,                  // 0x03
+    0,                    // 0x04
+    0,                  // 0x05
+    -1,              // 0x06
+    -1,              // 0x07
+    -1,              // 0x08
+    -1,              // 0x09
+    -1,              // 0x0a
+    0,                   // 0x0b
+    1,                    // 0x0c
+    1,                 // 0x0d
+    -2,              // 0x0e
+    0,                // 0x0f
+
+    // Call operators
+    1,                  // 0x10
+    0,         // 0x11
+
+    -1,              // 0x12
+    -1,              // 0x13
+    -1,              // 0x14
+    -1,              // 0x15
+    -1,              // 0x16
+    -1,              // 0x17
+    -1,              // 0x18
+    -1,              // 0x19
+
+    // Parametric operators
+    0,                  // 0x1a
+    0,                // 0x1b
+
+    -1,              // 0x1c
+    -1,              // 0x1d
+    -1,              // 0x1e
+    -1,              // 0x1f
+
+    // Variable access
+    1,             // 0x20
+    1,             // 0x21
+    1,             // 0x22
+    1,            // 0x23
+    1,            // 0x24
+
+    -1,              // 0x25
+    -1,              // 0x26
+    -1,              // 0x27
+
+    // Memory-related operator
+    "i32.load",              // 0x28
+    "i64.load",              // 0x29
+    "f32.load",              // 0x2a
+    "f64.load",              // 0x2b
+    "i32.load8_s",           // 0x2c
+    "i32.load8_u",           // 0x2d
+    "i32.load16_s",          // 0x2e
+    "i32.load16_u",          // 0x2f
+    "i64.load8_s",           // 0x30
+    "i64.load8_u",           // 0x31
+    "i64.load16_s",          // 0x32
+    "i64.load16_u",          // 0x33
+    "i64.load32_s",          // 0x34
+    "i64.load32_u",          // 0x35
+    "i32.store",             // 0x36
+    "i64.store",             // 0x37
+    "f32.store",             // 0x38
+    "f64.store",             // 0x39
+    "i32.store8",            // 0x3a
+    "i32.store16",           // 0x3b
+    "i64.store8",            // 0x3c
+    "i64.store16",           // 0x3d
+    "i64.store32",           // 0x3e
+    "current_memory",        // 0x3f
+    "grow_memory",           // 0x40
+
+    // Constants
+    "i32.const",             // 0x41
+    "i64.const",             // 0x42
+    "f32.const",             // 0x43
+    "f64.const",             // 0x44
+
+    // Comparison operators
+    "i32.eqz",               // 0x45
+    "i32.eq",                // 0x46
+    "i32.ne",                // 0x47
+    "i32.lt_s",              // 0x48
+    "i32.lt_u",              // 0x49
+    "i32.gt_s",              // 0x4a
+    "i32.gt_u",              // 0x4b
+    "i32.le_s",              // 0x4c
+    "i32.le_u",              // 0x4d
+    "i32.ge_s",              // 0x4e
+    "i32.ge_u",              // 0x4f
+
+    "i64.eqz",               // 0x50
+    "i64.eq",                // 0x51
+    "i64.ne",                // 0x52
+    "i64.lt_s",              // 0x53
+    "i64.lt_u",              // 0x54
+    "i64.gt_s",              // 0x55
+    "i64.gt_u",              // 0x56
+    "i64.le_s",              // 0x57
+    "i64.le_u",              // 0x58
+    "i64.ge_s",              // 0x59
+    "i64.ge_u",              // 0x5a
+
+    "f32.eq",                // 0x5b
+    "f32.ne",                // 0x5c
+    "f32.lt",                // 0x5d
+    "f32.gt",                // 0x5e
+    "f32.le",                // 0x5f
+    "f32.ge",                // 0x60
+
+    "f64.eq",                // 0x61
+    "f64.ne",                // 0x62
+    "f64.lt",                // 0x63
+    "f64.gt",                // 0x64
+    "f64.le",                // 0x65
+    "f64.ge",                // 0x66
+
+    // Numeric operators
+    "i32.clz",               // 0x67
+    "i32.ctz",               // 0x68
+    "i32.popcnt",            // 0x69
+    "i32.add",               // 0x6a
+    "i32.sub",               // 0x6b
+    "i32.mul",               // 0x6c
+    "i32.div_s",             // 0x6d
+    "i32.div_u",             // 0x6e
+    "i32.rem_s",             // 0x6f
+    "i32.rem_u",             // 0x70
+    "i32.and",               // 0x71
+    "i32.or",                // 0x72
+    "i32.xor",               // 0x73
+    "i32.shl",               // 0x74
+    "i32.shr_s",             // 0x75
+    "i32.shr_u",             // 0x76
+    "i32.rotl",              // 0x77
+    "i32.rotr",              // 0x78
+
+    "i64.clz",               // 0x79
+    "i64.ctz",               // 0x7a
+    "i64.popcnt",            // 0x7b
+    "i64.add",               // 0x7c
+    "i64.sub",               // 0x7d
+    "i64.mul",               // 0x7e
+    "i64.div_s",             // 0x7f
+    "i64.div_u",             // 0x80
+    "i64.rem_s",             // 0x81
+    "i64.rem_u",             // 0x82
+    "i64.and",               // 0x83
+    "i64.or",                // 0x84
+    "i64.xor",               // 0x85
+    "i64.shl",               // 0x86
+    "i64.shr_s",             // 0x87
+    "i64.shr_u",             // 0x88
+    "i64.rotl",              // 0x89
+    "i64.rotr",              // 0x8a
+
+    "f32.abs",               // 0x8b
+    "f32.neg",               // 0x8c
+    "f32.ceil",              // 0x8d
+    "f32.floor",             // 0x8e
+    "f32.trunc",             // 0x8f
+    "f32.nearest",           // 0x90
+    "f32.sqrt",              // 0x91
+    "f32.add",               // 0x92
+    "f32.sub",               // 0x93
+    "f32.mul",               // 0x94
+    "f32.div",               // 0x95
+    "f32.min",               // 0x96
+    "f32.max",               // 0x97
+    "f32.copysign",          // 0x98
+
+    "f64.abs",               // 0x99
+    "f64.neg",               // 0x9a
+    "f64.ceil",              // 0x9b
+    "f64.floor",             // 0x9c
+    "f64.trunc",             // 0x9d
+    "f64.nearest",           // 0x9e
+    "f64.sqrt",              // 0x9f
+    "f64.add",               // 0xa0
+    "f64.sub",               // 0xa1
+    "f64.mul",               // 0xa2
+    "f64.div",               // 0xa3
+    "f64.min",               // 0xa4
+    "f64.max",               // 0xa5
+    "f64.copysign",          // 0xa6
+
+    // Conversions
+    "i32.wrap_i64",          // 0xa7
+    "i32.trunc_f32_s",       // 0xa8
+    "i32.trunc_f32_u",       // 0xa9
+    "i32.trunc_f64_s",       // 0xaa
+    "i32.trunc_f64_u",       // 0xab
+
+    "i64.extend_i32_s",      // 0xac
+    "i64.extend_i32_u",      // 0xad
+    "i64.trunc_f32_s",       // 0xae
+    "i64.trunc_f32_u",       // 0xaf
+    "i64.trunc_f64_s",       // 0xb0
+    "i64.trunc_f64_u",       // 0xb1
+
+    "f32.convert_i32_s",     // 0xb2
+    "f32.convert_i32_u",     // 0xb3
+    "f32.convert_i64_s",     // 0xb4
+    "f32.convert_i64_u",     // 0xb5
+    "f32.demote_f64",        // 0xb6
+
+    "f64.convert_i32_s",     // 0xb7
+    "f64.convert_i32_u",     // 0xb8
+    "f64.convert_i64_s",     // 0xb9
+    "f64.convert_i64_u",     // 0xba
+    "f64.promote_f32",       // 0xbb
+
+    // Reinterpretations
+    "i32.reinterpret_f32",   // 0xbc
+    "i64.reinterpret_f64",   // 0xbd
+    "f32.reinterpret_i32",   // 0xbe
+    "f64.reinterpret_i64"    // 0xbf
+};*/
+
+bool Interpreter::interpret(Module *m, bool waiting) {
     uint8_t *block_ptr;
     uint8_t opcode;
 
@@ -1567,6 +2023,37 @@ bool interpret(Module *m, bool waiting) {
                       ? "module"
                       : "patch");
 
+        /*std::string symbolic_stack_str = "sym stack    : [ ";
+        std::string stack_str = "stack        : [ ";
+        //for (int i = std::max(0, m->sp - 5); i <= m->sp; i++) {
+        for (int i = 0; i <= m->sp; i++) {
+            stack_str += std::to_string(m->stack[i].value.int32);
+            if (m->symbolic_stack[i].has_value()) {
+                auto v = m->symbolic_stack[i].value().simplify();
+                assert(v.to_string() != "null");
+                if (v.is_bv() && v.is_numeral()) {
+                    symbolic_stack_str += std::to_string(v.get_numeral_uint64());
+                } else {
+                    symbolic_stack_str += v.to_string();
+                }
+            }
+            else {
+                // None means that there is no symbolic value for the current thing on the stack, we didn't implement something yet in that case.
+                //assert(false);
+                symbolic_stack_str += "none";
+            }
+            if (i != m->sp) {
+                symbolic_stack_str += ", ";
+                stack_str += ", ";
+            }
+        }
+        symbolic_stack_str += " ]";
+        stack_str += " ]";
+        std::cout << symbolic_stack_str << std::endl;
+        std::cout << stack_str << std::endl;*/
+        /*std::cout << "running instr: " << OPERATOR_INFO[opcode]; // << std::endl;
+        uint8_t *pc_ptr_tmp = m->pc_ptr;
+        std::cout << " " << read_LEB_32(&pc_ptr_tmp) << std::endl;*/
         switch (opcode) {
             //
             // Control flow operators
@@ -1676,7 +2163,7 @@ bool interpret(Module *m, bool waiting) {
                 // unary
             case 0x45:  // i32.eqz
             case 0x50:  // i64.eqz
-                success &= i_instr_unairy_u32(m, opcode);
+                success &= i_instr_unary_u32(m, opcode);
                 continue;
 
                 // i32 binary
@@ -1699,17 +2186,17 @@ bool interpret(Module *m, bool waiting) {
 
                 // unary i32
             case 0x67 ... 0x69:
-                success &= i_instr_unairy_i32(m, opcode);
+                success &= i_instr_unary_i32(m, opcode);
                 continue;
 
                 // unary i64
             case 0x79 ... 0x7b:
-                success &= i_instr_unairy_i64(m, opcode);
+                success &= i_instr_unary_i64(m, opcode);
                 continue;
 
             case 0x8b ... 0x91:  // unary f32
             case 0x99 ... 0x9f:  // unary f64
-                success &= i_instr_unairy_floating(m, opcode);
+                success &= i_instr_unary_floating(m, opcode);
                 continue;
 
                 // i32 binary

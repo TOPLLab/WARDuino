@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstring>
 
-#include "../Interpreter/instructions.h"
+#include "../Interpreter/interpreter.h"
 #include "../Memory/mem.h"
 #include "../Primitives/primitives.h"
 #include "../Utils/macros.h"
@@ -265,11 +265,11 @@ void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     block.start_ptr = *pc;
 
     m->pc_ptr = *pc;
-    push_block(m, &block, m->sp);
+    Interpreter().push_block(m, &block, m->sp);
     // WARNING: running code here to get initial value!
     dbg_info("  running init_expr at 0x%p: %s\n", m->pc_ptr,
              block_repr(&block));
-    interpret(m);
+    Interpreter().interpret(m);
     *pc = m->pc_ptr;
 
     ASSERT(m->stack[m->sp].value_type == type,
@@ -430,7 +430,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                     void *val;
                     char *err,
-                        *sym = (char *)malloc(module_len + field_len + 5);
+                        //*sym = (char *)malloc(module_len + field_len + 5);
+                        *sym = new char[module_len + field_len + 5]{};
 
                     // TODO add special case form primitives with resolvePrim
                     do {
@@ -479,7 +480,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                     debug("  found '%s.%s' as symbol '%s' at address %p\n",
                           import_module, import_field, sym, val);
-                    free(sym);
+                    delete[] sym;
 
                     // Store in the right place
                     switch (external_kind) {
@@ -844,7 +845,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
         if (fidx < m->import_count) {
             // THUNK thunk_out(m, fidx);     // import/thunk call
         } else {
-            setup_call(m, fidx);  // regular function call
+            Interpreter().setup_call(m, fidx);  // regular function call
         }
 
         if (m->csp < 0) {
@@ -853,7 +854,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
         } else {
             // run the function setup by setup_call
             debug("running startfun \n");
-            result = interpret(m);
+            result = Interpreter().interpret(m);
         }
         if (!result) {
             FATAL("Exception: %s\n", exception);
@@ -912,9 +913,9 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
 
     dbg_trace("Interpretation starts\n");
     dbg_dump_stack(m);
-    setup_call(m, fidx);
+    Interpreter().setup_call(m, fidx);
     dbg_trace("Call setup\n");
-    result = interpret(m);
+    result = Interpreter().interpret(m);
     dbg_trace("Interpretation ended\n");
     dbg_dump_stack(m);
     return result;
@@ -931,7 +932,7 @@ int WARDuino::run_module(Module *m) {
 
     // wait
     m->warduino->debugger->pauseRuntime(m);
-    return interpret(m, true);
+    return Interpreter().interpret(m, true);
 }
 
 // Called when an interrupt comes in (not concurre
@@ -1039,7 +1040,7 @@ void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
 
     // execute main
     if (fidx != UNDEF) {
-        setup_call(m, fidx);
+        Interpreter().setup_call(m, fidx);
         m->warduino->program_state = WARDUINOrun;
     }
 
@@ -1053,4 +1054,9 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
     if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_main");
     if (fidx == UNDEF) fidx = this->get_export_fidx(m, "_Main");
     return fidx;
+}
+
+void Module::memory_resize(uint32_t new_pages) {
+    memory.pages = new_pages;
+    memory.bytes.resize(new_pages * PAGE_SIZE);
 }

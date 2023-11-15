@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -170,6 +171,8 @@ typedef struct Module {
     uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
+
+    void memory_resize(uint32_t new_pages);
 } Module;
 
 typedef bool (*Primitive)(Module *);
