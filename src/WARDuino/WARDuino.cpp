@@ -946,6 +946,7 @@ void WARDuino::free_module_state(Module *m) {
     if (!m->functions.empty()) {
         for (uint32_t i = 0; i < m->function_count; ++i) {
             free(m->functions[i]->export_name);
+            delete[] m->functions[i]->local_value_type;
             delete m->functions[i];
         }
         m->functions.clear();

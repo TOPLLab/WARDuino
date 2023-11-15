@@ -464,6 +464,7 @@ int main(int argc, const char *argv[]) {
 
         wac->unload_module(m);
         wac->debugger->stop();
+        Z3_finalize_memory();
 
         communication.join();
     }
