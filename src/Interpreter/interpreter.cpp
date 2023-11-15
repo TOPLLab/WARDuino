@@ -1,14 +1,8 @@
-#include "instructions.h"
-
-#include <cmath>
-#include <cstring>
+#include "interpreter.h"
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
-#include "../Utils/util_arduino.h"
-
-#include "z3++.h"
 
 // Size of memory load.
 // This starts with the first memory load operator at opcode 0x28
@@ -18,7 +12,7 @@ uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,  // loads
 //
 // Stack machine (byte code related functions)
 //
-void push_block(Module *m, Block *block, int sp) {
+void Interpreter::push_block(Module *m, Block *block, int sp) {
     m->csp += 1;
     m->callstack[m->csp].block = block;
     m->callstack[m->csp].sp = sp;
@@ -26,7 +20,7 @@ void push_block(Module *m, Block *block, int sp) {
     m->callstack[m->csp].ra_ptr = m->pc_ptr;
 }
 
-Block *pop_block(Module *m) {
+Block *Interpreter::pop_block(Module *m) {
     Frame *frame = &m->callstack[m->csp--];
     Type *t = frame->block->type;
 
@@ -66,7 +60,6 @@ Block *pop_block(Module *m) {
         // Save top value as result
         if (frame->sp < m->sp) {
             m->stack[frame->sp + 1] = m->stack[m->sp];
-            m->symbolic_stack[frame->sp + 1] = m->symbolic_stack[m->sp];
             m->sp = frame->sp + 1;
         }
     } else {
@@ -83,22 +76,7 @@ Block *pop_block(Module *m) {
     return frame->block;
 }
 
-z3::expr encode_as_symbolic(Module *m, StackValue *stack_value) {
-    switch (stack_value->value_type) {
-        case I32:
-            return m->ctx.bv_val(stack_value->value.int32, 32);
-        case I64:
-            return m->ctx.bv_val(stack_value->value.int64, 64);
-        case F32:
-            return m->ctx.fpa_val(stack_value->value.f32);
-        case F64:
-            return m->ctx.fpa_val(stack_value->value.f64);
-        default:
-            FATAL("Invalid value_type!");
-    }
-}
-
-void setup_call(Module *m, uint32_t fidx) {
+void Interpreter::setup_call(Module *m, uint32_t fidx) {
     Block *func = m->functions[fidx];
     Type *type = func->type;
 
@@ -125,7 +103,6 @@ void setup_call(Module *m, uint32_t fidx) {
         m->sp += 1;
         m->stack[m->sp].value_type = func->local_value_type[lidx];
         m->stack[m->sp].value.uint64 = 0;  // Initialize whole union to 0
-        m->symbolic_stack[m->sp] = encode_as_symbolic(m, &m->stack[m->sp]);
     }
 
     // Set program counter to start of function
@@ -218,7 +195,7 @@ Formal specification:
 /**
  * 0x02
  */
-bool i_instr_block(Module *m, uint8_t *block_ptr) {
+bool Interpreter::i_instr_block(Module *m, uint8_t *block_ptr) {
     read_LEB_32(&m->pc_ptr);  // ignore block type
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
@@ -233,7 +210,7 @@ bool i_instr_block(Module *m, uint8_t *block_ptr) {
 /**
  * 0x03
  */
-bool i_instr_loop(Module *m, uint8_t *block_ptr) {
+bool Interpreter::i_instr_loop(Module *m, uint8_t *block_ptr) {
     read_LEB_32(&m->pc_ptr);  // ignore block type
     if (m->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
@@ -246,7 +223,7 @@ bool i_instr_loop(Module *m, uint8_t *block_ptr) {
 /**
  * 0x04 if
  */
-bool i_instr_if(Module *m, uint8_t *block_ptr) {
+bool Interpreter::i_instr_if(Module *m, uint8_t *block_ptr) {
     read_LEB_32(&m->pc_ptr);  // ignore block type
     Block *block = m->block_lookup[block_ptr];
 
@@ -256,17 +233,7 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
     }
     push_block(m, block, m->sp);
 
-    z3::expr sym_cond = z3::ite(m->symbolic_stack[m->sp].value() != 0, m->ctx.bool_val(true), m->ctx.bool_val(false));
     uint32_t cond = m->stack[m->sp--].value.uint32;
-
-    // Update the path condition based on if the branch will be taken in the current execution or not.
-    m->path_condition = m->path_condition && (cond ? sym_cond: !sym_cond);
-    m->path_condition = m->path_condition.simplify();
-    std::cout << "Updated path condition = " << m->path_condition.simplify() << std::endl;
-    if (m->path_condition.is_const()) {
-        assert(m->path_condition.simplify().is_bool() && m->path_condition.simplify().is_true());
-    }
-
     if (cond == 0) {  // if false (I32)
         // branch to else block or after end of if
         if (block->else_ptr == nullptr) {
@@ -288,7 +255,7 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
 /**
  * 0x05 else
  */
-bool i_instr_else(Module *m) {
+bool Interpreter::i_instr_else(Module *m) {
     Block *block = m->callstack[m->csp].block;
     m->pc_ptr = block->br_ptr;
 #if TRACE
@@ -300,7 +267,7 @@ bool i_instr_else(Module *m) {
 /**
  * 0x0b end
  */
-bool i_instr_end(Module *m, bool *prog_done) {
+bool Interpreter::i_instr_end(Module *m, bool *prog_done) {
     Block *block = pop_block(m);
     if (block == nullptr) {
         return false;  // an exception (set by pop_block)
@@ -334,7 +301,7 @@ bool i_instr_end(Module *m, bool *prog_done) {
 /**
  * 0x0c br
  */
-bool i_instr_br(Module *m) {
+bool Interpreter::i_instr_br(Module *m) {
     uint32_t depth = read_LEB_32(&m->pc_ptr);
     m->csp -= depth;
     // set to end for pop_block
@@ -348,16 +315,10 @@ bool i_instr_br(Module *m) {
 /**
  * 0x0d br_if
  */
-bool i_instr_br_if(Module *m) {
+bool Interpreter::i_instr_br_if(Module *m) {
     uint32_t depth = read_LEB_32(&m->pc_ptr);
 
-    z3::expr sym_cond = z3::ite(m->symbolic_stack[m->sp].value() != 0, m->ctx.bool_val(true), m->ctx.bool_val(false));
     uint32_t cond = m->stack[m->sp--].value.uint32;
-
-    // Update the path condition based on if the branch will be taken in the current execution or not.
-    m->path_condition = m->path_condition & (cond ? sym_cond: !sym_cond);
-    std::cout << "Updated path condition = " << m->path_condition.simplify() << std::endl;
-
     if (cond) {  // if true
         m->csp -= depth;
         // set to end for pop_block
@@ -373,7 +334,7 @@ bool i_instr_br_if(Module *m) {
 /**
  * 0x0e br_table
  */
-bool i_instr_br_table(Module *m) {
+bool Interpreter::i_instr_br_table(Module *m) {
     uint32_t count = read_LEB_32(&m->pc_ptr);
     if (count > BR_TABLE_SIZE) {
         // TODO: check this prior to runtime
@@ -403,7 +364,7 @@ bool i_instr_br_table(Module *m) {
 /**
  * 0x0f return
  */
-bool i_instr_return(Module *m) {
+bool Interpreter::i_instr_return(Module *m) {
     while (m->csp >= 0 && m->callstack[m->csp].block->block_type != 0x00) {
         m->csp--;
     }
@@ -419,7 +380,7 @@ bool i_instr_return(Module *m) {
 /**
  * 0x10 call
  */
-bool i_instr_call(Module *m) {
+bool Interpreter::i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
 
     if (m->warduino->debugger->isProxied(fidx)) {
@@ -444,7 +405,7 @@ bool i_instr_call(Module *m) {
 /**
  * 0x11 call_indirect
  */
-bool i_instr_call_indirect(Module *m) {
+bool Interpreter::i_instr_call_indirect(Module *m) {
     uint32_t tidx = read_LEB_32(&m->pc_ptr);  // TODO: use tidx?
     (void)tidx;
     read_LEB(&m->pc_ptr, 1);  // reserved immediate
@@ -521,7 +482,7 @@ bool i_instr_call_indirect(Module *m) {
  * 0x1a drop
  * remove a value from the stack
  */
-bool i_instr_drop(Module *m) {
+bool Interpreter::i_instr_drop(Module *m) {
     m->sp--;
     return true;
 }
@@ -535,12 +496,11 @@ bool i_instr_drop(Module *m) {
  * if c : push val_1 to the stack
  * else : push val_2 to the stack
  */
-bool i_instr_select(Module *m) {
+bool Interpreter::i_instr_select(Module *m) {
     uint32_t cond = m->stack[m->sp--].value.uint32;
     m->sp--;
     if (!cond) {  // use a instead of b
         m->stack[m->sp] = m->stack[m->sp + 1];
-        m->symbolic_stack[m->sp] = m->symbolic_stack[m->sp + 1];
     }
     return true;
 }
@@ -549,25 +509,21 @@ bool i_instr_select(Module *m) {
  * 0x20 get_local
  * move the i-th local to the top of the stack
  */
-bool i_instr_get_local(Module *m) {
+bool Interpreter::i_instr_get_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg,
           value_repr(&m->stack[m->fp + arg]));
 #endif
     m->stack[++m->sp] = m->stack[m->fp + arg];
-    m->symbolic_stack[m->sp] = m->symbolic_stack[m->fp + arg];
-    //std::cout << "local.get " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
     return true;
 }
 
 /**
  * 0x21 set_local
  */
-bool i_instr_set_local(Module *m) {
+bool Interpreter::i_instr_set_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
-    m->symbolic_stack[m->fp + arg] = m->symbolic_stack[m->sp];
-    //std::cout << "local.set " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
     m->stack[m->fp + arg] = m->stack[m->sp--];
 #if TRACE
     debug("      - arg: 0x%x, to %s (stack loc: %d)\n", arg,
@@ -579,11 +535,9 @@ bool i_instr_set_local(Module *m) {
 /**
  * 0x0d tee_local
  */
-bool i_instr_tee_local(Module *m) {
+bool Interpreter::i_instr_tee_local(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp];
-    //std::cout << "local.tee " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
-    m->symbolic_stack[m->fp + arg] = m->symbolic_stack[m->sp];
 #if TRACE
     debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
 #endif
@@ -593,23 +547,20 @@ bool i_instr_tee_local(Module *m) {
 /**
  * 0x23 get_global
  */
-bool i_instr_get_global(Module *m) {
+bool Interpreter::i_instr_get_global(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
 #endif
     m->stack[++m->sp] = m->globals[arg];
-    m->symbolic_stack[m->sp] = m->symbolic_globals[arg];
-    std::cout << "global " << m->symbolic_globals[arg].simplify() << std::endl;
     return true;
 }
 
 /**
  * 0x24 set_global
  */
-bool i_instr_set_global(Module *m) {
+bool Interpreter::i_instr_set_global(Module *m) {
     uint32_t arg = read_LEB_32(&m->pc_ptr);
-    m->symbolic_globals[arg] = m->symbolic_stack[m->sp].value();
     m->globals[arg] = m->stack[m->sp--];
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->stack[m->sp + 1]));
@@ -620,18 +571,17 @@ bool i_instr_set_global(Module *m) {
 /**
  * 0x3f current_memory
  */
-bool i_instr_current_memory(Module *m) {
+bool Interpreter::i_instr_current_memory(Module *m) {
     read_LEB_32(&m->pc_ptr);  // ignore reserved
     m->stack[++m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = m->memory.pages;
-    m->symbolic_stack[m->sp] = m->memory.symbolic_pages;
     return true;
 }
 
 /**
  * 0x40 grow_memory
  */
-bool i_instr_grow_memory(Module *m) {
+bool Interpreter::i_instr_grow_memory(Module *m) {
     read_LEB_32(&m->pc_ptr);  // ignore reserved
     uint32_t prev_pages = m->memory.pages;
     uint32_t delta = m->stack[m->sp].value.uint32;
@@ -646,25 +596,15 @@ bool i_instr_grow_memory(Module *m) {
     return true;
 }
 
-template <int size>
-void load(Module *m, uint32_t offset, uint32_t addr) {
-    // Load concrete value.
+void Interpreter::load(Module *m, uint32_t offset, uint32_t addr, int size, uint8_t value_type, bool sign_extend) {
     uint8_t *maddr = m->memory.bytes.data() + offset + addr;
     memcpy(&m->stack[m->sp].value, maddr, size);
-
-    // Load symbolic value.
-    z3::expr_vector expressions(m->ctx);
-    for (int i = size - 1; i >= 0; i--) {
-        expressions.push_back(m->memory.symbolic_bytes[offset + addr + i]);
-    }
-    m->symbolic_stack[m->sp] = z3::concat(expressions).simplify();
-    //std::cout << "load result = " << m->symbolic_stack[m->sp].value().simplify() << std::endl;
 }
 
 /**
  * 0x0d XXX
  */
-bool i_instr_mem_load(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_mem_load(Module *m, uint8_t opcode) {
     bool overflow = false;
     uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB_32(&m->pc_ptr);
@@ -700,75 +640,65 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     m->stack[++m->sp].value.uint64 = 0;  // initialize to 0
     switch (opcode) {
         case 0x28: {
-            load<4>(m, offset, addr);
+            load(m, offset, addr, 4, I32, false);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load
         }
         case 0x29:
-            load<8>(m, offset, addr);
+            load(m, offset, addr, 8, I64, false);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load
         case 0x2a:
-            load<4>(m, offset, addr);
+            load(m, offset, addr, 4, F32, false);
             m->stack[m->sp].value_type = F32;
             break;  // f32.load
         case 0x2b:
-            load<8>(m, offset, addr);
+            load(m, offset, addr, 8, F64, false);
             m->stack[m->sp].value_type = F64;
             break;  // f64.load
         case 0x2c:
-            load<1>(m, offset, addr);
-            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 32 - 8);
+            load(m, offset, addr, 1, I32, true);
             sext_8_32(&m->stack[m->sp].value.uint32);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load8_s
         case 0x2d:
-            load<1>(m, offset, addr);
-            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 32 - 8);
+            load(m, offset, addr, 1, I32, false);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load8_u
         case 0x2e:
-            load<2>(m, offset, addr);
-            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 32 - 16);
+            load(m, offset, addr, 2, I32, true);
             sext_16_32(&m->stack[m->sp].value.uint32);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load16_s
         case 0x2f:
-            load<2>(m, offset, addr);
-            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 32 - 16);
+            load(m, offset, addr, 2, I32, false);
             m->stack[m->sp].value_type = I32;
             break;  // i32.load16_u
         case 0x30:
-            load<1>(m, offset, addr);
-            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 64 - 8);
+            load(m, offset, addr, 1, I64, true);
             sext_8_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load8_s
         case 0x31:
-            load<1>(m, offset, addr);
-            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 64 - 8);
+            load(m, offset, addr, 1, I64, false);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load8_u
         case 0x32:
-            load<2>(m, offset, addr);
-            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 64 - 16);
+            load(m, offset, addr, 2, I64, true);
             sext_16_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load16_s
         case 0x33:
-            load<2>(m, offset, addr);
-            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 64 - 16);
+            load(m, offset, addr, 2, I64, false);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load16_u
         case 0x34:
-            load<4>(m, offset, addr);
-            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 64 - 32);
+            load(m, offset, addr, 4, I64, true);
             sext_32_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load32_s
         case 0x35:
-            load<4>(m, offset, addr);
-            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 64 - 32);
+            load(m, offset, addr, 4, I64, false);
             m->stack[m->sp].value_type = I64;
             break;  // i64.load32_u
         default:
@@ -777,30 +707,16 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     return true;
 }
 
-template <int size>
-void store(Module *m, uint32_t offset, uint32_t addr, std::pair<StackValue, z3::expr> value) {
-    // Store concrete value.
+void Interpreter::store(Module *m, uint32_t offset, uint32_t addr, int value_sp, int size) {
     uint8_t *maddr = m->memory.bytes.data() + offset + addr;
-    memcpy(maddr, &value.first.value, size);
-
-    // Store symbolic value.
-    for (int i = 0; i < size; i++) {
-        m->memory.symbolic_bytes[offset + addr + i] = value.second.extract((i + 1) * 8 - 1, i * 8);
-    }
-
-    /*std::cout << "store result = ";
-    for (int i = 0; i < size; i++) {
-        std::cout << m->memory.symbolic_bytes[offset + addr + i].simplify();
-    }
-    std::cout << std::endl;*/
+    memcpy(maddr, &m->stack[value_sp].value, size);
 }
 
-bool i_instr_mem_store(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_mem_store(Module *m, uint8_t opcode) {
     uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB_32(&m->pc_ptr);
     uint32_t offset = read_LEB_32(&m->pc_ptr);
-    z3::expr symbolic_stack_value = m->symbolic_stack[m->sp].value();
-    StackValue *concrete_stack_value = &m->stack[m->sp--];
+    int value_sp = m->sp--; // The position of the data we want to store.
     uint32_t addr = m->stack[m->sp--].value.uint32;
     bool overflow = false;
 
@@ -835,31 +751,31 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     }
     switch (opcode) {
         case 0x36:
-            store<4>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
+            store(m, offset, addr, value_sp, 4);
             break;  // i32.store
         case 0x37:
-            store<8>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
+            store(m, offset, addr, value_sp, 8);
             break;  // i64.store
         case 0x38:
-            store<4>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
+            store(m, offset, addr, value_sp, 4);
             break;  // f32.store
         case 0x39:
-            store<8>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
+            store(m, offset, addr, value_sp, 8);
             break;  // f64.store
         case 0x3a:
-            store<1>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
+            store(m, offset, addr, value_sp, 1);
             break;  // i32.store8
         case 0x3b:
-            store<2>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
+            store(m, offset, addr, value_sp, 2);
             break;  // i32.store16
         case 0x3c:
-            store<1>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
+            store(m, offset, addr, value_sp, 1);
             break;  // i64.store8
         case 0x3d:
-            store<2>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
+            store(m, offset, addr, value_sp, 2);
             break;  // i64.store16
         case 0x3e:
-            store<4>(m, offset, addr, std::pair(*concrete_stack_value, symbolic_stack_value));
+            store(m, offset, addr, value_sp, 4);
             break;  // i64.store32
         default:
             return false;
@@ -870,31 +786,27 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
 /**
  * 0x41...0x44 const
  */
-bool i_instr_const(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_const(Module *m, uint8_t opcode) {
     StackValue *target = &m->stack[++m->sp];
 
     switch (opcode) {
         case 0x41:  // i32.const
             target->value_type = I32;
             target->value.uint32 = read_LEB_signed(&m->pc_ptr, 32);
-            m->symbolic_stack[m->sp] = m->ctx.bv_val(target->value.uint32, 32);
             break;
         case 0x42:  // i64.const
             target->value_type = I64;
             target->value.int64 = read_LEB_signed(&m->pc_ptr, 64);
-            m->symbolic_stack[m->sp] = m->ctx.bv_val(target->value.uint64, 64);
             break;
         case 0x43:  // f32.const
             target->value_type = F32;
             memcpy(&target->value.uint32, m->pc_ptr, 4);
             m->pc_ptr += 4;
-            m->symbolic_stack[m->sp] = m->ctx.fpa_val(target->value.f32);
             break;
         case 0x44:  // f64.const
             target->value_type = F64;
             memcpy(&target->value.uint64, m->pc_ptr, 8);
             m->pc_ptr += 8;
-            m->symbolic_stack[m->sp] = m->ctx.fpa_val(target->value.f64);
             break;
         default:
             return false;
@@ -905,7 +817,7 @@ bool i_instr_const(Module *m, uint8_t opcode) {
 /**
  * 0x45 eqz
  */
-bool i_instr_unairy_u32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_unary_u32(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x45:  // i32.eqz
             m->stack[m->sp].value.uint32 =
@@ -919,138 +831,107 @@ bool i_instr_unairy_u32(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->symbolic_stack[m->sp] =
-        ite(m->symbolic_stack[m->sp].value() == 0, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
     return true;
 }
 
 /**
  * 0x0d binop32
  */
-bool i_instr_math_u32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_math_u32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
-    z3::expr sym_a = m->symbolic_stack[m->sp - 1].value();
-    z3::expr sym_b = m->symbolic_stack[m->sp].value();
     uint32_t c;
-    std::optional<z3::expr> c_sym;
     m->sp -= 1;
     switch (opcode) {
         case 0x46:
             c = static_cast<uint32_t>(a == b);
-            c_sym = z3::ite(sym_a == sym_b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.eq
         case 0x47:
             c = static_cast<uint32_t>(a != b);
-            c_sym = z3::ite(sym_a != sym_b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.ne
         case 0x48:
             c = static_cast<uint32_t>((int32_t)a < (int32_t)b);
-            std::cout << sym_a << " < " << sym_b << std::endl;
-            c_sym = z3::ite(slt(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.lt_s
         case 0x49:
             c = static_cast<uint32_t>(a < b);
-            c_sym = z3::ite(ult(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.lt_u
         case 0x4a:
             c = static_cast<uint32_t>((int32_t)a > (int32_t)b);
-            c_sym = z3::ite(sgt(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.gt_s
         case 0x4b:
             c = static_cast<uint32_t>(a > b);
-            c_sym = z3::ite(ugt(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.gt_u
         case 0x4c:
             c = static_cast<uint32_t>((int32_t)a <= (int32_t)b);
-            c_sym = z3::ite(sle(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.le_s
         case 0x4d:
             c = static_cast<uint32_t>(a <= b);
-            c_sym = z3::ite(ule(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.le_u
         case 0x4e:
             c = static_cast<uint32_t>((int32_t)a >= (int32_t)b);
-            c_sym = z3::ite(sge(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.ge_s
         case 0x4f:
             c = static_cast<uint32_t>(a >= b);
-            c_sym = z3::ite(uge(sym_a, sym_b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // i32.ge_u
         default:
             return false;
     }
     m->stack[m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = c;
-    m->symbolic_stack[m->sp] = c_sym;
     return true;
 }
 
 /**
  * 0x0d binop64
  */
-bool i_instr_math_u64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_math_u64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp - 1].value.uint64;
     uint64_t e = m->stack[m->sp].value.uint64;
-    z3::expr sym_d = m->symbolic_stack[m->sp - 1].value();
-    z3::expr sym_e = m->symbolic_stack[m->sp].value();
     uint32_t c;
-    std::optional<z3::expr> sym_c;
     m->sp -= 1;
     switch (opcode) {
         case 0x51:
             c = static_cast<uint32_t>(d == e);
-            sym_c = z3::ite(sym_d == sym_e, m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.eq
         case 0x52:
             c = static_cast<uint32_t>(d != e);
-            sym_c = z3::ite(sym_d != sym_e, m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.ne
         case 0x53:
             c = static_cast<uint32_t>((int64_t)d < (int64_t)e);
-            sym_c = z3::ite(slt(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.lt_s
         case 0x54:
             c = static_cast<uint32_t>(d < e);
-            sym_c = z3::ite(ult(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.lt_u
         case 0x55:
             c = static_cast<uint32_t>((int64_t)d > (int64_t)e);
-            sym_c = z3::ite(sgt(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.gt_s
         case 0x56:
             c = static_cast<uint32_t>(d > e);
-            sym_c = z3::ite(ugt(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.gt_u
         case 0x57:
             c = static_cast<uint32_t>((int64_t)d <= (int64_t)e);
-            sym_c = z3::ite(sle(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.le_s
         case 0x58:
             c = static_cast<uint32_t>(d <= e);
-            sym_c = z3::ite(ule(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.le_u
         case 0x59:
             c = static_cast<uint32_t>((int64_t)d >= (int64_t)e);
-            sym_c = z3::ite(sge(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.ge_s
         case 0x5a:
             c = static_cast<uint32_t>(d >= e);
-            sym_c = z3::ite(uge(sym_d, sym_e), m->ctx.bv_val(1, 64), m->ctx.bv_val(0, 64));
             break;  // i64.ge_u
         default:
             return false;
     }
     m->stack[m->sp].value_type = I32;
     m->stack[m->sp].value.uint32 = c;
-    m->symbolic_stack[m->sp] = sym_c;
     return true;
 }
 
 /**
  * 0x0d binop64
  */
-bool i_instr_math_f32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_math_f32(Module *m, uint8_t opcode) {
     float g = m->stack[m->sp - 1].value.f32;
     float h = m->stack[m->sp].value.f32;
     uint32_t c;
@@ -1085,7 +966,7 @@ bool i_instr_math_f32(Module *m, uint8_t opcode) {
 /**
  * 0x0d binopf64
  */
-bool i_instr_math_f64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_math_f64(Module *m, uint8_t opcode) {
     double j = m->stack[m->sp - 1].value.f64;
     double k = m->stack[m->sp].value.f64;
 
@@ -1118,7 +999,7 @@ bool i_instr_math_f64(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool i_instr_unairy_i32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_unary_i32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp].value.uint32;
     uint32_t c;
     switch (opcode) {
@@ -1135,11 +1016,10 @@ bool i_instr_unairy_i32(Module *m, uint8_t opcode) {
             return false;
     }
     m->stack[m->sp].value.uint32 = c;
-    assert(false);
     return true;
 }
 
-bool i_instr_unairy_i64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_unary_i64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp].value.uint64;
     uint64_t f;
     switch (opcode) {
@@ -1156,19 +1036,17 @@ bool i_instr_unairy_i64(Module *m, uint8_t opcode) {
             return false;
     }
     m->stack[m->sp].value.uint64 = f;
-    assert(false);
     return true;
 }
 
 /**
  * 0x0d XXX
  */
-bool i_instr_unairy_floating(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_unary_floating(Module *m, uint8_t opcode) {
     switch (opcode) {
         // unary f32
         case 0x8b:
             m->stack[m->sp].value.f32 = fabs(m->stack[m->sp].value.f32);
-            m->symbolic_stack[m->sp] = z3::abs(m->symbolic_stack[m->sp].value());
             break;  // f32.abs
         case 0x8c:
             m->stack[m->sp].value.f32 = -m->stack[m->sp].value.f32;
@@ -1220,14 +1098,11 @@ bool i_instr_unairy_floating(Module *m, uint8_t opcode) {
 /**
  * 0x0d binary_i32
  */
-bool i_instr_binary_i32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_binary_i32(Module *m, uint8_t opcode) {
     // TODO: verify if this should not be done with int32_t instead
     uint32_t a = m->stack[m->sp - 1].value.uint32;
     uint32_t b = m->stack[m->sp].value.uint32;
-    z3::expr a_sym = m->symbolic_stack[m->sp - 1].value();
-    z3::expr b_sym = m->symbolic_stack[m->sp].value();
     uint32_t c;
-    std::optional<z3::expr> c_sym;
     m->sp -= 1;
     if (opcode >= 0x6d && opcode <= 0x70 && b == 0) {
         sprintf(exception, "integer divide by zero");
@@ -1239,15 +1114,12 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
         // &c); break;  // i32.sub
         case 0x6a:
             c = a + b;
-            c_sym = a_sym + b_sym;
             break;  // i32.add
         case 0x6b:
             c = a - b;
-            c_sym = a_sym - b_sym;
             break;  // i32.sub
         case 0x6c:
             c = a * b;
-            c_sym = a_sym * b_sym;
             break;  // i32.mul
         case 0x6d:
             if (a == 0x80000000 && b == (uint32_t)-1) {
@@ -1255,11 +1127,9 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
                 return false;
             }
             c = (int32_t)a / (int32_t)b;
-            c_sym = a_sym / b_sym;
             break;  // i32.div_s
         case 0x6e:
             c = a / b;
-            c_sym = z3::udiv(a_sym, b_sym);
             break;  // i32.div_u
         case 0x6f:
             if (a == 0x80000000 && b == (uint32_t)-1) {
@@ -1267,35 +1137,27 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
             } else {
                 c = (int32_t)a % (int32_t)b;
             };
-            c_sym = z3::srem(a_sym, b_sym);
             break;  // i32.rem_s
         case 0x70:
             c = a % b;
-            c_sym = z3::urem(a_sym, b_sym);
             break;  // i32.rem_u
         case 0x71:
             c = a & b;
-            c_sym = a_sym & b_sym;
             break;  // i32.and
         case 0x72:
             c = a | b;
-            c_sym = a_sym | b_sym;
             break;  // i32.or
         case 0x73:
             c = a ^ b;
-            c_sym = a_sym ^ b_sym;
             break;  // i32.xor
         case 0x74:
             c = a << b;
-            c_sym = shl(a_sym, b_sym);
             break;  // i32.shl
         case 0x75:
             c = (int32_t)a >> b;  // NOLINT(hicpp-signed-bitwise)
-            c_sym = ashr(a_sym, b_sym);
             break;                // i32.shr_s
         case 0x76:
             c = a >> b;
-            c_sym = lshr(a_sym, b_sym);
             break;  // i32.shr_u
         case 0x77:
             c = rotl32(a, b);
@@ -1311,20 +1173,16 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
     //    return false;
     //}
     m->stack[m->sp].value.uint32 = c;
-    m->symbolic_stack[m->sp] = c_sym;
     return true;
 }
 
 /**
  * 0x0d XXX
  */
-bool i_instr_binary_i64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_binary_i64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp - 1].value.uint64;
     uint64_t e = m->stack[m->sp].value.uint64;
-    z3::expr sym_d = m->symbolic_stack[m->sp - 1].value();
-    z3::expr sym_e = m->symbolic_stack[m->sp].value();
     uint64_t f;
-    std::optional<z3::expr> sym_f;
     m->sp -= 1;
     if (opcode >= 0x7f && opcode <= 0x82 && e == 0) {
         sprintf(exception, "integer divide by zero");
@@ -1333,15 +1191,12 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x7c:
             f = d + e;
-            sym_f = sym_d + sym_e;
             break;  // i64.add
         case 0x7d:
             f = d - e;
-            sym_f = sym_d - sym_e;
             break;  // i64.sub
         case 0x7e:
             f = d * e;
-            sym_f = sym_d * sym_e;
             break;  // i64.mul
         case 0x7f:
             if (d == 0x8000000000000000 && e == (uint32_t)-1) {
@@ -1349,11 +1204,9 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
                 return false;
             }
             f = (int64_t)d / (int64_t)e;
-            sym_f = sym_d / sym_e;
             break;  // i64.div_s
         case 0x80:
             f = d / e;
-            sym_f = z3::udiv(sym_d, sym_e);
             break;  // i64.div_u
         case 0x81:
             if (d == 0x8000000000000000 && e == (uint32_t)-1) {
@@ -1361,35 +1214,27 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
             } else {
                 f = (int64_t)d % (int64_t)e;
             }
-            sym_f = z3::srem(sym_d, sym_e);
             break;  // i64.rem_s
         case 0x82:
             f = d % e;
-            sym_f = z3::urem(sym_d, sym_e);
             break;  // i64.rem_u
         case 0x83:
             f = d & e;
-            sym_f = sym_d & sym_e;
             break;  // i64.and
         case 0x84:
             f = d | e;
-            sym_f = sym_d | sym_e;
             break;  // i64.or
         case 0x85:
             f = d ^ e;
-            sym_f = sym_d ^ sym_e;
             break;  // i64.xor
         case 0x86:
             f = d << e;
-            sym_f = z3::shl(sym_d, sym_e);
             break;  // i64.shl
         case 0x87:
             f = ((int64_t)d) >> e;  // NOLINT(hicpp-signed-bitwise)
-            sym_f = z3::ashr(sym_d, sym_e);
             break;                  // i64.shr_s
         case 0x88:
             f = d >> e;
-            sym_f = z3::lshr(sym_d, sym_e);
             break;  // i64.shr_u
         case 0x89:
             f = rotl64(d, e);
@@ -1401,7 +1246,6 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
             return false;
     }
     m->stack[m->sp].value.uint64 = f;
-    m->symbolic_stack[m->sp] = sym_f;
 
     return true;
 }
@@ -1409,7 +1253,7 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_binary_f32(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_binary_f32(Module *m, uint8_t opcode) {
     float g = m->stack[m->sp - 1].value.f32;
     float h = m->stack[m->sp].value.f32;
     float i;
@@ -1446,7 +1290,7 @@ bool i_instr_binary_f32(Module *m, uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_binary_f64(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_binary_f64(Module *m, uint8_t opcode) {
     double j = m->stack[m->sp - 1].value.f64;
     double k = m->stack[m->sp].value.f64;
     double l;
@@ -1484,12 +1328,11 @@ bool i_instr_binary_f64(Module *m, uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_conversion(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_conversion(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0xa7:
             m->stack[m->sp].value.uint64 &= 0x00000000ffffffff;
             m->stack[m->sp].value_type = I32;
-            m->symbolic_stack[m->sp] = m->symbolic_stack[m->sp]->extract(31, 0);
             break;  // i32.wrap/i64
         case 0xa8:
             if (std::isnan(m->stack[m->sp].value.f32)) {
@@ -1543,12 +1386,10 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             m->stack[m->sp].value.uint64 = m->stack[m->sp].value.uint32;
             sext_32_64(&m->stack[m->sp].value.uint64);
             m->stack[m->sp].value_type = I64;
-            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 32);
             break;  // i64.extend_s/i32
         case 0xad:
             m->stack[m->sp].value.uint64 = m->stack[m->sp].value.uint32;
             m->stack[m->sp].value_type = I64;
-            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 32);
             break;  // i64.extend_u/i32
         case 0xae:
             if (std::isnan(m->stack[m->sp].value.f32)) {
@@ -1663,12 +1504,12 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
 /**
  * 0xe0 ... 0xe3 callback operations
  */
-bool i_instr_callback(Module *m, uint8_t opcode) {
+bool Interpreter::i_instr_callback(Module *m, uint8_t opcode) {
     // TODO
     return true;
 }
 
-char OPERATOR_INFO[][20] = {
+std::string OPERATOR_INFO[] = {
     // Control flow operators
     "unreachable",           // 0x00
     "nop",                   // 0x01
@@ -1894,7 +1735,233 @@ char OPERATOR_INFO[][20] = {
     "f64.reinterpret_i64"    // 0xbf
 };
 
-bool interpret(Module *m, bool waiting) {
+/*int INSTR_ARGS[] = {
+    // Control flow operators
+    0,           // 0x00
+    0,                   // 0x01
+    0,                 // 0x02
+    0,                  // 0x03
+    0,                    // 0x04
+    0,                  // 0x05
+    -1,              // 0x06
+    -1,              // 0x07
+    -1,              // 0x08
+    -1,              // 0x09
+    -1,              // 0x0a
+    0,                   // 0x0b
+    1,                    // 0x0c
+    1,                 // 0x0d
+    -2,              // 0x0e
+    0,                // 0x0f
+
+    // Call operators
+    1,                  // 0x10
+    0,         // 0x11
+
+    -1,              // 0x12
+    -1,              // 0x13
+    -1,              // 0x14
+    -1,              // 0x15
+    -1,              // 0x16
+    -1,              // 0x17
+    -1,              // 0x18
+    -1,              // 0x19
+
+    // Parametric operators
+    0,                  // 0x1a
+    0,                // 0x1b
+
+    -1,              // 0x1c
+    -1,              // 0x1d
+    -1,              // 0x1e
+    -1,              // 0x1f
+
+    // Variable access
+    1,             // 0x20
+    1,             // 0x21
+    1,             // 0x22
+    1,            // 0x23
+    1,            // 0x24
+
+    -1,              // 0x25
+    -1,              // 0x26
+    -1,              // 0x27
+
+    // Memory-related operator
+    "i32.load",              // 0x28
+    "i64.load",              // 0x29
+    "f32.load",              // 0x2a
+    "f64.load",              // 0x2b
+    "i32.load8_s",           // 0x2c
+    "i32.load8_u",           // 0x2d
+    "i32.load16_s",          // 0x2e
+    "i32.load16_u",          // 0x2f
+    "i64.load8_s",           // 0x30
+    "i64.load8_u",           // 0x31
+    "i64.load16_s",          // 0x32
+    "i64.load16_u",          // 0x33
+    "i64.load32_s",          // 0x34
+    "i64.load32_u",          // 0x35
+    "i32.store",             // 0x36
+    "i64.store",             // 0x37
+    "f32.store",             // 0x38
+    "f64.store",             // 0x39
+    "i32.store8",            // 0x3a
+    "i32.store16",           // 0x3b
+    "i64.store8",            // 0x3c
+    "i64.store16",           // 0x3d
+    "i64.store32",           // 0x3e
+    "current_memory",        // 0x3f
+    "grow_memory",           // 0x40
+
+    // Constants
+    "i32.const",             // 0x41
+    "i64.const",             // 0x42
+    "f32.const",             // 0x43
+    "f64.const",             // 0x44
+
+    // Comparison operators
+    "i32.eqz",               // 0x45
+    "i32.eq",                // 0x46
+    "i32.ne",                // 0x47
+    "i32.lt_s",              // 0x48
+    "i32.lt_u",              // 0x49
+    "i32.gt_s",              // 0x4a
+    "i32.gt_u",              // 0x4b
+    "i32.le_s",              // 0x4c
+    "i32.le_u",              // 0x4d
+    "i32.ge_s",              // 0x4e
+    "i32.ge_u",              // 0x4f
+
+    "i64.eqz",               // 0x50
+    "i64.eq",                // 0x51
+    "i64.ne",                // 0x52
+    "i64.lt_s",              // 0x53
+    "i64.lt_u",              // 0x54
+    "i64.gt_s",              // 0x55
+    "i64.gt_u",              // 0x56
+    "i64.le_s",              // 0x57
+    "i64.le_u",              // 0x58
+    "i64.ge_s",              // 0x59
+    "i64.ge_u",              // 0x5a
+
+    "f32.eq",                // 0x5b
+    "f32.ne",                // 0x5c
+    "f32.lt",                // 0x5d
+    "f32.gt",                // 0x5e
+    "f32.le",                // 0x5f
+    "f32.ge",                // 0x60
+
+    "f64.eq",                // 0x61
+    "f64.ne",                // 0x62
+    "f64.lt",                // 0x63
+    "f64.gt",                // 0x64
+    "f64.le",                // 0x65
+    "f64.ge",                // 0x66
+
+    // Numeric operators
+    "i32.clz",               // 0x67
+    "i32.ctz",               // 0x68
+    "i32.popcnt",            // 0x69
+    "i32.add",               // 0x6a
+    "i32.sub",               // 0x6b
+    "i32.mul",               // 0x6c
+    "i32.div_s",             // 0x6d
+    "i32.div_u",             // 0x6e
+    "i32.rem_s",             // 0x6f
+    "i32.rem_u",             // 0x70
+    "i32.and",               // 0x71
+    "i32.or",                // 0x72
+    "i32.xor",               // 0x73
+    "i32.shl",               // 0x74
+    "i32.shr_s",             // 0x75
+    "i32.shr_u",             // 0x76
+    "i32.rotl",              // 0x77
+    "i32.rotr",              // 0x78
+
+    "i64.clz",               // 0x79
+    "i64.ctz",               // 0x7a
+    "i64.popcnt",            // 0x7b
+    "i64.add",               // 0x7c
+    "i64.sub",               // 0x7d
+    "i64.mul",               // 0x7e
+    "i64.div_s",             // 0x7f
+    "i64.div_u",             // 0x80
+    "i64.rem_s",             // 0x81
+    "i64.rem_u",             // 0x82
+    "i64.and",               // 0x83
+    "i64.or",                // 0x84
+    "i64.xor",               // 0x85
+    "i64.shl",               // 0x86
+    "i64.shr_s",             // 0x87
+    "i64.shr_u",             // 0x88
+    "i64.rotl",              // 0x89
+    "i64.rotr",              // 0x8a
+
+    "f32.abs",               // 0x8b
+    "f32.neg",               // 0x8c
+    "f32.ceil",              // 0x8d
+    "f32.floor",             // 0x8e
+    "f32.trunc",             // 0x8f
+    "f32.nearest",           // 0x90
+    "f32.sqrt",              // 0x91
+    "f32.add",               // 0x92
+    "f32.sub",               // 0x93
+    "f32.mul",               // 0x94
+    "f32.div",               // 0x95
+    "f32.min",               // 0x96
+    "f32.max",               // 0x97
+    "f32.copysign",          // 0x98
+
+    "f64.abs",               // 0x99
+    "f64.neg",               // 0x9a
+    "f64.ceil",              // 0x9b
+    "f64.floor",             // 0x9c
+    "f64.trunc",             // 0x9d
+    "f64.nearest",           // 0x9e
+    "f64.sqrt",              // 0x9f
+    "f64.add",               // 0xa0
+    "f64.sub",               // 0xa1
+    "f64.mul",               // 0xa2
+    "f64.div",               // 0xa3
+    "f64.min",               // 0xa4
+    "f64.max",               // 0xa5
+    "f64.copysign",          // 0xa6
+
+    // Conversions
+    "i32.wrap_i64",          // 0xa7
+    "i32.trunc_f32_s",       // 0xa8
+    "i32.trunc_f32_u",       // 0xa9
+    "i32.trunc_f64_s",       // 0xaa
+    "i32.trunc_f64_u",       // 0xab
+
+    "i64.extend_i32_s",      // 0xac
+    "i64.extend_i32_u",      // 0xad
+    "i64.trunc_f32_s",       // 0xae
+    "i64.trunc_f32_u",       // 0xaf
+    "i64.trunc_f64_s",       // 0xb0
+    "i64.trunc_f64_u",       // 0xb1
+
+    "f32.convert_i32_s",     // 0xb2
+    "f32.convert_i32_u",     // 0xb3
+    "f32.convert_i64_s",     // 0xb4
+    "f32.convert_i64_u",     // 0xb5
+    "f32.demote_f64",        // 0xb6
+
+    "f64.convert_i32_s",     // 0xb7
+    "f64.convert_i32_u",     // 0xb8
+    "f64.convert_i64_s",     // 0xb9
+    "f64.convert_i64_u",     // 0xba
+    "f64.promote_f32",       // 0xbb
+
+    // Reinterpretations
+    "i32.reinterpret_f32",   // 0xbc
+    "i64.reinterpret_f64",   // 0xbd
+    "f32.reinterpret_i32",   // 0xbe
+    "f64.reinterpret_i64"    // 0xbf
+};*/
+
+bool Interpreter::interpret(Module *m, bool waiting) {
     uint8_t *block_ptr;
     uint8_t opcode;
 
@@ -1956,7 +2023,7 @@ bool interpret(Module *m, bool waiting) {
                       ? "module"
                       : "patch");
 
-        std::string symbolic_stack_str = "sym stack    : [ ";
+        /*std::string symbolic_stack_str = "sym stack    : [ ";
         std::string stack_str = "stack        : [ ";
         //for (int i = std::max(0, m->sp - 5); i <= m->sp; i++) {
         for (int i = 0; i <= m->sp; i++) {
@@ -1972,7 +2039,7 @@ bool interpret(Module *m, bool waiting) {
             }
             else {
                 // None means that there is no symbolic value for the current thing on the stack, we didn't implement something yet in that case.
-                assert(false);
+                //assert(false);
                 symbolic_stack_str += "none";
             }
             if (i != m->sp) {
@@ -1983,8 +2050,10 @@ bool interpret(Module *m, bool waiting) {
         symbolic_stack_str += " ]";
         stack_str += " ]";
         std::cout << symbolic_stack_str << std::endl;
-        std::cout << stack_str << std::endl;
-        std::cout << "running instr: " << OPERATOR_INFO[opcode] << std::endl;
+        std::cout << stack_str << std::endl;*/
+        /*std::cout << "running instr: " << OPERATOR_INFO[opcode]; // << std::endl;
+        uint8_t *pc_ptr_tmp = m->pc_ptr;
+        std::cout << " " << read_LEB_32(&pc_ptr_tmp) << std::endl;*/
         switch (opcode) {
             //
             // Control flow operators
@@ -2094,7 +2163,7 @@ bool interpret(Module *m, bool waiting) {
                 // unary
             case 0x45:  // i32.eqz
             case 0x50:  // i64.eqz
-                success &= i_instr_unairy_u32(m, opcode);
+                success &= i_instr_unary_u32(m, opcode);
                 continue;
 
                 // i32 binary
@@ -2117,17 +2186,17 @@ bool interpret(Module *m, bool waiting) {
 
                 // unary i32
             case 0x67 ... 0x69:
-                success &= i_instr_unairy_i32(m, opcode);
+                success &= i_instr_unary_i32(m, opcode);
                 continue;
 
                 // unary i64
             case 0x79 ... 0x7b:
-                success &= i_instr_unairy_i64(m, opcode);
+                success &= i_instr_unary_i64(m, opcode);
                 continue;
 
             case 0x8b ... 0x91:  // unary f32
             case 0x99 ... 0x9f:  // unary f64
-                success &= i_instr_unairy_floating(m, opcode);
+                success &= i_instr_unary_floating(m, opcode);
                 continue;
 
                 // i32 binary

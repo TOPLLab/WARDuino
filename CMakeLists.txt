@@ -41,7 +41,10 @@ if (BUILD_EMULATOR)
             src/WARDuino/WARDuino.cpp
             src/WARDuino/CallbackHandler.cpp
             src/Primitives/emulated.cpp
-            src/Interpreter/instructions.cpp
+            src/Interpreter/interpreter.h
+            src/Interpreter/concolic_interpreter.cpp
+            src/Interpreter/concolic_interpreter.h
+            src/Interpreter/interpreter.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
             src/Utils/util_arduino.cpp
