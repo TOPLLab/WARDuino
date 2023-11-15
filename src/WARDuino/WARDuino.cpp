@@ -870,7 +870,7 @@ void WARDuino::unload_module(Module *m) {
     auto it = std::find(this->modules.begin(), this->modules.end(), m);
     if (it != this->modules.end()) this->modules.erase(it);
     this->free_module_state(m);
-    free(m);
+    delete m;
 }
 
 WARDuino::WARDuino() {
@@ -936,10 +936,10 @@ WARDuino *WARDuino::instance() {
 void WARDuino::free_module_state(Module *m) {
     if (m->types != nullptr) {
         for (uint32_t i = 0; i < m->type_count; i++) {
-            free(m->types[i].params);
-            free(m->types[i].results);
+            delete[] m->types[i].params;
+            delete[] m->types[i].results;
         }
-        free(m->types);
+        delete[] m->types;
         m->types = nullptr;
     }
 
@@ -954,7 +954,7 @@ void WARDuino::free_module_state(Module *m) {
     m->globals.clear();
 
     if (m->table.entries != nullptr) {
-        free(m->table.entries);
+        delete[] m->table.entries;
         m->table.entries = nullptr;
     }
 
@@ -970,12 +970,12 @@ void WARDuino::free_module_state(Module *m) {
                 free(f->block);
             }
         }
-        free(m->callstack);
+        delete[] m->callstack;
         m->callstack = nullptr;
     }
 
     if (m->br_table != nullptr) {
-        free(m->br_table);
+        delete[] m->br_table;
         m->br_table = nullptr;
     }
 
