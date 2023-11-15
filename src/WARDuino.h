@@ -1,15 +1,15 @@
 #pragma once
 
+#include <z3++.h>
+
 #include <array>
 #include <climits>
 #include <cstdint>
 #include <cstdio>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
-
-#include <z3++.h>
 
 #include "Debug/debugger.h"
 #include "Edward/proxy_supervisor.h"
@@ -193,12 +193,7 @@ typedef struct Module {
 
     char *exception = nullptr;  // exception is set when the program fails
 
-    void memory_resize(uint32_t new_pages) {
-        memory.pages = new_pages;
-        memory.bytes.resize(new_pages * PAGE_SIZE);
-        memory.symbolic_bytes.resize(new_pages * PAGE_SIZE, ctx.bv_val(0, 8));
-        memory.symbolic_pages = ctx.bv_val(new_pages, 32);
-    }
+    void memory_resize(uint32_t new_pages);
 } Module;
 
 typedef bool (*Primitive)(Module *);

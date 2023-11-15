@@ -6,7 +6,7 @@
 #include <cstring>
 #include <map>
 
-#include "../Interpreter/instructions.h"
+#include "../Interpreter/interpreter.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 
@@ -39,7 +39,7 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
     }
 
     // push function to callstack
-    setup_call(m, rfc->fidx);
+    Interpreter().setup_call(m, rfc->fidx);
     // push proxy guard block to stack
     this->pushProxyGuard(m);
 
@@ -115,5 +115,5 @@ void Proxy::pushProxyGuard(Module *m) {
     }
     auto *guard = (Block *)malloc(sizeof(struct Block));
     guard->block_type = 0xfe;  // 0xfe proxy guard
-    push_block(m, guard, m->sp);
+    Interpreter().push_block(m, guard, m->sp);
 }

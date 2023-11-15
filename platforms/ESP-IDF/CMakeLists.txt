@@ -1,6 +1,7 @@
 set(SOURCE_FILES
         ../../src/Debug/debugger.cpp
-        ../../src/Interpreter/instructions.cpp
+        ../../../src/Interpreter/interpreter.h
+        ../../../src/Interpreter/interpreter.cpp
         ../../src/Memory/mem.cpp
         ../../src/Primitives/idf.cpp
         ../../src/Edward/proxy.cpp
