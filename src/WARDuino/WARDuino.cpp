@@ -265,11 +265,12 @@ void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     block.start_ptr = *pc;
 
     m->pc_ptr = *pc;
-    Interpreter().push_block(m, &block, m->sp);
+    Interpreter *interpreter = WARDuino::instance()->interpreter;
+    interpreter->push_block(m, &block, m->sp);
     // WARNING: running code here to get initial value!
     dbg_info("  running init_expr at 0x%p: %s\n", m->pc_ptr,
              block_repr(&block));
-    Interpreter().interpret(m);
+    interpreter->interpret(m);
     *pc = m->pc_ptr;
 
     ASSERT(m->stack[m->sp].value_type == type,
@@ -827,7 +828,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
         if (fidx < m->import_count) {
             // THUNK thunk_out(m, fidx);     // import/thunk call
         } else {
-            Interpreter().setup_call(m, fidx);  // regular function call
+            m->warduino->interpreter->setup_call(m, fidx);  // regular function call
         }
 
         if (m->csp < 0) {
@@ -836,7 +837,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
         } else {
             // run the function setup by setup_call
             debug("running startfun \n");
-            result = Interpreter().interpret(m);
+            result = m->warduino->interpreter->interpret(m);
         }
         if (!result) {
             FATAL("Exception: %s\n", exception);
@@ -875,6 +876,7 @@ void WARDuino::unload_module(Module *m) {
 
 WARDuino::WARDuino() {
     this->debugger = new Debugger(0);
+    this->interpreter = new Interpreter();
     install_primitives();
     initTypes();
 }
@@ -894,9 +896,9 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
 
     dbg_trace("Interpretation starts\n");
     dbg_dump_stack(m);
-    Interpreter().setup_call(m, fidx);
+    interpreter->setup_call(m, fidx);
     dbg_trace("Call setup\n");
-    result = Interpreter().interpret(m);
+    result = interpreter->interpret(m);
     dbg_trace("Interpretation ended\n");
     dbg_dump_stack(m);
     return result;
@@ -914,7 +916,7 @@ int WARDuino::run_module(Module *m) {
 
     // wait
     m->warduino->debugger->pauseRuntime(m);
-    return Interpreter().interpret(m, true);
+    return m->warduino->interpreter->interpret(m, true);
 }
 
 // Called when an interrupt comes in (not concurre
@@ -1015,7 +1017,7 @@ void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
 
     // execute main
     if (fidx != UNDEF) {
-        Interpreter().setup_call(m, fidx);
+        m->warduino->interpreter->setup_call(m, fidx);
         m->warduino->program_state = WARDUINOrun;
     }
 

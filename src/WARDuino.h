@@ -13,6 +13,7 @@
 
 #include "Debug/debugger.h"
 #include "Edward/proxy_supervisor.h"
+#include "Interpreter/interpreter.h"
 #include "WARDuino/CallbackHandler.h"
 
 // Constants
@@ -204,6 +205,8 @@ typedef struct PrimitiveEntry {
     Type t;
 } PrimitiveEntry;
 
+class Interpreter;
+
 class WARDuino {
    private:
     static WARDuino *singleton;
@@ -216,6 +219,7 @@ class WARDuino {
    public:
     Debugger *debugger;
     RunningState program_state = WARDUINOrun;
+    Interpreter *interpreter;
 
     static WARDuino *instance();
 
