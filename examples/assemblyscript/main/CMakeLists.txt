@@ -10,7 +10,6 @@ set(SOURCE_FILES
         ../../../src/Utils/macros.cpp
         ../../../src/WARDuino/WARDuino.cpp
         ../../../src/Primitives/emulated.cpp
-        ../../../src/Interpreter/interpreter.h
         ../../../src/Interpreter/interpreter.cpp
         ../../../src/WARDuino/CallbackHandler.cpp
         )
