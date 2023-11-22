@@ -6,6 +6,8 @@ class ConcolicInterpreter : public Interpreter {
     Block *pop_block(Module *m) override;
     void setup_call(Module *m, uint32_t fidx) override;
 
+    static z3::expr encode_as_symbolic(Module *m, StackValue *stack_value);
+
    private:
     void load(Module *m, uint32_t offset, uint32_t addr, int size, uint8_t value_type, bool sign_extend) override;
     void store(Module *m, uint32_t offset, uint32_t addr, int value_sp, int size) override;
