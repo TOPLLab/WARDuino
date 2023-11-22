@@ -1,7 +1,7 @@
 #pragma once
 #include "../WARDuino.h"
 
-#ifdef ARDUINO
+#ifndef EMULATOR
 #define VIRTUAL
 #else
 #define VIRTUAL virtual

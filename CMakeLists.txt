@@ -57,6 +57,7 @@ if (BUILD_EMULATOR)
     add_definitions(-DDEBUG=0)
     add_definitions(-DTRACE=0)
     add_definitions(-DWARN=0)
+    add_definitions(-DEMULATOR=1)
 
     # Use C++11
     set(CMAKE_CXX_STANDARD 17)

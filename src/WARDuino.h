@@ -124,12 +124,7 @@ struct Memory {
     uint32_t initial = 0;      // initial size (64K pages)
     uint32_t maximum = 0;      // maximum size (64K pages)
     uint32_t pages = 0;        // current size (64K pages)
-    //std::vector<std::pair<uint8_t, z3::expr>> bytes;
     std::vector<uint8_t> bytes;
-    z3::expr symbolic_pages;
-    std::vector<z3::expr> symbolic_bytes;
-
-    explicit Memory(z3::context &ctx) : symbolic_pages(ctx.bv_val(0, 32)) {}
 
     [[nodiscard]] uint8_t read_byte(uint32_t offset) const {
         return bytes[offset];
@@ -138,6 +133,13 @@ struct Memory {
     void write_byte(uint32_t offset, uint8_t value) {
         bytes[offset] = value;
     }
+};
+
+struct SymbolicMemory {
+    z3::expr symbolic_pages;
+    std::vector<z3::expr> symbolic_bytes;
+
+    explicit SymbolicMemory(z3::context &ctx) : symbolic_pages(ctx.bv_val(0, 32)) {}
 };
 
 typedef struct Options {
@@ -174,26 +176,31 @@ typedef struct Module {
     // same length as byte_count
     uint32_t start_function = -1;  // function to run on module load
     Table table;
-    z3::context ctx;
-    Memory memory = Memory(ctx);
+
+    Memory memory;
     uint32_t global_count = 0;      // number of globals
     std::vector<StackValue> globals;  // globals
-    std::vector<z3::expr> symbolic_globals;  // symbolic globals
     // Runtime state
     uint8_t *pc_ptr = nullptr;     // program counter
     int sp = -1;                   // operand stack pointer
     int fp = -1;                   // current frame pointer into stack
     std::array<StackValue, STACK_SIZE> stack;   // main operand stack
-    z3::expr path_condition = ctx.bool_val(true);
-    std::array<std::optional<z3::expr>, STACK_SIZE> symbolic_stack;   // symbolic stack
-    int symbolic_variable_count = 0;
-    std::unordered_map<std::string, StackValue> symbolic_concrete_values; // Concrete values for symbolic variables
     int csp = -1;                  // callstack pointer
     Frame *callstack = nullptr;    // callstack
     uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
 
+    // ------ Symbolic state ------
+#ifdef EMULATOR
+    z3::context ctx;
+    z3::expr path_condition = ctx.bool_val(true);
+    std::vector<z3::expr> symbolic_globals;  // symbolic globals
+    std::array<std::optional<z3::expr>, STACK_SIZE> symbolic_stack;   // symbolic stack
+    SymbolicMemory symbolic_memory = SymbolicMemory(ctx); // symbolic memory
+    int symbolic_variable_count = 0;
+    std::unordered_map<std::string, StackValue> symbolic_concrete_values; // concrete values for symbolic variables
+#endif
     void memory_resize(uint32_t new_pages);
 } Module;
 
