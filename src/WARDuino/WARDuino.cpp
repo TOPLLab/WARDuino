@@ -4,7 +4,9 @@
 #include <cmath>
 #include <cstring>
 
+#ifdef EMULATOR
 #include "../Interpreter/concolic_interpreter.h"
+#endif
 #include "../Interpreter/interpreter.h"
 #include "../Memory/mem.h"
 #include "../Primitives/primitives.h"
@@ -872,7 +874,8 @@ void WARDuino::unload_module(Module *m) {
 
 WARDuino::WARDuino() {
     this->debugger = new Debugger(0);
-    this->interpreter = new ConcolicInterpreter();
+    //this->interpreter = new ConcolicInterpreter();
+    this->interpreter = new Interpreter();
     install_primitives();
     initTypes();
 }

@@ -1,3 +1,4 @@
+#ifndef ARDUINO
 #include "concolic_interpreter.h"
 
 #include "../Utils/macros.h"
@@ -706,3 +707,4 @@ bool ConcolicInterpreter::i_instr_conversion(Module *m, uint8_t opcode) {
 
     return true;
 }
+#endif
