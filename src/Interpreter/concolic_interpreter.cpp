@@ -61,21 +61,6 @@ Block *ConcolicInterpreter::pop_block(Module *m) {
     return frame->block;
 }
 
-z3::expr encode_as_symbolic(Module *m, StackValue *stack_value) {
-    switch (stack_value->value_type) {
-        case I32:
-            return m->ctx.bv_val(stack_value->value.int32, 32);
-        case I64:
-            return m->ctx.bv_val(stack_value->value.int64, 64);
-        case F32:
-            return m->ctx.fpa_val(stack_value->value.f32);
-        case F64:
-            return m->ctx.fpa_val(stack_value->value.f64);
-        default:
-            FATAL("Invalid value_type!");
-    }
-}
-
 // TODO: Try reuse code from the concrete interpreter
 void ConcolicInterpreter::setup_call(Module *m, uint32_t fidx) {
     Block *func = m->functions[fidx];
@@ -109,6 +94,21 @@ void ConcolicInterpreter::setup_call(Module *m, uint32_t fidx) {
 
     // Set program counter to start of function
     m->pc_ptr = func->start_ptr;
+}
+
+z3::expr ConcolicInterpreter::encode_as_symbolic(Module *m, StackValue *stack_value) {
+    switch (stack_value->value_type) {
+        case I32:
+            return m->ctx.bv_val(stack_value->value.int32, 32);
+        case I64:
+            return m->ctx.bv_val(stack_value->value.int64, 64);
+        case F32:
+            return m->ctx.fpa_val(stack_value->value.f32);
+        case F64:
+            return m->ctx.fpa_val(stack_value->value.f64);
+        default:
+            FATAL("Invalid value_type!");
+    }
 }
 
 void ConcolicInterpreter::load(Module *m, uint32_t offset, uint32_t addr, int size, uint8_t value_type, bool sign_extend) {
