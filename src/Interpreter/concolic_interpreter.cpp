@@ -118,7 +118,7 @@ void ConcolicInterpreter::load(Module *m, uint32_t offset, uint32_t addr, int si
     // Load symbolic value.
     z3::expr_vector expressions(m->ctx);
     for (int i = size - 1; i >= 0; i--) {
-        expressions.push_back(m->memory.symbolic_bytes[offset + addr + i]);
+        expressions.push_back(m->symbolic_memory.symbolic_bytes[offset + addr + i]);
     }
     m->symbolic_stack[m->sp] = z3::concat(expressions).simplify();
 
@@ -142,7 +142,7 @@ void ConcolicInterpreter::store(Module *m, uint32_t offset, uint32_t addr, int v
     z3::expr symbolic_stack_value = m->symbolic_stack[value_sp].value();
 
     for (int i = 0; i < size; i++) {
-        m->memory.symbolic_bytes[offset + addr + i] = symbolic_stack_value.extract((i + 1) * 8 - 1, i * 8);
+        m->symbolic_memory.symbolic_bytes[offset + addr + i] = symbolic_stack_value.extract((i + 1) * 8 - 1, i * 8);
     }
 }
 
@@ -250,7 +250,7 @@ bool ConcolicInterpreter::i_instr_set_global(Module *m) {
 
 bool ConcolicInterpreter::i_instr_current_memory(Module *m) {
     Interpreter::i_instr_current_memory(m);
-    m->symbolic_stack[m->sp] = m->memory.symbolic_pages;
+    m->symbolic_stack[m->sp] = m->symbolic_memory.symbolic_pages;
     return true;
 }
 

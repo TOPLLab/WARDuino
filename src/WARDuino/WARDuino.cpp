@@ -749,7 +749,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         size, m->memory.bytes, offset);
                     memcpy(&m->memory.bytes[offset], pos, size);
                     for (int i = 0; i < size; i++) {
-                        m->memory.symbolic_bytes[offset + i] = m->ctx.bv_val(pos[i], 8);
+                        m->symbolic_memory.symbolic_bytes[offset + i] = m->ctx.bv_val(pos[i], 8);
                     }
                     pos += size;
                 }
@@ -1036,6 +1036,6 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
 void Module::memory_resize(uint32_t new_pages) {
     memory.pages = new_pages;
     memory.bytes.resize(new_pages * PAGE_SIZE);
-    memory.symbolic_bytes.resize(new_pages * PAGE_SIZE, ctx.bv_val(0, 8));
-    memory.symbolic_pages = ctx.bv_val(new_pages, 32);
+    symbolic_memory.symbolic_bytes.resize(new_pages * PAGE_SIZE, ctx.bv_val(0, 8));
+    symbolic_memory.symbolic_pages = ctx.bv_val(new_pages, 32);
 }

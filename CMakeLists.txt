@@ -60,6 +60,7 @@ if (BUILD_EMULATOR)
     add_definitions(-DDEBUG=0)
     add_definitions(-DTRACE=0)
     add_definitions(-DWARN=0)
+    add_definitions(-DEMULATOR=1)
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
