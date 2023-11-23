@@ -1047,6 +1047,7 @@ void Module::create_symbolic_state() {
      * Init expressions for globals are constant expressions. Because of this it will not involve symbolic semantics,
      * and we can just take the concrete value and create a symbolic literal from it.
      */
+    symbolic_globals.clear();
     for (size_t i = 0; i < global_count; i++) {
         symbolic_globals.push_back(ConcolicInterpreter::encode_as_symbolic(this, &globals[i]));
     }
