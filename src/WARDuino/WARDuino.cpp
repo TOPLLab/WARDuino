@@ -806,7 +806,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
 #ifdef EMULATOR
     m->create_symbolic_state();
-    m->max_instructions = 1000;
 #endif
 
     find_blocks(m);

@@ -268,6 +268,7 @@ int main(int argc, const char *argv[]) {
     std::vector<StackValue> arguments = std::vector<StackValue>();
 
     wac->interpreter = new ConcolicInterpreter();
+    wac->max_instructions = 1000;
     if (argc > 0 && argv[0][0] != '-') {
         ARGV_GET(file_name);
 
