@@ -12,6 +12,7 @@
 #include <thread>
 
 #include "../../src/Debug/debugger.h"
+#include "../../src/Interpreter/concolic_interpreter.h"
 #include "../../src/Utils/macros.h"
 #include "warduino/config.h"
 
@@ -265,6 +266,7 @@ int main(int argc, const char *argv[]) {
     const char *fname = nullptr;
     std::vector<StackValue> arguments = std::vector<StackValue>();
 
+    wac->interpreter = new ConcolicInterpreter();
     if (argc > 0 && argv[0][0] != '-') {
         ARGV_GET(file_name);
 
