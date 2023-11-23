@@ -875,8 +875,11 @@ void WARDuino::unload_module(Module *m) {
 
 WARDuino::WARDuino() {
     this->debugger = new Debugger(0);
+#ifdef EMULATOR
     this->interpreter = new ConcolicInterpreter();
-    //this->interpreter = new Interpreter();
+#else
+    this->interpreter = new Interpreter();
+#endif
     install_primitives();
     initTypes();
 }

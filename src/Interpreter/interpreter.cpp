@@ -2056,7 +2056,7 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         std::cout << " " << read_LEB_32(&pc_ptr_tmp) << std::endl;*/
         m->instructions_executed++;
         if (m->max_instructions > 0 && m->instructions_executed > m->max_instructions) {
-            std::cout << "Max instructions executed!" << std::endl;
+            debug("Max instructions executed\n");
             return true;
         }
         switch (opcode) {
