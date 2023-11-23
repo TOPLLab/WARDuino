@@ -806,6 +806,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
 #ifdef EMULATOR
     m->create_symbolic_state();
+    m->max_instructions = 1000;
 #endif
 
     find_blocks(m);
@@ -874,8 +875,8 @@ void WARDuino::unload_module(Module *m) {
 
 WARDuino::WARDuino() {
     this->debugger = new Debugger(0);
-    //this->interpreter = new ConcolicInterpreter();
-    this->interpreter = new Interpreter();
+    this->interpreter = new ConcolicInterpreter();
+    //this->interpreter = new Interpreter();
     install_primitives();
     initTypes();
 }
