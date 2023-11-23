@@ -195,7 +195,6 @@ typedef struct Module {
 
     char *exception = nullptr;  // exception is set when the program fails
     int instructions_executed = 0;
-    int max_instructions = -1;
 
     // ------ Symbolic state ------
 #ifdef EMULATOR
@@ -236,6 +235,7 @@ class WARDuino {
     Debugger *debugger;
     RunningState program_state = WARDUINOrun;
     Interpreter *interpreter;
+    int max_instructions = -1;
 
     static WARDuino *instance();
 
