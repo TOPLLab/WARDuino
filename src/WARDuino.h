@@ -194,6 +194,8 @@ typedef struct Module {
     uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
+    int instructions_executed = 0;
+    int max_instructions = -1;
 
     // ------ Symbolic state ------
 #ifdef EMULATOR
