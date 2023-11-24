@@ -425,10 +425,11 @@ int main(int argc, const char *argv[]) {
         if (!snapshot_messages.empty()) {
             std::cout << "Loading snapshot data:" << std::endl;
             for (const std::string& msg : snapshot_messages) {
-                std::cout << msg << std::endl;
+                std::cout << "Adding debug message: \"" << msg << "\"" << std::endl;
                 wac->debugger->addDebugMessage(msg.length() + 1, (uint8_t *) (msg + "\n").c_str());
             }
             while (wac->debugger->checkDebugMessages(m, &wac->program_state)) {}
+            wac->program_state = WARDUINOrun;
         }
 
         z3::expr global_condition = m->ctx.bool_val(true);
