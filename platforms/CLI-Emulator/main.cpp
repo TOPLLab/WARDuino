@@ -267,6 +267,9 @@ int main(int argc, const char *argv[]) {
     const char *fname = nullptr;
     std::vector<StackValue> arguments = std::vector<StackValue>();
 
+    const char *current_msg = nullptr;
+    std::vector<std::string> snapshot_messages;
+
     wac->interpreter = new ConcolicInterpreter();
     wac->max_instructions = 1000;
     if (argc > 0 && argv[0][0] != '-') {
@@ -331,6 +334,13 @@ int main(int argc, const char *argv[]) {
 
                 arguments.push_back(
                     parseParameter(number, function->type->params[i]));
+            }
+        } else if (!strcmp("--snapshot", arg)) {
+            ARGV_GET(current_msg);
+
+            while(strcmp("end", current_msg) != 0) {
+                snapshot_messages.emplace_back(current_msg);
+                ARGV_GET(current_msg);
             }
         }
     }
@@ -412,6 +422,14 @@ int main(int argc, const char *argv[]) {
         } else {
             wac->run_module(m);
         }*/
+        if (!snapshot_messages.empty()) {
+            std::cout << "Loading snapshot data:" << std::endl;
+            for (const std::string& msg : snapshot_messages) {
+                std::cout << msg << std::endl;
+                wac->debugger->addDebugMessage(msg.length() + 1, (uint8_t *) (msg + "\n").c_str());
+            }
+            while (wac->debugger->checkDebugMessages(m, &wac->program_state)) {}
+        }
 
         z3::expr global_condition = m->ctx.bool_val(true);
         int iteration_index = 0;
