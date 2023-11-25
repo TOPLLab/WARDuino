@@ -251,6 +251,16 @@ StackValue parseParameter(const char *input, uint8_t value_type) {
     return value;
 }
 
+void load_snapshot(const std::vector<std::string>& snapshot_messages) {
+    std::cout << "Loading snapshot data:" << std::endl;
+    for (const std::string& msg : snapshot_messages) {
+        std::cout << "Adding debug message: \"" << msg << "\"" << std::endl;
+        wac->debugger->addDebugMessage(msg.length() + 1, (uint8_t *) (msg + "\n").c_str());
+    }
+    while (wac->debugger->checkDebugMessages(m, &wac->program_state)) {}
+    wac->program_state = WARDUINOrun;
+}
+
 int main(int argc, const char *argv[]) {
     ARGV_SHIFT();  // Skip command name
 
@@ -271,7 +281,7 @@ int main(int argc, const char *argv[]) {
     std::vector<std::string> snapshot_messages;
 
     wac->interpreter = new ConcolicInterpreter();
-    wac->max_instructions = 1000;
+    wac->max_instructions = 2000;
     if (argc > 0 && argv[0][0] != '-') {
         ARGV_GET(file_name);
 
@@ -422,15 +432,6 @@ int main(int argc, const char *argv[]) {
         } else {
             wac->run_module(m);
         }*/
-        if (!snapshot_messages.empty()) {
-            std::cout << "Loading snapshot data:" << std::endl;
-            for (const std::string& msg : snapshot_messages) {
-                std::cout << "Adding debug message: \"" << msg << "\"" << std::endl;
-                wac->debugger->addDebugMessage(msg.length() + 1, (uint8_t *) (msg + "\n").c_str());
-            }
-            while (wac->debugger->checkDebugMessages(m, &wac->program_state)) {}
-            wac->program_state = WARDUINOrun;
-        }
 
         z3::expr global_condition = m->ctx.bool_val(true);
         int iteration_index = 0;
@@ -439,7 +440,17 @@ int main(int argc, const char *argv[]) {
             std::cout << std::endl << "=== CONCOLIC ITERATION " << iteration_index++ << " ===" << std::endl;
             m->symbolic_variable_count = 0;
             m->path_condition = m->ctx.bool_val(true);
-            if (!wac->run_module(m)) {
+
+            bool success;
+            if (!snapshot_messages.empty()) {
+                load_snapshot(snapshot_messages);
+                m->create_symbolic_state();
+                success = wac->interpreter->interpret(m);
+            } else {
+                success = wac->run_module(m);
+            }
+
+            if (!success) {
                 std::cout << "Trap: " << m->exception << std::endl;
                 std::cout << "Model that caused issue:" << std::endl;
                 for (const auto& entry : m->symbolic_concrete_values) {
