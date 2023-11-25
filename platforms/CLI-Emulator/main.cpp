@@ -493,6 +493,17 @@ int main(int argc, const char *argv[]) {
             }
         }
 
+        nlohmann::json json_models;
+        json_models["models"] = std::vector<nlohmann::json>();
+        for (auto & model : models) {
+            nlohmann::json j;
+            for (const auto& entry : model) {
+                j[entry.first] = entry.second.value.int32;
+            }
+            json_models["models"].push_back(j);
+        }
+        std::cout << json_models << std::endl;
+
         wac->unload_module(m);
         wac->debugger->stop();
         Z3_finalize_memory();
