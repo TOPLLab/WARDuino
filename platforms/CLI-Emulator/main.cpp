@@ -280,7 +280,10 @@ int main(int argc, const char *argv[]) {
     std::vector<std::string> snapshot_messages;
 
     wac->interpreter = new ConcolicInterpreter();
-    wac->max_instructions = 2000;
+    // Has a big impact on performance, for example if you have a simple program with a loop that contains an if
+    // statement and, you run the loop 30 times then you have 2^30 possible branching paths. You can take the if branch
+    // in the first loop, not take it in the second, and so on.
+    wac->max_instructions = 40;
     if (argc > 0 && argv[0][0] != '-') {
         ARGV_GET(file_name);
 
