@@ -18,8 +18,8 @@
 #include <cstdio>
 #include <cstring>
 #include <thread>
-#include <random>
 
+#include "../Interpreter/concolic_interpreter.h"
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
@@ -274,12 +274,7 @@ def_prim(print_string, twoToNoneU32) {
     return true;
 }
 
-std::random_device r;
-std::default_random_engine random_engine(r());
-std::uniform_int_distribution<int> uniform_dist(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
-
-def_prim(sym_int, NoneToOneU32) {
-    //int32_t concrete_value = uniform_dist(random_engine);
+void push_symbolic_int(Module *m) {
     int32_t concrete_value = 0;
     std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
     if (m->symbolic_concrete_values.find(var_name) != m->symbolic_concrete_values.end()) {
@@ -287,9 +282,12 @@ def_prim(sym_int, NoneToOneU32) {
     }
     std::cout << "New symbolic value " << var_name << ", start value = " << concrete_value << std::endl;
     pushInt32(concrete_value);
-    //m->symbolic_stack[m->sp] = m->ctx.int_const(var_name.c_str());
     m->symbolic_stack[m->sp] = m->ctx.bv_const(var_name.c_str(), 32);
     m->symbolic_concrete_values[var_name] = {.value_type = I32, .value = {.int32 = concrete_value}};
+}
+
+def_prim(sym_int, NoneToOneU32) {
+    push_symbolic_int(m);
     return true;
 }
 
@@ -408,6 +406,10 @@ def_prim(chip_digital_read, oneToOneU32) {
 def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
+    if (dynamic_cast<ConcolicInterpreter*>(m->warduino->interpreter)) {
+        push_symbolic_int(m);
+        return true;
+    }
     pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
     return true;
@@ -423,7 +425,9 @@ def_prim(chip_delay, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
     debug("EMU: chip_delay(%u) \n", arg0.uint32);
-    sleep_for(milliseconds(arg0.uint32));
+    if (!dynamic_cast<ConcolicInterpreter*>(m->warduino->interpreter)) {
+        sleep_for(milliseconds(arg0.uint32));
+    }
     debug("EMU: .. done\n");
     pop_args(1);
     return true;
@@ -572,21 +576,17 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     return false;
 }
 
-//Memory external_mem{};
+Memory external_mem{};
 
 bool resolve_external_memory(char *symbol, Memory **val) {
     if (!strcmp(symbol, "memory")) {
-        /*if (external_mem.bytes.empty()) {
+        if (external_mem.bytes.empty()) {
             external_mem.initial = 256;
             external_mem.maximum = 256;
             external_mem.pages = 256;
-            // TODO: Cleanly handle symbolic context here
-            // It needs access to the module for that.
-            //external_mem.bytes.resize(external_mem.pages * PAGE_SIZE);
-            //external_mem.bytes.resize(external_mem.pages * PAGE_SIZE, std::pair<uint8_t, z3::expr>(0, ctx.bv_val(0, 8)));
-            FATAL("TODO: SYMBOLIC EXTERNAL MEMORY");
+            external_mem.bytes.resize(external_mem.pages * PAGE_SIZE);
         }
-        *val = &external_mem;*/
+        *val = &external_mem;
         return true;
     }
 
