@@ -440,6 +440,7 @@ int main(int argc, const char *argv[]) {
             std::cout << std::endl << "=== CONCOLIC ITERATION " << iteration_index++ << " ===" << std::endl;
             m->symbolic_variable_count = 0;
             m->path_condition = m->ctx.bool_val(true);
+            m->instructions_executed = 0;
 
             bool success;
             if (!snapshot_messages.empty()) {
@@ -464,12 +465,12 @@ int main(int argc, const char *argv[]) {
             // Start a new concolic iteration by solving !path_condition.
             // TODO: When should I use simplify? Does the solver automatically simplify things so I can just let it handle
             // that? Maybe I should only use simplify when building up expressions during symbolic execution?
-            std::cout << "Execution finished, path condition = " << m->path_condition << std::endl;
+            std::cout << "Execution finished, path condition = " << m->path_condition.simplify() << std::endl;
             z3::solver s(m->ctx);
             std::cout << "!path_condition = " << !m->path_condition << std::endl;
             std::cout << "!path_condition (simplified) = " << (!m->path_condition).simplify() << std::endl;
             //s.add(!m->path_condition);
-            global_condition = global_condition & !m->path_condition; // Not this path and also not the previous paths
+            global_condition = global_condition && !m->path_condition; // Not this path and also not the previous paths
             s.add(global_condition);
             if (s.check() == z3::unsat) {
                 std::cout << "Explored all paths!" << std::endl;
