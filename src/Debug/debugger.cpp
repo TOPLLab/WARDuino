@@ -1052,8 +1052,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     FATAL("incorrect memory offsets\n");
                 }
                 uint32_t total_bytes = limit - start + 1;
-                uint8_t *mem_end =
-                    m->memory.bytes.data() + m->memory.pages * (uint32_t)PAGE_SIZE;
+                uint8_t *mem_end = m->memory.bytes.data() +
+                                   m->memory.pages * (uint32_t)PAGE_SIZE;
                 debug("will copy #%" PRIu32 " bytes from %" PRIu32
                       " to %" PRIu32 " (incl.)\n",
                       total_bytes, start, limit);
@@ -1062,7 +1062,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                           static_cast<void *>(m->bytes + start + total_bytes),
                           static_cast<void *>(mem_end));
                 }
-                memcpy(m->memory.bytes.data() + start, program_state, total_bytes);
+                memcpy(m->memory.bytes.data() + start, program_state,
+                       total_bytes);
                 for (auto i = start; i < (start + total_bytes); i++) {
                     debug("GOT byte idx %" PRIu32 " =%" PRIu8 "\n", i,
                           m->memory.bytes[i]);

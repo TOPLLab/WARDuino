@@ -277,13 +277,16 @@ def_prim(print_string, twoToNoneU32) {
 void push_symbolic_int(Module *m) {
     int32_t concrete_value = 0;
     std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
-    if (m->symbolic_concrete_values.find(var_name) != m->symbolic_concrete_values.end()) {
+    if (m->symbolic_concrete_values.find(var_name) !=
+        m->symbolic_concrete_values.end()) {
         concrete_value = m->symbolic_concrete_values[var_name].value.int32;
     }
-    std::cout << "New symbolic value " << var_name << ", start value = " << concrete_value << std::endl;
+    std::cout << "New symbolic value " << var_name
+              << ", start value = " << concrete_value << std::endl;
     pushInt32(concrete_value);
     m->symbolic_stack[m->sp] = m->ctx.bv_const(var_name.c_str(), 32);
-    m->symbolic_concrete_values[var_name] = {.value_type = I32, .value = {.int32 = concrete_value}};
+    m->symbolic_concrete_values[var_name] = {
+        .value_type = I32, .value = {.int32 = concrete_value}};
 }
 
 def_prim(sym_int, NoneToOneU32) {
@@ -367,8 +370,7 @@ def_prim(http_post, tenToOneU32) {
     uint32_t size = arg0.uint32;
 
     std::string url_parsed = parse_utf8_string(m->memory, url_len, url);
-    std::string body_parsed =
-        parse_utf8_string(m->memory, body_len, body);
+    std::string body_parsed = parse_utf8_string(m->memory, body_len, body);
     std::string content_type_parsed =
         parse_utf8_string(m->memory, content_type_len, content_type);
     std::string authorization_parsed =
@@ -406,7 +408,7 @@ def_prim(chip_digital_read, oneToOneU32) {
 def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    if (dynamic_cast<ConcolicInterpreter*>(m->warduino->interpreter)) {
+    if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
         push_symbolic_int(m);
         return true;
     }
@@ -425,7 +427,7 @@ def_prim(chip_delay, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
     debug("EMU: chip_delay(%u) \n", arg0.uint32);
-    if (!dynamic_cast<ConcolicInterpreter*>(m->warduino->interpreter)) {
+    if (!dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
         sleep_for(milliseconds(arg0.uint32));
     }
     debug("EMU: .. done\n");

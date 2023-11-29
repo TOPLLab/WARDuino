@@ -97,7 +97,8 @@ void ConcolicInterpreter::setup_call(Module *m, uint32_t fidx) {
     m->pc_ptr = func->start_ptr;
 }
 
-z3::expr ConcolicInterpreter::encode_as_symbolic(Module *m, StackValue *stack_value) {
+z3::expr ConcolicInterpreter::encode_as_symbolic(Module *m,
+                                                 StackValue *stack_value) {
     switch (stack_value->value_type) {
         case I32:
             return m->ctx.bv_val(stack_value->value.int32, 32);
@@ -112,30 +113,35 @@ z3::expr ConcolicInterpreter::encode_as_symbolic(Module *m, StackValue *stack_va
     }
 }
 
-void ConcolicInterpreter::load(Module *m, uint32_t offset, uint32_t addr, int size, uint8_t value_type, bool sign_extend) {
+void ConcolicInterpreter::load(Module *m, uint32_t offset, uint32_t addr,
+                               int size, uint8_t value_type, bool sign_extend) {
     // Load concrete value.
     Interpreter::load(m, offset, addr, size, value_type, sign_extend);
 
     // Load symbolic value.
     z3::expr_vector expressions(m->ctx);
     for (int i = size - 1; i >= 0; i--) {
-        expressions.push_back(m->symbolic_memory.symbolic_bytes[offset + addr + i]);
+        expressions.push_back(
+            m->symbolic_memory.symbolic_bytes[offset + addr + i]);
     }
     m->symbolic_stack[m->sp] = z3::concat(expressions).simplify();
 
-    // If the loaded size is smaller than the size of the datatype then we need to sign or zero extend it.
+    // If the loaded size is smaller than the size of the datatype then we need
+    // to sign or zero extend it.
     int full_size = sizeof_valuetype(value_type);
     if (size < full_size) {
         if (sign_extend) {
-            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), full_size * 8 - size * 8);
-        }
-        else {
-            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), full_size * 8 - size * 8);
+            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(),
+                                            full_size * 8 - size * 8);
+        } else {
+            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(),
+                                            full_size * 8 - size * 8);
         }
     }
 }
 
-void ConcolicInterpreter::store(Module *m, uint32_t offset, uint32_t addr, int value_sp, int size) {
+void ConcolicInterpreter::store(Module *m, uint32_t offset, uint32_t addr,
+                                int value_sp, int size) {
     // Store concrete value.
     Interpreter::store(m, offset, addr, value_sp, size);
 
@@ -143,22 +149,27 @@ void ConcolicInterpreter::store(Module *m, uint32_t offset, uint32_t addr, int v
     z3::expr symbolic_stack_value = m->symbolic_stack[value_sp].value();
 
     for (int i = 0; i < size; i++) {
-        m->symbolic_memory.symbolic_bytes[offset + addr + i] = symbolic_stack_value.extract((i + 1) * 8 - 1, i * 8);
+        m->symbolic_memory.symbolic_bytes[offset + addr + i] =
+            symbolic_stack_value.extract((i + 1) * 8 - 1, i * 8);
     }
 }
 
 bool ConcolicInterpreter::i_instr_if(Module *m, uint8_t *block_ptr) {
     uint32_t cond = m->stack[m->sp].value.uint32;
-    z3::expr sym_cond = z3::ite(m->symbolic_stack[m->sp].value() != 0, m->ctx.bool_val(true), m->ctx.bool_val(false));
+    z3::expr sym_cond = z3::ite(m->symbolic_stack[m->sp].value() != 0,
+                                m->ctx.bool_val(true), m->ctx.bool_val(false));
 
-    // Update the path condition based on if the branch will be taken in the current execution or not.
-    m->path_condition = m->path_condition && (cond ? sym_cond: !sym_cond);
+    // Update the path condition based on if the branch will be taken in the
+    // current execution or not.
+    m->path_condition = m->path_condition && (cond ? sym_cond : !sym_cond);
     m->path_condition = m->path_condition.simplify();
-    std::cout << "Updated path condition = " << m->path_condition.simplify() << std::endl;
-    // Assert that a constant path condition must always be true, if it's false then we are in an impossible branch so
-    // something went wrong.
+    std::cout << "Updated path condition = " << m->path_condition.simplify()
+              << std::endl;
+    // Assert that a constant path condition must always be true, if it's false
+    // then we are in an impossible branch so something went wrong.
     if (m->path_condition.is_const()) {
-        assert(m->path_condition.simplify().is_bool() && m->path_condition.simplify().is_true());
+        assert(m->path_condition.simplify().is_bool() &&
+               m->path_condition.simplify().is_true());
     }
 
     // Run the concrete implementation of the if instruction.
@@ -167,11 +178,14 @@ bool ConcolicInterpreter::i_instr_if(Module *m, uint8_t *block_ptr) {
 
 bool ConcolicInterpreter::i_instr_br_if(Module *m) {
     uint32_t cond = m->stack[m->sp].value.uint32;
-    z3::expr sym_cond = z3::ite(m->symbolic_stack[m->sp].value() != 0, m->ctx.bool_val(true), m->ctx.bool_val(false));
+    z3::expr sym_cond = z3::ite(m->symbolic_stack[m->sp].value() != 0,
+                                m->ctx.bool_val(true), m->ctx.bool_val(false));
 
-    // Update the path condition based on if the branch will be taken in the current execution or not.
-    m->path_condition = m->path_condition && (cond ? sym_cond: !sym_cond);
-    std::cout << "Updated path condition = " << m->path_condition.simplify() << std::endl;
+    // Update the path condition based on if the branch will be taken in the
+    // current execution or not.
+    m->path_condition = m->path_condition && (cond ? sym_cond : !sym_cond);
+    std::cout << "Updated path condition = " << m->path_condition.simplify()
+              << std::endl;
 
     // Run the concrete implementation of the br_if instruction.
     return Interpreter::i_instr_br_if(m);
@@ -184,17 +198,16 @@ bool ConcolicInterpreter::i_instr_select(Module *m) {
 
     z3::expr sym_cond = m->symbolic_stack[m->sp--].value();
     m->sp--;
-    m->symbolic_stack[m->sp] = z3::ite(
-        sym_cond != 0,
-        m->symbolic_stack[m->sp].value(),
-        m->symbolic_stack[m->sp + 1].value()
-    );
+    m->symbolic_stack[m->sp] =
+        z3::ite(sym_cond != 0, m->symbolic_stack[m->sp].value(),
+                m->symbolic_stack[m->sp + 1].value());
 
     return true;
 }
 
 bool ConcolicInterpreter::i_instr_get_local(Module *m) {
-    // Calling Interpreter::i_instr_get_local would just make things a lot more complicated.
+    // Calling Interpreter::i_instr_get_local would just make things a lot more
+    // complicated.
     int32_t arg = read_LEB_32(&m->pc_ptr);
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg,
@@ -206,7 +219,8 @@ bool ConcolicInterpreter::i_instr_get_local(Module *m) {
 }
 
 bool ConcolicInterpreter::i_instr_set_local(Module *m) {
-    // Calling Interpreter::i_instr_set_local would just make things a lot more complicated.
+    // Calling Interpreter::i_instr_set_local would just make things a lot more
+    // complicated.
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->symbolic_stack[m->fp + arg] = m->symbolic_stack[m->sp];
     m->stack[m->fp + arg] = m->stack[m->sp--];
@@ -218,10 +232,12 @@ bool ConcolicInterpreter::i_instr_set_local(Module *m) {
 }
 
 bool ConcolicInterpreter::i_instr_tee_local(Module *m) {
-    // Calling Interpreter::i_instr_tee_local would just make things a lot more complicated.
+    // Calling Interpreter::i_instr_tee_local would just make things a lot more
+    // complicated.
     int32_t arg = read_LEB_32(&m->pc_ptr);
     m->stack[m->fp + arg] = m->stack[m->sp];
-    //std::cout << "local.tee " << arg << " = " << m->symbolic_stack[m->sp].value() << std::endl;
+    // std::cout << "local.tee " << arg << " = " <<
+    // m->symbolic_stack[m->sp].value() << std::endl;
     m->symbolic_stack[m->fp + arg] = m->symbolic_stack[m->sp];
 #if TRACE
     debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
@@ -258,7 +274,8 @@ bool ConcolicInterpreter::i_instr_current_memory(Module *m) {
 bool ConcolicInterpreter::i_instr_const(Module *m, uint8_t opcode) {
     Interpreter::i_instr_const(m, opcode);
 
-    // We use the stack value loaded during concrete execution and create a symbolic value from it.
+    // We use the stack value loaded during concrete execution and create a
+    // symbolic value from it.
     m->symbolic_stack[m->sp] = encode_as_symbolic(m, &m->stack[m->sp]);
 
     return true;
@@ -266,8 +283,8 @@ bool ConcolicInterpreter::i_instr_const(Module *m, uint8_t opcode) {
 
 bool ConcolicInterpreter::i_instr_unary_u32(Module *m, uint8_t opcode) {
     bool success = Interpreter::i_instr_unary_u32(m, opcode);
-    m->symbolic_stack[m->sp] =
-        ite(m->symbolic_stack[m->sp].value() == 0, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+    m->symbolic_stack[m->sp] = ite(m->symbolic_stack[m->sp].value() == 0,
+                                   m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
     return success;
 }
 
@@ -390,7 +407,8 @@ bool ConcolicInterpreter::i_instr_unary_floating(Module *m, uint8_t opcode) {
         // unary f32
         case 0x8b:
             m->stack[m->sp].value.f32 = fabs(m->stack[m->sp].value.f32);
-            m->symbolic_stack[m->sp] = z3::abs(m->symbolic_stack[m->sp].value());
+            m->symbolic_stack[m->sp] =
+                z3::abs(m->symbolic_stack[m->sp].value());
             break;  // f32.abs
         case 0x8c:
             // TODO: Symbolic semantics
@@ -500,7 +518,7 @@ bool ConcolicInterpreter::i_instr_binary_i32(Module *m, uint8_t opcode) {
             break;  // i32.shl
         case 0x75:
             c = ashr(a, b);
-            break;                // i32.shr_s
+            break;  // i32.shr_s
         case 0x76:
             c = lshr(a, b);
             break;  // i32.shr_u
@@ -564,7 +582,7 @@ bool ConcolicInterpreter::i_instr_binary_i64(Module *m, uint8_t opcode) {
             break;  // i64.shl
         case 0x87:
             f = z3::ashr(d, e);
-            break;                  // i64.shr_s
+            break;  // i64.shr_s
         case 0x88:
             f = z3::lshr(d, e);
             break;  // i64.shr_u
@@ -622,10 +640,12 @@ bool ConcolicInterpreter::i_instr_conversion(Module *m, uint8_t opcode) {
             assert(false);
             break;  // i32.trunc_u/f64
         case 0xac:
-            m->symbolic_stack[m->sp] = sext(m->symbolic_stack[m->sp].value(), 32);
+            m->symbolic_stack[m->sp] =
+                sext(m->symbolic_stack[m->sp].value(), 32);
             break;  // i64.extend_s/i32
         case 0xad:
-            m->symbolic_stack[m->sp] = zext(m->symbolic_stack[m->sp].value(), 32);
+            m->symbolic_stack[m->sp] =
+                zext(m->symbolic_stack[m->sp].value(), 32);
             break;  // i64.extend_u/i32
         case 0xae:
             // TODO: Symbolic semantics
@@ -695,7 +715,7 @@ bool ConcolicInterpreter::i_instr_conversion(Module *m, uint8_t opcode) {
             break;  // i64.reinterpret/f64
         case 0xbe:
             // TODO: Symbolic semantics
-                    assert(false);
+            assert(false);
             break;  // f32.reinterpret/i32
         case 0xbf:
             // TODO: Symbolic semantics
