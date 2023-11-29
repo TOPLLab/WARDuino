@@ -172,7 +172,7 @@ std::string parse_utf8_string(const uint8_t *buffer, uint32_t size,
     return str;
 }
 
-std::string parse_utf8_string(const std::vector<uint8_t>& buffer, uint32_t size,
+std::string parse_utf8_string(const std::vector<uint8_t> &buffer, uint32_t size,
                               uint32_t offset) {
     return parse_utf8_string(buffer.data(), size, offset);
 }

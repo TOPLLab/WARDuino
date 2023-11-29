@@ -23,15 +23,16 @@ class Interpreter {
      * Sets stack pointer and call stack pointer, verifies type of return
      *
      * @param m module
-     * @return block that was on top of the stack (the one that we just returned to)
+     * @return block that was on top of the stack (the one that we just returned
+     * to)
      */
     VIRTUAL Block *pop_block(Module *m);
 
     /**
      * Setup a function
      *
-     * Push params and locals on the stack and save a call frame on the call stack
-     * Sets new pc value for the start of the function
+     * Push params and locals on the stack and save a call frame on the call
+     * stack Sets new pc value for the start of the function
      *
      * @param m module to work on
      * @param fidx function id (index in m->functions)
@@ -48,8 +49,10 @@ class Interpreter {
     bool interpret(Module *m, bool waiting = false);
 
    protected:
-    VIRTUAL void load(Module *m, uint32_t offset, uint32_t addr, int size, uint8_t value_type, bool sign_extend);
-    VIRTUAL void store(Module *m, uint32_t offset, uint32_t addr, int value_sp, int size);
+    VIRTUAL void load(Module *m, uint32_t offset, uint32_t addr, int size,
+                      uint8_t value_type, bool sign_extend);
+    VIRTUAL void store(Module *m, uint32_t offset, uint32_t addr, int value_sp,
+                       int size);
 
     VIRTUAL bool i_instr_block(Module *m, uint8_t *block_ptr);
     VIRTUAL bool i_instr_loop(Module *m, uint8_t *block_ptr);

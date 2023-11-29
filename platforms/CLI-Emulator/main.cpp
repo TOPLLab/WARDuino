@@ -250,13 +250,15 @@ StackValue parseParameter(const char *input, uint8_t value_type) {
     return value;
 }
 
-void load_snapshot(const std::vector<std::string>& snapshot_messages) {
+void load_snapshot(const std::vector<std::string> &snapshot_messages) {
     std::cout << "Loading snapshot data:" << std::endl;
-    for (const std::string& msg : snapshot_messages) {
+    for (const std::string &msg : snapshot_messages) {
         std::cout << "Adding debug message: \"" << msg << "\"" << std::endl;
-        wac->debugger->addDebugMessage(msg.length() + 1, (uint8_t *) (msg + "\n").c_str());
+        wac->debugger->addDebugMessage(msg.length() + 1,
+                                       (uint8_t *)(msg + "\n").c_str());
     }
-    while (wac->debugger->checkDebugMessages(m, &wac->program_state)) {}
+    while (wac->debugger->checkDebugMessages(m, &wac->program_state)) {
+    }
     wac->program_state = WARDUINOrun;
 }
 
@@ -280,8 +282,9 @@ int main(int argc, const char *argv[]) {
     std::vector<std::string> snapshot_messages;
 
     wac->interpreter = new ConcolicInterpreter();
-    // Has a big impact on performance, for example if you have a simple program with a loop that contains an if
-    // statement and, you run the loop 30 times then you have 2^30 possible branching paths. You can take the if branch
+    // Has a big impact on performance, for example if you have a simple program
+    // with a loop that contains an if statement and, you run the loop 30 times
+    // then you have 2^30 possible branching paths. You can take the if branch
     // in the first loop, not take it in the second, and so on.
     wac->max_instructions = 40;
     if (argc > 0 && argv[0][0] != '-') {
@@ -350,7 +353,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp("--snapshot", arg)) {
             ARGV_GET(current_msg);
 
-            while(strcmp("end", current_msg) != 0) {
+            while (strcmp("end", current_msg) != 0) {
                 snapshot_messages.emplace_back(current_msg);
                 ARGV_GET(current_msg);
             }
@@ -436,8 +439,10 @@ int main(int argc, const char *argv[]) {
         z3::expr global_condition = m->ctx.bool_val(true);
         int iteration_index = 0;
         std::vector<std::unordered_map<std::string, StackValue>> models;
-        while(true) {
-            std::cout << std::endl << "=== CONCOLIC ITERATION " << iteration_index << " ===" << std::endl;
+        while (true) {
+            std::cout << std::endl
+                      << "=== CONCOLIC ITERATION " << iteration_index
+                      << " ===" << std::endl;
             m->symbolic_variable_count = 0;
             m->path_condition = m->ctx.bool_val(true);
             m->instructions_executed = 0;
@@ -454,8 +459,9 @@ int main(int argc, const char *argv[]) {
             if (!success) {
                 std::cout << "Trap: " << m->exception << std::endl;
                 std::cout << "Model that caused issue:" << std::endl;
-                for (const auto& entry : m->symbolic_concrete_values) {
-                    std::cout << "  " << entry.first << " = " << entry.second.value.int32 << std::endl;
+                for (const auto &entry : m->symbolic_concrete_values) {
+                    std::cout << "  " << entry.first << " = "
+                              << entry.second.value.int32 << std::endl;
                 }
                 break;
             }
@@ -467,37 +473,50 @@ int main(int argc, const char *argv[]) {
                 std::cout << "Iteration 0, fixing default values" << std::endl;
                 std::cout << "Model:" << std::endl;
                 z3::model model = s.get_model();
-                for (int i = 0; i < (int) model.size(); i++) {
+                for (int i = 0; i < (int)model.size(); i++) {
                     z3::func_decl func = model[i];
-                    std::cout << func.name() << " = " << model.get_const_interp(func) << std::endl;
-                    m->symbolic_concrete_values[func.name().str()].value.uint64 = model.get_const_interp(func).get_numeral_uint64();
+                    std::cout << func.name() << " = "
+                              << model.get_const_interp(func) << std::endl;
+                    m->symbolic_concrete_values[func.name().str()]
+                        .value.uint64 =
+                        model.get_const_interp(func).get_numeral_uint64();
                 }
             }
             iteration_index++;
             models.push_back(m->symbolic_concrete_values);
 
             // Start a new concolic iteration by solving !path_condition.
-            // TODO: When should I use simplify? Does the solver automatically simplify things so I can just let it handle
-            // that? Maybe I should only use simplify when building up expressions during symbolic execution?
-            std::cout << "Execution finished, path condition = " << m->path_condition.simplify() << std::endl;
+            // TODO: When should I use simplify? Does the solver automatically
+            // simplify things so I can just let it handle that? Maybe I should
+            // only use simplify when building up expressions during symbolic
+            // execution?
+            std::cout << "Execution finished, path condition = "
+                      << m->path_condition.simplify() << std::endl;
             z3::solver s(m->ctx);
-            std::cout << "!path_condition = " << !m->path_condition << std::endl;
-            std::cout << "!path_condition (simplified) = " << (!m->path_condition).simplify() << std::endl;
-            //s.add(!m->path_condition);
-            global_condition = global_condition && !m->path_condition; // Not this path and also not the previous paths
+            std::cout << "!path_condition = " << !m->path_condition
+                      << std::endl;
+            std::cout << "!path_condition (simplified) = "
+                      << (!m->path_condition).simplify() << std::endl;
+            // s.add(!m->path_condition);
+            global_condition = global_condition &&
+                               !m->path_condition;  // Not this path and also
+                                                    // not the previous paths
             s.add(global_condition);
             if (s.check() == z3::unsat) {
                 std::cout << "Explored all paths!" << std::endl;
                 break;
             }
-            std::cout << "Solve !path_condition:" << std::endl << s.get_model() << std::endl;
+            std::cout << "Solve !path_condition:" << std::endl
+                      << s.get_model() << std::endl;
 
             std::cout << "Model:" << std::endl;
             z3::model model = s.get_model();
-            for (int i = 0; i < (int) model.size(); i++) {
+            for (int i = 0; i < (int)model.size(); i++) {
                 z3::func_decl func = model[i];
-                std::cout << func.name() << " = " << model.get_const_interp(func) << std::endl;
-                m->symbolic_concrete_values[func.name().str()].value.uint64 = model.get_const_interp(func).get_numeral_uint64();
+                std::cout << func.name() << " = "
+                          << model.get_const_interp(func) << std::endl;
+                m->symbolic_concrete_values[func.name().str()].value.uint64 =
+                    model.get_const_interp(func).get_numeral_uint64();
             }
         }
 
@@ -505,16 +524,17 @@ int main(int argc, const char *argv[]) {
         std::cout << "Models found:" << std::endl;
         for (size_t i = 0; i < models.size(); i++) {
             std::cout << "- Model #" << i << ":" << std::endl;
-            for (const auto& entry : models[i]) {
-                std::cout << "  " << entry.first << " = " << entry.second.value.int32 << std::endl;
+            for (const auto &entry : models[i]) {
+                std::cout << "  " << entry.first << " = "
+                          << entry.second.value.int32 << std::endl;
             }
         }
 
         nlohmann::json json_models;
         json_models["models"] = std::vector<nlohmann::json>();
-        for (auto & model : models) {
+        for (auto &model : models) {
             nlohmann::json j;
-            for (const auto& entry : model) {
+            for (const auto &entry : model) {
                 j[entry.first] = entry.second.value.int32;
             }
             json_models["models"].push_back(j);

@@ -123,18 +123,16 @@ typedef struct Table {
 } Table;
 
 struct Memory {
-    uint32_t initial = 0;      // initial size (64K pages)
-    uint32_t maximum = 0;      // maximum size (64K pages)
-    uint32_t pages = 0;        // current size (64K pages)
+    uint32_t initial = 0;  // initial size (64K pages)
+    uint32_t maximum = 0;  // maximum size (64K pages)
+    uint32_t pages = 0;    // current size (64K pages)
     std::vector<uint8_t> bytes;
 
     [[nodiscard]] uint8_t read_byte(uint32_t offset) const {
         return bytes[offset];
     }
 
-    void write_byte(uint32_t offset, uint8_t value) {
-        bytes[offset] = value;
-    }
+    void write_byte(uint32_t offset, uint8_t value) { bytes[offset] = value; }
 };
 
 #ifdef EMULATOR
@@ -142,7 +140,8 @@ struct SymbolicMemory {
     z3::expr symbolic_pages;
     std::vector<z3::expr> symbolic_bytes;
 
-    explicit SymbolicMemory(z3::context &ctx) : symbolic_pages(ctx.bv_val(0, 32)) {}
+    explicit SymbolicMemory(z3::context &ctx)
+        : symbolic_pages(ctx.bv_val(0, 32)) {}
 };
 #endif
 
@@ -172,9 +171,9 @@ typedef struct Module {
     uint32_t type_count = 0;  // number of function types
     Type *types = nullptr;    // function types
 
-    uint32_t import_count = 0;    // number of leading imports in functions
-    uint32_t function_count = 0;  // number of function (including imports)
-    std::vector<Block *> functions;   // imported and locally defined functions
+    uint32_t import_count = 0;       // number of leading imports in functions
+    uint32_t function_count = 0;     // number of function (including imports)
+    std::vector<Block *> functions;  // imported and locally defined functions
     std::map<uint8_t *, Block *>
         block_lookup;  // map of module byte position to Blocks
     // same length as byte_count
@@ -182,16 +181,16 @@ typedef struct Module {
     Table table;
 
     Memory memory;
-    uint32_t global_count = 0;      // number of globals
+    uint32_t global_count = 0;        // number of globals
     std::vector<StackValue> globals;  // globals
     // Runtime state
-    uint8_t *pc_ptr = nullptr;     // program counter
-    int sp = -1;                   // operand stack pointer
-    int fp = -1;                   // current frame pointer into stack
-    std::array<StackValue, STACK_SIZE> stack;   // main operand stack
-    int csp = -1;                  // callstack pointer
-    Frame *callstack = nullptr;    // callstack
-    uint32_t *br_table = nullptr;  // br_table branch indexes
+    uint8_t *pc_ptr = nullptr;  // program counter
+    int sp = -1;                // operand stack pointer
+    int fp = -1;                // current frame pointer into stack
+    std::array<StackValue, STACK_SIZE> stack;  // main operand stack
+    int csp = -1;                              // callstack pointer
+    Frame *callstack = nullptr;                // callstack
+    uint32_t *br_table = nullptr;              // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
     int instructions_executed = 0;
@@ -201,10 +200,12 @@ typedef struct Module {
     z3::context ctx;
     z3::expr path_condition = ctx.bool_val(true);
     std::vector<z3::expr> symbolic_globals;  // symbolic globals
-    std::array<std::optional<z3::expr>, STACK_SIZE> symbolic_stack;   // symbolic stack
-    SymbolicMemory symbolic_memory = SymbolicMemory(ctx); // symbolic memory
+    std::array<std::optional<z3::expr>, STACK_SIZE>
+        symbolic_stack;                                    // symbolic stack
+    SymbolicMemory symbolic_memory = SymbolicMemory(ctx);  // symbolic memory
     int symbolic_variable_count = 0;
-    std::unordered_map<std::string, StackValue> symbolic_concrete_values; // concrete values for symbolic variables
+    std::unordered_map<std::string, StackValue>
+        symbolic_concrete_values;  // concrete values for symbolic variables
 
     // Create symbolic state based on concrete state.
     void create_symbolic_state();
