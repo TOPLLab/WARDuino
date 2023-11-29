@@ -440,7 +440,7 @@ int main(int argc, const char *argv[]) {
         int iteration_index = 0;
         std::vector<std::unordered_map<std::string, StackValue>> models;
         while(true) {
-            std::cout << std::endl << "=== CONCOLIC ITERATION " << iteration_index++ << " ===" << std::endl;
+            std::cout << std::endl << "=== CONCOLIC ITERATION " << iteration_index << " ===" << std::endl;
             m->symbolic_variable_count = 0;
             m->path_condition = m->ctx.bool_val(true);
             m->instructions_executed = 0;
@@ -463,6 +463,20 @@ int main(int argc, const char *argv[]) {
                 break;
             }
 
+            if (iteration_index == 0) {
+                z3::solver s(m->ctx);
+                s.add(m->path_condition);
+                s.check();
+                std::cout << "Iteration 0, fixing default values" << std::endl;
+                std::cout << "Model:" << std::endl;
+                z3::model model = s.get_model();
+                for (int i = 0; i < (int) model.size(); i++) {
+                    z3::func_decl func = model[i];
+                    std::cout << func.name() << " = " << model.get_const_interp(func) << std::endl;
+                    m->symbolic_concrete_values[func.name().str()].value.uint64 = model.get_const_interp(func).get_numeral_uint64();
+                }
+            }
+            iteration_index++;
             models.push_back(m->symbolic_concrete_values);
 
             // Start a new concolic iteration by solving !path_condition.
