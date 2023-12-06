@@ -566,6 +566,8 @@ int main(int argc, const char *argv[]) {
             bool success;
             if (!snapshot_messages.empty()) {
                 load_snapshot(snapshot_messages);
+                // Remove any breakpoints that might have been set, we don't want the concolic execution to pause on them.
+                wac->debugger->breakpoints.clear();
                 m->create_symbolic_state();
                 success = wac->interpreter->interpret(m);
             } else {
