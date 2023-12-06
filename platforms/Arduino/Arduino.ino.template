@@ -56,6 +56,10 @@ void loop() {
     disableCore0WDT();
     m = wac->load_module(wasm, wasm_len, {});
 
+    for (uint8_t *choice_point : m->find_choice_points()) {
+        wac->debugger->addBreakpoint(choice_point);
+    }
+
     printf("LOADED \n\n");
     {{PAUSED}}
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);

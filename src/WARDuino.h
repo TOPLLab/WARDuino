@@ -211,6 +211,7 @@ typedef struct Module {
     void create_symbolic_state();
 #endif
     void memory_resize(uint32_t new_pages);
+    std::vector<uint8_t *> find_choice_points() const;
 } Module;
 
 typedef bool (*Primitive)(Module *);

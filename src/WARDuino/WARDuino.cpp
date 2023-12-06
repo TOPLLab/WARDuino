@@ -1074,3 +1074,33 @@ void Module::create_symbolic_state() {
     }
 }
 #endif
+
+std::vector<uint8_t *> Module::find_choice_points() const {
+    std::set<std::string> symbolic_primitives = {
+        "chip_digital_read",
+        "chip_analog_read",
+    };
+    std::vector<uint8_t *> choice_point_pcs;
+    for (size_t i = import_count; i < functions.size(); i++) {
+        Block *func = functions[i];
+        uint8_t *pc = func->start_ptr;
+        while (pc < func->end_ptr) {
+            uint8_t opcode = *pc;
+            uint8_t *instruction_start_pc = pc;
+            if (opcode == 0x10) {
+                pc++;
+                uint32_t fidx = read_LEB_32(&pc);
+                if (fidx < import_count) {
+                    const char *module_name = functions[fidx]->import_module;
+                    const char *field_name = functions[fidx]->import_field;
+                    if (!strcmp(module_name, "env") && symbolic_primitives.find(field_name) != symbolic_primitives.end()) {
+                        choice_point_pcs.push_back(instruction_start_pc);
+                    }
+                }
+                continue;
+            }
+            skip_immediates(&pc);
+        }
+    }
+    return choice_point_pcs;
+}
