@@ -413,6 +413,7 @@ void Debugger::handleSTEP(Module *m, RunningState *program_state) {
 }
 
 void Debugger::handleSTEPOver(Module *m, RunningState *program_state) {
+    this->skipBreakpoint = m->pc_ptr;
     uint8_t const opcode = *m->pc_ptr;
     if (opcode == 0x10) {  // step over direct call
         this->mark = m->pc_ptr + 2;
