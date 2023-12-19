@@ -5,6 +5,9 @@ option(BUILD_ESP "Build for esp" OFF)
 option(BUILD_EMULATOR "Build for emulator" OFF)
 option(BUILD_UNITTEST "Build for testing" OFF)
 
+# Use C++17
+set(CMAKE_CXX_STANDARD 17)
+
 if (ESP_PLATFORM)
     set(BUILD_ESP ON)
 endif ()
@@ -57,9 +60,6 @@ if (BUILD_EMULATOR)
     add_definitions(-DTRACE=0)
     add_definitions(-DWARN=0)
 
-    # Use C++11
-    set(CMAKE_CXX_STANDARD 11)
-
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
         add_compile_options(-g -v -Wall -Wextra -Wunused)
@@ -93,9 +93,6 @@ if (BUILD_UNITTEST)
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
             src/Edward/RFC.cpp)
-
-    # Use C++11
-    set(CMAKE_CXX_STANDARD 11)
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
