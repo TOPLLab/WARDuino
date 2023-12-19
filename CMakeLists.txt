@@ -36,9 +36,12 @@ configure_file(src/config.h.in include/warduino/config.h)
 
 # Build the emulator version of WARDuino
 if (BUILD_EMULATOR)
-    set(EXTERNAL_LIB_HEADERS lib/json/single_include)
+    set(EXTERNAL_LIB_HEADERS lib/json/single_include lib/effects/include)
 
     find_package(Threads REQUIRED)
+    find_package(Boost 1.70 COMPONENTS context REQUIRED)
+
+    link_libraries (Boost::context)
 
     set(SOURCE_FILES
             src/WARDuino/WARDuino.cpp
