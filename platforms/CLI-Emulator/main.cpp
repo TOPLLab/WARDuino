@@ -605,12 +605,10 @@ int main(int argc, const char *argv[]) {
 
             std::vector<Z3_ast> from;
             std::vector<Z3_ast> to;
-            for (const auto& e : m->symbolic_concrete_values) {
-                if (e.first == "x_0")
-                    continue;
-
-                from.push_back(m->ctx.bv_const(e.first.c_str(), 32));
-                to.push_back(m->ctx.bv_val(e.second.value.uint64, 32));
+            for (int i = 1; i < m->symbolic_variable_count; i++) {
+                std::string var_name = "x_" + std::to_string(i);
+                from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
+                to.push_back(m->ctx.bv_val(m->symbolic_concrete_values[var_name].value.uint64, 32));
             }
             std::cout << "x_0 only path condition: " << std::endl;
             z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())));
