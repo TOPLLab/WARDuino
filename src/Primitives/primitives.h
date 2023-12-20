@@ -2,6 +2,10 @@
 #define WARDUINO_PRIM_H
 
 #include "../WARDuino.h"
+#ifndef ARDUINO
+#include "cpp-effects.h"
+namespace eff = cpp_effects;
+#endif
 
 /**
  * Find a primitive function by looking it up

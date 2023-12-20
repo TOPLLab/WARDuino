@@ -14,7 +14,7 @@ set(SOURCE_FILES
         ../../src/WARDuino/WARDuino.cpp
         )
 
-idf_component_register(SRCS "main.cpp" ${SOURCE_FILES} INCLUDE_DIRS ../../lib/json/single_include/ REQUIRES driver)
+idf_component_register(SRCS "main.cpp" ${SOURCE_FILES} INCLUDE_DIRS ../../lib/json/single_include/ ../../lib/effects/include/ REQUIRES driver)
 
 add_definitions(-DINFO=0)
 add_definitions(-DDEBUG=0)

@@ -199,6 +199,113 @@ Type NoneToOneU64 = {.form = FUNC,
                      .results = param_I64_arr_len1,
                      .mask = 0x82000};
 
+// ----------------------------------------------------
+
+// Commands
+
+struct Mode : eff::command<> {
+    uint32_t pin;
+    uint32_t mode;
+};
+
+struct Write : eff::command<> {
+    uint32_t pin;
+    uint32_t state;
+};
+
+struct Read : eff::command<uint32_t> {
+    uint32_t pin;
+};
+
+// Effect Handler
+
+class DigitalPin : public eff::handler<uint32_t, uint32_t, Mode, Write, Read> {
+   public:
+    DigitalPin() = default;
+
+   private:
+    std::map<uint32_t, uint32_t> state;
+
+    uint32_t handle_command(Mode m,
+                            eff::resumption<uint32_t()> resume) override {
+        debug("EMU: chip_pin_mode(%u,%u) \n", m.pin, m.mode);
+        return std::move(resume).tail_resume();
+    }
+
+    uint32_t handle_command(Write w,
+                            eff::resumption<uint32_t()> resume) override {
+        debug("EMU: chip_pin_write(%u,%u) \n", w.pin, w.state);
+        state.emplace(w.pin, w.state);
+        return std::move(resume).tail_resume();
+    }
+
+    uint32_t handle_command(
+        Read r, eff::resumption<uint32_t(uint32_t)> resume) override {
+        debug("EMU: chip_pin_read(%u) \n", r.pin);
+        return std::move(resume).tail_resume(state.at(r.pin));
+    }
+
+    uint32_t handle_return(uint32_t v) override { return v; }
+};
+
+// Wrapper functions
+
+void mode(uint32_t pin, uint32_t mode) {
+    eff::invoke_command(Mode{{}, pin, mode});
+}
+
+void write(uint32_t pin, uint32_t state) {
+    eff::invoke_command(Write{{}, pin, state});
+}
+
+uint32_t read(uint32_t pin) { eff::invoke_command(Read{{}, pin}); }
+
+// Primitives using effect handlers
+
+def_prim(chip_pin_mode, twoToNoneU32) {
+    debug("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
+    pop_args(2);
+    return true;
+}
+
+def_prim(chip_digital_write, twoToNoneU32) {
+    eff::handle<DigitalPin>([pin = arg1.uint32, state = arg0.uint32] {
+        write(pin, state);
+        return 0;
+    });
+    pop_args(2);
+    return true;
+}
+
+def_prim(chip_digital_read, oneToOneU32) {
+    uint32_t const result =
+        eff::handle<DigitalPin>([pin = arg0.uint32] { return read(pin); });
+    pop_args(1);
+    pushUInt32(result);
+    return true;
+}
+
+// ---
+
+// Effect handler for proxing
+
+class ProxyDigitalPin : public DigitalPin {
+   public:
+    ProxyDigitalPin() = default;
+
+   private:
+    std::map<uint32_t, uint32_t> state;
+
+    uint32_t handle_command(Write w,
+                            eff::resumption<uint32_t()> resume) override {
+        debug("EMU: chip_pin_write(%u,%u) \n", w.pin, w.state);
+        state.emplace(w.pin, w.state);
+        return std::move(resume).tail_resume();
+    }
+};
+
+// ----------------------------------------------------
+
 def_prim(init_pixels, NoneToNoneU32) {
     printf("init_pixels \n");
     return true;
@@ -363,25 +470,6 @@ def_prim(http_post, tenToOneU32) {
 
     pop_args(10);
     pushInt32(response);
-    return true;
-}
-
-def_prim(chip_pin_mode, twoToNoneU32) {
-    debug("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
-    pop_args(2);
-    return true;
-}
-
-def_prim(chip_digital_write, twoToNoneU32) {
-    debug("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
-    pop_args(2);
-    return true;
-}
-
-def_prim(chip_digital_read, oneToOneU32) {
-    uint8_t pin = arg0.uint32;
-    pop_args(1);
-    pushUInt32(1);  // HIGH
     return true;
 }
 
