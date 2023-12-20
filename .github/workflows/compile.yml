@@ -36,9 +36,17 @@ jobs:
             - name: Create build folder
               run: mkdir build-emu
 
+            - name: Install boost
+              uses: MarkusJx/install-boost@v2.4.4
+              id: install-boost
+              with:
+                boost_version: 1.74.0
+
             - name: Build WARDuino CLI
               run: cmake .. -D BUILD_EMULATOR=ON ; cmake --build .
               working-directory: build-emu
+              env:
+                BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
 
     compile-with-arduino:
         name: (Arduino) Compile on ${{matrix.board.platform-name}}
