@@ -27,7 +27,10 @@
 #include "driver/gpio.h"
 #include "primitives.h"
 
-#define ALL_PRIMITIVES 9
+#define NUM_PRIMITIVES 0
+#define NUM_PRIMITIVES_ARDUINO 9
+
+#define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -227,7 +230,6 @@ def_prim(chip_digital_read, oneToOneU32) {
     return true;
 }
 
-
 // Timing primitives
 
 unsigned long get_time(int n) {
@@ -273,8 +275,6 @@ def_prim(print_string, twoToNoneU32) {
     pop_args(2);
     return true;
 }
-
-
 
 //------------------------------------------------------
 // Installing all the primitives

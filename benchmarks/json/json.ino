@@ -38,11 +38,10 @@ void loop() {
     Serial.flush();
 
     // only execute ones
-    Module *m = wac->load_module(bench_wasm, bench_wasm_len, {});
+    Module* m = wac->load_module(bench_wasm, bench_wasm_len, {});
     wac->run_module(m);
     wac->unload_module(m);
 
     Serial.println("END");
     Serial.flush();
-
 }
