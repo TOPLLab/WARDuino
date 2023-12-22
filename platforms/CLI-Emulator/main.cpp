@@ -375,6 +375,179 @@ struct ConcolicModel {
         : model(std::move(model)), path_condition(std::move(path_condition)) {}
 };
 
+void run_concolic(const std::vector<std::string>& snapshot_messages) {
+    wac->interpreter = new ConcolicInterpreter();
+    // Has a big impact on performance, for example if you have a simple program
+    // with a loop that contains an if statement and, you run the loop 30 times
+    // then you have 2^30 possible branching paths. You can take the if branch
+    // in the first loop, not take it in the second, and so on.
+    wac->max_instructions = 50;
+
+    z3::expr global_condition = m->ctx.bool_val(true);
+    int iteration_index = 0;
+    std::vector<std::unordered_map<std::string, StackValue>> models;
+    std::vector<ConcolicModel> x0_models;
+    while (true) {
+        std::cout << std::endl
+                  << "=== CONCOLIC ITERATION " << iteration_index
+                  << " ===" << std::endl;
+        m->symbolic_variable_count = 0;
+        m->path_condition = m->ctx.bool_val(true);
+        m->instructions_executed = 0;
+
+        bool success;
+        if (!snapshot_messages.empty()) {
+            load_snapshot(snapshot_messages);
+            // Remove any breakpoints that might have been set, we don't want the concolic execution to pause on them.
+            wac->debugger->breakpoints.clear();
+            m->create_symbolic_state();
+            success = wac->interpreter->interpret(m);
+        } else {
+            success = wac->run_module(m);
+        }
+
+        if (!success) {
+            std::cout << "Trap: " << m->exception << std::endl;
+            std::cout << "Model that caused issue:" << std::endl;
+            for (const auto &entry : m->symbolic_concrete_values) {
+                std::cout << "  " << entry.first << " = "
+                          << entry.second.value.int32 << std::endl;
+            }
+            break;
+        }
+
+        if (iteration_index == 0) {
+            z3::solver s(m->ctx);
+            s.add(m->path_condition);
+            s.check();
+            std::cout << "Iteration 0, fixing default values" << std::endl;
+            std::cout << "Model:" << std::endl;
+            z3::model model = s.get_model();
+            for (int i = 0; i < (int)model.size(); i++) {
+                z3::func_decl func = model[i];
+                std::cout << func.name() << " = "
+                          << model.get_const_interp(func) << std::endl;
+                m->symbolic_concrete_values[func.name().str()]
+                    .value.uint64 =
+                    model.get_const_interp(func).get_numeral_uint64();
+            }
+        }
+        iteration_index++;
+        models.push_back(m->symbolic_concrete_values);
+
+        std::vector<Z3_ast> from;
+        std::vector<Z3_ast> to;
+        for (int i = 1; i < m->symbolic_variable_count; i++) {
+            std::string var_name = "x_" + std::to_string(i);
+            from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
+            to.push_back(m->ctx.bv_val(m->symbolic_concrete_values[var_name].value.uint64, 32));
+        }
+        std::cout << "x_0 only path condition: " << std::endl;
+        z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())));
+        z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())).simplify());
+        z3_pretty_println(m->path_condition);
+        z3::expr x0_only_path_condition = z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())).simplify();
+        bool already_exists = std::find_if(x0_models.begin(), x0_models.end(), [x0_only_path_condition](ConcolicModel model) {
+                                  z3::solver s(m->ctx);
+                                  z3_pretty_println(model.path_condition == x0_only_path_condition);
+                                  //s.add(model.path_condition == x0_only_path_condition);
+                                  //s.add(z3::implies(model.path_condition, x0_only_path_condition) && z3::implies(x0_only_path_condition, model.path_condition));
+                                  //s.add(model.path_condition && x0_only_path_condition); // TODO: Incorrect, how does this work with overlap?
+                                  s.add(z3::forall(m->ctx.bv_const("x_0", 32), model.path_condition == x0_only_path_condition));
+                                  std::cout << s.check() << std::endl;
+                                  return s.check() == z3::sat;
+                              }) != x0_models.end();
+        if (!already_exists) {
+            x0_models.emplace_back(
+                m->symbolic_concrete_values,
+                z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())).simplify()
+            );
+        }
+
+        // Start a new concolic iteration by solving !path_condition.
+        // TODO: When should I use simplify? Does the solver automatically
+        // simplify things so I can just let it handle that? Maybe I should
+        // only use simplify when building up expressions during symbolic
+        // execution?
+        std::cout << "Execution finished, path condition = "
+                  << m->path_condition.simplify() << std::endl;
+        std::cout << "PC = ";
+        z3_pretty_print(m->path_condition);
+        std::cout << std::endl;
+        z3::solver s(m->ctx);
+        std::cout << "!path_condition = " << !m->path_condition
+                  << std::endl;
+        std::cout << "!path_condition (simplified) = "
+                  << (!m->path_condition).simplify() << std::endl;
+        // s.add(!m->path_condition);
+        global_condition = global_condition &&
+                           !m->path_condition;  // Not this path and also
+                                                // not the previous paths
+        std::cout << "GPC = ";
+        z3_pretty_print(global_condition);
+        std::cout << std::endl;
+        std::cout << global_condition << std::endl;
+        s.add(global_condition);
+        if (s.check() == z3::unsat) {
+            std::cout << "Explored all paths!" << std::endl;
+            break;
+        }
+        std::cout << "Solve !path_condition:" << std::endl
+                  << s.get_model() << std::endl;
+
+        std::cout << "Model:" << std::endl;
+        z3::model model = s.get_model();
+        /*std::vector<Z3_ast> from;
+        std::vector<Z3_ast> to;*/
+        for (int i = 0; i < (int)model.size(); i++) {
+            z3::func_decl func = model[i];
+            std::cout << func.name() << " = "
+                      << model.get_const_interp(func) << std::endl;
+            m->symbolic_concrete_values[func.name().str()].value.uint64 =
+                model.get_const_interp(func).get_numeral_uint64();
+
+            /*if (func.name().str() != "x_0") {
+                from.push_back(m->ctx.bv_const(func.name().str().c_str(), 32));
+                to.push_back(model.get_const_interp(func));
+            }*/
+        }
+        /*std::cout << "x_0 only path condition: " << std::endl;
+        z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())));
+        z3_pretty_println(m->path_condition);*/
+    }
+
+    std::cout << std::endl << "=== FINISHED ===" << std::endl;
+    std::cout << "Models found:" << std::endl;
+    for (size_t i = 0; i < models.size(); i++) {
+        std::cout << "- Model #" << i << ":" << std::endl;
+        for (const auto &entry : models[i]) {
+            std::cout << "  " << entry.first << " = "
+                      << entry.second.value.int32 << std::endl;
+        }
+    }
+
+    std::cout << "Models found:" << std::endl;
+    for (size_t i = 0; i < x0_models.size(); i++) {
+        std::cout << "- Model #" << i << ":" << std::endl;
+        z3_pretty_println(x0_models[i].path_condition);
+        for (const auto &entry : x0_models[i].model) {
+            std::cout << "  " << entry.first << " = "
+                      << entry.second.value.int32 << std::endl;
+        }
+    }
+
+    nlohmann::json json_models;
+    json_models["models"] = std::vector<nlohmann::json>();
+    for (auto &model : x0_models) {
+        nlohmann::json j;
+        for (const auto &entry : model.model) {
+            j[entry.first] = entry.second.value.int32;
+        }
+        json_models["models"].push_back(j);
+    }
+    std::cout << json_models << std::endl;
+}
+
 int main(int argc, const char *argv[]) {
     ARGV_SHIFT();  // Skip command name
 
@@ -394,12 +567,6 @@ int main(int argc, const char *argv[]) {
     const char *current_msg = nullptr;
     std::vector<std::string> snapshot_messages;
 
-    wac->interpreter = new ConcolicInterpreter();
-    // Has a big impact on performance, for example if you have a simple program
-    // with a loop that contains an if statement and, you run the loop 30 times
-    // then you have 2^30 possible branching paths. You can take the if branch
-    // in the first loop, not take it in the second, and so on.
-    wac->max_instructions = 50;
     if (argc > 0 && argv[0][0] != '-') {
         ARGV_GET(file_name);
 
@@ -543,177 +710,24 @@ int main(int argc, const char *argv[]) {
         }
 
         // Run Wasm module
-        dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
-        /*if (fname != nullptr) {
-            uint32_t fidx = wac->get_export_fidx(m, fname);
-            wac->invoke(m, fidx, arguments.size(), &arguments[0]);
-        } else {
-            wac->run_module(m);
-        }*/
+        if (strcmp(mode, "concolic") == 0) {
+            run_concolic(snapshot_messages);
+        }
+        else {
+            // TODO: Add option to calculate the choice points and add them as breakpoints from the remote debugger once
+            // the user starts debugging instead of always adding them even when not debugging.
+            for (uint8_t *choice_point : m->find_choice_points()) {
+                wac->debugger->addBreakpoint(choice_point);
+            }
 
-        z3::expr global_condition = m->ctx.bool_val(true);
-        int iteration_index = 0;
-        std::vector<std::unordered_map<std::string, StackValue>> models;
-        std::vector<ConcolicModel> x0_models;
-        while (true) {
-            std::cout << std::endl
-                      << "=== CONCOLIC ITERATION " << iteration_index
-                      << " ===" << std::endl;
-            m->symbolic_variable_count = 0;
-            m->path_condition = m->ctx.bool_val(true);
-            m->instructions_executed = 0;
-
-            bool success;
-            if (!snapshot_messages.empty()) {
-                load_snapshot(snapshot_messages);
-                // Remove any breakpoints that might have been set, we don't want the concolic execution to pause on them.
-                wac->debugger->breakpoints.clear();
-                m->create_symbolic_state();
-                success = wac->interpreter->interpret(m);
+            dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
+            if (fname != nullptr) {
+                uint32_t fidx = wac->get_export_fidx(m, fname);
+                wac->invoke(m, fidx, arguments.size(), &arguments[0]);
             } else {
-                success = wac->run_module(m);
-            }
-
-            if (!success) {
-                std::cout << "Trap: " << m->exception << std::endl;
-                std::cout << "Model that caused issue:" << std::endl;
-                for (const auto &entry : m->symbolic_concrete_values) {
-                    std::cout << "  " << entry.first << " = "
-                              << entry.second.value.int32 << std::endl;
-                }
-                break;
-            }
-
-            if (iteration_index == 0) {
-                z3::solver s(m->ctx);
-                s.add(m->path_condition);
-                s.check();
-                std::cout << "Iteration 0, fixing default values" << std::endl;
-                std::cout << "Model:" << std::endl;
-                z3::model model = s.get_model();
-                for (int i = 0; i < (int)model.size(); i++) {
-                    z3::func_decl func = model[i];
-                    std::cout << func.name() << " = "
-                              << model.get_const_interp(func) << std::endl;
-                    m->symbolic_concrete_values[func.name().str()]
-                        .value.uint64 =
-                        model.get_const_interp(func).get_numeral_uint64();
-                }
-            }
-            iteration_index++;
-            models.push_back(m->symbolic_concrete_values);
-
-            std::vector<Z3_ast> from;
-            std::vector<Z3_ast> to;
-            for (int i = 1; i < m->symbolic_variable_count; i++) {
-                std::string var_name = "x_" + std::to_string(i);
-                from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
-                to.push_back(m->ctx.bv_val(m->symbolic_concrete_values[var_name].value.uint64, 32));
-            }
-            std::cout << "x_0 only path condition: " << std::endl;
-            z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())));
-            z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())).simplify());
-            z3_pretty_println(m->path_condition);
-            z3::expr x0_only_path_condition = z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())).simplify();
-            bool already_exists = std::find_if(x0_models.begin(), x0_models.end(), [x0_only_path_condition](ConcolicModel model) {
-                z3::solver s(m->ctx);
-                z3_pretty_println(model.path_condition == x0_only_path_condition);
-                //s.add(model.path_condition == x0_only_path_condition);
-                //s.add(z3::implies(model.path_condition, x0_only_path_condition) && z3::implies(x0_only_path_condition, model.path_condition));
-                //s.add(model.path_condition && x0_only_path_condition); // TODO: Incorrect, how does this work with overlap?
-                s.add(z3::forall(m->ctx.bv_const("x_0", 32), model.path_condition == x0_only_path_condition));
-                std::cout << s.check() << std::endl;
-                return s.check() == z3::sat;
-            }) != x0_models.end();
-            if (!already_exists) {
-                x0_models.emplace_back(
-                    m->symbolic_concrete_values,
-                    z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())).simplify()
-                );
-            }
-
-            // Start a new concolic iteration by solving !path_condition.
-            // TODO: When should I use simplify? Does the solver automatically
-            // simplify things so I can just let it handle that? Maybe I should
-            // only use simplify when building up expressions during symbolic
-            // execution?
-            std::cout << "Execution finished, path condition = "
-                      << m->path_condition.simplify() << std::endl;
-            std::cout << "PC = ";
-            z3_pretty_print(m->path_condition);
-            std::cout << std::endl;
-            z3::solver s(m->ctx);
-            std::cout << "!path_condition = " << !m->path_condition
-                      << std::endl;
-            std::cout << "!path_condition (simplified) = "
-                      << (!m->path_condition).simplify() << std::endl;
-            // s.add(!m->path_condition);
-            global_condition = global_condition &&
-                               !m->path_condition;  // Not this path and also
-                                                    // not the previous paths
-            std::cout << "GPC = ";
-            z3_pretty_print(global_condition);
-            std::cout << std::endl;
-            std::cout << global_condition << std::endl;
-            s.add(global_condition);
-            if (s.check() == z3::unsat) {
-                std::cout << "Explored all paths!" << std::endl;
-                break;
-            }
-            std::cout << "Solve !path_condition:" << std::endl
-                      << s.get_model() << std::endl;
-
-            std::cout << "Model:" << std::endl;
-            z3::model model = s.get_model();
-            /*std::vector<Z3_ast> from;
-            std::vector<Z3_ast> to;*/
-            for (int i = 0; i < (int)model.size(); i++) {
-                z3::func_decl func = model[i];
-                std::cout << func.name() << " = "
-                          << model.get_const_interp(func) << std::endl;
-                m->symbolic_concrete_values[func.name().str()].value.uint64 =
-                    model.get_const_interp(func).get_numeral_uint64();
-
-                /*if (func.name().str() != "x_0") {
-                    from.push_back(m->ctx.bv_const(func.name().str().c_str(), 32));
-                    to.push_back(model.get_const_interp(func));
-                }*/
-            }
-            /*std::cout << "x_0 only path condition: " << std::endl;
-            z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())));
-            z3_pretty_println(m->path_condition);*/
-        }
-
-        std::cout << std::endl << "=== FINISHED ===" << std::endl;
-        std::cout << "Models found:" << std::endl;
-        for (size_t i = 0; i < models.size(); i++) {
-            std::cout << "- Model #" << i << ":" << std::endl;
-            for (const auto &entry : models[i]) {
-                std::cout << "  " << entry.first << " = "
-                          << entry.second.value.int32 << std::endl;
+                wac->run_module(m);
             }
         }
-
-        std::cout << "Models found:" << std::endl;
-        for (size_t i = 0; i < x0_models.size(); i++) {
-            std::cout << "- Model #" << i << ":" << std::endl;
-            z3_pretty_println(x0_models[i].path_condition);
-            for (const auto &entry : x0_models[i].model) {
-                std::cout << "  " << entry.first << " = "
-                          << entry.second.value.int32 << std::endl;
-            }
-        }
-
-        nlohmann::json json_models;
-        json_models["models"] = std::vector<nlohmann::json>();
-        for (auto &model : x0_models) {
-            nlohmann::json j;
-            for (const auto &entry : model.model) {
-                j[entry.first] = entry.second.value.int32;
-            }
-            json_models["models"].push_back(j);
-        }
-        std::cout << json_models << std::endl;
 
         wac->unload_module(m);
         wac->debugger->stop();
