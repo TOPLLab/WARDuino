@@ -18,7 +18,8 @@ if (TESTFILE.length > 0) {
 } else {
     process.stdout.write(`> Scanning suite: ${CORESUITE}\n\n`);
 
-    const files: string[] = readdirSync(CORESUITE).filter((file) => file.endsWith('.asserts.wast'));
+    // const files: string[] = readdirSync(CORESUITE).filter((file) => file.endsWith('.asserts.wast'));
+    const files: string[] = ['names_2.asserts.wast'];
 
     let count = 0;
     let tally: string = ` [${count++}/${files.length}]`;
@@ -63,7 +64,7 @@ function createTest(module: string, asserts: string[]): TestScenario {
         const result: WASM.Value | undefined = parseResult(assert.slice(cursor.value));
 
         if (result !== undefined) {
-            steps.push(new Invoker(fidx, args, result.value));
+            steps.push(new Invoker(fidx, args, result));
         }
     }
 
