@@ -3,12 +3,13 @@
 import {
     Behaviour,
     Description,
-    EmulatorBridge,
+    EmulatorSpecification,
     Expectation,
     Expected,
     Framework,
     getValue,
-    Instruction,
+    Kind,
+    Message,
     Step,
     TestScenario
 } from 'latch';
@@ -24,10 +25,10 @@ const EXAMPLES: string = 'examples/';
 
 const framework = Framework.getImplementation();
 
-framework.platform(new EmulatorBridge(EMULATOR));
-//framework.platform(new HardwareBridge(ARDUINO), new DependenceScheduler(), true);
+framework.suite('Integration tests: Debugger'); // must be called first
 
-framework.suite('Integration tests: Debugger');
+framework.testee('emulator [:8500]', new EmulatorSpecification(8500));
+
 
 const expectDUMP: Expectation[] = [
     {'pc': {kind: 'description', value: Description.defined} as Expected<string>},
@@ -53,7 +54,7 @@ const expectDUMPLocals: Expectation[] = [
 
 const DUMP: Step = {
     title: 'Send DUMP command',
-    instruction: Instruction.dump,
+    instruction: {kind: Kind.Request, value: Message.dump},
     expected: expectDUMP
 };
 
@@ -70,7 +71,7 @@ const dumpLocalsTest: TestScenario = {
     program: `${EXAMPLES}blink.wast`,
     steps: [{
         title: 'Send DUMPLocals command',
-        instruction: Instruction.dumpLocals,
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
         expected: expectDUMPLocals
     }]
 };
@@ -82,7 +83,7 @@ const dumpFullTest: TestScenario = {
     program: `${EXAMPLES}blink.wast`,
     steps: [{
         title: 'Send DUMPFull command',
-        instruction: Instruction.dumpAll,
+        instruction: {kind: Kind.Request, value: Message.dumpAll},
         expected: expectDUMP.concat([{
             'locals.count': {
                 kind: 'comparison', value: (state: Object, value: number) => {
@@ -101,12 +102,10 @@ const runTest: TestScenario = {
     dependencies: [dumpTest],
     steps: [DUMP, {
         title: 'Send RUN command',
-        instruction: Instruction.run,
-        delay: 100,
-        expectResponse: false
+        instruction: {kind: Kind.Request, value: Message.run},
     }, {
         title: 'CHECK: execution continues',
-        instruction: Instruction.dump,
+        instruction: {kind: Kind.Request, value: Message.dump},
         expected: [{
             'pc': {kind: 'description', value: Description.defined} as Expected<string>
         }, {
@@ -123,21 +122,19 @@ const pauseTest: TestScenario = {
     dependencies: [dumpTest],
     steps: [{
         title: 'Send RUN command',
-        instruction: Instruction.run,
-        expectResponse: false
+        instruction: {kind: Kind.Request, value: Message.run},
     }, {
         title: 'Send PAUSE command',
-        instruction: Instruction.pause,
-        expectResponse: false
+        instruction: {kind: Kind.Request, value: Message.pause},
     }, {
         title: 'Send DUMP command',
-        instruction: Instruction.dump,
+        instruction: {kind: Kind.Request, value: Message.dump},
         expected: [{
             'pc': {kind: 'description', value: Description.defined} as Expected<string>
         }]
     }, {
         title: 'CHECK: execution is stopped',
-        instruction: Instruction.dump,
+        instruction: {kind: Kind.Request, value: Message.dump},
         expected: [{
             'pc': {kind: 'description', value: Description.defined} as Expected<string>
         }, {
@@ -154,15 +151,14 @@ const stepTest: TestScenario = {
     dependencies: [dumpTest],
     steps: [{
         title: 'Send DUMP command',
-        instruction: Instruction.dump,
+        instruction: {kind: Kind.Request, value: Message.dump},
         expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
     }, {
         title: 'Send STEP command',
-        instruction: Instruction.step,
-        expectResponse: false
+        instruction: {kind: Kind.Request, value: Message.step},
     }, {
         title: 'CHECK: execution took one step',
-        instruction: Instruction.dump,
+        instruction: {kind: Kind.Request, value: Message.dump},
         expected: [{'pc': {kind: 'primitive', value: 172} as Expected<number>}]
     }]
 };
@@ -174,49 +170,36 @@ const stepOverTest: TestScenario = {
     program: `${EXAMPLES}call.wast`,
     dependencies: [dumpTest],
     steps: [{
-            title: 'Send DUMP command',
-            instruction: Instruction.dump,
-            expected: [{'pc': {kind: 'primitive', value: 167} as Expected<number>}]
-        }, {
-            title: 'Send STEP OVER command',
-            instruction: Instruction.stepOver,
-            delay: 500,
-            expectResponse: false
-        }, {
-            title: 'CHECK: execution stepped over direct call',
-            instruction: Instruction.dump,
-            expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
-        }, {
-            title: 'Send STEP OVER command',
-            instruction: Instruction.stepOver,
-            expectResponse: false
-        }, {
-            title: 'CHECK: execution took one step',
-            instruction: Instruction.dump,
-            expected: [{'pc': {kind: 'primitive', value: 171} as Expected<number>}]
-        }, {
-            title: 'Send STEP OVER command',
-            instruction: Instruction.stepOver,
-            delay: 500,
-            expectResponse: false
-        }, {
-            title: 'CHECK: execution stepped over indirect call',
-            instruction: Instruction.dump,
-            expected: [{'pc': {kind: 'primitive', value: 174} as Expected<number>}]
-        }]
+        title: 'Send DUMP command',
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: 167} as Expected<number>}]
+    }, {
+        title: 'Send STEP OVER command',
+        instruction: {kind: Kind.Request, value: Message.stepOver},
+    }, {
+        title: 'CHECK: execution stepped over direct call',
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
+    }, {
+        title: 'Send STEP OVER command',
+        instruction: {kind: Kind.Request, value: Message.stepOver}
+    }, {
+        title: 'CHECK: execution took one step',
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: 171} as Expected<number>}]
+    }, {
+        title: 'Send STEP OVER command',
+        instruction: {kind: Kind.Request, value: Message.stepOver}
+    }, {
+        title: 'CHECK: execution stepped over indirect call',
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: 174} as Expected<number>}]
+    }]
 }
 
 framework.test(stepOverTest);
 
 // EDWARD tests with mock proxy
-
-function encodeEvent(topic: string, payload: string): Promise<string> {
-    return Promise.resolve(`{topic: '${topic}', payload: '${payload}'}`);
-}
-
-function ackParser(text: string): Object {
-    return {'ack': text};
-}
 
 const eventNotificationTest: TestScenario = {
     title: 'Test "pushed event" Notification',
@@ -225,9 +208,7 @@ const eventNotificationTest: TestScenario = {
     skip: true,
     steps: [{
         title: 'Push mock event',
-        instruction: Instruction.pushEvent,
-        payload: encodeEvent('interrupt', ''),
-        parser: ackParser,
+        instruction: {kind: Kind.Request, value: Message.pushEvent('interrupt', '')},
         expected: [{
             'ack': {
                 kind: 'comparison',
@@ -246,7 +227,7 @@ const dumpEventsTest: TestScenario = {
     dependencies: [dumpTest],
     steps: [{
         title: 'CHECK: event queue',
-        instruction: Instruction.dumpEvents,
+        instruction: {kind: Kind.Request, value: Message.dumpEvents},
         expected: [{
             'events': {
                 kind: 'comparison',
@@ -265,16 +246,13 @@ const receiveEventTest: TestScenario = {
     dependencies: [dumpTest],
     steps: [{
         title: 'Send PAUSE command',
-        instruction: Instruction.pause,
-        expectResponse: false
+        instruction: {kind: Kind.Request, value: Message.pause},
     }, {
         title: 'Push mock event',
-        instruction: Instruction.pushEvent,
-        payload: encodeEvent('interrupt', ''),
-        expectResponse: false
+        instruction: {kind: Kind.Request, value: Message.pushEvent('interrupt', '')},
     }, {
         title: 'CHECK: event queue',
-        instruction: Instruction.dumpEvents,
+        instruction: {kind: Kind.Request, value: Message.dumpEvents},
         expected: [{
             'events': {
                 kind: 'comparison',
@@ -295,7 +273,7 @@ const dumpCallbackMappingTest: TestScenario = {
     skip: true,
     steps: [{
         title: 'CHECK: callbackmapping',
-        instruction: Instruction.dumpCallbackmapping,
+        instruction: {kind: Kind.Request, value: Message.dumpCallbackmapping},
         expected: [{
             'callbacks': {
                 kind: 'comparison',

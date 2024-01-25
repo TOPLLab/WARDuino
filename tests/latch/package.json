@@ -7,7 +7,7 @@
     "spectest": "latch ./src/spec.test.ts"
   },
   "devDependencies": {
-    "latch": "file:./latch-0.0.1.tgz",
+    "latch": "file:./latch-0.2.0.tgz",
     "mqtt": "^4.3.7",
     "serialport": "^10.4.0",
     "typescript": "^4.5.5"
