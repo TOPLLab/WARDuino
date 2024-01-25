@@ -18,8 +18,8 @@ if (TESTFILE.length > 0) {
 } else {
     process.stdout.write(`> Scanning suite: ${CORESUITE}\n\n`);
 
-    // const files: string[] = readdirSync(CORESUITE).filter((file) => file.endsWith('.asserts.wast'));
-    const files: string[] = ['names_2.asserts.wast'];
+    const files: string[] = readdirSync(CORESUITE).filter((file) => file.endsWith('.asserts.wast'));
+    //const files: string[] = ['names_2.asserts.wast'];
 
     let count = 0;
     let tally: string = ` [${count++}/${files.length}]`;
