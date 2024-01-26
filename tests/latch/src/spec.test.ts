@@ -1,4 +1,4 @@
-import {EmulatorSpecification, Framework, Invoker, Message, Step, TestScenario, WASM} from 'latch';
+import {EmulatorSpecification, Framework, Invoker, OutputStyle, Step, TestScenario, WASM} from 'latch';
 import {readdirSync} from 'fs';
 import {basename} from 'path';
 import {find, parseArguments, parseAsserts, parseResult} from "./util/spec.util";
@@ -16,6 +16,7 @@ if (TESTFILE.length > 0) {
     const asserts: string[] = parseAsserts(CORESUITE + TESTFILE);
     tests.push(createTest(CORESUITE + module, asserts));
 } else {
+    console.log(`::group::converting ${CORESUITE}`);
     process.stdout.write(`> Scanning suite: ${CORESUITE}\n\n`);
 
     const files: string[] = readdirSync(CORESUITE).filter((file) => file.endsWith('.asserts.wast'));
@@ -38,12 +39,14 @@ if (TESTFILE.length > 0) {
 
     process.stdout.write('\n\n> Starting framework (this may take a while)\n\n');
 
+    console.log('::endgroup::');
 
 }
 
 // run tests
 
 const framework = Framework.getImplementation();
+framework.style(OutputStyle.github);
 
 framework.suite('Specification test suite for WebAssembly');
 framework.testee('emulator [:8500]', new EmulatorSpecification(8500));
