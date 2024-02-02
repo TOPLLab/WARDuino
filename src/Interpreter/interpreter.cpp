@@ -123,10 +123,10 @@ bool proxy_call(Module *m, uint32_t fidx) {
         rfc = new RFC(fidx, type);
     }
 
-    if (!supervisor->call(rfc)) {
+    /*if (!supervisor->call(rfc)) {
         dbg_info(": FAILED TO SEND\n", fidx);
         return false;
-    }
+    }*/
 
     if (!rfc->success) {
         // TODO exception bugger might be too small and msg not null terminated?
@@ -1994,10 +1994,13 @@ bool Interpreter::interpret(Module *m, bool waiting) {
             m->warduino->program_state == PROXYhalt) {
             // wait until new debug messages arrive
             if (m->warduino->program_state == WARDUINOpause) {
-                std::unique_lock<std::mutex> lock(
+                /*std::unique_lock<std::mutex> lock(
                     m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(
-                    lock, [m] { return m->warduino->debugger->freshMessages; });
+                    lock, [m] { return m->warduino->debugger->freshMessages; });*/
+                zephyr::lock_guard lock(m->warduino->debugger->messageQueueMutex);
+                m->warduino->debugger->messageQueueConditionVariable.wait(
+                    m->warduino->debugger->messageQueueMutex, [m] { return m->warduino->debugger->freshMessages; });
             }
             continue;
         }
@@ -2246,14 +2249,14 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         }
     }
 
-    if (m->warduino->program_state == PROXYrun) {
+    /*if (m->warduino->program_state == PROXYrun) {
         dbg_info("Trap was thrown during proxy call.\n");
         RFC *rfc = m->warduino->debugger->topProxyCall();
         rfc->success = false;
         rfc->exception = strdup(exception);
         rfc->exception_size = strlen(exception);
         m->warduino->debugger->sendProxyCallResult(m);
-    }
+    }*/
 
     // Resolve all unhandled callback events
     while (CallbackHandler::resolving_event && CallbackHandler::resolve_event())

@@ -17,7 +17,9 @@
 
 Debugger::Debugger(Channel *duplex) {
     this->channel = duplex;
-    this->supervisor_mutex = new std::mutex();
+    /*this->supervisor_mutex = new std::mutex();
+    this->supervisor_mutex->lock();*/
+    this->supervisor_mutex = new zephyr::mutex();
     this->supervisor_mutex->lock();
 }
 
@@ -58,9 +60,11 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
 }
 
 void Debugger::pushMessage(uint8_t *msg) {
-    std::lock_guard<std::mutex> const lg(messageQueueMutex);
+    //std::lock_guard<std::mutex> const lg(messageQueueMutex);
+    zephyr::lock_guard const lg(messageQueueMutex);
     this->debugMessages.push_back(msg);
     this->freshMessages = !this->debugMessages.empty();
+    //this->messageQueueConditionVariable.notify_one();
     this->messageQueueConditionVariable.notify_one();
 }
 
@@ -115,7 +119,8 @@ void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
 }
 
 uint8_t *Debugger::getDebugMessage() {
-    std::lock_guard<std::mutex> const lg(messageQueueMutex);
+    zephyr::lock_guard const lg(messageQueueMutex);
+    //std::lock_guard<std::mutex> const lg(messageQueueMutex);
     uint8_t *ret = nullptr;
     if (!this->debugMessages.empty()) {
         ret = this->debugMessages.front();
@@ -1208,18 +1213,19 @@ void Debugger::sendProxyCallResult(Module *m) {
 }
 
 bool Debugger::isProxied(uint32_t fidx) const {
-    return this->supervisor != nullptr && this->supervisor->isProxied(fidx);
+    //return this->supervisor != nullptr && this->supervisor->isProxied(fidx);
+    return false;
 }
 
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     uint32_t amount_funcs = read_B32(&interruptData);
     printf("funcs_total %" PRIu32 "\n", amount_funcs);
 
-    m->warduino->debugger->supervisor->unregisterAllProxiedCalls();
+    //m->warduino->debugger->supervisor->unregisterAllProxiedCalls();
     for (uint32_t i = 0; i < amount_funcs; i++) {
         uint32_t fidx = read_B32(&interruptData);
         printf("registering fid=%" PRIu32 "\n", fidx);
-        m->warduino->debugger->supervisor->registerProxiedCall(fidx);
+        //m->warduino->debugger->supervisor->registerProxiedCall(fidx);
     }
 
     this->channel->write("done!\n");
@@ -1228,7 +1234,7 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
 void Debugger::startProxySupervisor(Channel *socket) {
     this->connected_to_proxy = true;
 
-    this->supervisor = new ProxySupervisor(socket, this->supervisor_mutex);
+    //this->supervisor = new ProxySupervisor(socket, this->supervisor_mutex);
     printf("Connected to proxy.\n");
 }
 
@@ -1240,7 +1246,7 @@ void Debugger::disconnect_proxy() {
     }
     // TODO close file
     this->supervisor_mutex->unlock();
-    this->supervisor->thread.join();
+    //this->supervisor->thread.join();
 }
 
 void Debugger::updateCallbackmapping(Module *m, const char *data) {

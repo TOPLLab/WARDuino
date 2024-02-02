@@ -1,0 +1,5 @@
+build
+upload.h
+*.wasm
+*.wat
+.cache
