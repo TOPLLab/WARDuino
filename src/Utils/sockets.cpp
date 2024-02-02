@@ -1,18 +1,18 @@
 #include "sockets.h"
 
-#include <netdb.h>
+/*#include <netdb.h>
 #include <netinet/in.h>
-#include <sys/socket.h>
+#include <sys/socket.h>*/
 #include <unistd.h>
 
-#include <csignal>
+//#include <csignal>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
 // Socket Debugger Interface
-void setFileDescriptorOptions(int socket_fd) {
+/*void setFileDescriptorOptions(int socket_fd) {
     int opt = 1;
     if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
         perror("Failed to set socket file descriptor options");
@@ -70,7 +70,7 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
         exit(EXIT_FAILURE);
     }
     return new_socket;
-}
+}*/
 
 Sink::Sink(FILE *out) {
     this->outStream = out;
@@ -80,7 +80,7 @@ Sink::Sink(FILE *out) {
 int Sink::write(const char *fmt, ...) const {
     va_list args;
     va_start(args, fmt);
-    int written = vdprintf(this->outDescriptor, fmt, args);
+    int written = fprintf(this->outStream, fmt, args);
     va_end(args);
     fflush(this->outStream);
     return written;
@@ -94,7 +94,7 @@ ssize_t Duplex::read(void *out, size_t size) {
     return ::read(this->inDescriptor, out, size);
 }
 
-FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) {
+/*FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) {
     this->fd = fileDescriptor;
 }
 
@@ -174,3 +174,4 @@ void WebSocket::close() {
     sendAlarm();  // stop possible blocking accept call
     shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
 }
+*/

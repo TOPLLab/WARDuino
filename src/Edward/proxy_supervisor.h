@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cinttypes>
-#include <csignal>
+//#include <csignal>
 #include <mutex>
 #include <set>
 #include <thread>
@@ -18,7 +18,7 @@
 class ProxySupervisor {
    private:
     Channel *channel;
-    std::mutex *mutex;
+    //std::mutex *mutex;
     std::set<uint32_t> *proxied = new std::set<uint32_t>();
 
     bool hasReplied = false;
@@ -28,9 +28,9 @@ class ProxySupervisor {
     void deserializeRFCResult(RFC *rfc);
 
    public:
-    std::thread thread;
+    //std::thread thread;
 
-    ProxySupervisor(Channel *duplex, std::mutex *mutex);
+    //ProxySupervisor(Channel *duplex, std::mutex *mutex);
 
     void listenToSocket();
 
