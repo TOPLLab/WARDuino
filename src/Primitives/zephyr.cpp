@@ -296,12 +296,6 @@ def_prim(motor_test, oneToNoneU32) {
     return true;
 }
 
-static struct gpio_callback encoder_cb_data;
-
-void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-	printk("Rising edge detected on encoder\n");
-}
-
 def_prim(drive_motor_for_ms, twoToNoneU32) {
     int32_t speed = (int32_t) arg0.uint32;
     printf("drive_motor_for_ms(%d, %d)\n", speed, arg1.uint32);
@@ -313,22 +307,107 @@ def_prim(drive_motor_for_ms, twoToNoneU32) {
     return true;
 }
 
+class MotorEncoder {
+    static void encoder_pin5_edge_rising(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
+        MotorEncoder *encoder = CONTAINER_OF(cb, MotorEncoder, pin5_encoder_cb_data);
+        if (!encoder->expect_pin5_int)
+            return;
+        
+        if (!gpio_pin_get_raw(encoder->pin6_encoder_spec.port, encoder->pin6_encoder_spec.pin)) {
+            encoder->angle++;
+        }
+        else {
+            encoder->angle--;
+        }
+        printk("Rising edge detected on encoder pin5, angle %d\n", encoder->angle);
+        encoder->expect_pin5_int = false;
+        encoder->expect_pin6_int = true;
+    }
+    
+    static void encoder_pin6_edge_rising(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
+        MotorEncoder *encoder = CONTAINER_OF(cb, MotorEncoder, pin6_encoder_cb_data);
+        if (!encoder->expect_pin6_int)
+            return;
+        
+        if (gpio_pin_get_raw(encoder->pin5_encoder_spec.port, encoder->pin5_encoder_spec.pin)) {
+            encoder->angle++;
+        }
+        else {
+            encoder->angle--;
+        }
+        printk("Rising edge detected on encoder pin6, angle %d\n", encoder->angle);
+        encoder->expect_pin6_int = false;
+        encoder->expect_pin5_int = true;
+    }
+    
+public:
+    MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_encoder_spec) : 
+        pin5_encoder_spec(pin5_encoder_spec), 
+        pin6_encoder_spec(pin6_encoder_spec),
+        angle(0),
+        target_angle(0),
+        expect_pin5_int(true),
+        expect_pin6_int(true)
+    {
+        gpio_pin_interrupt_configure_dt(&pin5_encoder_spec, GPIO_INT_EDGE_RISING);    
+        gpio_init_callback(&pin5_encoder_cb_data, MotorEncoder::encoder_pin5_edge_rising, BIT(pin5_encoder_spec.pin));
+        gpio_add_callback(pin5_encoder_spec.port, &pin5_encoder_cb_data);
+        
+        gpio_pin_interrupt_configure_dt(&pin6_encoder_spec, GPIO_INT_EDGE_RISING);
+        gpio_init_callback(&pin6_encoder_cb_data, MotorEncoder::encoder_pin6_edge_rising, BIT(pin6_encoder_spec.pin));
+        gpio_add_callback(pin6_encoder_spec.port, &pin6_encoder_cb_data);
+    }
+    
+    ~MotorEncoder() {
+        gpio_remove_callback(pin5_encoder_spec.port, &pin5_encoder_cb_data);
+        gpio_remove_callback(pin6_encoder_spec.port, &pin6_encoder_cb_data);
+    }
+    
+    int get_angle() {
+        return angle;
+    }
+    
+    void reset_angle() {
+        angle = 0;
+    }
+    
+    int get_target_angle() {
+        return target_angle;
+    }
+    
+    void set_target_angle(int target_angle) {
+        this->target_angle = target_angle;
+    }
+    
+private:
+    gpio_dt_spec pin5_encoder_spec;
+    gpio_dt_spec pin6_encoder_spec;
+    struct gpio_callback pin5_encoder_cb_data;
+    struct gpio_callback pin6_encoder_cb_data;
+    volatile int angle;
+    int target_angle;
+    bool expect_pin5_int;
+    bool expect_pin6_int;
+};
+
+MotorEncoder encoder(specs[51], specs[50]);
+
 def_prim(drive_motor_degrees, twoToNoneU32) {
     int32_t speed = (int32_t) arg0.uint32;
-    printf("drive_motor_degrees(%d, %d)\n", speed, arg1.uint32);
+    int32_t degrees = (int32_t) arg1.uint32;
+    printf("drive_motor_degrees(%d, %d)\n", speed, degrees);
     
     gpio_dt_spec pin5_encoder_spec = specs[51];
     gpio_dt_spec pin6_encoder_spec = specs[50];
-    uint8_t old_res5 = gpio_pin_get_raw(pin5_encoder_spec.port, pin5_encoder_spec.pin);
-    uint8_t old_res6 = gpio_pin_get_raw(pin6_encoder_spec.port, pin6_encoder_spec.pin);
+    /*uint8_t old_res5 = gpio_pin_get_raw(pin5_encoder_spec.port, pin5_encoder_spec.pin);
+    uint8_t old_res6 = gpio_pin_get_raw(pin6_encoder_spec.port, pin6_encoder_spec.pin);*/
     
-    gpio_pin_interrupt_configure_dt(&pin5_encoder_spec, GPIO_INT_EDGE_RISING);
-    gpio_init_callback(&encoder_cb_data, button_pressed, BIT(pin5_encoder_spec.pin));
-    gpio_add_callback(pin5_encoder_spec.port, &encoder_cb_data);
+    //MotorEncoder encoder(pin5_encoder_spec, pin6_encoder_spec);
+    encoder.set_target_angle(encoder.get_target_angle() + degrees);
     
-    drive_motor(speed / 10000.0f);
+    //drive_motor(speed / 10000.0f);
     
-    int count = 0;
+    /*int count = 0;
     while (count < arg1.uint32) {
         uint8_t res5 = gpio_pin_get_raw(pin5_encoder_spec.port, pin5_encoder_spec.pin);
         //printf("previous = %d, current = %d\n", old_res5, res5);
@@ -344,9 +423,34 @@ def_prim(drive_motor_degrees, twoToNoneU32) {
             count++;
         }
         old_res6 = res6;
+    }*/
+    
+    //while (abs(encoder.get_angle() - start_angle) < arg1.uint32) {}
+    
+    //drive_pwm(1.0f, 1.0f);
+    
+    //k_msleep(50);
+    
+    printk("drift = %d\n", abs(encoder.get_angle() - encoder.get_target_angle()));
+    
+    // Test drift correction:
+    /*drive_motor(-speed / 10000.0f);
+    while (abs(encoder.get_angle() - start_angle) - arg1.uint32 > 0) {}
+    drive_pwm(1.0f, 1.0f);
+    k_msleep(100);
+    printk("drift = %d\n", abs(encoder.get_angle() - start_angle) - arg1.uint32);*/
+    
+    int drift = encoder.get_angle() - encoder.get_target_angle();
+    while (abs(drift) > 0) {
+        int speed_sign = std::signbit(drift) ?  -1 : 1;
+        drive_motor(speed_sign * speed / 10000.0f);
+        while (speed_sign * (encoder.get_angle() - encoder.get_target_angle()) > 0) {}
+        drive_pwm(1.0f, 1.0f);
+        k_msleep(50);
+        drift = encoder.get_angle() - encoder.get_target_angle();
+        printk("drift = %d\n", drift);
     }
     
-    drive_pwm(1.0f, 1.0f);
     pop_args(2);
     return true;
 }
