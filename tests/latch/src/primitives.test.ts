@@ -8,20 +8,21 @@ import {
     Message,
     TestScenario,
     WASM,
-    awaitBreakpoint, PureAction
+    awaitBreakpoint, PureAction, OutputStyle, Suite, Assertable, assertable
 } from 'latch';
 import * as mqtt from 'mqtt';
 import Type = WASM.Type;
 import {Breakpoint} from "latch/dist/types/debug/Breakpoint";
 
 const framework = Framework.getImplementation();
+framework.style(OutputStyle.github);
 
 // TODO disclaimer: file is currently disabled until latch supports AS compilation
 
-framework.suite('Integration tests: basic primitives');
+const basic: Suite = framework.suite('Integration tests: basic primitives');
 
-framework.testee('emulator [:8520]', new EmulatorSpecification(8520));
-framework.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'));
+basic.testee('emulator [:8520]', new EmulatorSpecification(8520));
+basic.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'));
 
 
 const io: TestScenario = {
@@ -59,7 +60,7 @@ const io: TestScenario = {
     }]
 };
 
-framework.test(io);
+basic.test(io);
 
 const interrupts: TestScenario = {
     title: 'Test hardware interrupt primitives',
@@ -94,9 +95,9 @@ const interrupts: TestScenario = {
     }]
 };
 
-framework.test(interrupts);
+basic.test(interrupts);
 
-framework.suite('Integration tests: Wi-Fi and MQTT primitives');
+const comms: Suite = framework.suite('Integration tests: Wi-Fi and MQTT primitives');
 
 function sendMessage(): PureAction<void> {
     return {
@@ -107,6 +108,15 @@ function sendMessage(): PureAction<void> {
             resolve();
         })
     };
+}
+
+function pureAction<T extends Object>(f: () => T): PureAction<T> {
+    return {
+        act: () => new Promise<Assertable<T>>((resolve) => {
+            const result: T = f();
+            resolve(assertable(result));
+        })
+    }
 }
 
 const scenario: TestScenario = { // MQTT test scenario
@@ -131,7 +141,13 @@ const scenario: TestScenario = { // MQTT test scenario
         }]
     }, {
         title: 'Send MQTT message',
-        instruction: {kind: Kind.Action, value: sendMessage()}
+        instruction: {
+            kind: Kind.Action, value: pureAction<void>((): void => {
+                // send mqtt message
+                let client: mqtt.MqttClient = mqtt.connect('mqtt://test.mosquitto.org');
+                client.publish('parrot', 'This is an ex-parrot!');
+            })
+        }
     }, {
         title: 'Await breakpoint hit',
         instruction: {kind: Kind.Action, value: awaitBreakpoint()}
@@ -146,6 +162,18 @@ const scenario: TestScenario = { // MQTT test scenario
     }]
 };
 
-framework.test(scenario);
+interface Message {
+    topic: string
+    payload: string
+}
+export function listen(topic: string): PureAction<Message> {
+    let client: mqtt.MqttClient = mqtt.connect("mqtt://test.mosquitto.org");
 
-// framework.run();
+    return {act: () => new Promise<Assertable<Message>>((resolve) => client.on("message", (_topic: string, payload: Buffer) => {
+            if (topic === _topic) resolve(assertable({topic: topic, payload: payload.toString()}));}))
+    }
+}
+
+comms.test(scenario);
+
+framework.run([]);

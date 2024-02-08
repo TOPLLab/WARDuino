@@ -9,8 +9,8 @@ import {
     Framework,
     getValue,
     Kind,
-    Message,
-    Step,
+    Message, OutputStyle,
+    Step, Suite,
     TestScenario
 } from 'latch';
 
@@ -24,10 +24,11 @@ const EXAMPLES: string = 'examples/';
  */
 
 const framework = Framework.getImplementation();
+framework.style(OutputStyle.github);
 
-framework.suite('Integration tests: Debugger'); // must be called first
+const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
-framework.testee('emulator [:8500]', new EmulatorSpecification(8500));
+integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
 
 
 const expectDUMP: Expectation[] = [
@@ -64,7 +65,7 @@ const dumpTest: TestScenario = {
     steps: [DUMP]
 };
 
-framework.test(dumpTest);
+integration.test(dumpTest);
 
 const dumpLocalsTest: TestScenario = {
     title: 'Test DUMPLocals',
@@ -76,7 +77,7 @@ const dumpLocalsTest: TestScenario = {
     }]
 };
 
-framework.test(dumpLocalsTest);
+integration.test(dumpLocalsTest);
 
 const dumpFullTest: TestScenario = {
     title: 'Test DUMPFull',
@@ -94,7 +95,7 @@ const dumpFullTest: TestScenario = {
     }]
 };
 
-framework.test(dumpFullTest);
+integration.test(dumpFullTest);
 
 const runTest: TestScenario = {
     title: 'Test RUN',
@@ -114,7 +115,7 @@ const runTest: TestScenario = {
     }]
 };
 
-framework.test(runTest);
+integration.test(runTest);
 
 const pauseTest: TestScenario = {
     title: 'Test PAUSE',
@@ -143,7 +144,7 @@ const pauseTest: TestScenario = {
     }]
 };
 
-framework.test(pauseTest);
+integration.test(pauseTest);
 
 const stepTest: TestScenario = {
     title: 'Test STEP',
@@ -163,7 +164,7 @@ const stepTest: TestScenario = {
     }]
 };
 
-framework.test(stepTest);
+integration.test(stepTest);
 
 const stepOverTest: TestScenario = {
     title: 'Test STEP OVER',
@@ -197,7 +198,7 @@ const stepOverTest: TestScenario = {
     }]
 }
 
-framework.test(stepOverTest);
+integration.test(stepOverTest);
 
 // EDWARD tests with mock proxy
 
@@ -219,7 +220,7 @@ const eventNotificationTest: TestScenario = {
     }]
 };
 
-framework.test(eventNotificationTest);
+integration.test(eventNotificationTest);
 
 const dumpEventsTest: TestScenario = {
     title: 'Test DUMPEvents',
@@ -238,7 +239,7 @@ const dumpEventsTest: TestScenario = {
     }]
 };
 
-framework.test(dumpEventsTest);
+integration.test(dumpEventsTest);
 
 const receiveEventTest: TestScenario = {
     title: 'Test Event Transfer (supervisor side)',
@@ -264,7 +265,7 @@ const receiveEventTest: TestScenario = {
     skip: true
 };
 
-framework.test(receiveEventTest);
+integration.test(receiveEventTest);
 
 const dumpCallbackMappingTest: TestScenario = {
     title: 'Test DUMPCallbackmapping',
@@ -284,6 +285,6 @@ const dumpCallbackMappingTest: TestScenario = {
     }]
 };
 
-framework.test(dumpCallbackMappingTest);
+integration.test(dumpCallbackMappingTest);
 
-framework.run();
+framework.run([integration]);

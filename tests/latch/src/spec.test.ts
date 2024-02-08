@@ -1,4 +1,4 @@
-import {EmulatorSpecification, Framework, Invoker, OutputStyle, Step, TestScenario, WASM} from 'latch';
+import {EmulatorSpecification, Framework, invoke, Invoker, OutputStyle, returns, Step, TestScenario, WASM} from 'latch';
 import {readdirSync} from 'fs';
 import {basename} from 'path';
 import {find, parseArguments, parseAsserts, parseResult} from "./util/spec.util";
@@ -6,6 +6,7 @@ import {find, parseArguments, parseAsserts, parseResult} from "./util/spec.util"
 // Parse tests from official suite
 
 export const CORESUITE: string = process.env.CORESUITE ?? 'core/';
+export const TARGET: string = process.env.TARGET ?? 'core-cleaned/';
 
 const TESTFILE: string = process.env.TESTFILE ?? '';
 
@@ -40,7 +41,7 @@ if (TESTFILE.length > 0) {
     process.stdout.write('\n\n> Starting framework (this may take a while)\n\n');
 
     console.log('::endgroup::');
-
+    console.log();
 }
 
 // run tests
@@ -48,12 +49,12 @@ if (TESTFILE.length > 0) {
 const framework = Framework.getImplementation();
 framework.style(OutputStyle.github);
 
-framework.suite('Specification test suite for WebAssembly');
-framework.testee('emulator [:8500]', new EmulatorSpecification(8500));
+const spec = framework.suite('Specification test suite for WebAssembly');
+spec.testee('emulator [:8500]', new EmulatorSpecification(8500));
 // framework.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'));
-framework.tests(tests);
+spec.tests(tests);
 
-framework.run();
+framework.run([spec]);
 
 // Helper function
 
@@ -62,12 +63,16 @@ function createTest(module: string, asserts: string[]): TestScenario {
 
     for (const assert of asserts) {
         const cursor = {value: 0};
-        const fidx: string = find(/invoke "([^"]+)"/, assert);
-        const args: WASM.Value[] = parseArguments(assert.replace(`(invoke "${fidx} "`, ''), cursor);
+        const func: string = find(/invoke "([^"]+)"/, assert);
+        const args: WASM.Value[] = parseArguments(assert.replace(`(invoke "${func} "`, ''), cursor);
         const result: WASM.Value | undefined = parseResult(assert.slice(cursor.value));
 
         if (result !== undefined) {
-            steps.push(new Invoker(fidx, args, result));
+            steps.push({
+                title: assert,
+                instruction: invoke(func, args),
+                expected: returns(result)
+            });
         }
     }
 
