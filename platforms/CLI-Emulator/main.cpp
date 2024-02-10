@@ -146,19 +146,18 @@ WARDuino *wac = WARDuino::instance();
 Module *m;
 
 struct debugger_options {
-    const char *socket;
+    int socket;
     bool no_socket;
 };
 
-void *setupDebuggerCommunication(debugger_options *options) {
+void setupDebuggerCommunication(debugger_options &options) {
     dbg_info("\n=== STARTED DEBUGGER (in separate thread) ===\n");
     // Start debugger
     Channel *duplex;
-    if (options->no_socket) {
+    if (options.no_socket) {
         duplex = new Duplex(stdin, stdout);
     } else {
-        int port = std::stoi(options->socket);
-        duplex = new WebSocket(port);
+        duplex = new WebSocket(options.socket);
     }
 
     wac->debugger->setChannel(duplex);
@@ -391,12 +390,10 @@ int main(int argc, const char *argv[]) {
         // Start debugger (new thread)
         std::thread communication;
         if (!no_debug) {
-            auto *options =
-                (debugger_options *)malloc(sizeof(struct debugger_options));
-            options->no_socket = no_socket;
-            options->socket = socket;
+            debugger_options options = debugger_options();
+            options.no_socket = no_socket;
+            options.socket = std::stoi(socket);
             setupDebuggerCommunication(options);
-            free(options);
 
             communication = std::thread(startDebuggerCommunication);
         }
