@@ -412,7 +412,9 @@ int main(int argc, const char *argv[]) {
         wac->unload_module(m);
         wac->debugger->stop();
 
-        communication.join();
+        if (!no_debug) {
+            communication.join();
+        }
     }
 
     return 0;
