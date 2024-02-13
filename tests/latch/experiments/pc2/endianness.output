@@ -1,0 +1,82 @@
+
+> warduino-testsuite@1.0.0 spectest
+> latch ./src/spec.test.ts
+
+::group::converting /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/endianness/
+> Scanning suite: /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/endianness/
+
+> Building scenarios [0/1] [1/1]
+
+> Starting framework (this may take a while)
+
+::endgroup::
+
+[95m    General Information[0m
+[95m    ===================[0m
+[95m    Platforms  [0m
+[95m    VM commit  4ce14c2[0m
+
+
+::group::[95memulator [:8500]: Specification test suite for WebAssembly%s[0m
+
+::group::[95memulator [:8500]: Test: endianness_0.wast%s[0m
+      [32m[32m✔[39m[0m ((invoke "i32_load16_s" (i32.const -1)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "i32_load16_s" (i32.const -4242)) (i32.const -4242))
+      [32m[32m✔[39m[0m ((invoke "i32_load16_s" (i32.const 42)) (i32.const 42))
+      [32m[32m✔[39m[0m ((invoke "i32_load16_s" (i32.const 0x3210)) (i32.const 0x3210))
+      [32m[32m✔[39m[0m ((invoke "i32_load16_u" (i32.const -1)) (i32.const 0xFFFF))
+      [32m[32m✔[39m[0m ((invoke "i32_load16_u" (i32.const -4242)) (i32.const 61294))
+      [32m[32m✔[39m[0m ((invoke "i32_load16_u" (i32.const 42)) (i32.const 42))
+      [32m[32m✔[39m[0m ((invoke "i32_load16_u" (i32.const 0xCAFE)) (i32.const 0xCAFE))
+      [32m[32m✔[39m[0m ((invoke "i32_load" (i32.const -1)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "i32_load" (i32.const -42424242)) (i32.const -42424242))
+      [32m[32m✔[39m[0m ((invoke "i32_load" (i32.const 42424242)) (i32.const 42424242))
+      [32m[32m✔[39m[0m ((invoke "i32_load" (i32.const 0xABAD1DEA)) (i32.const 0xABAD1DEA))
+      [32m[32m✔[39m[0m ((invoke "i64_load16_s" (i64.const -1)) (i64.const -1))
+      [32m[32m✔[39m[0m ((invoke "i64_load16_s" (i64.const -4242)) (i64.const -4242))
+      [32m[32m✔[39m[0m ((invoke "i64_load16_s" (i64.const 42)) (i64.const 42))
+      [32m[32m✔[39m[0m ((invoke "i64_load16_s" (i64.const 0x3210)) (i64.const 0x3210))
+      [32m[32m✔[39m[0m ((invoke "i64_load16_u" (i64.const -1)) (i64.const 0xFFFF))
+      [32m[32m✔[39m[0m ((invoke "i64_load16_u" (i64.const -4242)) (i64.const 61294))
+      [32m[32m✔[39m[0m ((invoke "i64_load16_u" (i64.const 42)) (i64.const 42))
+      [32m[32m✔[39m[0m ((invoke "i64_load16_u" (i64.const 0xCAFE)) (i64.const 0xCAFE))
+      [32m[32m✔[39m[0m ((invoke "i64_load32_s" (i64.const -1)) (i64.const -1))
+      [32m[32m✔[39m[0m ((invoke "i64_load32_s" (i64.const -42424242)) (i64.const -42424242))
+      [32m[32m✔[39m[0m ((invoke "i64_load32_s" (i64.const 42424242)) (i64.const 42424242))
+      [32m[32m✔[39m[0m ((invoke "i64_load32_s" (i64.const 0x12345678)) (i64.const 0x12345678))
+      [32m[32m✔[39m[0m ((invoke "i64_load32_u" (i64.const -42424242)) (i64.const 4252543054))
+      [32m[32m✔[39m[0m ((invoke "i64_load32_u" (i64.const 42424242)) (i64.const 42424242))
+      [32m[32m✔[39m[0m ((invoke "i64_load" (i64.const -1)) (i64.const -1))
+      [32m[32m✔[39m[0m ((invoke "i64_load" (i64.const -42424242)) (i64.const -42424242))
+      [32m[32m✔[39m[0m ((invoke "i64_load" (i64.const 0xABAD1DEA)) (i64.const 0xABAD1DEA))
+      [32m[32m✔[39m[0m ((invoke "i32_store16" (i32.const -1)) (i32.const 0xFFFF))
+      [32m[32m✔[39m[0m ((invoke "i32_store16" (i32.const -4242)) (i32.const 61294))
+      [32m[32m✔[39m[0m ((invoke "i32_store16" (i32.const 42)) (i32.const 42))
+      [32m[32m✔[39m[0m ((invoke "i32_store16" (i32.const 0xCAFE)) (i32.const 0xCAFE))
+      [32m[32m✔[39m[0m ((invoke "i32_store" (i32.const -1)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "i32_store" (i32.const -4242)) (i32.const -4242))
+      [32m[32m✔[39m[0m ((invoke "i32_store" (i32.const 42424242)) (i32.const 42424242))
+      [32m[32m✔[39m[0m ((invoke "i32_store" (i32.const 0xDEADCAFE)) (i32.const 0xDEADCAFE))
+      [32m[32m✔[39m[0m ((invoke "i64_store16" (i64.const -1)) (i64.const 0xFFFF))
+      [32m[32m✔[39m[0m ((invoke "i64_store16" (i64.const -4242)) (i64.const 61294))
+      [32m[32m✔[39m[0m ((invoke "i64_store16" (i64.const 42)) (i64.const 42))
+      [32m[32m✔[39m[0m ((invoke "i64_store16" (i64.const 0xCAFE)) (i64.const 0xCAFE))
+      [32m[32m✔[39m[0m ((invoke "i64_store32" (i64.const -4242)) (i64.const 4294963054))
+      [32m[32m✔[39m[0m ((invoke "i64_store32" (i64.const 42424242)) (i64.const 42424242))
+      [32m[32m✔[39m[0m ((invoke "i64_store" (i64.const -1)) (i64.const -1))
+      [32m[32m✔[39m[0m ((invoke "i64_store" (i64.const -42424242)) (i64.const -42424242))
+      [32m[32m✔[39m[0m ((invoke "i64_store" (i64.const 0xABAD1DEA)) (i64.const 0xABAD1DEA))
+::endgroup::
+::endgroup::
+::endgroup::
+
+[95m    Test Suite Results[0m
+[95m    ==================
+[0m
+[95m    Scenarios:[0m
+[92m      [0m[32m2 passing[0m[90m (2s)[0m
+[36m      [0m[36m0 skipped[0m
+
+[95m    Actions:[0m
+[92m      [0m[32m46 passing[0m
+

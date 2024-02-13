@@ -1,0 +1,18 @@
+
+> warduino-testsuite@1.0.0 spectest
+> latch ./src/spec.test.ts
+
+::group::converting /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/copy/
+> Scanning suite: /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/copy/
+
+> Building scenarios [0/19] [1/19] [2/19] [3/19] [4/19] [5/19] [6/19] [7/19] [8/19] [9/19] [10/19] [11/19] [12/19] [13/19] [14/19] [15/19] [16/19] [17/19] [18/19] [19/19]
+
+> Starting framework (this may take a while)
+
+::endgroup::
+
+[95m    General Information[0m
+[95m    ===================[0m
+[95m    Platforms  [0m
+[95m    VM commit  4ce14c2[0m
+

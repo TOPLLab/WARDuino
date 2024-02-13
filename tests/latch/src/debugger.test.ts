@@ -59,25 +59,75 @@ const DUMP: Step = {
     expected: expectDUMP
 };
 
-const dumpTest: TestScenario = {
-    title: 'Test DUMP',
+// Test *dump* command
+
+integration.test({
+    title: 'Test DUMP blink',
     program: `${EXAMPLES}blink.wast`,
     steps: [DUMP]
-};
+});
 
-integration.test(dumpTest);
+integration.test({
+    title: 'Test DUMP button',
+    program: `${EXAMPLES}button.wast`,
+    steps: [DUMP]
+});
 
-const dumpLocalsTest: TestScenario = {
-    title: 'Test DUMPLocals',
+integration.test({
+    title: 'Test DUMP call',
+    program: `${EXAMPLES}call.wast`,
+    steps: [DUMP]
+});
+
+integration.test({
+    title: 'Test DUMP factorial',
+    program: `${EXAMPLES}factorial.wast`,
+    steps: [DUMP]
+});
+
+// Test *dump local* command
+
+integration.test({
+    title: 'Test DUMPLocals blink',
     program: `${EXAMPLES}blink.wast`,
     steps: [{
         title: 'Send DUMPLocals command',
         instruction: {kind: Kind.Request, value: Message.dumpLocals},
         expected: expectDUMPLocals
     }]
-};
+});
 
-integration.test(dumpLocalsTest);
+integration.test({
+    title: 'Test DUMPLocals button',
+    program: `${EXAMPLES}button.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals call',
+    program: `${EXAMPLES}call.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals factorial',
+    program: `${EXAMPLES}factorial.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+// Test *dump full* command
 
 const dumpFullTest: TestScenario = {
     title: 'Test DUMPFull',
@@ -97,30 +147,38 @@ const dumpFullTest: TestScenario = {
 
 integration.test(dumpFullTest);
 
-const runTest: TestScenario = {
-    title: 'Test RUN',
-    program: `${EXAMPLES}blink.wast`,
-    dependencies: [dumpTest],
-    steps: [DUMP, {
-        title: 'Send RUN command',
-        instruction: {kind: Kind.Request, value: Message.run},
-    }, {
-        title: 'CHECK: execution continues',
-        instruction: {kind: Kind.Request, value: Message.dump},
-        expected: [{
-            'pc': {kind: 'description', value: Description.defined} as Expected<string>
-        }, {
-            'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
-        }]
-    }]
-};
+// Test *run* command
 
-integration.test(runTest);
+const running: Step[] = [DUMP, {
+    title: 'Send RUN command',
+    instruction: {kind: Kind.Request, value: Message.run},
+}, {
+    title: 'CHECK: execution continues',
+    instruction: {kind: Kind.Request, value: Message.dump},
+    expected: [{
+        'pc': {kind: 'description', value: Description.defined} as Expected<string>
+    }, {
+        'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
+    }]
+}];
+
+integration.test({
+    title: 'Test RUN blink',
+    program: `${EXAMPLES}blink.wast`,
+    steps: running
+});
+
+integration.test({
+    title: 'Test RUN button',
+    program: `${EXAMPLES}button.wast`,
+    steps: running
+});
+
+// Test *pause* command
 
 const pauseTest: TestScenario = {
     title: 'Test PAUSE',
     program: `${EXAMPLES}blink.wast`,
-    dependencies: [dumpTest],
     steps: [{
         title: 'Send RUN command',
         instruction: {kind: Kind.Request, value: Message.run},
@@ -146,30 +204,52 @@ const pauseTest: TestScenario = {
 
 integration.test(pauseTest);
 
-const stepTest: TestScenario = {
-    title: 'Test STEP',
-    program: `${EXAMPLES}blink.wast`,
-    dependencies: [dumpTest],
-    steps: [{
+// Test *step into* command
+
+function stepping(start: number, end: number): Step[] {
+    return  [{
         title: 'Send DUMP command',
         instruction: {kind: Kind.Request, value: Message.dump},
-        expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
+        expected: [{'pc': {kind: 'primitive', value: start} as Expected<number>}]
     }, {
         title: 'Send STEP command',
         instruction: {kind: Kind.Request, value: Message.step},
     }, {
         title: 'CHECK: execution took one step',
         instruction: {kind: Kind.Request, value: Message.dump},
-        expected: [{'pc': {kind: 'primitive', value: 172} as Expected<number>}]
-    }]
-};
+        expected: [{'pc': {kind: 'primitive', value: end} as Expected<number>}]
+    }];
+}
 
-integration.test(stepTest);
+integration.test({
+    title: 'Test STEP blink',
+    program: `${EXAMPLES}blink.wast`,
+    steps: stepping(169, 172)
+});
+
+integration.test({
+    title: 'Test STEP button',
+    program: `${EXAMPLES}button.wast`,
+    steps: stepping(296, 298)
+});
+
+integration.test({
+    title: 'Test STEP call',
+    program: `${EXAMPLES}call.wast`,
+    steps: stepping(167, 143)
+});
+
+integration.test({
+    title: 'Test STEP factorial',
+    program: `${EXAMPLES}factorial.wast`,
+    steps: stepping(155, 157)
+});
+
+// Test *step over* command
 
 const stepOverTest: TestScenario = {
     title: 'Test STEP OVER',
     program: `${EXAMPLES}call.wast`,
-    dependencies: [dumpTest],
     steps: [{
         title: 'Send DUMP command',
         instruction: {kind: Kind.Request, value: Message.dump},
@@ -202,30 +282,9 @@ integration.test(stepOverTest);
 
 // EDWARD tests with mock proxy
 
-const eventNotificationTest: TestScenario = {
-    title: 'Test "pushed event" Notification',
-    program: `${EXAMPLES}blink.wast`,
-    dependencies: [dumpTest],
-    skip: true,
-    steps: [{
-        title: 'Push mock event',
-        instruction: {kind: Kind.Request, value: Message.pushEvent('interrupt', '')},
-        expected: [{
-            'ack': {
-                kind: 'comparison',
-                value: (state: string, value: string) => value.includes('Interrupt: 73'),
-                message: 'no acknowledge received from runtime'
-            } as Expected<string>
-        }]
-    }]
-};
-
-integration.test(eventNotificationTest);
-
 const dumpEventsTest: TestScenario = {
     title: 'Test DUMPEvents',
     program: `${EXAMPLES}button.wast`,
-    dependencies: [dumpTest],
     steps: [{
         title: 'CHECK: event queue',
         instruction: {kind: Kind.Request, value: Message.dumpEvents},
@@ -240,51 +299,5 @@ const dumpEventsTest: TestScenario = {
 };
 
 integration.test(dumpEventsTest);
-
-const receiveEventTest: TestScenario = {
-    title: 'Test Event Transfer (supervisor side)',
-    program: `${EXAMPLES}button.wast`,
-    dependencies: [dumpTest],
-    steps: [{
-        title: 'Send PAUSE command',
-        instruction: {kind: Kind.Request, value: Message.pause},
-    }, {
-        title: 'Push mock event',
-        instruction: {kind: Kind.Request, value: Message.pushEvent('interrupt', '')},
-    }, {
-        title: 'CHECK: event queue',
-        instruction: {kind: Kind.Request, value: Message.dumpEvents},
-        expected: [{
-            'events': {
-                kind: 'comparison',
-                value: (state: string, value: Array<any>) => value.length === 1,
-                message: 'events queue should include 1 event'
-            } as Expected<Array<any>>
-        }]
-    }],
-    skip: true
-};
-
-integration.test(receiveEventTest);
-
-const dumpCallbackMappingTest: TestScenario = {
-    title: 'Test DUMPCallbackmapping',
-    program: `${EXAMPLES}button.wast`,
-    dependencies: [dumpTest],
-    skip: true,
-    steps: [{
-        title: 'CHECK: callbackmapping',
-        instruction: {kind: Kind.Request, value: Message.dumpCallbackmapping},
-        expected: [{
-            'callbacks': {
-                kind: 'comparison',
-                value: (state: string, value: Array<any>) => value.length === 1,
-                message: 'callbackmapping should contain one callback'
-            } as Expected<Array<any>>
-        }]
-    }]
-};
-
-integration.test(dumpCallbackMappingTest);
 
 framework.run([integration]);

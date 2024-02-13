@@ -1,0 +1,107 @@
+
+> warduino-testsuite@1.0.0 spectest
+> latch ./src/spec.test.ts
+
+::group::converting /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/call/
+> Scanning suite: /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/call/
+
+> Building scenarios [0/1] [1/1]
+
+> Starting framework (this may take a while)
+
+::endgroup::
+
+[95m    General Information[0m
+[95m    ===================[0m
+[95m    Platforms  [0m
+[95m    VM commit  4ce14c2[0m
+
+
+::group::[95mesp wrover: Specification test suite for WebAssembly%s[0m
+
+::group::[95mesp wrover: Test: call_0.wast%s[0m
+      [32m[32m✔[39m[0m ((invoke "type-i32") (i32.const 0x132))
+      [32m[32m✔[39m[0m ((invoke "type-i64") (i64.const 0x164))
+      [32m[32m✔[39m[0m ((invoke "type-first-i32") (i32.const 32))
+      [32m[32m✔[39m[0m ((invoke "type-first-i64") (i64.const 64))
+      [32m[32m✔[39m[0m ((invoke "type-second-i32") (i32.const 32))
+      [32m[32m✔[39m[0m ((invoke "type-second-i64") (i64.const 64))
+      [32m[32m✔[39m[0m ((invoke "fac" (i64.const 0)) (i64.const 1))
+      [32m[32m✔[39m[0m ((invoke "fac" (i64.const 1)) (i64.const 1))
+      [32m[32m✔[39m[0m ((invoke "fac" (i64.const 5)) (i64.const 120))
+      [32m[32m✔[39m[0m ((invoke "fac" (i64.const 25)) (i64.const 7034535277573963776))
+      [32m[32m✔[39m[0m ((invoke "fac-acc" (i64.const 0) (i64.const 1)) (i64.const 1))
+      [32m[32m✔[39m[0m ((invoke "fac-acc" (i64.const 1) (i64.const 1)) (i64.const 1))
+      [32m[32m✔[39m[0m ((invoke "fac-acc" (i64.const 5) (i64.const 1)) (i64.const 120))
+      [32m[32m✔[39m[0m ((invoke "fib" (i64.const 0)) (i64.const 1))
+      [32m[32m✔[39m[0m ((invoke "fib" (i64.const 1)) (i64.const 1))
+      [32m[32m✔[39m[0m ((invoke "fib" (i64.const 2)) (i64.const 2))
+      [32m[32m✔[39m[0m ((invoke "fib" (i64.const 5)) (i64.const 8))
+      [90m[31m✖[39m[0m ((invoke "fib" (i64.const 20)) (i64.const 10946))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "even" (i64.const 0)) (i32.const 44))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "even" (i64.const 1)) (i32.const 99))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "even" (i64.const 100)) (i32.const 44))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "even" (i64.const 77)) (i32.const 99))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "odd" (i64.const 0)) (i32.const 99))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "odd" (i64.const 1)) (i32.const 44))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "odd" (i64.const 77)) (i32.const 44))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-select-first") (i32.const 0x132))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-br_if-first") (i32.const 0x132))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-br_table-first") (i32.const 0x132))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-call_indirect-first") (i32.const 0x132))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-return-value") (i32.const 0x132))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-br-value") (i32.const 0x132))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-local.set-value") (i32.const 0x132))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-local.tee-value") (i32.const 0x132))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-global.set-value") (i32.const 0x132))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-unary-operand") (f32.const 0x0p+0))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-binary-left") (i32.const 11))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-binary-right") (i32.const 9))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-test-operand") (i32.const 0))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-compare-left") (i32.const 1))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-compare-right") (i32.const 1))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "as-convert-operand") (i64.const 1))
+[31m          Failure: timeout when sending instruction 40[0m
+      [90m[31m✖[39m[0m ((invoke "return-from-long-argument-list" (i32.const 42)) (i32.const 42))
+[31m          Failure: timeout when sending instruction 40[0m
+::endgroup::
+::endgroup::
+::endgroup::
+
+[95m    Test Suite Results[0m
+[95m    ==================
+[0m
+[95m    Scenarios:[0m
+[92m      [0m[32m1 passing[0m[90m (102s)[0m
+[36m      [0m[36m0 skipped[0m
+[31m      1 failing[0m
+
+
+[95m    Actions:[0m
+[92m      [0m[32m17 passing[0m
+[31m      25 failing[0m
+[31m      25 timeouts[0m[90m (100%)[0m
+

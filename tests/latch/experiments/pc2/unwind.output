@@ -1,0 +1,74 @@
+
+> warduino-testsuite@1.0.0 spectest
+> latch ./src/spec.test.ts
+
+::group::converting /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/unwind/
+> Scanning suite: /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/unwind/
+
+> Building scenarios [0/1] [1/1]
+
+> Starting framework (this may take a while)
+
+::endgroup::
+
+[95m    General Information[0m
+[95m    ===================[0m
+[95m    Platforms  [0m
+[95m    VM commit  4ce14c2[0m
+
+
+::group::[95memulator [:8500]: Specification test suite for WebAssembly%s[0m
+
+::group::[95memulator [:8500]: Test: unwind_0.wast%s[0m
+      [32m[32m✔[39m[0m ((invoke "func-unwind-by-br-value") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "func-unwind-by-br_if-value") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "func-unwind-by-br_table-value") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "func-unwind-by-return") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-unwind-by-br") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-unwind-by-br-value") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-unwind-by-br_if") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-unwind-by-br_if-value") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-unwind-by-br_table") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-unwind-by-br_table-value") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-unwind-by-return") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-nested-unwind-by-br") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-nested-unwind-by-br-value") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-nested-unwind-by-br_if") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-nested-unwind-by-br_if-value") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-nested-unwind-by-br_table") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-nested-unwind-by-br_table-value") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-nested-unwind-by-return") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "unary-after-br") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "unary-after-br_if") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "unary-after-br_table") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "unary-after-return") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "binary-after-br") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "binary-after-br_if") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "binary-after-br_table") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "binary-after-return") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "select-after-br") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "select-after-br_if") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "select-after-br_table") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "select-after-return") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-value-after-br") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-value-after-br_if") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-value-after-br_table") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "block-value-after-return") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "loop-value-after-br") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "loop-value-after-br_if") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "loop-value-after-br_table") (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "loop-value-after-return") (i32.const 9))
+::endgroup::
+::endgroup::
+::endgroup::
+
+[95m    Test Suite Results[0m
+[95m    ==================
+[0m
+[95m    Scenarios:[0m
+[92m      [0m[32m2 passing[0m[90m (2s)[0m
+[36m      [0m[36m0 skipped[0m
+
+[95m    Actions:[0m
+[92m      [0m[32m38 passing[0m
+

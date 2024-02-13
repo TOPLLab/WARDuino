@@ -1,0 +1,95 @@
+
+> warduino-testsuite@1.0.0 spectest
+> latch ./src/spec.test.ts
+
+::group::converting /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/local/
+> Scanning suite: /home/tom/Arduino/libraries/WARDuino/tests/latch/scp/local/
+
+> Building scenarios [0/3] [1/3] [2/3] [3/3]
+
+> Starting framework (this may take a while)
+
+::endgroup::
+
+[95m    General Information[0m
+[95m    ===================[0m
+[95m    Platforms  [0m
+[95m    VM commit  4ce14c2[0m
+
+
+[95m::group::emulator [:8500]: Specification test suite for WebAssembly[0m
+
+[95m::group::emulator [:8500]: Test: local_get_0.wast[0m
+      [32m[32m✔[39m[0m ((invoke "type-local-i32") (i32.const 0))
+      [32m[32m✔[39m[0m ((invoke "type-local-i64") (i64.const 0))
+      [32m[32m✔[39m[0m ((invoke "type-local-f32") (f32.const 0))
+      [32m[32m✔[39m[0m ((invoke "type-local-f64") (f64.const 0))
+      [32m[32m✔[39m[0m ((invoke "type-param-i32" (i32.const 2)) (i32.const 2))
+      [32m[32m✔[39m[0m ((invoke "type-param-i64" (i64.const 3)) (i64.const 3))
+      [32m[32m✔[39m[0m ((invoke "as-block-value" (i32.const 6)) (i32.const 6))
+      [32m[32m✔[39m[0m ((invoke "as-loop-value" (i32.const 7)) (i32.const 7))
+      [32m[32m✔[39m[0m ((invoke "as-br-value" (i32.const 8)) (i32.const 8))
+      [32m[32m✔[39m[0m ((invoke "as-br_if-value" (i32.const 9)) (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "as-br_if-value-cond" (i32.const 10)) (i32.const 10))
+      [32m[32m✔[39m[0m ((invoke "as-br_table-value" (i32.const 1)) (i32.const 2))
+      [32m[32m✔[39m[0m ((invoke "as-return-value" (i32.const 0)) (i32.const 0))
+      [32m[32m✔[39m[0m ((invoke "as-if-then" (i32.const 1)) (i32.const 1))
+      [32m[32m✔[39m[0m ((invoke "as-if-else" (i32.const 0)) (i32.const 0))
+::endgroup::
+
+[95m::group::emulator [:8500]: Test: local_tee_0.wast[0m
+      [32m[32m✔[39m[0m ((invoke "type-local-i32") (i32.const 0))
+      [32m[32m✔[39m[0m ((invoke "type-local-i64") (i64.const 0))
+      [32m[32m✔[39m[0m ((invoke "type-local-f32") (f32.const 0))
+      [32m[32m✔[39m[0m ((invoke "type-local-f64") (f64.const 0))
+      [32m[32m✔[39m[0m ((invoke "type-param-i32" (i32.const 2)) (i32.const 10))
+      [32m[32m✔[39m[0m ((invoke "type-param-i64" (i64.const 3)) (i64.const 11))
+      [32m[32m✔[39m[0m ((invoke "as-block-first" (i32.const 0)) (i32.const 1))
+      [32m[32m✔[39m[0m ((invoke "as-block-mid" (i32.const 0)) (i32.const 1))
+      [32m[32m✔[39m[0m ((invoke "as-block-last" (i32.const 0)) (i32.const 1))
+      [32m[32m✔[39m[0m ((invoke "as-loop-first" (i32.const 0)) (i32.const 3))
+      [32m[32m✔[39m[0m ((invoke "as-loop-mid" (i32.const 0)) (i32.const 4))
+      [32m[32m✔[39m[0m ((invoke "as-loop-last" (i32.const 0)) (i32.const 5))
+      [32m[32m✔[39m[0m ((invoke "as-br-value" (i32.const 0)) (i32.const 9))
+      [32m[32m✔[39m[0m ((invoke "as-br_if-value" (i32.const 0)) (i32.const 8))
+      [32m[32m✔[39m[0m ((invoke "as-br_if-value-cond" (i32.const 0)) (i32.const 6))
+      [32m[32m✔[39m[0m ((invoke "as-br_table-value" (i32.const 0)) (i32.const 10))
+      [32m[32m✔[39m[0m ((invoke "as-br_table-value-index" (i32.const 0)) (i32.const 6))
+      [32m[32m✔[39m[0m ((invoke "as-return-value" (i32.const 0)) (i32.const 7))
+      [32m[32m✔[39m[0m ((invoke "as-if-cond" (i32.const 0)) (i32.const 0))
+      [32m[32m✔[39m[0m ((invoke "as-if-then" (i32.const 1)) (i32.const 3))
+      [32m[32m✔[39m[0m ((invoke "as-if-else" (i32.const 0)) (i32.const 4))
+      [32m[32m✔[39m[0m ((invoke "as-select-first" (i32.const 0) (i32.const 1)) (i32.const 5))
+      [32m[32m✔[39m[0m ((invoke "as-select-second" (i32.const 0) (i32.const 0)) (i32.const 6))
+      [32m[32m✔[39m[0m ((invoke "as-select-cond" (i32.const 0)) (i32.const 0))
+      [32m[32m✔[39m[0m ((invoke "as-call-first" (i32.const 0)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "as-call-mid" (i32.const 0)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "as-call-last" (i32.const 0)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "as-call_indirect-first" (i32.const 0)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "as-call_indirect-mid" (i32.const 0)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "as-call_indirect-last" (i32.const 0)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "as-call_indirect-index" (i32.const 0)) (i32.const -1))
+      [32m[32m✔[39m[0m ((invoke "as-local.tee-value" (i32.const 0)) (i32.const 1))
+      [32m[32m✔[39m[0m ((invoke "as-load-address" (i32.const 0)) (i32.const 0))
+      [32m[32m✔[39m[0m ((invoke "as-loadN-address" (i32.const 0)) (i32.const 0))
+      [32m[32m✔[39m[0m ((invoke "as-binary-left" (i32.const 0)) (i32.const 13))
+      [32m[32m✔[39m[0m ((invoke "as-binary-right" (i32.const 0)) (i32.const 6))
+      [32m[32m✔[39m[0m ((invoke "as-test-operand" (i32.const 0)) (i32.const 1))
+      [32m[32m✔[39m[0m ((invoke "as-compare-left" (i32.const 0)) (i32.const 0))
+      [32m[32m✔[39m[0m ((invoke "as-compare-right" (i32.const 0)) (i32.const 1))
+      [32m[32m✔[39m[0m ((invoke "as-convert-operand" (i64.const 0)) (i32.const 41))
+      [32m[32m✔[39m[0m ((invoke "as-memory.grow-size" (i32.const 0)) (i32.const 1))
+::endgroup::
+::endgroup::
+::endgroup::
+
+[95m    Test Suite Results[0m
+[95m    ==================
+[0m
+[95m    Scenarios:[0m
+[92m      [0m[32m3 passing[0m[90m (3s)[0m
+[36m      [0m[36m0 skipped[0m
+
+[95m    Actions:[0m
+[92m      [0m[32m56 passing[0m
+
