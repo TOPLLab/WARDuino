@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import {
+    ArduinoSpecification,
     Behaviour,
     Description,
     EmulatorSpecification,
     Expectation,
     Expected,
     Framework,
-    getValue,
+    getValue, HybridScheduler,
     Kind,
     Message, OutputStyle,
     Step, Suite,
@@ -17,7 +18,7 @@ import {
 export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
 
 
-const EXAMPLES: string = 'examples/';
+const EXAMPLES: string = '/home/tom/Documents/TOPL/latch/test/';
 
 /**
  * Tests of the Remote Debugger API
@@ -28,8 +29,8 @@ framework.style(OutputStyle.github);
 
 const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
-integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
-
+// integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
+integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
 
 const expectDUMP: Expectation[] = [
     {'pc': {kind: 'description', value: Description.defined} as Expected<string>},
@@ -90,6 +91,36 @@ integration.test({
 integration.test({
     title: 'Test DUMPLocals blink',
     program: `${EXAMPLES}blink.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals button',
+    program: `${EXAMPLES}button.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals call',
+    program: `${EXAMPLES}call.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals factorial',
+    program: `${EXAMPLES}factorial.wast`,
     steps: [{
         title: 'Send DUMPLocals command',
         instruction: {kind: Kind.Request, value: Message.dumpLocals},
