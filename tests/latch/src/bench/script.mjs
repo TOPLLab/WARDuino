@@ -1,23 +1,15 @@
 import {readdirSync, readFileSync, writeFileSync} from "fs";
 import {extname} from "path";
+import geometric from '@stdlib/stats-base-dists-geometric';
 
-// geometric mean
-const mean = (list) => {
-    let product = 1;
-    list.forEach((item) => {
-        product = product * item
-    });
-
-    return Math.pow(product, 1 / list.length);
-}
 
 const rows = [];
 
 const esp = {}
 const emu = {}
 
-readdirSync(`../experiments/pc0/`).filter(file => extname(file).toLowerCase() === '.log').forEach(file => {
-    const suite = JSON.parse(readFileSync(`../experiments/pc0/` + file).toString());
+readdirSync(`../experiments/pc3/`).filter(file => extname(file).toLowerCase() === '.log').forEach(file => {
+    const suite = JSON.parse(readFileSync(`../experiments/pc3/` + file).toString());
 
     if (suite['passes'] !== undefined && suite['passes'].length > 1) {
         const passes = suite['passes'][0];
@@ -55,7 +47,7 @@ for (let i = 0; i < 10; i++) {
     });
 }
 
-const emulator = `../experiments/pc2/`;
+const emulator = `../experiments/pc3/`;
 readdirSync(emulator).filter(file => extname(file).toLowerCase() === '.log').forEach(file => {
     const suite = JSON.parse(readFileSync(emulator + file).toString());
 
@@ -72,8 +64,14 @@ readdirSync(emulator).filter(file => extname(file).toLowerCase() === '.log').for
 });
 
 for (const point in esp) {
-    const c = Math.round(mean(esp[point].durations));
-    if (!isNaN(c)) rows.push([point, esp[point].size, c, Math.round(mean(emu[point].durations))]);
+    const durs = esp[point].durations;
+    const unrounded = geometric.mean(durs);
+    const mean = Math.round(durs);
+    if (!isNaN(mean)) rows.push([point, esp[point].size, mean,
+        Math.round(geometric.stdev(esp[point].durations)),
+        Math.round(geometric.mean(emu[point].durations)),
+        Math.round(geometric.stdev(emu[point].durations))
+    ]);
 }
 
 rows.push(["total",
@@ -83,6 +81,6 @@ rows.push(["total",
 
 rows.sort((a, b) => (a[1] === b[1]) ? 0 : ((a[1] < b[1]) ? -1 : 1));
 
-rows.unshift(["name", "asserts", "hardware", "emulator"]);
+rows.unshift(["name", "asserts", "hardware", "hardware-deviation", "emulator", "emulator-deviation"]);
 
 writeFileSync('../experiments/runtime.csv', rows.map(e => e.join(",")).join("\n"));
