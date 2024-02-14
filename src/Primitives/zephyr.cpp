@@ -34,7 +34,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 8
+#define NUM_PRIMITIVES_ARDUINO 10
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -455,6 +455,260 @@ def_prim(drive_motor_degrees, twoToNoneU32) {
     return true;
 }
 
+static const struct device *const uart_dev = DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
+volatile int payload_bytes = 0;
+int payload_index = 0;
+unsigned int current_payload = 0;
+char checksum;
+int baudrate = -1;
+int bytes_received = 0;
+
+int mode0_format_location = 0;
+
+volatile bool data_mode = false;
+
+void serial_cb(const struct device *dev, void *user_data)
+{
+	uint8_t data;
+
+	if (!uart_irq_update(uart_dev)) {
+		return;
+	}
+
+	if (!uart_irq_rx_ready(uart_dev)) {
+		return;
+	}
+
+	/* read until FIFO empty */
+	while (uart_fifo_read(uart_dev, &data, 1) == 1) {
+        bytes_received++;
+        printk("0x%02x '%c' ", data, (char) data);
+		//printk("data = %d, data as char = %c\n", (int) data, (char) data);
+        printk("0b");
+        for (int i = 7; i >= 0; i--) {
+            printk("%d", (data & 1 << i) > 0);
+        }
+        printk("\n");
+        
+        if (payload_bytes > 0) {
+            printk("payload = %d\n", data);
+            // Print in binary:
+            printk("0b");
+            for (int i = 7; i >= 0; i--) {
+                printk("%d", (data & 1 << i) > 0);
+            }
+            printk("\n");
+            payload_bytes--;
+            
+            if (payload_bytes > 1) {
+                checksum ^= data;
+                printk("before current_payload = %d\n", current_payload);
+                current_payload = current_payload | (((unsigned long) data) << payload_index * 8);
+                payload_index++;
+                printk("shift = %d, current_payload = %d\n", payload_index * 8, (int) current_payload);
+                //printk("checksum = %d\n", checksum);
+            } else if (checksum == data) {
+                printk("Checksum matches!\n");
+                printk("Baudrate = %d\n", current_payload);
+                baudrate = current_payload; // TODO: Set actual baudrate here
+            }
+        }
+        
+        // If data is ACK send an ACK back.
+        /*if (data == 0b00000100) {
+            printk("Bytes received = %d\n", bytes_received);
+            uart_poll_out(uart_dev, 0b00000100);
+            uart_poll_out(uart_dev, 0b00000010);
+            printk("Sent ACK\n");
+            
+            // If we received a baudrate, change it after sending the ACK.
+            if (baudrate >= 0) {    
+                printk("Changing baudrate to %d\n", baudrate);
+                uart_config cfg;
+                uart_config_get(uart_dev, &cfg);
+                cfg.baudrate = baudrate;
+                
+                int config_err = uart_configure(uart_dev, &cfg);
+                printk("config_err = %d\n", config_err);
+                if (config_err) {
+                    printk("UART configure error %d", config_err);
+                }
+                
+                uart_config_get(uart_dev, &cfg);
+                printk("current baudrate after config change = %d\n", cfg.baudrate);
+            }
+        }*/
+        
+        
+        // When we receive an ACK message.
+        if (data == 0b00000100) {
+            printk("%d\n", bytes_received - mode0_format_location);
+            if (bytes_received - mode0_format_location == 7 && baudrate >= 0) {
+                printk("SPECIAL_LINE\n");
+                
+                uart_poll_out(uart_dev, 0b00000100); // Send ACK
+                data_mode = true;
+                
+                // Change baudrate:
+                /*printk("Changing baudrate to %d\n", baudrate);
+                uart_config cfg;
+                uart_config_get(uart_dev, &cfg);
+                cfg.baudrate = baudrate;
+                
+                int config_err = uart_configure(uart_dev, &cfg);
+                printk("config_err = %d\n", config_err);
+                if (config_err) {
+                    printk("UART configure error %d", config_err);
+                }
+                
+                config_err = uart_config_get(uart_dev, &cfg);
+                printk("current baudrate after config change = %d\n", cfg.baudrate);
+                printk("config_err = %d\n", config_err);*/
+                
+                /*while (true) {
+                    k_msleep(100);
+                    printk("Send NACK\n");
+                    uart_poll_out(uart_dev, 0b00000010);
+                }*/
+            }
+        }
+        
+        // HACK
+        if (data == 0b10010000 && baudrate >= 0) {
+            mode0_format_location = bytes_received;
+            // Receive last bits of data and ACK it:
+            /*k_msleep(50);
+            uart_poll_out(uart_dev, 0b00000100); // Send ACK
+            
+            // Change baudrate:
+            printk("Changing baudrate to %d\n", baudrate);
+            uart_config cfg;
+            uart_config_get(uart_dev, &cfg);
+            cfg.baudrate = baudrate;
+            
+            int config_err = uart_configure(uart_dev, &cfg);
+            printk("config_err = %d\n", config_err);
+            if (config_err) {
+                printk("UART configure error %d", config_err);
+            }
+            
+            uart_config_get(uart_dev, &cfg);
+            printk("current baudrate after config change = %d\n", cfg.baudrate);*/
+        }
+        
+        
+        if (data == 0b01010010) {
+            printk("Speed command\n");
+            payload_bytes = 5;
+            payload_index = 0;
+            current_payload = 0;
+            checksum = 0xff ^ 0b01010010;
+            
+            // EV3 Colour sensor sent 57600 as it's baudrate
+        }
+	}
+	//uart_poll_out(uart_dev, 0b00000100);
+    //uart_poll_out(uart_dev, 0b00000010);
+    //printk("Sent ACK\n");
+}
+
+def_prim(setup_uart_sensor, oneToNoneU32) {
+    if (!device_is_ready(uart_dev)) {
+		printk("Input port is not ready!\n");
+		return 0;
+	}
+    
+    printk("Setting up uart\n");
+    int ret = uart_irq_callback_user_data_set(uart_dev, serial_cb, NULL);
+    if (ret < 0) {
+		if (ret == -ENOTSUP) {
+			printk("Interrupt-driven UART API support not enabled\n");
+		} else if (ret == -ENOSYS) {
+			printk("UART device does not support interrupt-driven API\n");
+		} else {
+			printk("Error setting UART callback: %d\n", ret);
+		}
+		return 0;
+	}
+	uart_irq_rx_enable(uart_dev);
+    pop_args(1);
+    return true;
+}
+
+def_prim(colour_sensor, oneToNoneU32) {
+    if (!device_is_ready(uart_dev)) {
+		printk("Input port is not ready!\n");
+		return 0;
+	}
+    
+    //uint16_t data;
+    //int res = uart_poll_in_u16(uart_dev, &data);
+    //printk("data = %d, res = %d\n", data, res);
+#if 0
+    unsigned char data;
+    int res = uart_poll_in(uart_dev, &data);
+    while (res == 0) {
+        printk("data = %d, res = %d\n", (int) data, res);
+        for (int i = 7; i >= 0; i--) {
+            printk("%d", (data & 1 << i) > 0);
+        }
+        printk("\n");
+        //res = uart_poll_in_u16(uart_dev, &data);
+        //k_msleep(100);
+        k_msleep(10);
+        res = uart_poll_in(uart_dev, &data);
+    }
+    printk("res = %d\n", res);
+    uart_poll_out(uart_dev, 0b00000010);
+#endif
+    
+#if 0
+    printk("Setting up uart\n");
+    int ret = uart_irq_callback_user_data_set(uart_dev, serial_cb, NULL);
+    if (ret < 0) {
+		if (ret == -ENOTSUP) {
+			printk("Interrupt-driven UART API support not enabled\n");
+		} else if (ret == -ENOSYS) {
+			printk("UART device does not support interrupt-driven API\n");
+		} else {
+			printk("Error setting UART callback: %d\n", ret);
+		}
+		return 0;
+	}
+	uart_irq_rx_enable(uart_dev);
+#endif
+
+    // Send NACK
+    /*uart_poll_out(uart_dev, 0b00000010);
+    printk("Send NACK\n");*/
+    
+    if (data_mode) {
+        printk("Changing baudrate to %d\n", baudrate);
+        uart_config cfg;
+        uart_config_get(uart_dev, &cfg);
+        cfg.baudrate = baudrate;
+        
+        int config_err = uart_configure(uart_dev, &cfg);
+        printk("config_err = %d\n", config_err);
+        if (config_err) {
+            printk("UART configure error %d", config_err);
+        }
+        
+        config_err = uart_config_get(uart_dev, &cfg);
+        printk("current baudrate after config change = %d\n", cfg.baudrate);
+        printk("config_err = %d\n", config_err);
+        
+        while (true) {
+            k_msleep(100);
+            printk("Send NACK\n");
+            uart_poll_out(uart_dev, 0b00000010);
+        }
+    }
+    
+    pop_args(1);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -468,6 +722,8 @@ void install_primitives() {
     install_primitive(motor_test);
     install_primitive(drive_motor_for_ms);
     install_primitive(drive_motor_degrees);
+    install_primitive(colour_sensor);
+    install_primitive(setup_uart_sensor);
 }
 
 //------------------------------------------------------
