@@ -167,7 +167,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         fflush(stdout);
         return false;
     }
-    printf("received interrupt %x\n", *interruptData);
+    debug("received interrupt %x\n", *interruptData);
     fflush(stdout);
 
     this->channel->write("Interrupt: %x\n", *interruptData);
@@ -286,7 +286,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
         } break;
         case interruptMonitorProxies: {
-            printf("receiving functions list to proxy\n");
+            debug("receiving functions list to proxy\n");
             this->handleMonitorProxies(m, interruptData + 1);
             free(interruptData);
         } break;
@@ -297,7 +297,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         }
         case interruptDUMPAllEvents:
-            printf("InterruptDUMPEvents\n");
+            debug("InterruptDUMPEvents\n");
             size = (long)CallbackHandler::event_count();
         case interruptDUMPEvents:
             // TODO get start and size from message
@@ -700,7 +700,7 @@ void Debugger::notifyPushedEvent() const {
 bool Debugger::handlePushedEvent(char *bytes) const {
     if (*bytes != interruptPUSHEvent) return false;
     auto parsed = nlohmann::json::parse(bytes + 1);
-    printf("handle pushed event: %s\n", bytes + 1);
+    debug("handle pushed event: %s\n", bytes + 1);
     auto *event = new Event(*parsed.find("topic"), *parsed.find("payload"));
     CallbackHandler::push_event(event);
     this->notifyPushedEvent();
@@ -1217,12 +1217,12 @@ bool Debugger::isProxied(uint32_t fidx) const {
 
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     uint32_t amount_funcs = read_B32(&interruptData);
-    printf("funcs_total %" PRIu32 "\n", amount_funcs);
+    debug("funcs_total %" PRIu32 "\n", amount_funcs);
 
     m->warduino->debugger->supervisor->unregisterAllProxiedCalls();
     for (uint32_t i = 0; i < amount_funcs; i++) {
         uint32_t fidx = read_B32(&interruptData);
-        printf("registering fid=%" PRIu32 "\n", fidx);
+        debug("registering fid=%" PRIu32 "\n", fidx);
         m->warduino->debugger->supervisor->registerProxiedCall(fidx);
     }
 
@@ -1233,7 +1233,7 @@ void Debugger::startProxySupervisor(Channel *socket) {
     this->connected_to_proxy = true;
 
     this->supervisor = new ProxySupervisor(socket, this->supervisor_mutex);
-    printf("Connected to proxy.\n");
+    debug("Connected to proxy.\n");
 }
 
 bool Debugger::proxy_connected() const { return this->connected_to_proxy; }

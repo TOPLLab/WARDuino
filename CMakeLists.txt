@@ -62,7 +62,7 @@ if (BUILD_EMULATOR)
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
-        add_compile_options(-g -v -Wall -Wextra -Wunused)
+        add_compile_options(-g -v -Wall -Wextra -Wunused -O3)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
     # WARDuino CLI
@@ -96,7 +96,7 @@ if (BUILD_UNITTEST)
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
-        add_compile_options(-g -v -Wall -Wextra -Wunused)
+        add_compile_options(-g -v -Wall -Wextra -Wunused -O3)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
 
