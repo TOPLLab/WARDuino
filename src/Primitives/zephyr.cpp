@@ -469,6 +469,8 @@ int bytes_received = 0;
 int mode0_format_location = 0;
 
 volatile bool data_mode = false;
+bool data_byte = false;
+volatile int sensor_value = 0;
 
 void serial_cb(const struct device *dev, void *user_data)
 {
@@ -485,13 +487,12 @@ void serial_cb(const struct device *dev, void *user_data)
 	/* read until FIFO empty */
 	while (uart_fifo_read(uart_dev, &data, 1) == 1) {
         bytes_received++;
-        printk("0x%02x '%c' ", data, (char) data);
-		//printk("data = %d, data as char = %c\n", (int) data, (char) data);
+        /*printk("0x%02x '%c' ", data, (char) data);
         printk("0b");
         for (int i = 7; i >= 0; i--) {
             printk("%d", (data & 1 << i) > 0);
         }
-        printk("\n");
+        printk("\n");*/
         
         if (payload_bytes > 0) {
             printk("payload = %d\n", data);
@@ -545,7 +546,7 @@ void serial_cb(const struct device *dev, void *user_data)
         
         // When we receive an ACK message.
         if (data == 0b00000100) {
-            printk("%d\n", bytes_received - mode0_format_location);
+            //printk("%d\n", bytes_received - mode0_format_location);
             if (bytes_received - mode0_format_location == 7 && baudrate >= 0) {
                 printk("SPECIAL_LINE\n");
                 
@@ -597,6 +598,19 @@ void serial_cb(const struct device *dev, void *user_data)
             
             uart_config_get(uart_dev, &cfg);
             printk("current baudrate after config change = %d\n", cfg.baudrate);*/
+        }
+        
+        if (data_mode) {
+            if (data_byte) {
+                sensor_value = data;
+                data_byte = false;
+            }
+            
+            // Check if it' a data message.
+            if (0b11000000 & data) {
+                // Next byte will be data
+                data_byte = true;
+            }
         }
         
         
@@ -705,6 +719,8 @@ def_prim(colour_sensor, oneToNoneU32) {
             k_msleep(100);
             printk("Send NACK\n");
             uart_poll_out(uart_dev, 0b00000010);
+            
+            printk("sensor_value = %d\n", sensor_value);
         }
     }
     
