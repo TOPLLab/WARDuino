@@ -464,6 +464,11 @@ int payload_index = 0;
 unsigned int current_payload = 0;
 char checksum;
 int baudrate = -1;
+int bytes_received = 0;
+
+int mode0_format_location = 0;
+
+volatile bool data_mode = false;
 
 void serial_cb(const struct device *dev, void *user_data)
 {
@@ -479,12 +484,14 @@ void serial_cb(const struct device *dev, void *user_data)
 
 	/* read until FIFO empty */
 	while (uart_fifo_read(uart_dev, &data, 1) == 1) {
-		/*printk("data = %d, data as char = %c\n", (int) data, (char) data);
+        bytes_received++;
+        printk("0x%02x '%c' ", data, (char) data);
+		//printk("data = %d, data as char = %c\n", (int) data, (char) data);
         printk("0b");
         for (int i = 7; i >= 0; i--) {
             printk("%d", (data & 1 << i) > 0);
         }
-        printk("\n");*/
+        printk("\n");
         
         if (payload_bytes > 0) {
             printk("payload = %d\n", data);
@@ -511,19 +518,18 @@ void serial_cb(const struct device *dev, void *user_data)
         }
         
         // If data is ACK send an ACK back.
-        if (data == 0b00000100) {
+        /*if (data == 0b00000100) {
+            printk("Bytes received = %d\n", bytes_received);
             uart_poll_out(uart_dev, 0b00000100);
+            uart_poll_out(uart_dev, 0b00000010);
             printk("Sent ACK\n");
-            //uart_poll_out(uart_dev, 0b00000100);
-            //uart_poll_out(uart_dev, 0b00000010); // NACK
-            //printk("Sent ACK\n");
             
             // If we received a baudrate, change it after sending the ACK.
             if (baudrate >= 0) {    
-                printk("Changing baudrate to %d\n", current_payload);
+                printk("Changing baudrate to %d\n", baudrate);
                 uart_config cfg;
                 uart_config_get(uart_dev, &cfg);
-                cfg.baudrate = current_payload;
+                cfg.baudrate = baudrate;
                 
                 int config_err = uart_configure(uart_dev, &cfg);
                 printk("config_err = %d\n", config_err);
@@ -534,7 +540,65 @@ void serial_cb(const struct device *dev, void *user_data)
                 uart_config_get(uart_dev, &cfg);
                 printk("current baudrate after config change = %d\n", cfg.baudrate);
             }
+        }*/
+        
+        
+        // When we receive an ACK message.
+        if (data == 0b00000100) {
+            printk("%d\n", bytes_received - mode0_format_location);
+            if (bytes_received - mode0_format_location == 7 && baudrate >= 0) {
+                printk("SPECIAL_LINE\n");
+                
+                uart_poll_out(uart_dev, 0b00000100); // Send ACK
+                data_mode = true;
+                
+                // Change baudrate:
+                /*printk("Changing baudrate to %d\n", baudrate);
+                uart_config cfg;
+                uart_config_get(uart_dev, &cfg);
+                cfg.baudrate = baudrate;
+                
+                int config_err = uart_configure(uart_dev, &cfg);
+                printk("config_err = %d\n", config_err);
+                if (config_err) {
+                    printk("UART configure error %d", config_err);
+                }
+                
+                config_err = uart_config_get(uart_dev, &cfg);
+                printk("current baudrate after config change = %d\n", cfg.baudrate);
+                printk("config_err = %d\n", config_err);*/
+                
+                /*while (true) {
+                    k_msleep(100);
+                    printk("Send NACK\n");
+                    uart_poll_out(uart_dev, 0b00000010);
+                }*/
+            }
         }
+        
+        // HACK
+        if (data == 0b10010000 && baudrate >= 0) {
+            mode0_format_location = bytes_received;
+            // Receive last bits of data and ACK it:
+            /*k_msleep(50);
+            uart_poll_out(uart_dev, 0b00000100); // Send ACK
+            
+            // Change baudrate:
+            printk("Changing baudrate to %d\n", baudrate);
+            uart_config cfg;
+            uart_config_get(uart_dev, &cfg);
+            cfg.baudrate = baudrate;
+            
+            int config_err = uart_configure(uart_dev, &cfg);
+            printk("config_err = %d\n", config_err);
+            if (config_err) {
+                printk("UART configure error %d", config_err);
+            }
+            
+            uart_config_get(uart_dev, &cfg);
+            printk("current baudrate after config change = %d\n", cfg.baudrate);*/
+        }
+        
         
         if (data == 0b01010010) {
             printk("Speed command\n");
@@ -618,8 +682,31 @@ def_prim(colour_sensor, oneToNoneU32) {
 #endif
 
     // Send NACK
-    uart_poll_out(uart_dev, 0b00000010);
-    printk("Send NACK\n");
+    /*uart_poll_out(uart_dev, 0b00000010);
+    printk("Send NACK\n");*/
+    
+    if (data_mode) {
+        printk("Changing baudrate to %d\n", baudrate);
+        uart_config cfg;
+        uart_config_get(uart_dev, &cfg);
+        cfg.baudrate = baudrate;
+        
+        int config_err = uart_configure(uart_dev, &cfg);
+        printk("config_err = %d\n", config_err);
+        if (config_err) {
+            printk("UART configure error %d", config_err);
+        }
+        
+        config_err = uart_config_get(uart_dev, &cfg);
+        printk("current baudrate after config change = %d\n", cfg.baudrate);
+        printk("config_err = %d\n", config_err);
+        
+        while (true) {
+            k_msleep(100);
+            printk("Send NACK\n");
+            uart_poll_out(uart_dev, 0b00000010);
+        }
+    }
     
     pop_args(1);
     return true;
