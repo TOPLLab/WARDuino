@@ -1062,6 +1062,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 debug("will copy #%" PRIu32 " bytes from %" PRIu32
                       " to %" PRIu32 " (incl.)\n",
                       total_bytes, start, limit);
+                // Bound checking 1 
                 if ((m->memory.bytes + start) + total_bytes > mem_end) {
                     FATAL("memory overflow %p > %p\n",
                           static_cast<void *>(m->bytes + start + total_bytes),
@@ -1084,6 +1085,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 if (begin_index > end_index) {
                     FATAL("incorrect br_table offsets\n");
                 }
+                // Bound checking 2 
                 if (end_index >= BR_TABLE_SIZE) {
                     FATAL("br_table overflow\n");
                 }

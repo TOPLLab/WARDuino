@@ -719,6 +719,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     uint32_t num_elem = read_LEB_32(&pos);
                     dbg_warn("  table.entries: %p, offset: 0x%x\n",
                              m->table.entries, offset);
+                    // Bound checking 1 
                     if (!m->options.disable_memory_bounds) {
                         ASSERT(offset + num_elem <= m->table.size,
                                "table overflow %" PRIu32 "+%" PRIu32
@@ -753,6 +754,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                     // Copy the data to the memory offset
                     uint32_t size = read_LEB_32(&pos);
+                    // Bound checking 2
                     if (!m->options.disable_memory_bounds) {
                         ASSERT(offset + size <= m->memory.pages * PAGE_SIZE,
                                "memory overflow %" PRIu32 "+%" PRIu32

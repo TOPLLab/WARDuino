@@ -618,14 +618,18 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
             " offset: 0x%x, addr: 0x%x\n",
             flags, offset, addr);
     }
+    // Bound checking 1 that overflow if offset is negtive
     if (offset + addr < addr) {
         overflow = true;
     }
     maddr = m->memory.bytes + offset + addr;
+    // Bound checking 2 that if addr is smaller than the opposite number of offset.
     if (maddr < m->memory.bytes) {
         overflow = true;
     }
     mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+    // Bound checking 3 that if the current memory address add memory load has passed
+    // the memory end
     if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
         overflow = true;
     }
@@ -722,14 +726,17 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
             " offset: 0x%x, addr: 0x%x, val: %s\n",
             flags, offset, addr, value_repr(sval));
     }
+    // Bound checking 1 in memory store
     if (offset + addr < addr) {
         overflow = true;
     }
+    // Bound checking 2 in memory store
     maddr = m->memory.bytes + offset + addr;
     if (maddr < m->memory.bytes) {
         overflow = true;
     }
     mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+    // Bound checking 3 in memory store
     if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
         overflow = true;
     }
@@ -1118,6 +1125,7 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
             c = a * b;
             break;  // i32.mul
         case 0x6d:
+        // Checking if the integer diviation can be happened, not bound checking.
             if (a == 0x80000000 && b == (uint32_t)-1) {
                 sprintf(exception, "integer overflow");
                 return false;
