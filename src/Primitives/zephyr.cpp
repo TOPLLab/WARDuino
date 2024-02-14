@@ -652,7 +652,44 @@ def_prim(setup_uart_sensor, oneToNoneU32) {
     return true;
 }
 
-def_prim(colour_sensor, oneToNoneU32) {
+void uartHeartbeat() {
+    while (true) {
+        if (data_mode) {
+            printk("Changing baudrate to %d\n", baudrate);
+            uart_config cfg;
+            uart_config_get(uart_dev, &cfg);
+            cfg.baudrate = baudrate;
+            
+            int config_err = uart_configure(uart_dev, &cfg);
+            printk("config_err = %d\n", config_err);
+            if (config_err) {
+                printk("UART configure error %d", config_err);
+            }
+            
+            config_err = uart_config_get(uart_dev, &cfg);
+            printk("current baudrate after config change = %d\n", cfg.baudrate);
+            printk("config_err = %d\n", config_err);
+            
+            while (data_mode) {
+                k_msleep(100);
+                //printk("Send NACK\n");
+                uart_poll_out(uart_dev, 0b00000010);
+                
+                //printk("sensor_value = %d\n", sensor_value);
+            }
+        }
+        k_msleep(500);
+    }
+}
+
+#define UART_HEARTBEAT_STACK_SIZE 2048
+#define UART_HEARTBEAT_PRIORITY 0
+
+K_THREAD_DEFINE(uart_heartbeat_tid, UART_HEARTBEAT_STACK_SIZE,
+                uartHeartbeat, NULL, NULL, NULL,
+                UART_HEARTBEAT_PRIORITY, 0, 0);
+
+def_prim(colour_sensor, oneToOneU32) {
     if (!device_is_ready(uart_dev)) {
 		printk("Input port is not ready!\n");
 		return 0;
@@ -699,32 +736,8 @@ def_prim(colour_sensor, oneToNoneU32) {
     /*uart_poll_out(uart_dev, 0b00000010);
     printk("Send NACK\n");*/
     
-    if (data_mode) {
-        printk("Changing baudrate to %d\n", baudrate);
-        uart_config cfg;
-        uart_config_get(uart_dev, &cfg);
-        cfg.baudrate = baudrate;
-        
-        int config_err = uart_configure(uart_dev, &cfg);
-        printk("config_err = %d\n", config_err);
-        if (config_err) {
-            printk("UART configure error %d", config_err);
-        }
-        
-        config_err = uart_config_get(uart_dev, &cfg);
-        printk("current baudrate after config change = %d\n", cfg.baudrate);
-        printk("config_err = %d\n", config_err);
-        
-        while (true) {
-            k_msleep(100);
-            printk("Send NACK\n");
-            uart_poll_out(uart_dev, 0b00000010);
-            
-            printk("sensor_value = %d\n", sensor_value);
-        }
-    }
-    
     pop_args(1);
+    pushUInt32(sensor_value);
     return true;
 }
 
