@@ -618,12 +618,12 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
             " offset: 0x%x, addr: 0x%x\n",
             flags, offset, addr);
     }
-    // Bound checking 1 that overflow if offset is negtive
+    // checking 1 that overflow if offset is negtive, not bound checking
     if (offset + addr < addr) {
         overflow = true;
     }
     maddr = m->memory.bytes + offset + addr;
-    // Bound checking 2 that if addr is smaller than the opposite number of offset.
+    // checking 2 that if addr is smaller than the opposite number of offset, not bound checking
     if (maddr < m->memory.bytes) {
         overflow = true;
     }
