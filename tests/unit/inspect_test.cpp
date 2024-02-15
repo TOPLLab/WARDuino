@@ -28,10 +28,11 @@ class Inspect : public InterruptFixture {
             interrupt[offset++] = state;
         }
 
-        char* hexa = (char*)malloc(interruptSize * 2 + 1);  // +1 for newline
+        char* hexa = (char*)malloc(interruptSize * 2 + 2);  // +1 for newline
 
         chars_as_hexa((unsigned char*)hexa, interrupt, interruptSize);
         hexa[interruptSize * 2] = '\n';
+	hexa[interruptSize * 2 + 1] = '\0';
 
         free(interrupt);
         dest->assign(hexa);
