@@ -158,22 +158,19 @@ This is a derivative work of [kanaka/wac](https://github.com/kanaka/wac) by Joel
 If you need to cite WARDuino in your research, use:
 
 ```bibtex
-@inproceedings{WARDuino2019,
- author = {Gurdeep Singh, Robbert and Scholliers, Christophe},
- title = {WARDuino: A Dynamic WebAssembly Virtual Machine for Programming Microcontrollers},
- booktitle = {Proceedings of the 16th ACM SIGPLAN International Conference on Managed Programming Languages and Runtimes},
- series = {MPLR 2019},
- year = {2019},
- isbn = {978-1-4503-6977-0},
- location = {Athens, Greece},
- pages = {27--36},
- numpages = {10},
- url = {http://doi.acm.org/10.1145/3357390.3361029},
- doi = {10.1145/3357390.3361029},
- acmid = {3361029},
- publisher = {ACM},
- address = {New York, NY, USA},
- keywords = {Arduino, Live Code Updates, Virtual Machine, WebAssembly},
+@article{	  WARDuino2024,
+  title		= {WARDuino: An Embedded WebAssembly Virtual Machine},
+  shorttitle	= {WARDuino},
+  author	= {Lauwaerts, Tom and Singh, Robbert Gurdeep and Scholliers,
+		  Christophe},
+  year		= {2024},
+  month		= feb,
+  journal	= {Journal of Computer Languages},
+  pages		= {101268},
+  issn		= {2590-1184},
+  doi		= {10.1016/j.cola.2024.101268},
+  keywords	= {Internet-of-Things,Language symbiosis,Virtual
+		  machine,WARDuino,WebAssembly}
 }
 ```
 

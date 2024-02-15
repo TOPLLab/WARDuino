@@ -1,52 +1,46 @@
 cff-version: 1.2.0
 message: You can also find a BibTeX in the README.md
 title: >-
-  WARDuino: A Dynamic WebAssembly Virtual Machine for Programming Microcontrollers
-doi: 10.1145/3357390.3361029
+  WARDuino: An Embedded WebAssembly Virtual Machine
+doi: 10.1016/j.cola.2024.101268
 authors:
+  - family-names: Lauwaerts
+    given-names: Tom
+    affiliation: Ghent University
   - family-names: Gurdeep Singh
     given-names: Robbert
-    affiliation: Ghent University
+    affiliation: IMEC
   - family-names: Scholliers
     given-names: Christophe
     affiliation: Ghent University
 identifiers:
   - description: Research paper you should be citing
     type: doi
-    value: 10.1145/3357390.3361029
+    value: 10.1016/j.cola.2024.101268
 preferred-citation:
   authors:
+    - family-names: Lauwaerts
+      given-names: Tom
+      affiliation: Ghent University
     - family-names: Gurdeep Singh
       given-names: Robbert
-      affiliation: Ghent University
+      affiliation: IMEC
     - family-names: Scholliers
       given-names: Christophe
       affiliation: Ghent University
   title: >-
-    WARDuino: A Dynamic WebAssembly Virtual Machine for Programming Microcontrollers
-  doi: 10.1145/3357390.3361029
-  type: proceedings
-  year: 2019
-  series: "MPLR 2019"
-  collection-title: >-
-    Proceedings of the 16th ACM SIGPLAN International Conference on
-    Managed Programming Languages and Runtimes
-  collection-doi: 10.1145/3357390
-  start: 27
-  end: 36
-  isbn: "9781450369770"
-  conference:
-    name: >-
-      16th ACM SIGPLAN International Conference on
-      Managed Programming Languages and Runtimes
-    location: 'Athens, Greece'
-    date-start: 2019-10-21
-    date-end: 2019-10-22
+    WARDuino: An Embedded WebAssembly Virtual Machine
+  doi: 10.1016/j.cola.2024.101268
+  type: article
+  year: 2024
+  issn: "2590-1184"
+  journal: Journal of Computer Languages
   publisher:
-    name: ACM
+    name: Elsevier
   keywords:
-    - Virtual Machine
-    - Arduino
+    - Internet-of-Things
+    - Language symbiosis
+    - Virtual machine
+    - WARDuino
     - WebAssembly
-    - Live Code Updates
 
