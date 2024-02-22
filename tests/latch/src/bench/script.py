@@ -4,10 +4,22 @@ import math
 import os
 import re
 
+import numpy
 import scipy
 
 esp = {}
 emu = {}
+
+# get test suite name
+def fetch_name(passes):
+    if any("computational" in p.lower() for p in passes):
+        return "computing"
+    elif any("debugger" in p.lower() for p in passes):
+        return "debugger"
+    elif any("specification" in p.lower() for p in passes):
+        return re.search(r' (?P<name>[^\n _]*_??[^\n _]*)_?[0-9]*.wast', passes[0]).group("name")
+    else:
+        print(passes)
 
 # init dictionaries
 
@@ -18,16 +30,15 @@ for file in filter(lambda f: f.endswith('.log'), os.listdir(dir)):
     f.close()
 
     if 'passes' in suite.keys() and suite['passes'] != []:
-        passes = suite['passes'][0]
-        match = re.search(r' (?P<name>[^\n _]*_??[^\n _]*)_?[0-9]*.wast', passes)
+        name = fetch_name(suite['passes'])
         asserts = suite['passed actions']
 
-        esp[match.group('name')] = {
+        esp[name] = {
             'size': asserts,
             'durations': []
         }
 
-        emu[match.group('name')] = {
+        emu[name] = {
             'size': asserts,
             'durations': []
         }
@@ -42,46 +53,57 @@ for i in range(0, 10):
         f.close()
 
         if 'passes' in suite.keys() and len(suite['passes']) > 1:
-            passes = suite['passes'][0]
-            match = re.search(r' (?P<name>[^\n _]*_??[^\n _]*)_?[0-9]*.wast', passes)
+            name = fetch_name(suite['passes'])
             duration = suite['duration (ms)']
 
-            esp[match.group('name')]["durations"].append(duration)
+            esp[name]["durations"].append(duration)
         else:
             print(suite)
 
 # parse emulator results
 
-dir = '../../experiments/pc2/'
-for file in filter(lambda f: f.endswith('.log'), os.listdir(dir)):
-    f = open(dir + file, "r")
-    suite = json.loads(f.read())
-    f.close()
+for i in range(0, 10):
+    dir = f"""../../experiments/pc{i}/"""
+    for file in filter(lambda f: f.endswith('.log'), os.listdir(dir)):
+        f = open(dir + file, "r")
+        suite = json.loads(f.read())
+        f.close()
 
-    if 'passes' in suite.keys() and len(suite['passes']) > 1:
-        passes = suite['passes'][0]
-        match = re.search(r' (?P<name>[^\n _]*_??[^\n _]*)_?[0-9]*.wast', passes)
-        duration = suite['duration (ms)']
+        if 'passes' in suite.keys() and len(suite['passes']) > 1:
+            name = fetch_name(suite['passes'])
+            duration = suite['duration (ms)']
 
-        emu[match.group('name')]["durations"].append(duration)
-    else:
-        print(suite)
+            emu[name]["durations"].append(duration)
+        else:
+            print(suite)
 
 # create csv
 
 rows = []
 for point in esp:
-    mean = scipy.stats.gmean(esp[point]['durations'])
-    if not math.isnan(mean):
-        rows.append([point, esp[point]['size'], round(mean),
-                     round(scipy.stats.gstd(esp[point]['durations']), 2),
-                     round(scipy.stats.gmean(emu[point]['durations'])),
-                     0
-                     ])
+    if len(esp[point]['durations']) == 0:
+        continue
+    hardware = esp[point]['durations']
+    emulator = emu[point]['durations']
+    mean = round(numpy.average(hardware))
+    base = round(numpy.average(emulator))  # geometric alternative: scipy.stats.gmean
+    overhead = round(mean / base, 2)
+    difference = round(mean - base, 2)
+    confidence = scipy.stats.ttest_ind(hardware, emulator).confidence_interval() if mean > base else scipy.stats.ttest_ind(emulator, hardware).confidence_interval()
+    rows.append([point,
+                 esp[point]['size'],
+                 mean,
+                 base,
+                 overhead,
+                 round(abs(difference - confidence.low), 4),  # confidence intervals
+                 round(abs(difference - confidence.high), 4),
+                 round(abs(overhead - abs(confidence.low / base)), 4),  # normalized confidence intervals
+                 round(abs(overhead - abs(confidence.high / base)), 4)
+                 ])
 
 rows.sort(key=lambda row: row[1])
 
 with open('../../experiments/runtime.csv', 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerow(["name", "asserts", "hardware", "hardware-deviation", "emulator", "emulator-deviation"])
+    writer.writerow(["name", "asserts", "hardware", "emulator", "overhead", "low", "high", "low-norm", "high-norm"])
     writer.writerows(rows)

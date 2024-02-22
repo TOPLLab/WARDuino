@@ -61,8 +61,8 @@ const framework = Framework.getImplementation();
 framework.style(OutputStyle.github);
 
 const spec = framework.suite('Specification test suite for WebAssembly');
-// spec.testee('emulator [:8500]', new EmulatorSpecification(8500));
-spec.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
+spec.testee('emulator [:8500]', new EmulatorSpecification(8500));
+//spec.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler());
 spec.tests(tests);
 
 framework.run([spec]);

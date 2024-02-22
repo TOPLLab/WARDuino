@@ -5,9 +5,7 @@
   (type $void->void     (func (param) (result)))
 
   (export "fac"  (func $fac))
-  (export "fib"  (func $fib))
-  (export "mul"  (func $mul))
-  (export "gcd"  (func $gcd))
+  (export "fib"  (func $fac))
   (export "prim" (func $prim))
  
   ;; factorial
@@ -27,56 +25,34 @@
         (i32.const 1))))
 
   ;; fibonacci
-    (func $fib (param i32) (result i32)
-    (if (result i32) (i32.le_u (local.get 0) (i32.const 2))
-      (then (i32.const 1))
+    (func $fib (param i64) (result i64)
+    (if (result i64) (i64.le_u (local.get 0) (i64.const 1))
+      (then (i64.const 1))
       (else
-        (i32.add
-          (call $fib (i32.sub (local.get 0) (i32.const 2)))
-          (call $fib (i32.sub (local.get 0) (i32.const 1)))
+        (i64.add
+          (call $fib (i64.sub (local.get 0) (i64.const 2)))
+          (call $fib (i64.sub (local.get 0) (i64.const 1)))
         )
       )
     )
   )
-
-  ;; multiplicative fibonacci
-    (func $mul (param i32) (result i32)
-    (if (result i32) (i32.le_u (local.get 0) (i32.const 2))
-      (then (i32.const 1))
-      (else
-        (i32.mul
-          (call $fib (i32.sub (local.get 0) (i32.const 2)))
-          (call $fib (i32.sub (local.get 0) (i32.const 1)))
-        )
-      )
-    )
-  )
-
-  ;; gcd
-  (func $gcd (param i32 i32) (result i32)
-    (local i32)
-    block  ;; label = @1
-      block  ;; label = @2
-        local.get 0
-        br_if 0 (;@2;)
-        local.get 1
-        local.set 2
-        br 1 (;@1;)
-      end
-      loop  ;; label = @2
-        local.get 1
-        local.get 0
-        local.tee 2
-        i32.rem_u
-        local.set 0
-        local.get 2
-        local.set 1
-        local.get 0
-        br_if 0 (;@2;)
-      end
-    end
-    local.get 2
-  )
+  
+;;  (func $fib (param i32) (result i32)
+;;    (if (result i32) (i32.eqz (local.get 0))
+;;      (then (i32.const 0))
+;;      (else
+;;        (if (result i32) (i32.le_u (local.get 0) (i32.const 2))
+;;          (then (i32.const 1))
+;;          (else
+;;            (i32.add
+;;              (call $fib (i32.sub (local.get 0) (i32.const 2)))
+;;              (call $fib (i32.sub (local.get 0) (i32.const 1)))
+;;            )
+;;           )
+;;         )
+;;      )
+;;    )
+;;  )
 
     ;; primes
   (func $prim (param i32) (result i32)

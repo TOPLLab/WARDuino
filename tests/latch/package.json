@@ -4,7 +4,8 @@
   "scripts": {
     "debugtest": "latch ./src/debugger.test.ts",
     "primtest": "latch ./src/primitives.test.ts",
-    "spectest": "latch ./src/spec.test.ts"
+    "spectest": "latch ./src/spec.test.ts",
+    "comptest": "latch ./src/comp.test.ts"
   },
   "devDependencies": {
     "latch": "file:./latch-0.2.0.tgz",

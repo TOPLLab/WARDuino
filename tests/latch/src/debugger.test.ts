@@ -12,7 +12,8 @@ import {
     Kind,
     Message, OutputStyle,
     Step, Suite,
-    TestScenario
+    TestScenario,
+    Breakpoint
 } from 'latch';
 
 export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
@@ -29,8 +30,8 @@ framework.style(OutputStyle.github);
 
 const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
-// integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
-integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
+integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
+//integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
 
 const expectDUMP: Expectation[] = [
     {'pc': {kind: 'description', value: Description.defined} as Expected<string>},

@@ -2,7 +2,6 @@ import {readdirSync, readFileSync, writeFileSync} from "fs";
 import {extname} from "path";
 import geometric from '@stdlib/stats-base-dists-geometric';
 
-
 const rows = [];
 
 const esp = {}
@@ -74,13 +73,13 @@ for (const point in esp) {
     ]);
 }
 
-rows.push(["total",
-    rows.map(x => +x[1]).reduce((acc, val) => acc + val, 0),
-    rows.map(x => +x[2]).reduce((acc, val) => acc + val, 0),
-    rows.map(x => +x[3]).reduce((acc, val) => acc + val, 0)])
+// rows.push(["total",
+//     rows.map(x => +x[1]).reduce((acc, val) => acc + val, 0),
+//     rows.map(x => +x[2]).reduce((acc, val) => acc + val, 0),
+//     rows.map(x => +x[3]).reduce((acc, val) => acc + val, 0)])
 
 rows.sort((a, b) => (a[1] === b[1]) ? 0 : ((a[1] < b[1]) ? -1 : 1));
 
-rows.unshift(["name", "asserts", "hardware", "hardware-deviation", "emulator", "emulator-deviation"]);
+rows.unshift(["name", "asserts", "hardware", "emulator", "minimum", "maximum"]);
 
 writeFileSync('../experiments/runtime.csv', rows.map(e => e.join(",")).join("\n"));
