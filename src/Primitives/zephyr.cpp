@@ -219,8 +219,23 @@ struct gpio_dt_spec specs[] = {
                                  GPIO_DT_SPEC_GET_BY_IDX, (,))
 };
 
-static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0);
-static const struct pwm_dt_spec pwm_led1 = PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1);
+/*static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0);
+static const struct pwm_dt_spec pwm_led1 = PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1);*/
+static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 2);
+static const struct pwm_dt_spec pwm_led1 = PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 3);
+
+// TODO: Use Zephyr FOREACH macro here
+const struct pwm_dt_spec pwm_specs[] = {
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 2),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 3),
+};
+
+/*struct gpio_dt_spec pwm_specs[] = {
+        DT_FOREACH_PROP_ELEM_SEP(DT_PATH(zephyr_user), pmws,
+                                 PWM_DT_SPEC_GET_BY_IDX, (,))
+};*/
 
 def_prim(chip_pin_mode, twoToNoneU32) {
     gpio_dt_spec pin_spec = specs[arg1.uint32];
@@ -252,22 +267,22 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
-bool drive_pwm(float pwm1, float pwm2) {
-    if (!pwm_is_ready_dt(&pwm_led0)) {
+bool drive_pwm(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, float pwm1, float pwm2) {
+    if (!pwm_is_ready_dt(&pwm1_spec)) {
 		printf("Error: PWM device %s is not ready\n",
-		       pwm_led0.dev->name);
+		       pwm1_spec.dev->name);
 		return false;
 	}
     
     printf("pwm1 = %f, pwm2 = %f\n", pwm1, pwm2);
     
-    int ret = pwm_set_pulse_dt(&pwm_led0, pwm1 * pwm_led0.period);
+    int ret = pwm_set_pulse_dt(&pwm1_spec, pwm1 * pwm1_spec.period);
     if (ret) {
         printf("Error %d: failed to set pulse width\n", ret);
         return false;
     }
     
-    ret = pwm_set_pulse_dt(&pwm_led1, pwm2 * pwm_led0.period);
+    ret = pwm_set_pulse_dt(&pwm2_spec, pwm2 * pwm2_spec.period);
     if (ret) {
         printf("Error %d: failed to set pulse width\n", ret);
         return false;
@@ -275,7 +290,7 @@ bool drive_pwm(float pwm1, float pwm2) {
     return true;
 }
 
-bool drive_motor(float speed) {
+bool drive_motor(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, float speed) {
     float pwm1 = 0;
     float pwm2 = 0;
     if (speed > 0) {
@@ -285,13 +300,13 @@ bool drive_motor(float speed) {
         pwm2 = -speed;
     }
 
-    return drive_pwm(pwm1, pwm2);
+    return drive_pwm(pwm1_spec, pwm2_spec, pwm1, pwm2);
 }
 
 def_prim(motor_test, oneToNoneU32) {
     int32_t speed = (int32_t) arg0.uint32;
     printf("motor_test(%d)\n", speed);
-    drive_motor(speed / 10000.0f);
+    drive_motor(pwm_led0, pwm_led1, speed / 10000.0f);
     pop_args(1);
     return true;
 }
@@ -300,9 +315,9 @@ def_prim(drive_motor_for_ms, twoToNoneU32) {
     int32_t speed = (int32_t) arg0.uint32;
     printf("drive_motor_for_ms(%d, %d)\n", speed, arg1.uint32);
 
-    drive_motor(speed / 10000.0f);
+    drive_motor(pwm_led0, pwm_led1, speed / 10000.0f);
     k_msleep(arg1.uint32);
-    drive_pwm(1.0f, 1.0f);
+    drive_pwm(pwm_led0, pwm_led1, 1.0f, 1.0f);
     pop_args(2);
     return true;
 }
@@ -319,7 +334,8 @@ class MotorEncoder {
         else {
             encoder->angle--;
         }
-        printk("Rising edge detected on encoder pin5, angle %d\n", encoder->angle);
+        //printk("Rising edge detected on encoder pin5, angle %d\n", encoder->angle);
+        //printk("%d\n", gpio_pin_get_raw(encoder->pin6_encoder_spec.port, encoder->pin6_encoder_spec.pin));
         encoder->expect_pin5_int = false;
         encoder->expect_pin6_int = true;
     }
@@ -335,7 +351,8 @@ class MotorEncoder {
         else {
             encoder->angle--;
         }
-        printk("Rising edge detected on encoder pin6, angle %d\n", encoder->angle);
+        //printk("Rising edge detected on encoder pin6, angle %d\n", encoder->angle);
+        //printk("%d\n", gpio_pin_get_raw(encoder->pin5_encoder_spec.port, encoder->pin5_encoder_spec.pin));
         encoder->expect_pin6_int = false;
         encoder->expect_pin5_int = true;
     }
@@ -349,6 +366,13 @@ public:
         expect_pin5_int(true),
         expect_pin6_int(true)
     {
+        if (gpio_pin_configure_dt(&pin5_encoder_spec, GPIO_INPUT)) {
+            FATAL("Failed to configure GPIO encoder pin5\n");
+        }
+        if (gpio_pin_configure_dt(&pin6_encoder_spec, GPIO_INPUT)) {
+            FATAL("Failed to configure GPIO encoder pin6\n");
+        }
+        
         gpio_pin_interrupt_configure_dt(&pin5_encoder_spec, GPIO_INT_EDGE_RISING);    
         gpio_init_callback(&pin5_encoder_cb_data, MotorEncoder::encoder_pin5_edge_rising, BIT(pin5_encoder_spec.pin));
         gpio_add_callback(pin5_encoder_spec.port, &pin5_encoder_cb_data);
@@ -390,20 +414,37 @@ private:
     bool expect_pin6_int;
 };
 
-MotorEncoder encoder(specs[51], specs[50]);
+//MotorEncoder encoder(specs[51], specs[50]);
+//MotorEncoder encoder(specs[57], specs[58]);
+//MotorEncoder encoder(specs[58], specs[57]);
 
-def_prim(drive_motor_degrees, twoToNoneU32) {
+MotorEncoder encoders[] = {
+    MotorEncoder(specs[51], specs[50]),
+    MotorEncoder(specs[57], specs[58])
+};
+//MotorEncoder test_encoder = MotorEncoder(specs[57], specs[58]);
+
+def_prim(drive_motor_degrees, threeToNoneU32) {
     int32_t speed = (int32_t) arg0.uint32;
     int32_t degrees = (int32_t) arg1.uint32;
+    int32_t motor_index = (int32_t) arg2.uint32;
     printf("drive_motor_degrees(%d, %d)\n", speed, degrees);
     
-    gpio_dt_spec pin5_encoder_spec = specs[51];
-    gpio_dt_spec pin6_encoder_spec = specs[50];
+    /*gpio_dt_spec pin5_encoder_spec = specs[51];
+    gpio_dt_spec pin6_encoder_spec = specs[50];*/
+    /*gpio_dt_spec pin5_encoder_spec = specs[57];
+    gpio_dt_spec pin6_encoder_spec = specs[58];*/
     /*uint8_t old_res5 = gpio_pin_get_raw(pin5_encoder_spec.port, pin5_encoder_spec.pin);
     uint8_t old_res6 = gpio_pin_get_raw(pin6_encoder_spec.port, pin6_encoder_spec.pin);*/
     
+    //int motor_index = 1;
+    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
+    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
+    //MotorEncoder *encoder = &test_encoder;
+    MotorEncoder *encoder = &encoders[motor_index];
+    
     //MotorEncoder encoder(pin5_encoder_spec, pin6_encoder_spec);
-    encoder.set_target_angle(encoder.get_target_angle() + degrees);
+    encoder->set_target_angle(encoder->get_target_angle() + degrees);
     
     //drive_motor(speed / 10000.0f);
     
@@ -431,7 +472,7 @@ def_prim(drive_motor_degrees, twoToNoneU32) {
     
     //k_msleep(50);
     
-    printk("drift = %d\n", abs(encoder.get_angle() - encoder.get_target_angle()));
+    printk("drift = %d\n", abs(encoder->get_angle() - encoder->get_target_angle()));
     
     // Test drift correction:
     /*drive_motor(-speed / 10000.0f);
@@ -440,18 +481,20 @@ def_prim(drive_motor_degrees, twoToNoneU32) {
     k_msleep(100);
     printk("drift = %d\n", abs(encoder.get_angle() - start_angle) - arg1.uint32);*/
     
-    int drift = encoder.get_angle() - encoder.get_target_angle();
+    int drift = encoder->get_angle() - encoder->get_target_angle();
     while (abs(drift) > 0) {
         int speed_sign = std::signbit(drift) ?  -1 : 1;
-        drive_motor(speed_sign * speed / 10000.0f);
-        while (speed_sign * (encoder.get_angle() - encoder.get_target_angle()) > 0) {}
-        drive_pwm(1.0f, 1.0f);
+        drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
+        while (speed_sign * (encoder->get_angle() - encoder->get_target_angle()) > 0) {}
+        drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
         k_msleep(50);
-        drift = encoder.get_angle() - encoder.get_target_angle();
-        printk("drift = %d\n", drift);
+        drift = encoder->get_angle() - encoder->get_target_angle();
+        printk("drift = %d, speed = %d\n", drift, speed);
+        //speed = std::max(775, speed - speed/3); // Reduce speed when going fast to do corrections
+        speed = 775;
     }
     
-    pop_args(2);
+    pop_args(3);
     return true;
 }
 
