@@ -111,7 +111,9 @@
         
         pwms = 
             <&pwm8 3 10000 PWM_POLARITY_NORMAL>,
-            <&pwm8 4 10000 PWM_POLARITY_NORMAL>;
+            <&pwm8 4 10000 PWM_POLARITY_NORMAL>,
+            <&pwm8 1 10000 PWM_POLARITY_NORMAL>,
+            <&pwm8 2 10000 PWM_POLARITY_NORMAL>;
             
         warduino-uarts =
             <&usart1>;
@@ -151,7 +153,7 @@
     status = "okay";
     pwm8: pwm {
         status = "okay";
-        pinctrl-0 = <&tim8_ch3_pc8 &tim8_ch4_pc9>;
+        pinctrl-0 = <&tim8_ch3_pc8 &tim8_ch4_pc9 &tim8_ch1_pc6 &tim8_ch2_pc7>;
         pinctrl-names =
             "default";
     };
