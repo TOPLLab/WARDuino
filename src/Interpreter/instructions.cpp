@@ -1,4 +1,5 @@
 #include "instructions.h"
+#include <cheriintrin.h>
 
 #include <cmath>
 #include <cstring>
@@ -767,7 +768,7 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     */
     // @BOUNDS 3
     maddr = cheri_setbounds(maddr, LOAD_SIZE[opcode - 0x28]);
-    
+
     dbg_info(
         "      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p, value: "
         "%s\n",
