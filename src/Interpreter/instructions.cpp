@@ -619,20 +619,36 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
             flags, offset, addr);
     }
     // checking 1 that overflow if offset is negtive, not bound checking
+    /*
     if (offset + addr < addr) {
         overflow = true;
     }
+    */
+    // @BOUNDS 1 
+    addr = cheri_setbounds(addr, offset);
+
     maddr = m->memory.bytes + offset + addr;
+
     // checking 2 that if addr is smaller than the opposite number of offset, not bound checking
+    /*
     if (maddr < m->memory.bytes) {
         overflow = true;
     }
+    */
     mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+    //@BOUNDS 2
+    m->memory.bytes = cheri_setbounds(m->memory.bytes, m->memory.pages * (uint32_t)PAGE_SIZE);
+
     // Bound checking 3 that if the current memory address add memory load has passed
     // the memory end
+    /*
     if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
         overflow = true;
     }
+    */
+    //BOUNDS 3
+    maddr = cheri_setbounds(maddr, LOAD_SIZE[opcode - 0x28]);
+
     dbg_info("      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p\n", addr,
              offset, maddr, mem_end);
     if (!m->options.disable_memory_bounds) {
@@ -726,20 +742,32 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
             " offset: 0x%x, addr: 0x%x, val: %s\n",
             flags, offset, addr, value_repr(sval));
     }
-    // Bound checking 1 in memory store
+    // checking 1 in memory store
+    /*
     if (offset + addr < addr) {
         overflow = true;
     }
-    // Bound checking 2 in memory store
+    */
+    // @BOUNDS 1 
+    addr = cheri_setbounds(addr, offset);
+    // checking 2 in memory store
     maddr = m->memory.bytes + offset + addr;
+    /*
     if (maddr < m->memory.bytes) {
         overflow = true;
     }
+    */
+    
     mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
     // Bound checking 3 in memory store
+    /*
     if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
         overflow = true;
     }
+    */
+    // @BOUNDS 3
+    maddr = cheri_setbounds(maddr, LOAD_SIZE[opcode - 0x28]);
+    
     dbg_info(
         "      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p, value: "
         "%s\n",
