@@ -214,17 +214,12 @@
         //pwms = <&pwm2 0 10000 PWM_POLARITY_NORMAL>;
         pwms = 
             <&pwm8 3 10000 PWM_POLARITY_NORMAL>,
-<<<<<<< HEAD
-            <&pwm8 4 10000 PWM_POLARITY_NORMAL>;
-            //pwms = <&timers8/pwm 0 10000 PWM_POLARITY_NORMAL>;
-=======
             <&pwm8 4 10000 PWM_POLARITY_NORMAL>,
             <&pwm8 1 10000 PWM_POLARITY_NORMAL>,
             <&pwm8 2 10000 PWM_POLARITY_NORMAL>;
             
         warduino-uarts =
             <&usart1>;
->>>>>>> b423466 (Allow controlling multiple motors)
      };
 	
 	/* 
