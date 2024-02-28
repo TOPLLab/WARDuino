@@ -335,6 +335,7 @@ class MotorEncoder {
         else {
             encoder->angle--;
         }
+        encoder->last_update = k_uptime_ticks();
         //printk("Rising edge detected on encoder pin5, angle %d\n", encoder->angle);
         //printk("%d\n", gpio_pin_get_raw(encoder->pin6_encoder_spec.port, encoder->pin6_encoder_spec.pin));
         encoder->expect_pin5_int = false;
@@ -365,7 +366,8 @@ public:
         angle(0),
         target_angle(0),
         expect_pin5_int(true),
-        expect_pin6_int(true)
+        expect_pin6_int(true),
+        last_update(0)
     {
         if (gpio_pin_configure_dt(&pin5_encoder_spec, GPIO_INPUT)) {
             FATAL("Failed to configure GPIO encoder pin5\n");
@@ -404,6 +406,10 @@ public:
         this->target_angle = target_angle;
     }
     
+    int64_t get_last_update() {
+        return last_update;
+    }
+    
 private:
     gpio_dt_spec pin5_encoder_spec;
     gpio_dt_spec pin6_encoder_spec;
@@ -413,6 +419,8 @@ private:
     int target_angle;
     bool expect_pin5_int;
     bool expect_pin6_int;
+public:
+    volatile int64_t last_update;
 };
 
 //MotorEncoder encoder(specs[51], specs[50]);
@@ -486,13 +494,21 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
     while (abs(drift) > 0) {
         int speed_sign = std::signbit(drift) ?  -1 : 1;
         drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
-        while (speed_sign * (encoder->get_angle() - encoder->get_target_angle()) > 0) {}
+        while (speed_sign * (encoder->get_angle() - encoder->get_target_angle()) > 0 && k_uptime_ticks() - encoder->get_last_update() < 1000) {}
+        bool not_moving = k_uptime_ticks() - encoder->get_last_update() >= 1000;
+        encoder->last_update = k_uptime_ticks();
+        printk("%lli\n", k_uptime_ticks() - encoder->get_last_update());
         drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
         k_msleep(50);
         drift = encoder->get_angle() - encoder->get_target_angle();
         printk("drift = %d, speed = %d\n", drift, speed);
         //speed = std::max(775, speed - speed/3); // Reduce speed when going fast to do corrections
-        speed = 775;
+        //speed = 775;        
+        if (not_moving) {
+            speed += 100;
+        } else {
+            speed = 800;
+        }
     }
     
     pop_args(3);
