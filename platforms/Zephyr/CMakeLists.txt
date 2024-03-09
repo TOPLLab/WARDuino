@@ -21,7 +21,7 @@ target_sources(app PRIVATE
     main.cpp
     ../../src/WARDuino/WARDuino.cpp
     ../../src/WARDuino/CallbackHandler.cpp
-    ../../src/Interpreter/interpreter.cpp
+    ../../src/Interpreter/instructions.cpp
     ../../src/Primitives/zephyr.cpp
     ../../src/Memory/mem.cpp
     ../../src/Utils/util.cpp
