@@ -80,7 +80,7 @@ Sink::Sink(FILE *out) {
 int Sink::write(const char *fmt, ...) const {
     va_list args;
     va_start(args, fmt);
-    int written = fprintf(this->outStream, fmt, args);
+    int written = vfprintf(this->outStream, fmt, args);
     va_end(args);
     fflush(this->outStream);
     return written;
