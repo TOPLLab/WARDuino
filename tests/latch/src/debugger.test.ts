@@ -19,7 +19,7 @@ import {
 export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
 
 
-const EXAMPLES: string = `tests/latch/examples/`;
+const EXAMPLES: string = `${__dirname}/../examples/`;
 
 /**
  * Tests of the Remote Debugger API
