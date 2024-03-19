@@ -101,22 +101,12 @@ const comms: Suite = framework.suite('Integration tests: Wi-Fi and MQTT primitiv
 
 function sendMessage(): PureAction<void> {
     return {
-        act: () => new Promise<void>((resolve) => {
-            // send mqtt message
+        act: () => new Promise<Assertable<void>>((resolve) => {
             let client: mqtt.MqttClient = mqtt.connect('mqtt://test.mosquitto.org');
-            client.publish('parrot', 'This is an ex-parrot!');
-            resolve();
+            client.publish('parrot', 'this is an ex-parrot');
+            resolve(assertable({}));
         })
     };
-}
-
-function pureAction<T extends Object>(f: () => T): PureAction<T> {
-    return {
-        act: () => new Promise<Assertable<T>>((resolve) => {
-            const result: T = f();
-            resolve(assertable(result));
-        })
-    }
 }
 
 const scenario: TestScenario = { // MQTT test scenario
@@ -142,11 +132,7 @@ const scenario: TestScenario = { // MQTT test scenario
     }, {
         title: 'Send MQTT message',
         instruction: {
-            kind: Kind.Action, value: pureAction<void>((): void => {
-                // send mqtt message
-                let client: mqtt.MqttClient = mqtt.connect('mqtt://test.mosquitto.org');
-                client.publish('parrot', 'This is an ex-parrot!');
-            })
+            kind: Kind.Action, value: sendMessage()
         }
     }, {
         title: 'Await breakpoint hit',
@@ -166,11 +152,14 @@ interface Message {
     topic: string
     payload: string
 }
+
 export function listen(topic: string): PureAction<Message> {
     let client: mqtt.MqttClient = mqtt.connect("mqtt://test.mosquitto.org");
 
-    return {act: () => new Promise<Assertable<Message>>((resolve) => client.on("message", (_topic: string, payload: Buffer) => {
-            if (topic === _topic) resolve(assertable({topic: topic, payload: payload.toString()}));}))
+    return {
+        act: () => new Promise<Assertable<Message>>((resolve) => client.on("message", (_topic: string, payload: Buffer) => {
+            if (topic === _topic) resolve(assertable({topic: topic, payload: payload.toString()}));
+        }))
     }
 }
 
