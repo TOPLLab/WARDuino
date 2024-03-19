@@ -6,6 +6,7 @@ Run test with the following commands:
 npm run spectest
 npm run primtest
 npm run debugtest
+npm run comptest
 ```
 
 Make sure the EMULATOR environment variable is set when you run the tests on the emulator.

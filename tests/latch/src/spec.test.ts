@@ -1,40 +1,38 @@
 import {
-    Expectation,
-    Expected,
-    find,
-    Framework,
-    HybridScheduler,
-    Instruction,
-    parseArguments,
-    parseAsserts,
-    parseResult,
+    ArduinoSpecification,
+    EmulatorSpecification,
+    Framework, HybridScheduler,
+    invoke,
+    Invoker,
+    OutputStyle,
+    returns,
     Step,
-    Value
+    TestScenario,
+    WASM
 } from 'latch';
-import {EMULATOR, EmulatorBridge} from './util/warduino.bridge';
 import {readdirSync} from 'fs';
 import {basename} from 'path';
+import {find, parseArguments, parseAsserts, parseResult} from "./util/spec.util";
+
+// Parse tests from official suite
 
 export const CORESUITE: string = process.env.CORESUITE ?? 'core/';
+export const TARGET: string = process.env.TARGET ?? 'core-cleaned/';
 
 const TESTFILE: string = process.env.TESTFILE ?? '';
 
-const framework = Framework.getImplementation();
-
-framework.platform(new EmulatorBridge(EMULATOR), new HybridScheduler());
-// framework.platform(new HardwareBridge(ARDUINO), new HybridScheduler());
-
-framework.suite('WebAssembly Spec tests');
+const tests: TestScenario[] = [];
 
 if (TESTFILE.length > 0) {
     const module: string = TESTFILE.replace('.asserts.wast', '.wast');
     const asserts: string[] = parseAsserts(CORESUITE + TESTFILE);
-    createTest(CORESUITE + module, asserts);
-    framework.run();
+    tests.push(createTest(CORESUITE + module, asserts));
 } else {
+    console.log(`::group::converting ${CORESUITE}`);
     process.stdout.write(`> Scanning suite: ${CORESUITE}\n\n`);
 
     const files: string[] = readdirSync(CORESUITE).filter((file) => file.endsWith('.asserts.wast'));
+    //const files: string[] = ['names_2.asserts.wast'];
 
     let count = 0;
     let tally: string = ` [${count++}/${files.length}]`;
@@ -42,7 +40,7 @@ if (TESTFILE.length > 0) {
     for (const file of files) {
         const module: string = file.replace('.asserts.wast', '.wast');
         const asserts: string[] = parseAsserts(CORESUITE + file);
-        createTest(CORESUITE + module, asserts);
+        tests.push(createTest(CORESUITE + module, asserts));
 
         if (process.stdout.moveCursor !== undefined) {
             process.stdout.moveCursor(-tally.length, 0);
@@ -53,42 +51,48 @@ if (TESTFILE.length > 0) {
 
     process.stdout.write('\n\n> Starting framework (this may take a while)\n\n');
 
-    framework.run();
-
+    console.log('::endgroup::');
+    console.log();
 }
 
-function createTest(module: string, asserts: string[]) {
+// run tests
+
+const framework = Framework.getImplementation();
+framework.style(OutputStyle.github);
+
+const spec = framework.suite('Specification test suite for WebAssembly');
+spec.testee('emulator [:8500]', new EmulatorSpecification(8500));
+//spec.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler());
+spec.tests(tests);
+
+framework.run([spec]);
+
+// Helper function
+
+function createTest(module: string, asserts: string[]): TestScenario {
     const steps: Step[] = [];
 
     for (const assert of asserts) {
         const cursor = {value: 0};
-        const fidx: string = find(/invoke "([^"]+)"/, assert);
-        const args: Value[] = parseArguments(assert.replace(`(invoke "${fidx} "`, ''), cursor);
-        const result: Value | undefined = parseResult(assert.slice(cursor.value));
+        const func: string = find(/invoke "([^"]+)"/, assert);
+        const args: WASM.Value[] = parseArguments(assert.replace(`(invoke "${func} "`, ''), cursor);
+        const result: WASM.Value | undefined = parseResult(assert.slice(cursor.value));
 
-        let expectation: Expectation = (result === undefined) ?
-            {
-                'stack': {
-                    kind: 'comparison', value: (state: Object, value: Array<any>) => {
-                        return value.length === 0;
-                    }, message: 'stack should be empty'
-                } as Expected<Array<any>>
-            } :
-            {'value': {kind: 'primitive', value: result.value} as Expected<number>};
-
-        steps.push({
-            // (invoke "add" (f32.const 0x0p+0) (f32.const 0x0p+0)) (f32.const 0x0p+0)
-            title: assert,
-            instruction: Instruction.invoke,
-            payload: {name: fidx, args: args},
-            expected: [expectation]
-        });
+        if (result !== undefined) {
+            steps.push({
+                title: assert,
+                instruction: invoke(func, args),
+                expected: returns(result)
+            });
+        }
     }
 
-    framework.test({
+    return {
         title: `Test: ${basename(module)}`,
         program: module,
         dependencies: [],
         steps: steps
-    });
+    };
 }
+
+

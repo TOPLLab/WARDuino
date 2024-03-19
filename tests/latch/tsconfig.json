@@ -3,6 +3,7 @@
     "module": "commonjs",
     "target": "ES2020",
     "outDir": "out",
+    "resolveJsonModule": true,
     "lib": [
       "ES2020"
     ],
