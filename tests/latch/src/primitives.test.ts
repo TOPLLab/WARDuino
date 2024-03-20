@@ -8,16 +8,42 @@ import {
     Message,
     TestScenario,
     WASM,
-    awaitBreakpoint, PureAction, OutputStyle, Suite, Assertable, assertable
+    awaitBreakpoint, PureAction, OutputStyle, Suite, Assertable, assertable, invoke, returns
 } from 'latch';
 import * as mqtt from 'mqtt';
 import Type = WASM.Type;
 import {Breakpoint} from "latch/dist/types/debug/Breakpoint";
 
+const examples = `${__dirname}/../examples`;
+
 const framework = Framework.getImplementation();
 framework.style(OutputStyle.github);
 
 // TODO disclaimer: file is currently disabled until latch supports AS compilation
+
+const dummy: Suite = framework.suite('Integration tests: dummy primitives');
+
+dummy.testee('emulator [:8520]', new EmulatorSpecification(8520));
+
+const dummyScenario: TestScenario = {
+    title: 'Test dummy primitives',
+    program: `${examples}/dummy.wast`,
+    steps: [{
+        title: 'Check: dummy value',
+        instruction: invoke('dummy', [WASM.i32(32), WASM.i32(64)]),
+        expected: returns(WASM.i32(32))
+    }, {
+        title: 'Check: value at 32',
+        instruction: invoke('load', [WASM.i32(32)]),
+        expected: returns(WASM.i32(42))
+    }, {
+        title: 'Check: value at 48',
+        instruction: invoke('load', [WASM.i32(48)]),
+        expected: returns(WASM.i32(42))
+    }]
+};
+
+dummy.test(dummyScenario);
 
 const basic: Suite = framework.suite('Integration tests: basic primitives');
 
@@ -165,4 +191,4 @@ export function listen(topic: string): PureAction<Message> {
 
 comms.test(scenario);
 
-framework.run([]);
+framework.run([dummy]);
