@@ -2,9 +2,9 @@
 #include <vector>
 
 struct PinState {
-    uint8_t pin;
+    std::string pin;
     bool output;
     uint8_t value;
 };
 
-std::vector<PinState*> get_io_state();
+std::vector<PinState*> get_io_state(Module *m);

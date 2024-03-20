@@ -35,7 +35,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 10
+#define NUM_PRIMITIVES_ARDUINO 11
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -437,58 +437,21 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
     int32_t speed = (int32_t) arg0.uint32;
     int32_t degrees = (int32_t) arg1.uint32;
     int32_t motor_index = (int32_t) arg2.uint32;
-    printf("drive_motor_degrees(%d, %d)\n", speed, degrees);
+    printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
     
-    /*gpio_dt_spec pin5_encoder_spec = specs[51];
-    gpio_dt_spec pin6_encoder_spec = specs[50];*/
-    /*gpio_dt_spec pin5_encoder_spec = specs[57];
-    gpio_dt_spec pin6_encoder_spec = specs[58];*/
-    /*uint8_t old_res5 = gpio_pin_get_raw(pin5_encoder_spec.port, pin5_encoder_spec.pin);
-    uint8_t old_res6 = gpio_pin_get_raw(pin6_encoder_spec.port, pin6_encoder_spec.pin);*/
+    if (motor_index > 1) {
+        printf("Invalid motor index %d\n", motor_index);
+        pop_args(3);
+        return true;
+    }
     
-    //int motor_index = 1;
     pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
     pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
-    //MotorEncoder *encoder = &test_encoder;
     MotorEncoder *encoder = &encoders[motor_index];
     
-    //MotorEncoder encoder(pin5_encoder_spec, pin6_encoder_spec);
     encoder->set_target_angle(encoder->get_target_angle() + degrees);
     
-    //drive_motor(speed / 10000.0f);
-    
-    /*int count = 0;
-    while (count < arg1.uint32) {
-        uint8_t res5 = gpio_pin_get_raw(pin5_encoder_spec.port, pin5_encoder_spec.pin);
-        //printf("previous = %d, current = %d\n", old_res5, res5);
-        if (res5 != old_res5 && old_res5 == 0) { // Rising event
-            printk("Software rising edge detected on encoder\n");
-            count++;
-        }
-        old_res5 = res5;
-        
-        uint8_t res6 = gpio_pin_get_raw(pin6_encoder_spec.port, pin6_encoder_spec.pin);
-        if (res6 != old_res6 && old_res6 == 0) {
-            printk("Software rising edge detected on encoder\n");
-            count++;
-        }
-        old_res6 = res6;
-    }*/
-    
-    //while (abs(encoder.get_angle() - start_angle) < arg1.uint32) {}
-    
-    //drive_pwm(1.0f, 1.0f);
-    
-    //k_msleep(50);
-    
     printk("drift = %d\n", abs(encoder->get_angle() - encoder->get_target_angle()));
-    
-    // Test drift correction:
-    /*drive_motor(-speed / 10000.0f);
-    while (abs(encoder.get_angle() - start_angle) - arg1.uint32 > 0) {}
-    drive_pwm(1.0f, 1.0f);
-    k_msleep(100);
-    printk("drift = %d\n", abs(encoder.get_angle() - start_angle) - arg1.uint32);*/
     
     int drift = encoder->get_angle() - encoder->get_target_angle();
     while (abs(drift) > 0) {
@@ -498,12 +461,61 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
         bool not_moving = k_uptime_ticks() - encoder->get_last_update() >= 1000;
         encoder->last_update = k_uptime_ticks();
         printk("%lli\n", k_uptime_ticks() - encoder->get_last_update());
+        /*printf("PWM device %s\n", pwm1_spec.dev->name);
+        printf("PWM device %s\n", pwm2_spec.dev->name);*/
         drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
         k_msleep(50);
         drift = encoder->get_angle() - encoder->get_target_angle();
         printk("drift = %d, speed = %d\n", drift, speed);
         //speed = std::max(775, speed - speed/3); // Reduce speed when going fast to do corrections
-        //speed = 775;        
+        //speed = 775;    
+        if (not_moving) {
+            speed += 100;
+        } else {
+            speed = 800;
+        }
+    }
+    
+    pop_args(3);
+    return true;
+}
+
+def_prim(drive_motor_degrees_absolute, threeToNoneU32) {
+    int32_t speed = (int32_t) arg0.uint32;
+    int32_t degrees = (int32_t) arg1.uint32;
+    int32_t motor_index = (int32_t) arg2.uint32;
+    printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
+    
+    if (motor_index > 1) {
+        printf("Invalid motor index %d\n", motor_index);
+        pop_args(3);
+        return true;
+    }
+    
+    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
+    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
+    MotorEncoder *encoder = &encoders[motor_index];
+    
+    encoder->set_target_angle(degrees);
+    
+    printk("drift = %d\n", abs(encoder->get_angle() - encoder->get_target_angle()));
+    
+    int drift = encoder->get_angle() - encoder->get_target_angle();
+    while (abs(drift) > 0) {
+        int speed_sign = std::signbit(drift) ?  -1 : 1;
+        drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
+        while (speed_sign * (encoder->get_angle() - encoder->get_target_angle()) > 0 && k_uptime_ticks() - encoder->get_last_update() < 1000) {}
+        bool not_moving = k_uptime_ticks() - encoder->get_last_update() >= 1000;
+        encoder->last_update = k_uptime_ticks();
+        printk("%lli\n", k_uptime_ticks() - encoder->get_last_update());
+        /*printf("PWM device %s\n", pwm1_spec.dev->name);
+        printf("PWM device %s\n", pwm2_spec.dev->name);*/
+        drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
+        k_msleep(50);
+        drift = encoder->get_angle() - encoder->get_target_angle();
+        printk("drift = %d, speed = %d\n", drift, speed);
+        //speed = std::max(775, speed - speed/3); // Reduce speed when going fast to do corrections
+        //speed = 775;    
         if (not_moving) {
             speed += 100;
         } else {
@@ -811,6 +823,7 @@ void install_primitives() {
     install_primitive(motor_test);
     install_primitive(drive_motor_for_ms);
     install_primitive(drive_motor_degrees);
+    install_primitive(drive_motor_degrees_absolute);
     install_primitive(colour_sensor);
     install_primitive(setup_uart_sensor);
 }
@@ -819,12 +832,12 @@ void install_primitives() {
 // resolving the primitives
 //------------------------------------------------------
 bool resolve_primitive(char *symbol, Primitive *val) {
-    debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
+    printf("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
 
     for (auto &primitive : primitives) {
         //        printf("Checking %s = %s  \n", symbol, primitive.name);
         if (!strcmp(symbol, primitive.name)) {
-            debug("FOUND PRIMITIVE\n");
+            printf("FOUND PRIMITIVE\n");
             *val = primitive.f;
             return true;
         }
@@ -851,6 +864,19 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 
     FATAL("Could not find memory %s \n", symbol);
     return false;
+}
+
+#include "../IO/io.h"
+std::vector<PinState*> get_io_state(Module *m) {
+    std::vector<PinState*> ioState;
+    for (int i = 0; i < 2; i++) {
+        PinState *state = new PinState();
+        state->output = true;
+        state->pin = "e" + std::to_string(i);
+        state->value = encoders[i].get_target_angle();
+        ioState.push_back(state);
+    }
+    return ioState;
 }
 
 #endif  // ARDUINO
