@@ -1,7 +1,6 @@
 #include "./wasm.h"
 
 #include "../Utils/macros.h"
-#include "../WARDuino.h"
 uint32_t STORE_SIZE[] = {4, 8, 4, 8, 1, 2, 1, 2, 4};
 
 void report_overflow(Module *m, uint8_t *maddr) {
