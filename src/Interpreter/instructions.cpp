@@ -710,8 +710,8 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
 
 bool i_instr_mem_store(Module *m, uint8_t opcode) {
     StackValue *sval = &m->stack[m->sp--];
-    uint32_t offset = read_LEB_32(&m->pc_ptr);
     uint32_t flags = read_LEB_32(&m->pc_ptr);
+    uint32_t offset = read_LEB_32(&m->pc_ptr);
 
     uint32_t addr = m->stack[m->sp--].value.uint32;
 
