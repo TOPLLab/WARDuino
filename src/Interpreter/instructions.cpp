@@ -13,6 +13,8 @@
 uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,  // loads
                         4, 8, 4, 8, 1, 2, 1, 2, 4};                // stores
 
+uint32_t STORE_SIZE[] = {4, 8, 4, 8, 1, 2, 1, 2, 4};
+
 //
 // Stack machine (byte code related functions)
 //
@@ -708,13 +710,43 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool i_instr_mem_store(Module *m, uint8_t opcode) {
+void report_overflow(Module *m, uint8_t *maddr) {
+    dbg_warn("memory start: %p, memory end: %p, maddr: %p\n", m->memory.bytes,
+             m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE, maddr);
+    sprintf(exception, "out of bounds memory access");
+}
+
+bool store(Module *m, uint8_t type, uint32_t addr, StackValue &sval) {
     uint8_t *maddr, *mem_end;
-    uint32_t flags = read_LEB_32(&m->pc_ptr);
-    uint32_t offset = read_LEB_32(&m->pc_ptr);
-    StackValue *sval = &m->stack[m->sp--];
-    uint32_t addr = m->stack[m->sp--].value.uint32;
+    uint32_t size = STORE_SIZE[abs(type - I32)];
     bool overflow = false;
+
+    maddr = m->memory.bytes + addr;
+    if (maddr < m->memory.bytes) {
+        overflow = true;
+    }
+    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+    if (maddr + size > mem_end) {
+        overflow = true;
+    }
+
+    if (!m->options.disable_memory_bounds) {
+        if (overflow) {
+            report_overflow(m, maddr);
+            return false;
+        }
+    }
+
+    memcpy(maddr, &sval.value, size);
+    return true;
+}
+
+bool i_instr_mem_store(Module *m, uint8_t opcode) {
+    StackValue *sval = &m->stack[m->sp--];
+    uint32_t offset = read_LEB_32(&m->pc_ptr);
+    uint32_t flags = read_LEB_32(&m->pc_ptr);
+
+    uint32_t addr = m->stack[m->sp--].value.uint32;
 
     if (flags != 2 && TRACE) {
         dbg_info(
@@ -722,56 +754,39 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
             " offset: 0x%x, addr: 0x%x, val: %s\n",
             flags, offset, addr, value_repr(sval));
     }
-    if (offset + addr < addr) {
-        overflow = true;
+
+    if (offset + addr < addr && !m->options.disable_memory_bounds) {
+        report_overflow(m, m->memory.bytes + offset + addr);
     }
-    maddr = m->memory.bytes + offset + addr;
-    if (maddr < m->memory.bytes) {
-        overflow = true;
-    }
-    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
-    if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
-        overflow = true;
-    }
-    dbg_info(
-        "      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p, value: "
-        "%s\n",
-        addr, offset, maddr, mem_end, value_repr(sval));
-    if (!m->options.disable_memory_bounds) {
-        if (overflow) {
-            dbg_warn("memory start: %p, memory end: %p, maddr: %p\n",
-                     m->memory.bytes, mem_end, maddr);
-            sprintf(exception, "out of bounds memory access");
-            return false;
-        }
-    }
+
+    addr += offset;
     switch (opcode) {
         case 0x36:
-            memcpy(maddr, &sval->value.uint32, 4);
+            store(m, I32, addr, *sval);
             break;  // i32.store
         case 0x37:
-            memcpy(maddr, &sval->value.uint64, 8);
+            store(m, I64, addr, *sval);
             break;  // i64.store
         case 0x38:
-            memcpy(maddr, &sval->value.f32, 4);
+            store(m, F32, addr, *sval);
             break;  // f32.store
         case 0x39:
-            memcpy(maddr, &sval->value.f64, 8);
+            store(m, F64, addr, *sval);
             break;  // f64.store
         case 0x3a:
-            memcpy(maddr, &sval->value.uint32, 1);
+            store(m, I32_8, addr, *sval);
             break;  // i32.store8
         case 0x3b:
-            memcpy(maddr, &sval->value.uint32, 2);
+            store(m, I32_16, addr, *sval);
             break;  // i32.store16
         case 0x3c:
-            memcpy(maddr, &sval->value.uint64, 1);
+            store(m, I64_8, addr, *sval);
             break;  // i64.store8
         case 0x3d:
-            memcpy(maddr, &sval->value.uint64, 2);
+            store(m, I64_16, addr, *sval);
             break;  // i64.store16
         case 0x3e:
-            memcpy(maddr, &sval->value.uint64, 4);
+            store(m, I64_32, addr, *sval);
             break;  // i64.store32
         default:
             return false;

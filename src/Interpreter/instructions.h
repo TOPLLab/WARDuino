@@ -1,5 +1,7 @@
 #include "../WARDuino.h"
 
+bool store(Module *m, uint8_t type, uint32_t addr, StackValue &sval);
+
 /**
  * Push a new frame on to the call stack
  * @param m module

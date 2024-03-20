@@ -1,3 +1,4 @@
+#include "../Interpreter/instructions.h"
 #ifndef ARDUINO
 
 /**
