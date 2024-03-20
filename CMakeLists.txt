@@ -45,6 +45,7 @@ if (BUILD_EMULATOR)
             src/WARDuino/CallbackHandler.cpp
             src/Primitives/emulated.cpp
             src/Interpreter/instructions.cpp
+            src/Interpreter/wasm.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
             src/Utils/util_arduino.cpp
@@ -84,6 +85,7 @@ if (BUILD_UNITTEST)
             src/WARDuino/CallbackHandler.cpp
             src/Primitives/emulated.cpp
             src/Interpreter/instructions.cpp
+            src/Interpreter/wasm.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
             src/Utils/util_arduino.cpp
