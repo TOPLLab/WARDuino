@@ -4,9 +4,6 @@
 #include <cmath>
 #include <cstring>
 
-#ifdef EMULATOR
-#include "../Interpreter/concolic_interpreter.h"
-#endif
 #include "../Interpreter/interpreter.h"
 #include "../Memory/mem.h"
 #include "../Primitives/primitives.h"
@@ -805,10 +802,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
         }
     }
 
-#ifdef EMULATOR
-    m->create_symbolic_state();
-#endif
-
     find_blocks(m);
     debug("findblocks finished\n");
 
@@ -1036,41 +1029,4 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
 void Module::memory_resize(uint32_t new_pages) {
     memory.pages = new_pages;
     memory.bytes.resize(new_pages * PAGE_SIZE);
-#ifdef EMULATOR
-    symbolic_memory.symbolic_bytes.resize(new_pages * PAGE_SIZE,
-                                          ctx.bv_val(0, 8));
-    symbolic_memory.symbolic_pages = ctx.bv_val(new_pages, 32);
-#endif
 }
-
-#ifdef EMULATOR
-void Module::create_symbolic_state() {
-    /*
-     * Create symbolic globals from concrete globals.
-     * Init expressions for globals are constant expressions. Because of this it
-     * will not involve symbolic semantics, and we can just take the concrete
-     * value and create a symbolic literal from it.
-     */
-    symbolic_globals.clear();
-    for (size_t i = 0; i < global_count; i++) {
-        symbolic_globals.push_back(
-            ConcolicInterpreter::encode_as_symbolic(this, &globals[i]));
-    }
-
-    // Create symbolic memory from concrete memory.
-    for (size_t i = 0; i < memory.pages * PAGE_SIZE; i++) {
-        symbolic_memory.symbolic_bytes[i] = ctx.bv_val(memory.bytes[i], 8);
-    }
-
-    /*
-     * Create symbolic stack from concrete stack.
-     * This is useful when we load a snapshot from the microcontroller while
-     * debugging. It makes it possible to continue the concrete execution using
-     * the concolic interpreter.
-     */
-    for (int i = 0; i <= sp; i++) {
-        symbolic_stack[i] =
-            ConcolicInterpreter::encode_as_symbolic(this, &stack[i]);
-    }
-}
-#endif

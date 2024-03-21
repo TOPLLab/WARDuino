@@ -5,13 +5,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <map>
-#include <optional>
 #include <string>
 #include <vector>
-
-#ifdef EMULATOR
-#include <z3++.h>
-#endif
 
 #include "Debug/debugger.h"
 #include "Edward/proxy_supervisor.h"
@@ -135,16 +130,6 @@ struct Memory {
     void write_byte(uint32_t offset, uint8_t value) { bytes[offset] = value; }
 };
 
-#ifdef EMULATOR
-struct SymbolicMemory {
-    z3::expr symbolic_pages;
-    std::vector<z3::expr> symbolic_bytes;
-
-    explicit SymbolicMemory(z3::context &ctx)
-        : symbolic_pages(ctx.bv_val(0, 32)) {}
-};
-#endif
-
 typedef struct Options {
     // when true: host memory addresses will be outside allocated memory area
     // so do not do bounds checking
@@ -195,21 +180,6 @@ typedef struct Module {
     char *exception = nullptr;  // exception is set when the program fails
     int instructions_executed = 0;
 
-    // ------ Symbolic state ------
-#ifdef EMULATOR
-    z3::context ctx;
-    z3::expr path_condition = ctx.bool_val(true);
-    std::vector<z3::expr> symbolic_globals;  // symbolic globals
-    std::array<std::optional<z3::expr>, STACK_SIZE>
-        symbolic_stack;                                    // symbolic stack
-    SymbolicMemory symbolic_memory = SymbolicMemory(ctx);  // symbolic memory
-    int symbolic_variable_count = 0;
-    std::unordered_map<std::string, StackValue>
-        symbolic_concrete_values;  // concrete values for symbolic variables
-
-    // Create symbolic state based on concrete state.
-    void create_symbolic_state();
-#endif
     void memory_resize(uint32_t new_pages);
 } Module;
 
@@ -236,7 +206,6 @@ class WARDuino {
     Debugger *debugger;
     RunningState program_state = WARDUINOrun;
     Interpreter *interpreter;
-    int max_instructions = -1;
 
     static WARDuino *instance();
 

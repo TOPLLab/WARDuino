@@ -257,17 +257,15 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     return false;
 }
 
-Memory external_mem = {0, 0, 0, nullptr};
+Memory external_mem = {0, 0, 0};
 
 bool resolve_external_memory(char *symbol, Memory **val) {
     if (!strcmp(symbol, "memory")) {
-        if (external_mem.bytes == nullptr) {
+        if (external_mem.bytes.empty()) {
             external_mem.initial = 256;
             external_mem.maximum = 256;
             external_mem.pages = 256;
-            external_mem.bytes = (uint8_t *)acalloc(
-                external_mem.pages * PAGE_SIZE, sizeof(uint32_t),
-                "Module->memory.bytes primitive");
+            external_mem.bytes.resize(external_mem.pages * PAGE_SIZE);
         }
         *val = &external_mem;
         return true;

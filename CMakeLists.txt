@@ -44,7 +44,6 @@ if (BUILD_EMULATOR)
             src/WARDuino/WARDuino.cpp
             src/WARDuino/CallbackHandler.cpp
             src/Primitives/emulated.cpp
-            src/Interpreter/concolic_interpreter.cpp
             src/Interpreter/interpreter.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
@@ -60,7 +59,6 @@ if (BUILD_EMULATOR)
     add_definitions(-DDEBUG=0)
     add_definitions(-DTRACE=0)
     add_definitions(-DWARN=0)
-    add_definitions(-DEMULATOR=1)
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
@@ -71,7 +69,6 @@ if (BUILD_EMULATOR)
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
     target_link_libraries(wdcli PRIVATE Threads::Threads)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
-    target_link_libraries(wdcli PRIVATE z3)
 endif (BUILD_EMULATOR)
 
 if (BUILD_UNITTEST)
@@ -86,7 +83,7 @@ if (BUILD_UNITTEST)
             src/WARDuino/WARDuino.cpp
             src/WARDuino/CallbackHandler.cpp
             src/Primitives/emulated.cpp
-            src/Interpreter/instructions.cpp
+            src/Interpreter/interpreter.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
             src/Utils/util_arduino.cpp
