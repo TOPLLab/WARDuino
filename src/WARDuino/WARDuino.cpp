@@ -602,7 +602,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 // Allocate memory
                 // for (uint32_t c=0; c<memory_count; c++) {
                 parse_memory_type(m, &pos);
-                //m->memory.bytes = new uint8_t [m->memory.pages * PAGE_SIZE]{};
+                // m->memory.bytes = new uint8_t [m->memory.pages *
+                // PAGE_SIZE]{};
                 m->memory.bytes = (uint8_t *)acalloc(
                     m->memory.pages * PAGE_SIZE, 1,  // sizeof(uint32_t),
                     "Module->memory.bytes");
@@ -774,7 +775,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     }
 
                     if (function->local_count > 0) {
-                        function->local_value_type = new uint8_t[function->local_count];
+                        function->local_value_type =
+                            new uint8_t[function->local_count];
                     }
 
                     // Restore position and read the locals

@@ -149,22 +149,22 @@ typedef struct Module {
     uint32_t type_count = 0;  // number of function types
     Type *types = nullptr;    // function types
 
-    uint32_t import_count = 0;    // number of leading imports in functions
-    uint32_t function_count = 0;  // number of function (including imports)
-    std::vector<Block *> functions;   // imported and locally defined functions
+    uint32_t import_count = 0;       // number of leading imports in functions
+    uint32_t function_count = 0;     // number of function (including imports)
+    std::vector<Block *> functions;  // imported and locally defined functions
     std::map<uint8_t *, Block *>
         block_lookup;  // map of module byte position to Blocks
     // same length as byte_count
     uint32_t start_function = -1;  // function to run on module load
     Table table;
     Memory memory;
-    uint32_t global_count = 0;      // number of globals
+    uint32_t global_count = 0;        // number of globals
     std::vector<StackValue> globals;  // globals
     // Runtime state
     uint8_t *pc_ptr = nullptr;     // program counter
     int sp = -1;                   // operand stack pointer
     int fp = -1;                   // current frame pointer into stack
-    StackValue *stack;   // main operand stack
+    StackValue *stack;             // main operand stack
     int csp = -1;                  // callstack pointer
     Frame *callstack = nullptr;    // callstack
     uint32_t *br_table = nullptr;  // br_table branch indexes
