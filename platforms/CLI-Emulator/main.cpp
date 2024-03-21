@@ -314,10 +314,10 @@ int main(int argc, const char *argv[]) {
                 return 1;
             }
 
-            Block *function = m->functions[fidx];
+            Block function = m->functions[fidx];
 
             // consume all arguments for the function
-            for (uint32_t i = 0; i < function->type->param_count; ++i) {
+            for (uint32_t i = 0; i < function.type->param_count; ++i) {
                 const char *number = nullptr;
                 ARGV_GET(number);
 
@@ -326,7 +326,7 @@ int main(int argc, const char *argv[]) {
                 }
 
                 arguments.push_back(
-                    parseParameter(number, function->type->params[i]));
+                    parseParameter(number, function.type->params[i]));
             }
         }
     }

@@ -81,7 +81,7 @@ Block *pop_block(Module *m) {
 }
 
 void setup_call(Module *m, uint32_t fidx) {
-    Block *func = m->functions[fidx];
+    Block *func = &m->functions[fidx];
     Type *type = func->type;
 
     // Push current frame on the call stack
@@ -118,7 +118,7 @@ bool proxy_call(Module *m, uint32_t fidx) {
     dbg_info("Remote Function Call %d\n", fidx);
     ProxySupervisor *supervisor = m->warduino->debugger->supervisor;
     RFC *rfc;
-    Type *type = m->functions[fidx]->type;
+    Type *type = m->functions[fidx].type;
     if (type->param_count > 0) {
         m->sp -= type->param_count;
         StackValue *args = &m->stack[m->sp + 1];
@@ -392,7 +392,7 @@ bool i_instr_call(Module *m) {
     }
 
     if (fidx < m->import_count) {
-        return ((Primitive)m->functions[fidx]->func_ptr)(m);
+        return ((Primitive)m->functions[fidx].func_ptr)(m);
     } else {
         if (m->csp >= CALLSTACK_SIZE) {
             sprintf(exception, "call stack exhausted");
@@ -441,7 +441,7 @@ bool i_instr_call_indirect(Module *m) {
     if (fidx < m->import_count) {
         // THUNK thunk_out(m, fidx);    // import/thunk call
     } else {
-        Block *func = m->functions[fidx];
+        Block *func = &m->functions[fidx];
         Type *ftype = func->type;
 
         if (m->csp >= CALLSTACK_SIZE) {

@@ -203,7 +203,7 @@ void find_blocks(Module *m) {
     uint8_t opcode = 0x00;
     dbg_info("  find_blocks: function_count: %d\n", m->function_count);
     for (uint32_t f = m->import_count; f < m->function_count; f++) {
-        function = m->functions[f];
+        function = &m->functions[f];
         debug("    fidx: 0x%x, start: 0x%p, end: 0x%p\n", f,
               function->start_ptr, function->end_ptr);
         uint8_t *pos = function->start_ptr;
@@ -284,7 +284,7 @@ void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
 uint32_t WARDuino::get_export_fidx(Module *m, const char *name) {
     // Find name function index
     for (uint32_t f = 0; f < m->function_count; f++) {
-        char *fname = m->functions[f]->export_name;
+        char *fname = m->functions[f].export_name;
         if (!fname) {
             continue;
         }
@@ -482,9 +482,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             fidx = m->function_count;
                             m->import_count += 1;
                             m->function_count += 1;
-                            m->functions.push_back(new Block());
+                            m->functions.push_back(Block());
 
-                            auto *func = m->functions[fidx];
+                            Block *func = &m->functions[fidx];
                             func->import_module = import_module;
                             func->import_field = import_field;
                             func->type = &m->types[type_index];
@@ -573,9 +573,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                 for (uint32_t f = m->import_count; f < m->function_count; f++) {
                     uint32_t tidx = read_LEB_32(&pos);
-                    m->functions.push_back(new Block());
-                    m->functions[f]->fidx = f;
-                    m->functions[f]->type = &m->types[tidx];
+                    m->functions.push_back(Block());
+                    m->functions[f].fidx = f;
+                    m->functions[f].type = &m->types[tidx];
                     debug("  function fidx: 0x%x, tidx: 0x%x\n", f, tidx);
                 }
                 break;
@@ -648,7 +648,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             name, kind, index);
                         continue;
                     }
-                    m->functions[index]->export_name = name;
+                    m->functions[index].export_name = name;
                     debug("  export: %s (0x%x)\n", name, index);
                 }
                 break;
@@ -755,7 +755,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                          section_len);
                 uint32_t body_count = read_LEB_32(&pos);
                 for (uint32_t b = 0; b < body_count; b++) {
-                    Block *function = m->functions[m->import_count + b];
+                    Block *function = &m->functions[m->import_count + b];
                     uint32_t body_size = read_LEB_32(&pos);
                     uint8_t *payload_start = pos;
                     uint8_t *save_pos;
@@ -817,7 +817,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
         // dbg_dump_stack(m);
 
-        ASSERT(m->functions[fidx]->type->result_count == 0,
+        ASSERT(m->functions[fidx].type->result_count == 0,
                "start function 0x%" PRIx32 " must not have arguments!", fidx);
 
         if (fidx < m->import_count) {
@@ -940,8 +940,8 @@ void WARDuino::free_module_state(Module *m) {
 
     if (!m->functions.empty()) {
         for (uint32_t i = 0; i < m->function_count; ++i) {
-            free(m->functions[i]->export_name);
-            delete m->functions[i];
+            free(m->functions[i].export_name);
+            delete[] m->functions[i].local_value_type;
         }
         m->functions.clear();
     }
