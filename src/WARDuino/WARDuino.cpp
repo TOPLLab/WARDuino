@@ -213,7 +213,7 @@ void find_blocks(Module *m) {
                 case 0x02:     // block
                 case 0x03:     // loop
                 case 0x04:     // if
-                    block = (Block *)acalloc(1, sizeof(Block), "Block");
+                    block = new Block();
                     block->block_type = opcode;
                     block->type = get_block_type(*(pos + 1));
                     block->start_ptr = pos;
@@ -301,10 +301,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     uint8_t valueType;
 
     // Allocate stacks
-    m->stack = (StackValue *)acalloc(STACK_SIZE, sizeof(StackValue), "Stack");
-    m->callstack = (Frame *)acalloc(CALLSTACK_SIZE, sizeof(Frame), "Callstack");
-    m->br_table =
-        (uint32_t *)acalloc(BR_TABLE_SIZE, sizeof(uint32_t), "Branch table");
+    m->stack = new StackValue[STACK_SIZE]{};
+    m->callstack = new Frame[CALLSTACK_SIZE]{};
+    m->br_table = new uint32_t[BR_TABLE_SIZE]{};
 
     // Empty stacks
     m->sp = -1;
@@ -313,8 +312,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
     m->bytes = bytes;
     m->byte_count = byte_count;
-    // run constructor with already allocated memory
-    new (&m->block_lookup) std::map<uint8_t *, Block *>;
     m->start_function = UNDEF;
 
     // Check the module
@@ -360,8 +357,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 dbg_warn("Parsing Type(1) section (length: 0x%x)\n",
                          section_len);
                 m->type_count = read_LEB_32(&pos);
-                m->types = (Type *)acalloc(m->type_count, sizeof(Type),
-                                           "Module->types");
+                m->types = new Type[m->type_count]{};
 
                 for (uint32_t c = 0; c < m->type_count; c++) {
                     Type *type = &m->types[c];
@@ -372,16 +368,14 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                     // read vector params
                     type->param_count = read_LEB_32(&pos);
-                    type->params = (uint32_t *)acalloc(
-                        type->param_count, sizeof(uint32_t), "type->params");
+                    type->params = new uint32_t[type->param_count];
                     for (uint32_t p = 0; p < type->param_count; p++) {
                         type->params[p] = read_LEB_32(&pos);
                     }
 
                     // read vector results
                     type->result_count = read_LEB_32(&pos);
-                    type->results = (uint32_t *)acalloc(
-                        type->result_count, sizeof(uint32_t), "type->results");
+                    type->results = new uint32_t[type->result_count];
                     for (uint32_t r = 0; r < type->result_count; r++) {
                         type->results[r] = read_LEB_32(&pos);
                     }
@@ -488,9 +482,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             fidx = m->function_count;
                             m->import_count += 1;
                             m->function_count += 1;
-                            m->functions = (Block *)arecalloc(
-                                m->functions, fidx, m->import_count,
-                                sizeof(Block), "Block(imports)");
+                            m->functions.push_back(Block());
 
                             Block *func = &m->functions[fidx];
                             func->import_module = import_module;
@@ -539,11 +531,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         }
                         case 0x03:  // Global
                         {
-                            m->global_count += 1;
-                            m->globals = (StackValue *)arecalloc(
-                                m->globals, m->global_count - 1,
-                                m->global_count, sizeof(StackValue), "globals");
-                            StackValue *glob = &m->globals[m->global_count - 1];
+                            m->globals.emplace_back();
+                            StackValue *glob = &m->globals[m->global_count++];
                             glob->value_type = content_type;
 
                             switch (
@@ -582,17 +571,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 debug("  import_count: %d, new count: %d\n", m->import_count,
                       m->function_count);
 
-                Block *functions;
-                functions = (Block *)acalloc(m->function_count, sizeof(Block),
-                                             "Block(function)");
-                if (m->import_count != 0) {
-                    memcpy(functions, m->functions,
-                           sizeof(Block) * m->import_count);
-                }
-                m->functions = functions;
-
                 for (uint32_t f = m->import_count; f < m->function_count; f++) {
                     uint32_t tidx = read_LEB_32(&pos);
+                    m->functions.push_back(Block());
                     m->functions[f].fidx = f;
                     m->functions[f].type = &m->types[tidx];
                     debug("  function fidx: 0x%x, tidx: 0x%x\n", f, tidx);
@@ -609,8 +590,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 parse_table_type(m, &pos);
                 // If it's not imported then don't mangle it
                 m->options.mangle_table_index = false;
-                m->table.entries = (uint32_t *)acalloc(
-                    m->table.size, sizeof(uint32_t), "Module->table.entries");
+                m->table.entries = new uint32_t[m->table.size]{};
                 //}
                 break;
             }
@@ -622,6 +602,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 // Allocate memory
                 // for (uint32_t c=0; c<memory_count; c++) {
                 parse_memory_type(m, &pos);
+                // m->memory.bytes = new uint8_t [m->memory.pages *
+                // PAGE_SIZE]{};
                 m->memory.bytes = (uint8_t *)acalloc(
                     m->memory.pages * PAGE_SIZE, 1,  // sizeof(uint32_t),
                     "Module->memory.bytes");
@@ -639,9 +621,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     (void)mutability;
                     uint32_t gidx = m->global_count;
                     m->global_count += 1;
-                    m->globals = (StackValue *)arecalloc(
-                        m->globals, gidx, m->global_count, sizeof(StackValue),
-                        "globals");
+                    m->globals.emplace_back();
                     m->globals[gidx].value_type = type;
 
                     // Run the init_expr to get global value
@@ -795,9 +775,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     }
 
                     if (function->local_count > 0) {
-                        function->local_value_type = (uint8_t *)acalloc(
-                            function->local_count, sizeof(uint8_t),
-                            "function->local_value_type");
+                        function->local_value_type =
+                            new uint8_t[function->local_count];
                     }
 
                     // Restore position and read the locals
@@ -866,9 +845,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                               Options options) {
     debug("Loading module of size %d \n", byte_count);
-    Module *m;
     // Allocate the module
-    m = (Module *)acalloc(1, sizeof(Module), "Module");
+    auto *m = new Module();
     m->warduino = this;
     m->options = options;
 
@@ -960,17 +938,15 @@ void WARDuino::free_module_state(Module *m) {
         m->types = nullptr;
     }
 
-    if (m->functions != nullptr) {
-        for (uint32_t i = 0; i < m->function_count; ++i)
+    if (!m->functions.empty()) {
+        for (uint32_t i = 0; i < m->function_count; ++i) {
             free(m->functions[i].export_name);
-        free(m->functions);
-        m->functions = nullptr;
+            delete[] m->functions[i].local_value_type;
+        }
+        m->functions.clear();
     }
 
-    if (m->globals != nullptr) {
-        free(m->globals);
-        m->globals = nullptr;
-    }
+    m->globals.clear();
 
     if (m->table.entries != nullptr) {
         free(m->table.entries);
