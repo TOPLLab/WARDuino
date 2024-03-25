@@ -45,7 +45,12 @@ class Interpreter {
      */
     bool interpret(Module *m, bool waiting = false);
 
+    /* Stateful operations
+     * ************************************************************************/
+
     bool store(Module *m, uint8_t type, uint32_t addr, StackValue &sval);
+
+    bool load(Module *m, uint8_t type, uint32_t addr);
 
     static void report_overflow(Module *m, uint8_t *maddr);
 

@@ -8,11 +8,6 @@
 #include "../Utils/util.h"
 #include "../WARDuino/CallbackHandler.h"
 
-// Size of memory load.
-// This starts with the first memory load operator at opcode 0x28
-uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,  // loads
-                        4, 8, 4, 8, 1, 2, 1, 2, 4};                // stores
-
 // performs proxy calls to an MCU
 bool proxy_call(Module *m, uint32_t fidx) {
     dbg_info("Remote Function Call %d\n", fidx);
@@ -507,8 +502,6 @@ bool i_instr_grow_memory(Module *m) {
  * 0x0d XXX
  */
 bool i_instr_mem_load(Module *m, uint8_t opcode) {
-    bool overflow = false;
-    uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB_32(&m->pc_ptr);
     uint32_t offset = read_LEB_32(&m->pc_ptr);
     uint32_t addr = m->stack[m->sp--].value.uint32;
@@ -518,94 +511,11 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
             " offset: 0x%x, addr: 0x%x\n",
             flags, offset, addr);
     }
-    if (offset + addr < addr) {
-        overflow = true;
-    }
-    maddr = m->memory.bytes + offset + addr;
-    if (maddr < m->memory.bytes) {
-        overflow = true;
-    }
-    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
-    if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
-        overflow = true;
-    }
-    dbg_info("      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p\n", addr,
-             offset, maddr, mem_end);
-    if (!m->options.disable_memory_bounds) {
-        if (overflow) {
-            dbg_warn("memory start: %p, memory end: %p, maddr: %p\n",
-                     m->memory.bytes, mem_end, maddr);
-            sprintf(exception, "out of bounds memory access");
-            return false;
-        }
-    }
+
     m->stack[++m->sp].value.uint64 = 0;  // initialize to 0
-    switch (opcode) {
-        case 0x28:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load
-        case 0x29:
-            memcpy(&m->stack[m->sp].value, maddr, 8);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load
-        case 0x2a:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
-            m->stack[m->sp].value_type = F32;
-            break;  // f32.load
-        case 0x2b:
-            memcpy(&m->stack[m->sp].value, maddr, 8);
-            m->stack[m->sp].value_type = F64;
-            break;  // f64.load
-        case 0x2c:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
-            sext_8_32(&m->stack[m->sp].value.uint32);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load8_s
-        case 0x2d:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load8_u
-        case 0x2e:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
-            sext_16_32(&m->stack[m->sp].value.uint32);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load16_s
-        case 0x2f:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load16_u
-        case 0x30:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
-            sext_8_64(&m->stack[m->sp].value.uint64);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load8_s
-        case 0x31:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load8_u
-        case 0x32:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
-            sext_16_64(&m->stack[m->sp].value.uint64);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load16_s
-        case 0x33:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load16_u
-        case 0x34:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
-            sext_32_64(&m->stack[m->sp].value.uint64);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load32_s
-        case 0x35:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load32_u
-        default:
-            return false;
-    }
-    return true;
+
+    return m->warduino->interpreter->load(m, I32 + (0x28 - opcode),
+                                          offset + addr);
 }
 
 bool i_instr_mem_store(Module *m, uint8_t opcode) {
@@ -628,38 +538,8 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
     }
 
     addr += offset;
-    switch (opcode) {
-        case 0x36:
-            m->warduino->interpreter->store(m, I32, addr, *sval);
-            break;  // i32.store
-        case 0x37:
-            m->warduino->interpreter->store(m, I64, addr, *sval);
-            break;  // i64.store
-        case 0x38:
-            m->warduino->interpreter->store(m, F32, addr, *sval);
-            break;  // f32.store
-        case 0x39:
-            m->warduino->interpreter->store(m, F64, addr, *sval);
-            break;  // f64.store
-        case 0x3a:
-            m->warduino->interpreter->store(m, I32_8, addr, *sval);
-            break;  // i32.store8
-        case 0x3b:
-            m->warduino->interpreter->store(m, I32_16, addr, *sval);
-            break;  // i32.store16
-        case 0x3c:
-            m->warduino->interpreter->store(m, I64_8, addr, *sval);
-            break;  // i64.store8
-        case 0x3d:
-            m->warduino->interpreter->store(m, I64_16, addr, *sval);
-            break;  // i64.store16
-        case 0x3e:
-            m->warduino->interpreter->store(m, I64_32, addr, *sval);
-            break;  // i64.store32
-        default:
-            return false;
-    }
-    return true;
+    return m->warduino->interpreter->store(m, I32 + (0x36 - opcode), addr,
+                                           *sval);
 }
 
 /**

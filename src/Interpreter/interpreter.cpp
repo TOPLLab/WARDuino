@@ -106,6 +106,7 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
     m->pc_ptr = func->start_ptr;
 }
 
+uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4};
 uint32_t STORE_SIZE[] = {4, 8, 4, 8, 1, 2, 1, 2, 4};
 
 bool Interpreter::store(Module *m, uint8_t type, uint32_t addr,
@@ -115,7 +116,7 @@ bool Interpreter::store(Module *m, uint8_t type, uint32_t addr,
     }
 
     uint8_t *maddr, *mem_end;
-    uint32_t size = STORE_SIZE[abs(type - I32)];
+    uint32_t size = STORE_SIZE[abs(type - 0x28)];
     bool overflow = false;
 
     maddr = m->memory.bytes + addr;
@@ -135,6 +136,45 @@ bool Interpreter::store(Module *m, uint8_t type, uint32_t addr,
     }
 
     memcpy(maddr, &sval.value, size);
+    return true;
+}
+
+bool Interpreter::load(Module *m, uint8_t type, uint32_t addr) {
+    uint8_t *maddr = m->memory.bytes + addr;
+    uint32_t size = STORE_SIZE[abs(type - I32)];
+    uint8_t *mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+
+    bool overflow = maddr < m->memory.bytes || maddr + size > mem_end;
+
+    if (!m->options.disable_memory_bounds) {
+        if (overflow) {
+            report_overflow(m, maddr);
+            return false;
+        }
+    }
+
+    memcpy(&m->stack[m->sp].value, maddr, size);
+    m->stack[m->sp].value_type = type;
+
+    switch (type) {
+        case I32_8_s:
+            sext_8_32(&m->stack[m->sp].value.uint32);
+            break;
+        case I32_16_s:
+            sext_16_32(&m->stack[m->sp].value.uint32);
+            break;
+        case I64_8_s:
+            sext_8_64(&m->stack[m->sp].value.uint64);
+            break;
+        case I64_16_s:
+            sext_16_64(&m->stack[m->sp].value.uint64);
+            break;
+        case I64_32_s:
+            sext_32_64(&m->stack[m->sp].value.uint64);
+            break;
+        default:
+            break;
+    }
     return true;
 }
 
