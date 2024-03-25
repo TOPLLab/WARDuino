@@ -1,3 +1,4 @@
+#include "../Interpreter/instructions.h"
 #ifndef ARDUINO
 
 /**
@@ -22,6 +23,7 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0

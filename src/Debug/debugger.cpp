@@ -12,6 +12,7 @@
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
+#include "../WARDuino/CallbackHandler.h"
 
 // Debugger
 
@@ -1210,6 +1211,8 @@ void Debugger::sendProxyCallResult(Module *m) {
     }
     this->proxy->returnResult(m);
 }
+
+bool Debugger::isProxy() const { return this->proxy != nullptr; }
 
 bool Debugger::isProxied(uint32_t fidx) const {
     return this->supervisor != nullptr && this->supervisor->isProxied(fidx);

@@ -15,6 +15,7 @@
 
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "../WARDuino/CallbackHandler.h"
 
 // TODO exception msg
 const char SUCCESS[] = "";  // Empty denotes success
