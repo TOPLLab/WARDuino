@@ -50,7 +50,7 @@ class Interpreter {
 
     bool store(Module *m, uint8_t type, uint32_t addr, StackValue &sval);
 
-    bool load(Module *m, uint8_t type, uint32_t addr);
+    bool load(Module *m, uint8_t type, uint32_t addr, uint32_t offset);
 
     static void report_overflow(Module *m, uint8_t *maddr);
 

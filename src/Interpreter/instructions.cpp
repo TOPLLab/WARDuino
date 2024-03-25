@@ -512,10 +512,8 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
             flags, offset, addr);
     }
 
-    m->stack[++m->sp].value.uint64 = 0;  // initialize to 0
-
-    return m->warduino->interpreter->load(m, I32 + (0x28 - opcode),
-                                          offset + addr);
+    return m->warduino->interpreter->load(m, I32 + (0x28 - opcode), addr,
+                                          offset);
 }
 
 bool i_instr_mem_store(Module *m, uint8_t opcode) {

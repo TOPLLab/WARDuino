@@ -107,6 +107,8 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
 }
 
 uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4};
+uint32_t LOAD_TYPES[] = {I32, I64, F32, F64, I32, I32, I32,
+                         I32, I64, I64, I64, I64, I64, I64};
 uint32_t STORE_SIZE[] = {4, 8, 4, 8, 1, 2, 1, 2, 4};
 
 bool Interpreter::store(Module *m, uint8_t type, uint32_t addr,
@@ -116,7 +118,7 @@ bool Interpreter::store(Module *m, uint8_t type, uint32_t addr,
     }
 
     uint8_t *maddr, *mem_end;
-    uint32_t size = STORE_SIZE[abs(type - 0x28)];
+    uint32_t size = STORE_SIZE[abs(type - I32)];
     bool overflow = false;
 
     maddr = m->memory.bytes + addr;
@@ -139,12 +141,18 @@ bool Interpreter::store(Module *m, uint8_t type, uint32_t addr,
     return true;
 }
 
-bool Interpreter::load(Module *m, uint8_t type, uint32_t addr) {
+bool Interpreter::load(Module *m, uint8_t type, uint32_t addr,
+                       uint32_t offset = 0) {
+    bool overflow = false;
+    if (offset + addr < addr) {
+        overflow = true;
+    }
+
     uint8_t *maddr = m->memory.bytes + addr;
-    uint32_t size = STORE_SIZE[abs(type - I32)];
+    uint32_t size = LOAD_SIZE[abs(type - I32)];
     uint8_t *mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
 
-    bool overflow = maddr < m->memory.bytes || maddr + size > mem_end;
+    overflow |= maddr < m->memory.bytes || maddr + size > mem_end;
 
     if (!m->options.disable_memory_bounds) {
         if (overflow) {
@@ -153,8 +161,10 @@ bool Interpreter::load(Module *m, uint8_t type, uint32_t addr) {
         }
     }
 
+    m->stack[++m->sp].value.uint64 = 0;  // initialize to 0
+
     memcpy(&m->stack[m->sp].value, maddr, size);
-    m->stack[m->sp].value_type = type;
+    m->stack[m->sp].value_type = LOAD_TYPES[abs(type - I32)];
 
     switch (type) {
         case I32_8_s:
