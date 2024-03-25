@@ -18,6 +18,11 @@ struct Module;
 struct Block;
 struct StackValue;
 
+enum operation {
+    STORE = 0,
+    LOAD = 1,
+};
+
 enum RunningState {
     WARDUINOinit,
     WARDUINOrun,
@@ -80,7 +85,12 @@ enum InterruptTypes {
     interruptPOPEvent = 0x72,
     interruptPUSHEvent = 0x73,
     interruptDUMPCallbackmapping = 0x74,
-    interruptRecvCallbackmapping = 0x75
+    interruptRecvCallbackmapping = 0x75,
+
+    // Operations
+    interruptStore = 0xa0,
+    interruptStored = 0xa1,
+
 };
 
 class Debugger {
@@ -171,6 +181,8 @@ class Debugger {
 
     static void updateCallbackmapping(Module *m, const char *interruptData);
 
+    bool operation(Module *m, operation op);
+
    public:
     // Public fields
     std::mutex messageQueueMutex;  // mutual exclude debugMessages
@@ -228,6 +240,8 @@ class Debugger {
     RFC *topProxyCall();
 
     void sendProxyCallResult(Module *m);
+
+    bool isProxy() const;
 
     bool isProxied(uint32_t fidx) const;
 

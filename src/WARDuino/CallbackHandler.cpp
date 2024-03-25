@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "../Debug/debugger.h"
-#include "../Interpreter/instructions.h"
+#include "../Interpreter/interpreter.h"
 #include "../Utils/macros.h"
 
 void push_guard(Module *m) {
@@ -21,7 +21,7 @@ void push_guard(Module *m) {
     guard->import_field = nullptr;
     guard->import_module = nullptr;
     guard->func_ptr = nullptr;
-    push_block(m, guard, m->sp);
+    WARDuino::instance()->interpreter->push_block(m, guard, m->sp);
 }
 
 // CallbackHandler class
@@ -225,7 +225,7 @@ void Callback::resolve_event(const Event &e) {
 
     // Setup function
     uint32_t fidx = module->table.entries[table_index];
-    setup_call(module, fidx);
+    WARDuino::instance()->interpreter->setup_call(module, fidx);
 
     // Validate argument count
     // Callback function cannot return a result, should have return type void
