@@ -148,7 +148,7 @@ bool Interpreter::load(Module *m, uint8_t type, uint32_t addr,
         overflow = true;
     }
 
-    uint8_t *maddr = m->memory.bytes + addr;
+    uint8_t *maddr = m->memory.bytes + addr + offset;
     uint32_t size = LOAD_SIZE[abs(type - I32)];
     uint8_t *mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
 
