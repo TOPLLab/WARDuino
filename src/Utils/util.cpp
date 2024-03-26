@@ -41,6 +41,81 @@ StackValue *readArgs(Type function, uint8_t *data) {
 
 // Little endian base (LEB128)
 
+uint64_t size_leb(uint64_t val) {
+    uint64_t count = 0;
+    do {
+        val >>= 7;
+        count++;
+    } while (val != 0);
+    return count;
+}
+
+uint32_t write_LEB_(uint8_t *dest, uint64_t val) {
+    uint32_t count = 0;
+
+    do {
+        uint8_t byte = val & 0x7f;
+        val >>= 7;
+
+        if (val != 0) byte |= 0x80;
+
+        dest[count++] = byte;
+    } while (val != 0);
+
+    return count;
+}
+
+uint8_t *write_LEB(uint32_t value) {
+    uint8_t *buffer =
+        static_cast<uint8_t *>(calloc(sizeof(uint8_t), size_leb(value)));
+    write_LEB_(buffer, value);
+    return buffer;
+}
+
+uint32_t write_LEB_signed(uint8_t *dest, uint64_t val, uint64_t bits) {
+    uint32_t count = 0;
+
+    do {
+        uint8_t byte = val & 0x7f;
+        val >>= 7;
+
+        if (static_cast<int64_t>(val) < 0) {
+            val |= UINT64_MAX << (bits - 7);  // sign extend
+        }
+
+        if ((val == 0 && static_cast<int8_t>(byte) >= 0) ||
+            (val == -1 && static_cast<int8_t>(byte) < 0)) {
+            break;
+        }
+        byte |= 0x80;
+
+        dest[count++] = byte;
+    } while (val != 0);
+
+    return count;
+}
+
+uint64_t write_LEB_(uint64_t value, uint8_t *buff, uint32_t size, uint32_t bits,
+                    bool sign) {
+    if (size_leb(value) > size) {
+        return 0;
+    }
+
+    if (sign) {
+        return write_LEB_(buff, value);
+    } else {
+        return write_LEB_signed(buff, value, bits);
+    }
+}
+
+uint64_t write_LEB_32(uint32_t value, uint8_t *buff, uint32_t size) {
+    return write_LEB_(value, buff, size, 32, false);
+}
+
+uint64_t write_LEB_32_signed(uint32_t value, uint8_t *buff, uint32_t size) {
+    return write_LEB_(value, buff, size, 32, true);
+}
+
 uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
     uint64_t result = 0;
     uint32_t shift = 0;
