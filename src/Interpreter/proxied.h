@@ -1,0 +1,1 @@
+class Proxied : public Interpreter {};

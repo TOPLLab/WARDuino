@@ -15,6 +15,7 @@
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 #include "../WARDuino/CallbackHandler.h"
+#include "../Interpreter/proxied.h"
 
 // Debugger
 
@@ -360,6 +361,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptUnsetOverridePinValue:
             this->removeOverride(m, interruptData + 1);
+            free(interruptData);
+            break;
+        case interruptStore:
+            this->receiveStore(m, interruptData + 1);
             free(interruptData);
             break;
         default:
@@ -1413,6 +1418,8 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
 
 void Debugger::proxify() {
     WARDuino::instance()->program_state = PROXYhalt;
+    delete WARDuino::instance()->interpreter;
+    WARDuino::instance()->interpreter = new Proxied();
     this->proxy = new Proxy();  // TODO delete
 }
 
@@ -1498,6 +1505,16 @@ void Debugger::updateCallbackmapping(Module *m, const char *interruptData) {
                 Callback(m, callback.key(), functions.value()));
         }
     }
+}
+
+void Debugger::receiveStore(Module *m, uint8_t *interruptData) {
+    uint8_t type = *interruptData;
+    uint8_t *pos = interruptData + 1;
+    uint32_t addr = read_LEB_32(&pos);
+    auto *sval = (StackValue *)malloc(sizeof(struct StackValue));
+    deserialiseStackValue(pos, true, sval);
+    m->warduino->interpreter->store(m, type, addr, *sval);
+    free(sval);
 }
 
 // Stop the debugger

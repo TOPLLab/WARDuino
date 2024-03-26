@@ -212,7 +212,7 @@ class Debugger {
 
     static void updateCallbackmapping(Module *m, const char *interruptData);
 
-    bool operation(Module *m, operation op);
+    void receiveStore(Module *m, uint8_t *interruptData);
 
    public:
     // Public fields

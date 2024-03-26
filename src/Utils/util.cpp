@@ -39,7 +39,7 @@ StackValue *readArgs(Type function, uint8_t *data) {
     return args;
 }
 
-// Little endian base (LED128)
+// Little endian base (LEB128)
 
 uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
     uint64_t result = 0;
