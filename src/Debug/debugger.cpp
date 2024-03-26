@@ -10,12 +10,12 @@
 #include "../../lib/json/single_include/nlohmann/json.hpp"
 #endif
 
+#include "../Interpreter/proxied.h"
 #include "../Memory/mem.h"
 #include "../Primitives/primitives.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 #include "../WARDuino/CallbackHandler.h"
-#include "../Interpreter/proxied.h"
 
 // Debugger
 
@@ -1508,12 +1508,11 @@ void Debugger::updateCallbackmapping(Module *m, const char *interruptData) {
 }
 
 void Debugger::receiveStore(Module *m, uint8_t *interruptData) {
-    uint8_t type = *interruptData;
-    uint8_t *pos = interruptData + 1;
+    uint8_t *pos = interruptData;
     uint32_t addr = read_LEB_32(&pos);
     auto *sval = (StackValue *)malloc(sizeof(struct StackValue));
     deserialiseStackValue(pos, true, sval);
-    m->warduino->interpreter->store(m, type, addr, *sval);
+    m->warduino->interpreter->store(m, sval->value_type, addr, *sval);
     free(sval);
 }
 

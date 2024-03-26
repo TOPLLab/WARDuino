@@ -113,10 +113,6 @@ uint32_t STORE_SIZE[] = {4, 8, 4, 8, 1, 2, 1, 2, 4};
 
 bool Interpreter::store(Module *m, uint8_t type, uint32_t addr,
                         StackValue &sval) {
-    if (m->warduino->debugger->isProxy()) {
-        return m->warduino->debugger;
-    }
-
     uint8_t *maddr, *mem_end;
     uint32_t size = STORE_SIZE[abs(type - I32)];
     bool overflow = false;

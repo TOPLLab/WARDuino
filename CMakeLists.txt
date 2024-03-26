@@ -46,6 +46,7 @@ if (BUILD_EMULATOR)
             src/Primitives/emulated.cpp
             src/Interpreter/instructions.cpp
             src/Interpreter/interpreter.cpp
+            src/Interpreter/proxied.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
             src/Utils/util_arduino.cpp
