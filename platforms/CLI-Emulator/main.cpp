@@ -34,7 +34,7 @@
 void print_help() {
     fprintf(stdout, "WARDuino WebAssembly Runtime - " PROJECT_VERSION "\n\n");
     fprintf(stdout, "Usage:\n");
-    fprintf(stdout, "    warduino <file> [options]\n");
+    fprintf(stdout, "    wdcli <file> [options]\n");
     fprintf(stdout, "Options:\n");
     fprintf(stdout,
             "    --loop         Let the runtime loop infinitely on exceptions "
@@ -47,7 +47,7 @@ void print_help() {
             "(default: false)\n");
     fprintf(stdout,
             "    --socket       Port number for debug socket (ignored if "
-            "'--no-socket' is true)"
+            "'--no-socket' is true) "
             "(default: 8192)\n");
     fprintf(stdout,
             "    --paused       Pause program on entry (default: false)\n");
@@ -55,7 +55,7 @@ void print_help() {
             "    --proxy        Localhost port or serial port (ignored if mode "
             "is 'proxy')\n");
     fprintf(stdout,
-            "    --baudrate        Baudrate to use when connecting to a serial "
+            "    --baudrate     Baudrate to use when connecting to a serial "
             "port (ignored if "
             "no serial port is provided)\n");
     fprintf(stdout,
