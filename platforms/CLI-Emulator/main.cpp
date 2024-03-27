@@ -351,7 +351,7 @@ int main(int argc, const char *argv[]) {
             Channel *connection = nullptr;
             try {
                 int port = std::stoi(proxy);
-                connection = new WebSocket(port);
+                connection = new ClientSocket(port);
             } catch (std::invalid_argument const &ex) {
                 // argument is not a port
                 // treat as filename

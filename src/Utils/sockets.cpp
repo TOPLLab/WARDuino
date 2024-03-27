@@ -116,6 +116,8 @@ WebSocket::WebSocket(int port) {
     this->socket = -1;
 }
 
+ClientSocket::ClientSocket(int server) : WebSocket(server) {}
+
 void WebSocket::open() {
     // bind socket to address
     this->fileDescriptor = createSocketFileDescriptor();
@@ -127,6 +129,18 @@ void WebSocket::open() {
 
     // block until a connection is established
     this->socket = listenForIncomingConnection(this->fileDescriptor, address);
+}
+
+void ClientSocket::open() {
+    // bind socket to address
+    this->fileDescriptor = createSocketFileDescriptor();
+    struct sockaddr_in address = createAddress(this->port);  // server port
+    int const result =
+        connect(this->socket, (struct sockaddr *)&address, sizeof(address));
+
+    if (result == 0) {
+        this->socket = this->fileDescriptor;
+    }
 }
 
 int WebSocket::write(const char *fmt, ...) const {

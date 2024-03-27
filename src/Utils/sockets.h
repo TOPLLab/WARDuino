@@ -56,7 +56,7 @@ class FileDescriptorChannel : public Channel {
 };
 
 class WebSocket : public Channel {
-   private:
+   protected:
     int port;
     int fileDescriptor;
     int socket;
@@ -68,4 +68,10 @@ class WebSocket : public Channel {
     int write(char const *fmt, ...) const override;
     ssize_t read(void *out, size_t size) override;
     void close() override;
+};
+
+class ClientSocket : public WebSocket {
+   public:
+    explicit ClientSocket(int server);
+    void open() override;
 };
