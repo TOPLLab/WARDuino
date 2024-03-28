@@ -135,12 +135,13 @@ void ClientSocket::open() {
     // bind socket to address
     this->fileDescriptor = createSocketFileDescriptor();
     struct sockaddr_in address = createAddress(this->port);  // server port
-    int const result =
-        connect(this->socket, (struct sockaddr *)&address, sizeof(address));
-
-    if (result == 0) {
-        this->socket = this->fileDescriptor;
+    if (connect(this->fileDescriptor, (struct sockaddr *)&address,
+                sizeof(address)) < 0) {
+        perror("Failed to connect to socket");
+        exit(EXIT_FAILURE);
     }
+
+    this->socket = this->fileDescriptor;
 }
 
 int WebSocket::write(const char *fmt, ...) const {
