@@ -74,6 +74,7 @@ enum InterruptTypes {
 
     // Pull Debugging
     interruptSnapshot = 0x60,
+    interruptEnableSnapshots = 0x61,
     interruptLoadSnapshot = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
@@ -111,6 +112,8 @@ class Debugger {
 
     bool connected_to_proxy = false;
     std::mutex *supervisor_mutex;
+    
+    bool asyncSnapshots;
 
     // Private methods
 
@@ -231,6 +234,10 @@ class Debugger {
     // Out-of-place debugging: EDWARD
 
     void snapshot(Module *m);
+    
+    void enableSnapshots(uint8_t *interruptData);
+    
+    void sendAsyncSnapshots(Module *m);
 
     void proxify();
 
