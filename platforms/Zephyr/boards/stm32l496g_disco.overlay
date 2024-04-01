@@ -252,6 +252,11 @@
      */
 };
 
+&usart1 {
+    pinctrl-0 = <&usart1_tx_pg9 &usart1_rx_pg10>;
+    current-speed = <2400>;
+};
+
 &timers8 {
     status = "okay";
     pwm8: pwm {
