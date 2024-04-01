@@ -112,7 +112,7 @@ class Debugger {
 
     bool connected_to_proxy = false;
     std::mutex *supervisor_mutex;
-    
+
     bool asyncSnapshots;
 
     // Private methods
@@ -234,9 +234,9 @@ class Debugger {
     // Out-of-place debugging: EDWARD
 
     void snapshot(Module *m);
-    
+
     void enableSnapshots(uint8_t *interruptData);
-    
+
     void sendAsyncSnapshots(Module *m);
 
     void proxify();
