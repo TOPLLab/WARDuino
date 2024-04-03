@@ -6,6 +6,8 @@
 
 class Interpreter {
    public:
+    virtual ~Interpreter();
+
     /**
      * Push a new frame on to the call stack
      * @param m module
