@@ -848,7 +848,6 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 break;
             }
         }
-        fflush(stdout);
     }
     this->channel->write("}\n");
 }
