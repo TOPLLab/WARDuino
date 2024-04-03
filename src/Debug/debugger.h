@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "../Edward/proxy.h"
-#include "../Edward/proxy_supervisor.h"
 #include "../Threading/warduino-thread.h"
 #include "../Utils/sockets.h"
 
@@ -108,6 +107,8 @@ enum class SnapshotPolicy : int {
     checkpointing,       // Take a snapshot every x instructions or at specific
                          // points where primitives are used.
 };
+
+class ProxySupervisor;
 
 class Debugger {
    private:

@@ -6,6 +6,7 @@
 #include <set>
 #include <thread>
 
+#include "../Debug/debugger.h"
 #include "../Threading/warduino-thread.h"
 #include "../Utils/sockets.h"
 #include "RFC.h"
@@ -16,9 +17,8 @@
 #endif
 #include "sys/types.h"
 
-class ProxySupervisor {
+class ProxySupervisor : public Debugger {
    private:
-    Channel *channel;
     warduino::mutex *mutex;
     std::set<uint32_t> *proxied = new std::set<uint32_t>();
 
