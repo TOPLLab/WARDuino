@@ -20,6 +20,7 @@ Debugger::Debugger(Channel *duplex) {
     this->channel = duplex;
     this->supervisor_mutex = new std::mutex();
     this->supervisor_mutex->lock();
+    this->asyncSnapshots = false;
 }
 
 // Public methods
@@ -255,6 +256,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->pauseRuntime(m);
             free(interruptData);
             snapshot(m);
+            break;
+        case interruptEnableSnapshots:
+            enableSnapshots(interruptData + 1);
+            free(interruptData);
             break;
         case interruptInspect: {
             uint8_t *data = interruptData + 1;
@@ -723,7 +728,6 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     bool addComma = false;
 
-    this->channel->write("DUMP!\n");
     this->channel->write("{");
 
     while (idx < sizeStateArray) {
@@ -846,6 +850,17 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
         }
     }
     this->channel->write("}\n");
+}
+
+void Debugger::enableSnapshots(uint8_t *interruptData) {
+    asyncSnapshots = *interruptData;
+}
+
+void Debugger::sendAsyncSnapshots(Module *m) {
+    if (asyncSnapshots) {
+        this->channel->write("SNAPSHOT ");
+        snapshot(m);
+    }
 }
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {
