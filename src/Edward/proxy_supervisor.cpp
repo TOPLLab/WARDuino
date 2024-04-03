@@ -110,8 +110,10 @@ bool ProxySupervisor::send(
     return n == size;
 }
 
-nlohmann::basic_json<> ProxySupervisor::readReply() {
-    while (!this->hasReplied);
+nlohmann::basic_json<> ProxySupervisor::readReply(RFC *rfc) {
+    while (!this->hasReplied) {
+        WARDuino::instance()->debugger->checkDebugMessages(rfc->m, &WARDuino::instance()->program_state);
+    }
     WARDuino::instance()->debugger->channel->write("read reply: succeeded\n");
     this->hasReplied = false;
     return this->proxyResult;

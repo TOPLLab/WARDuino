@@ -36,7 +36,7 @@ class ProxySupervisor : public Debugger {
     void listenToSocket();
 
     bool send(void *t_buffer, int t_size);
-    nlohmann::basic_json<> readReply();
+    nlohmann::basic_json<> readReply(RFC *rfc);
 
     bool call(RFC *callee);
 
