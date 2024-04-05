@@ -76,7 +76,7 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     }
     return new_socket;
 }
- #endif
+#endif
 
 Sink::Sink(FILE *out) {
     this->outStream = out;

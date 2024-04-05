@@ -101,7 +101,7 @@ class Debugger {
     Proxy *proxy = nullptr;  // proxy module for debugger
 
     bool connected_to_proxy = false;
-    //std::mutex *supervisor_mutex;
+    // std::mutex *supervisor_mutex;
     warduino::mutex *supervisor_mutex;
 
     // Private methods
@@ -175,8 +175,8 @@ class Debugger {
 
    public:
     // Public fields
-    //std::mutex messageQueueMutex;  // mutual exclude debugMessages
-    //std::condition_variable messageQueueConditionVariable;
+    // std::mutex messageQueueMutex;  // mutual exclude debugMessages
+    // std::condition_variable messageQueueConditionVariable;
     warduino::mutex messageQueueMutex;  // mutual exclude debugMessages
     warduino::condition_variable messageQueueConditionVariable;
     bool freshMessages = false;

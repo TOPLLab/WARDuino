@@ -1539,8 +1539,10 @@ bool interpret(Module *m, bool waiting) {
                 /*std::unique_lock<std::mutex> lock(
                     m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(
-                    lock, [m] { return m->warduino->debugger->freshMessages; });*/
-                warduino::unique_lock lock(m->warduino->debugger->messageQueueMutex);
+                    lock, [m] { return m->warduino->debugger->freshMessages;
+                });*/
+                warduino::unique_lock lock(
+                    m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(
                     lock, [m] { return m->warduino->debugger->freshMessages; });
             }
