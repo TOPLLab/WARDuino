@@ -29,7 +29,7 @@ bool is_success(const char *msg) {
     return (msg != nullptr) && (msg[0] == '\0');  // check if string is empty
 }
 
-bool continuing(std::mutex *mutex) {
+bool continuing(warduino::mutex *mutex) {
     if (mutex->try_lock()) {
         /* if we got the lock, unlock and return false */
         mutex->unlock();
@@ -53,7 +53,7 @@ Event *parseJSON(char *buff) {
     return new Event(*parsed.find("topic"), payload);
 }
 
-ProxySupervisor::ProxySupervisor(Channel *duplex, std::mutex *mutex) {
+ProxySupervisor::ProxySupervisor(Channel *duplex, warduino::mutex *mutex) {
     debug("Starting supervisor.\n");
     this->channel = duplex;
     this->mutex = mutex;

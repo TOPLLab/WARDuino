@@ -6,6 +6,7 @@
 #include <set>
 #include <thread>
 
+#include "../Threading/warduino-thread.h"
 #include "../Utils/sockets.h"
 #include "RFC.h"
 #ifndef ARDUINO
@@ -18,7 +19,7 @@
 class ProxySupervisor {
    private:
     Channel *channel;
-    //std::mutex *mutex;
+    warduino::mutex *mutex;
     std::set<uint32_t> *proxied = new std::set<uint32_t>();
 
     bool hasReplied = false;
@@ -28,9 +29,11 @@ class ProxySupervisor {
     void deserializeRFCResult(RFC *rfc);
 
    public:
-    //std::thread thread;
+#ifndef __ZEPHYR__
+    warduino::thread thread;
+#endif
 
-    //ProxySupervisor(Channel *duplex, std::mutex *mutex);
+    ProxySupervisor(Channel *duplex, warduino::mutex *mutex);
 
     void listenToSocket();
 

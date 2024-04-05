@@ -31,6 +31,7 @@ target_sources(app PRIVATE
     ../../src/Debug/debugger.cpp
     ../../src/Edward/proxy.cpp
     ../../src/Edward/RFC.cpp
+    ../../src/Threading/zephyr-thread.cpp
     upload.h
 )
 

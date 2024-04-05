@@ -10,10 +10,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../zephyr-thread.h"
-
 #include "../Edward/proxy.h"
 #include "../Edward/proxy_supervisor.h"
+#include "../Threading/warduino-thread.h"
 #include "../Utils/sockets.h"
 
 struct Module;
@@ -103,7 +102,7 @@ class Debugger {
 
     bool connected_to_proxy = false;
     //std::mutex *supervisor_mutex;
-    zephyr::mutex *supervisor_mutex;
+    warduino::mutex *supervisor_mutex;
 
     // Private methods
 
@@ -178,8 +177,8 @@ class Debugger {
     // Public fields
     //std::mutex messageQueueMutex;  // mutual exclude debugMessages
     //std::condition_variable messageQueueConditionVariable;
-    zephyr::mutex messageQueueMutex;  // mutual exclude debugMessages
-    zephyr::condition_variable messageQueueConditionVariable;
+    warduino::mutex messageQueueMutex;  // mutual exclude debugMessages
+    warduino::condition_variable messageQueueConditionVariable;
     bool freshMessages = false;
     Channel *channel;
     ProxySupervisor *supervisor = nullptr;

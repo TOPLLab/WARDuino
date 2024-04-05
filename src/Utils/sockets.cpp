@@ -1,18 +1,23 @@
 #include "sockets.h"
 
-/*#include <netdb.h>
+#ifndef __ZEPHYR__
+#include <netdb.h>
 #include <netinet/in.h>
-#include <sys/socket.h>*/
+#include <sys/socket.h>
+#endif
 #include <unistd.h>
 
-//#include <csignal>
+#ifndef __ZEPHYR__
+#include <csignal>
+#endif
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
+#ifndef __ZEPHYR__
 // Socket Debugger Interface
-/*void setFileDescriptorOptions(int socket_fd) {
+void setFileDescriptorOptions(int socket_fd) {
     int opt = 1;
     if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
         perror("Failed to set socket file descriptor options");
@@ -70,7 +75,8 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
         exit(EXIT_FAILURE);
     }
     return new_socket;
-}*/
+}
+ #endif
 
 Sink::Sink(FILE *out) {
     this->outStream = out;
@@ -94,7 +100,8 @@ ssize_t Duplex::read(void *out, size_t size) {
     return ::read(this->inDescriptor, out, size);
 }
 
-/*FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) {
+#ifndef __ZEPHYR__
+FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) {
     this->fd = fileDescriptor;
 }
 
@@ -159,4 +166,4 @@ void WebSocket::close() {
     sendAlarm();  // stop possible blocking accept call
     shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
 }
-*/
+#endif
