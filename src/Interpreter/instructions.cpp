@@ -22,10 +22,12 @@ bool proxy_call(Module *m, uint32_t fidx) {
         rfc = new RFC(fidx, type);
     }
 
-    /*if (!supervisor->call(rfc)) {
+#ifndef __ZEPHYR__
+    if (!supervisor->call(rfc)) {
         dbg_info(": FAILED TO SEND\n", fidx);
         return false;
-    }*/
+    }
+#endif
 
     if (!rfc->success) {
         // TODO exception bugger might be too small and msg not null terminated?
