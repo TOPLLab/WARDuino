@@ -1301,9 +1301,9 @@ bool interpret(Module *m, bool waiting) {
                     m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(
                     lock, [m] { return m->warduino->debugger->freshMessages; });*/
-                zephyr::lock_guard lock(m->warduino->debugger->messageQueueMutex);
+                warduino::unique_lock lock(m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(
-                    m->warduino->debugger->messageQueueMutex, [m] { return m->warduino->debugger->freshMessages; });
+                    lock, [m] { return m->warduino->debugger->freshMessages; });
             }
             continue;
         }
