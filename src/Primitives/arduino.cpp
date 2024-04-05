@@ -11,8 +11,8 @@
  */
 #include "Arduino.h"
 
-//#include <HTTPClient.h>
-//#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFi.h>
 #include <sys/time.h>
 
 #include <cmath>
