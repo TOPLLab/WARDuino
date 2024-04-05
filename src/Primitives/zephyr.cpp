@@ -13,20 +13,19 @@
  *
  */
 #include <sys/time.h>
+#include <zephyr/device.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/devicetree/gpio.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/pwm.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/kernel.h>
 
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <thread>
-
-#include <zephyr/kernel.h>
-#include <zephyr/drivers/gpio.h>
-#include <zephyr/devicetree.h>
-#include <zephyr/devicetree/gpio.h>
-#include <zephyr/device.h>
-#include <zephyr/dt-bindings/gpio/gpio.h>
-#include <zephyr/drivers/pwm.h>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
@@ -214,17 +213,18 @@ def_prim(chip_delay, oneToNoneU32) {
     return true;
 }
 
-struct gpio_dt_spec specs[] = {
-        DT_FOREACH_PROP_ELEM_SEP(DT_PATH(zephyr_user), warduino_gpios,
-                                 GPIO_DT_SPEC_GET_BY_IDX, (,))
-};
+struct gpio_dt_spec specs[] = {DT_FOREACH_PROP_ELEM_SEP(
+    DT_PATH(zephyr_user), warduino_gpios, GPIO_DT_SPEC_GET_BY_IDX, (, ))};
 
-static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0);
-static const struct pwm_dt_spec pwm_led1 = PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1);
+static const struct pwm_dt_spec pwm_led0 =
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0);
+static const struct pwm_dt_spec pwm_led1 =
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1);
 
 def_prim(chip_pin_mode, twoToNoneU32) {
     gpio_dt_spec pin_spec = specs[arg1.uint32];
-    gpio_pin_configure(pin_spec.port, pin_spec.pin, arg0.uint32 == 0 ? GPIO_INPUT: GPIO_OUTPUT);
+    gpio_pin_configure(pin_spec.port, pin_spec.pin,
+                       arg0.uint32 == 0 ? GPIO_INPUT : GPIO_OUTPUT);
     pop_args(2);
     return true;
 }
@@ -254,19 +254,18 @@ def_prim(print_int, oneToNoneU32) {
 
 bool drive_pwm(float pwm1, float pwm2) {
     if (!pwm_is_ready_dt(&pwm_led0)) {
-		printf("Error: PWM device %s is not ready\n",
-		       pwm_led0.dev->name);
-		return false;
-	}
-    
+        printf("Error: PWM device %s is not ready\n", pwm_led0.dev->name);
+        return false;
+    }
+
     printf("pwm1 = %f, pwm2 = %f\n", pwm1, pwm2);
-    
+
     int ret = pwm_set_pulse_dt(&pwm_led0, pwm1 * pwm_led0.period);
     if (ret) {
         printf("Error %d: failed to set pulse width\n", ret);
         return false;
     }
-    
+
     ret = pwm_set_pulse_dt(&pwm_led1, pwm2 * pwm_led0.period);
     if (ret) {
         printf("Error %d: failed to set pulse width\n", ret);
@@ -280,8 +279,7 @@ bool drive_motor(float speed) {
     float pwm2 = 0;
     if (speed > 0) {
         pwm1 = speed;
-    }
-    else {
+    } else {
         pwm2 = -speed;
     }
 
@@ -289,7 +287,7 @@ bool drive_motor(float speed) {
 }
 
 def_prim(motor_test, oneToNoneU32) {
-    int32_t speed = (int32_t) arg0.uint32;
+    int32_t speed = (int32_t)arg0.uint32;
     printf("motor_test(%d)\n", speed);
     drive_motor(speed / 10000.0f);
     pop_args(1);
@@ -297,7 +295,7 @@ def_prim(motor_test, oneToNoneU32) {
 }
 
 def_prim(drive_motor_for_ms, twoToNoneU32) {
-    int32_t speed = (int32_t) arg0.uint32;
+    int32_t speed = (int32_t)arg0.uint32;
     printf("drive_motor_for_ms(%d, %d)\n", speed, arg1.uint32);
 
     drive_motor(speed / 10000.0f);
@@ -308,78 +306,83 @@ def_prim(drive_motor_for_ms, twoToNoneU32) {
 }
 
 class MotorEncoder {
-    static void encoder_pin5_edge_rising(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-        MotorEncoder *encoder = CONTAINER_OF(cb, MotorEncoder, pin5_encoder_cb_data);
-        if (!encoder->expect_pin5_int)
-            return;
-        
-        if (!gpio_pin_get_raw(encoder->pin6_encoder_spec.port, encoder->pin6_encoder_spec.pin)) {
+    static void encoder_pin5_edge_rising(const struct device *dev,
+                                         struct gpio_callback *cb,
+                                         uint32_t pins) {
+        MotorEncoder *encoder =
+            CONTAINER_OF(cb, MotorEncoder, pin5_encoder_cb_data);
+        if (!encoder->expect_pin5_int) return;
+
+        if (!gpio_pin_get_raw(encoder->pin6_encoder_spec.port,
+                              encoder->pin6_encoder_spec.pin)) {
             encoder->angle++;
-        }
-        else {
+        } else {
             encoder->angle--;
         }
-        printk("Rising edge detected on encoder pin5, angle %d\n", encoder->angle);
+        printk("Rising edge detected on encoder pin5, angle %d\n",
+               encoder->angle);
         encoder->expect_pin5_int = false;
         encoder->expect_pin6_int = true;
     }
-    
-    static void encoder_pin6_edge_rising(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-        MotorEncoder *encoder = CONTAINER_OF(cb, MotorEncoder, pin6_encoder_cb_data);
-        if (!encoder->expect_pin6_int)
-            return;
-        
-        if (gpio_pin_get_raw(encoder->pin5_encoder_spec.port, encoder->pin5_encoder_spec.pin)) {
+
+    static void encoder_pin6_edge_rising(const struct device *dev,
+                                         struct gpio_callback *cb,
+                                         uint32_t pins) {
+        MotorEncoder *encoder =
+            CONTAINER_OF(cb, MotorEncoder, pin6_encoder_cb_data);
+        if (!encoder->expect_pin6_int) return;
+
+        if (gpio_pin_get_raw(encoder->pin5_encoder_spec.port,
+                             encoder->pin5_encoder_spec.pin)) {
             encoder->angle++;
-        }
-        else {
+        } else {
             encoder->angle--;
         }
-        printk("Rising edge detected on encoder pin6, angle %d\n", encoder->angle);
+        printk("Rising edge detected on encoder pin6, angle %d\n",
+               encoder->angle);
         encoder->expect_pin6_int = false;
         encoder->expect_pin5_int = true;
     }
-    
-public:
-    MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_encoder_spec) : 
-        pin5_encoder_spec(pin5_encoder_spec), 
-        pin6_encoder_spec(pin6_encoder_spec),
-        angle(0),
-        target_angle(0),
-        expect_pin5_int(true),
-        expect_pin6_int(true)
-    {
-        gpio_pin_interrupt_configure_dt(&pin5_encoder_spec, GPIO_INT_EDGE_RISING);    
-        gpio_init_callback(&pin5_encoder_cb_data, MotorEncoder::encoder_pin5_edge_rising, BIT(pin5_encoder_spec.pin));
+
+   public:
+    MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_encoder_spec)
+        : pin5_encoder_spec(pin5_encoder_spec),
+          pin6_encoder_spec(pin6_encoder_spec),
+          angle(0),
+          target_angle(0),
+          expect_pin5_int(true),
+          expect_pin6_int(true) {
+        gpio_pin_interrupt_configure_dt(&pin5_encoder_spec,
+                                        GPIO_INT_EDGE_RISING);
+        gpio_init_callback(&pin5_encoder_cb_data,
+                           MotorEncoder::encoder_pin5_edge_rising,
+                           BIT(pin5_encoder_spec.pin));
         gpio_add_callback(pin5_encoder_spec.port, &pin5_encoder_cb_data);
-        
-        gpio_pin_interrupt_configure_dt(&pin6_encoder_spec, GPIO_INT_EDGE_RISING);
-        gpio_init_callback(&pin6_encoder_cb_data, MotorEncoder::encoder_pin6_edge_rising, BIT(pin6_encoder_spec.pin));
+
+        gpio_pin_interrupt_configure_dt(&pin6_encoder_spec,
+                                        GPIO_INT_EDGE_RISING);
+        gpio_init_callback(&pin6_encoder_cb_data,
+                           MotorEncoder::encoder_pin6_edge_rising,
+                           BIT(pin6_encoder_spec.pin));
         gpio_add_callback(pin6_encoder_spec.port, &pin6_encoder_cb_data);
     }
-    
+
     ~MotorEncoder() {
         gpio_remove_callback(pin5_encoder_spec.port, &pin5_encoder_cb_data);
         gpio_remove_callback(pin6_encoder_spec.port, &pin6_encoder_cb_data);
     }
-    
-    int get_angle() {
-        return angle;
-    }
-    
-    void reset_angle() {
-        angle = 0;
-    }
-    
-    int get_target_angle() {
-        return target_angle;
-    }
-    
+
+    int get_angle() { return angle; }
+
+    void reset_angle() { angle = 0; }
+
+    int get_target_angle() { return target_angle; }
+
     void set_target_angle(int target_angle) {
         this->target_angle = target_angle;
     }
-    
-private:
+
+   private:
     gpio_dt_spec pin5_encoder_spec;
     gpio_dt_spec pin6_encoder_spec;
     struct gpio_callback pin5_encoder_cb_data;
@@ -393,64 +396,70 @@ private:
 MotorEncoder encoder(specs[51], specs[50]);
 
 def_prim(drive_motor_degrees, twoToNoneU32) {
-    int32_t speed = (int32_t) arg0.uint32;
-    int32_t degrees = (int32_t) arg1.uint32;
+    int32_t speed = (int32_t)arg0.uint32;
+    int32_t degrees = (int32_t)arg1.uint32;
     printf("drive_motor_degrees(%d, %d)\n", speed, degrees);
-    
+
     gpio_dt_spec pin5_encoder_spec = specs[51];
     gpio_dt_spec pin6_encoder_spec = specs[50];
-    /*uint8_t old_res5 = gpio_pin_get_raw(pin5_encoder_spec.port, pin5_encoder_spec.pin);
-    uint8_t old_res6 = gpio_pin_get_raw(pin6_encoder_spec.port, pin6_encoder_spec.pin);*/
-    
-    //MotorEncoder encoder(pin5_encoder_spec, pin6_encoder_spec);
+    /*uint8_t old_res5 = gpio_pin_get_raw(pin5_encoder_spec.port,
+    pin5_encoder_spec.pin); uint8_t old_res6 =
+    gpio_pin_get_raw(pin6_encoder_spec.port, pin6_encoder_spec.pin);*/
+
+    // MotorEncoder encoder(pin5_encoder_spec, pin6_encoder_spec);
     encoder.set_target_angle(encoder.get_target_angle() + degrees);
-    
-    //drive_motor(speed / 10000.0f);
-    
+
+    // drive_motor(speed / 10000.0f);
+
     /*int count = 0;
     while (count < arg1.uint32) {
-        uint8_t res5 = gpio_pin_get_raw(pin5_encoder_spec.port, pin5_encoder_spec.pin);
+        uint8_t res5 = gpio_pin_get_raw(pin5_encoder_spec.port,
+    pin5_encoder_spec.pin);
         //printf("previous = %d, current = %d\n", old_res5, res5);
         if (res5 != old_res5 && old_res5 == 0) { // Rising event
             printk("Software rising edge detected on encoder\n");
             count++;
         }
         old_res5 = res5;
-        
-        uint8_t res6 = gpio_pin_get_raw(pin6_encoder_spec.port, pin6_encoder_spec.pin);
-        if (res6 != old_res6 && old_res6 == 0) {
+
+        uint8_t res6 = gpio_pin_get_raw(pin6_encoder_spec.port,
+    pin6_encoder_spec.pin); if (res6 != old_res6 && old_res6 == 0) {
             printk("Software rising edge detected on encoder\n");
             count++;
         }
         old_res6 = res6;
     }*/
-    
-    //while (abs(encoder.get_angle() - start_angle) < arg1.uint32) {}
-    
-    //drive_pwm(1.0f, 1.0f);
-    
-    //k_msleep(50);
-    
-    printk("drift = %d\n", abs(encoder.get_angle() - encoder.get_target_angle()));
-    
+
+    // while (abs(encoder.get_angle() - start_angle) < arg1.uint32) {}
+
+    // drive_pwm(1.0f, 1.0f);
+
+    // k_msleep(50);
+
+    printk("drift = %d\n",
+           abs(encoder.get_angle() - encoder.get_target_angle()));
+
     // Test drift correction:
     /*drive_motor(-speed / 10000.0f);
     while (abs(encoder.get_angle() - start_angle) - arg1.uint32 > 0) {}
     drive_pwm(1.0f, 1.0f);
     k_msleep(100);
-    printk("drift = %d\n", abs(encoder.get_angle() - start_angle) - arg1.uint32);*/
-    
+    printk("drift = %d\n", abs(encoder.get_angle() - start_angle) -
+    arg1.uint32);*/
+
     int drift = encoder.get_angle() - encoder.get_target_angle();
     while (abs(drift) > 0) {
-        int speed_sign = std::signbit(drift) ?  -1 : 1;
+        int speed_sign = std::signbit(drift) ? -1 : 1;
         drive_motor(speed_sign * speed / 10000.0f);
-        while (speed_sign * (encoder.get_angle() - encoder.get_target_angle()) > 0) {}
+        while (speed_sign * (encoder.get_angle() - encoder.get_target_angle()) >
+               0) {
+        }
         drive_pwm(1.0f, 1.0f);
         k_msleep(50);
         drift = encoder.get_angle() - encoder.get_target_angle();
         printk("drift = %d\n", drift);
     }
-    
+
     pop_args(2);
     return true;
 }
@@ -488,7 +497,7 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     return false;
 }
 
-//Memory external_mem = {0, 0, 0, nullptr};
+// Memory external_mem = {0, 0, 0, nullptr};
 
 bool resolve_external_memory(char *symbol, Memory **val) {
     /*if (!strcmp(symbol, "memory")) {
