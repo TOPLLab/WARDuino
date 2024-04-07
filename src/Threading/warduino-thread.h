@@ -37,12 +37,12 @@ class unique_lock {
     friend class condition_variable;
 
    public:
-    explicit unique_lock(mutex m) : m(m) { m.lock(); }
+    explicit unique_lock(mutex &m) : m(&m) { m.lock(); }
 
-    ~unique_lock() { m.unlock(); }
+    ~unique_lock() { m->unlock(); }
 
    private:
-    mutex m;
+    mutex *m;
 };
 #else
 typedef std::mutex mutex;
