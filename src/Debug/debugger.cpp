@@ -852,7 +852,7 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 std::vector<PinState*> pinStates = get_io_state(m);
                 for (auto pinState : pinStates) {
                     this->channel->write("%s{", comma ? ", ": "");
-                    this->channel->write("\"key\": \"%s\",", pinState->pin.c_str());
+                    this->channel->write("\"key\": \"%s\",", pinState->key.c_str());
                     this->channel->write("\"output\": %s,", pinState->output ? "true" : "false");
                     this->channel->write("\"value\": %d", pinState->value);
                     this->channel->write("}");
@@ -1182,6 +1182,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
             case ioState: {
                 debug("receiving ioState\n");
                 uint8_t io_state_count = *program_state++;
+                std::vector<PinState> pinStates;
+                pinStates.resize(io_state_count);
                 for (int i = 0; i < io_state_count; i++) {
                     std::string key = "";
                     char c = *program_state++;
@@ -1190,56 +1192,14 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                         c = *program_state++;
                     }
                     uint8_t output = *program_state++;
-                    uint8_t value = *program_state++;
+                    uint32_t value = read_B32(&program_state);
                     debug("pin %d(%s) = %d\n", pin, output ? "output" : "input", value);
 
-                    // If the pin is not an output then we should not write a value to it.
-                    if (!output)
-                        continue;
-                    
-                    if (key[0] == 'e') {
-                        printf("Motor target location %d\n", value);
-                        
-                        Primitive primitive;
-                        resolve_primitive((char*) "drive_motor_degrees_absolute", &primitive);
-                        // Push pin and value to the stack.
-                        Module temp_module;
-                        temp_module.stack = new StackValue[3];
-                        /*temp_module.stack[0].value_type = I32;
-                        temp_module.stack[0].value.uint32 = 2000;
-                        temp_module.stack[1].value_type = I32;
-                        temp_module.stack[1].value.uint32 = 45;
-                        temp_module.stack[2].value_type = I32;
-                        temp_module.stack[2].value.uint32 = 1;*/
-                        temp_module.stack[0].value_type = I32;
-                        temp_module.stack[0].value.uint32 = stoi(key.substr(1));
-                        temp_module.stack[1].value_type = I32;
-                        temp_module.stack[1].value.uint32 = value;
-                        temp_module.stack[2].value_type = I32;
-                        temp_module.stack[2].value.uint32 = 2000;
-                        temp_module.sp = 2;
-                        // Run primitive function.
-                        primitive(&temp_module);
-                        delete[] temp_module.stack;
-                        
-                        continue;
-                    }
-
-                    // Resolve chip_digital_write.
-                    Primitive primitive;
-                    resolve_primitive((char*) "chip_digital_write", &primitive);
-                    // Push pin and value to the stack.
-                    Module temp_module;
-                    temp_module.stack = new StackValue[2];
-                    temp_module.stack[0].value_type = I32;
-                    temp_module.stack[0].value.uint32 = stoi(key);
-                    temp_module.stack[1].value_type = I32;
-                    temp_module.stack[1].value.uint32 = value;
-                    temp_module.sp = 1;
-                    // Run primitive function.
-                    primitive(&temp_module);
-                    delete[] temp_module.stack;
+                    pinStates[i].key = key;
+                    pinStates[i].value = value;
+                    pinStates[i].output = output;
                 }
+                restore_external_state(m, pinStates);
                 break;
             }
             default: {

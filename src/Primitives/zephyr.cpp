@@ -32,6 +32,7 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "../IO/io.h"
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
@@ -55,14 +56,29 @@ double sensor_emu = 0;
             PrimitiveEntry *p = &primitives[prim_index++];                 \
             p->name = #prim_name;                                          \
             p->f = &(prim_name);                                           \
+            p->f_reverse = nullptr;                                        \
+            p->f_serialize_state = nullptr;                                \
         } else {                                                           \
             FATAL("pim_index out of bounds");                              \
         }                                                                  \
     }
 
+#define install_primitive_reverse(prim_name)                               \
+    {                                                                      \
+        PrimitiveEntry *p = &primitives[prim_index - 1];                   \
+        p->f_reverse = &(prim_name##_reverse);                             \
+        p->f_serialize_state = &(prim_name##_serialize);                   \
+    }
+
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
     bool function_name(Module *m)
+
+#define def_prim_reverse(function_name) \
+    void function_name##_reverse(Module *m, std::vector<PinState> external_state)
+
+#define def_prim_serialize(function_name) \
+    void function_name##_serialize(std::vector<PinState*> &external_state)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
@@ -480,11 +496,46 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
     return true;
 }
 
+def_prim_reverse(drive_motor_degrees) {
+    for (PinState state : external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'e') {
+            printf("Motor target location %d\n", state.value);
+            invoke_primitive(m, "drive_motor_degrees_absolute", stoi(state.key.substr(1)), (uint32_t) state.value, 2000);
+        }
+    }
+}
+
+def_prim_serialize(drive_motor_degrees) {
+    for (int i = 0; i < 2; i++) {
+        PinState *state = new PinState();
+        state->output = true;
+        state->key = "e" + std::to_string(i);
+        state->value = encoders[i].get_target_angle();
+        external_state.push_back(state);
+    }
+}
+
+def_prim_reverse(chip_digital_write) {
+    for (PinState state: external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'p') {
+            invoke_primitive(m, "chip_digital_write", stoi(state.key.substr(1)), (uint32_t) state.value);
+        }
+    }
+}
+
 def_prim(drive_motor_degrees_absolute, threeToNoneU32) {
     int32_t speed = (int32_t) arg0.uint32;
     int32_t degrees = (int32_t) arg1.uint32;
     int32_t motor_index = (int32_t) arg2.uint32;
-    printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
+    printf("drive_motor_degrees_absolute(%d, %d, %d)\n", motor_index, degrees, speed);
     
     if (motor_index > 1) {
         printf("Invalid motor index %d\n", motor_index);
@@ -823,6 +874,7 @@ void install_primitives() {
     install_primitive(motor_test);
     install_primitive(drive_motor_for_ms);
     install_primitive(drive_motor_degrees);
+    install_primitive_reverse(drive_motor_degrees);
     install_primitive(drive_motor_degrees_absolute);
     install_primitive(colour_sensor);
     install_primitive(setup_uart_sensor);
@@ -866,15 +918,23 @@ bool resolve_external_memory(char *symbol, Memory **val) {
     return false;
 }
 
-#include "../IO/io.h"
+//------------------------------------------------------
+// Restore external state
+//------------------------------------------------------
+void restore_external_state(Module *m, std::vector<PinState> external_state) {
+    for (auto &primitive : primitives) {
+        if (primitive.f_reverse) {
+            primitive.f_reverse(m, external_state);
+        }
+    }
+}
+
 std::vector<PinState*> get_io_state(Module *m) {
     std::vector<PinState*> ioState;
-    for (int i = 0; i < 2; i++) {
-        PinState *state = new PinState();
-        state->output = true;
-        state->pin = "e" + std::to_string(i);
-        state->value = encoders[i].get_target_angle();
-        ioState.push_back(state);
+    for (auto &primitive : primitives) {
+        if (primitive.f_serialize_state) {
+            primitive.f_serialize_state(ioState);
+        }
     }
     return ioState;
 }

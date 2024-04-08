@@ -1,10 +1,16 @@
+#pragma once
 #include <cstdint>
 #include <vector>
+#include <string>
+
+struct PinState;
+
+#include "../WARDuino.h"
 
 struct PinState {
-    std::string pin;
+    std::string key;
     bool output;
-    uint8_t value;
+    int value;
 };
 
 std::vector<PinState*> get_io_state(Module *m);

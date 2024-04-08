@@ -10,6 +10,7 @@
 
 #include "Debug/debugger.h"
 #include "Edward/proxy_supervisor.h"
+#include "IO/io.h"
 #include "WARDuino/CallbackHandler.h"
 
 // Constants
@@ -138,6 +139,16 @@ typedef struct Options {
 
 class WARDuino;  // predeclare for it work in the module decl
 
+typedef bool (*Primitive)(Module *);
+
+typedef struct PrimitiveEntry {
+    const char *name;
+    Primitive f;
+    void (*f_reverse)(Module *m, std::vector<PinState>);
+    void (*f_serialize_state)(std::vector<PinState*>&);
+    Type t;
+} PrimitiveEntry;
+
 typedef struct Module {
     WARDuino *warduino = nullptr;
     char *path = nullptr;  // file path of the wasm module
@@ -171,14 +182,6 @@ typedef struct Module {
 
     char *exception = nullptr;  // exception is set when the program fails
 } Module;
-
-typedef bool (*Primitive)(Module *);
-
-typedef struct PrimitiveEntry {
-    const char *name;
-    Primitive f;
-    Type t;
-} PrimitiveEntry;
 
 class WARDuino {
    private:
