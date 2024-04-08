@@ -1,6 +1,7 @@
 #ifndef WARDUINO_PRIM_H
 #define WARDUINO_PRIM_H
 
+#include "../Utils/macros.h"
 #include "../WARDuino.h"
 
 /**
@@ -25,5 +26,56 @@ bool resolve_primitive(char *symbol, Primitive *val);
 bool resolve_external_memory(char *symbol, Memory **val);
 
 void install_primitives();
+
+inline void create_stack(std::vector<StackValue> *stack) {}
+
+template<typename T, typename... Ts>
+void create_stack(std::vector<StackValue> *stack, T value, Ts... args) {
+    StackValue stackValue;
+    if constexpr (std::is_same<T, int32_t>()) {
+        stackValue.value.int32 = value;
+        stackValue.value_type = I32;
+    }
+    else if constexpr (std::is_same<T, uint32_t>()) {
+        stackValue.value.uint32 = value;
+        stackValue.value_type = I32;
+    }
+    else if constexpr (std::is_same<T, int64_t>()) {
+        stackValue.value.int64 = value;
+        stackValue.value_type = I64;
+    }
+    else if constexpr (std::is_same<T, uint64_t>()) {
+        stackValue.value.uint64 = value;
+        stackValue.value_type = I64;
+    }
+    else if constexpr (std::is_same<T, float>()) {
+        stackValue.value.f32 = value;
+        stackValue.value_type = F32;
+    }
+    else if constexpr (std::is_same<T, double>()) {
+        stackValue.value.f64 = value;
+        stackValue.value_type = F64;
+    } else {
+        // This will trigger a compile time error if a different unsupported type is used.
+        static_assert(sizeof(T) == 0, "Unsupported argument type! Expected i32, i64, f32 or f64.");
+    }
+    stack->push_back(stackValue);
+
+    create_stack(stack, args...);
+}
+
+template <typename... Ts>
+void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
+    Primitive primitive;
+    resolve_primitive((char*) function_name.c_str(), &primitive);
+
+    std::vector<StackValue> argStack;
+    create_stack(&argStack, args...);
+
+    for (auto arg : argStack) {
+        m->stack[++m->sp] = arg;
+    }
+    primitive(m);
+}
 
 #endif
