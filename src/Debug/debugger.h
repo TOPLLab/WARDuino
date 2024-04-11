@@ -83,7 +83,11 @@ enum InterruptTypes {
     interruptPOPEvent = 0x72,
     interruptPUSHEvent = 0x73,
     interruptDUMPCallbackmapping = 0x74,
-    interruptRecvCallbackmapping = 0x75
+    interruptRecvCallbackmapping = 0x75,
+
+    // Primitive overrides
+    interruptSetOverridePinValue = 0x80,
+    interruptUnsetOverridePinValue = 0x81,
 };
 
 class Debugger {
@@ -105,6 +109,8 @@ class Debugger {
     bool connected_to_proxy = false;
     //std::mutex *supervisor_mutex;
     zephyr::mutex *supervisor_mutex;
+
+    std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>> overrides;
 
     // Private methods
 
@@ -252,4 +258,11 @@ class Debugger {
     void notifyPushedEvent() const;
 
     bool handlePushedEvent(char *bytes) const;
+
+    // Concolic Multiverse Debugging
+    inline bool isMocked(uint32_t fidx, uint32_t argument) { return overrides.count(fidx) > 0 && overrides[fidx].count(argument) > 0; }
+    inline uint32_t getMockedValue(uint32_t fidx, uint32_t argument) { return overrides[fidx][argument]; }
+
+    void addOverride(Module *m, uint8_t *interruptData);
+    void removeOverride(Module *m, uint8_t *interruptData);
 };

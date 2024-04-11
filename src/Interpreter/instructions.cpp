@@ -392,6 +392,17 @@ bool i_instr_call(Module *m) {
     }
 
     if (fidx < m->import_count) {
+        // Mocking only works on primitives, no need to check for it otherwise.
+        if (m->sp >= 0) {
+            printf("Call primitive with arguments on the stack %s.\n", m->functions[fidx].import_field);
+            uint32_t arg = m->stack[m->sp].value.uint32;
+            if (m->warduino->debugger->isMocked(fidx, arg)) {
+                printf("Put result on the stack for arg %d %d\n", arg, m->warduino->debugger->getMockedValue(fidx, arg));
+                m->stack[m->sp].value.uint32 = m->warduino->debugger->getMockedValue(fidx, arg);
+                return true;
+            }
+        }
+
         return ((Primitive)m->functions[fidx].func_ptr)(m);
     } else {
         if (m->csp >= CALLSTACK_SIZE) {
