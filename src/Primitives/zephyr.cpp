@@ -75,10 +75,10 @@ double sensor_emu = 0;
     bool function_name(Module *m)
 
 #define def_prim_reverse(function_name) \
-    void function_name##_reverse(Module *m, std::vector<PinState> external_state)
+    void function_name##_reverse(Module *m, std::vector<IOStateElement> external_state)
 
 #define def_prim_serialize(function_name) \
-    void function_name##_serialize(std::vector<PinState*> &external_state)
+    void function_name##_serialize(std::vector<IOStateElement*> &external_state)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
@@ -497,7 +497,7 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
 }
 
 def_prim_reverse(drive_motor_degrees) {
-    for (PinState state : external_state) {
+    for (IOStateElement state : external_state) {
         if (!state.output) {
             continue;
         }
@@ -511,7 +511,7 @@ def_prim_reverse(drive_motor_degrees) {
 
 def_prim_serialize(drive_motor_degrees) {
     for (int i = 0; i < 2; i++) {
-        PinState *state = new PinState();
+        IOStateElement *state = new IOStateElement();
         state->output = true;
         state->key = "e" + std::to_string(i);
         state->value = encoders[i].get_target_angle();
@@ -520,7 +520,7 @@ def_prim_serialize(drive_motor_degrees) {
 }
 
 def_prim_reverse(chip_digital_write) {
-    for (PinState state: external_state) {
+    for (IOStateElement state: external_state) {
         if (!state.output) {
             continue;
         }
@@ -921,7 +921,7 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 //------------------------------------------------------
 // Restore external state
 //------------------------------------------------------
-void restore_external_state(Module *m, std::vector<PinState> external_state) {
+void restore_external_state(Module *m, std::vector<IOStateElement> external_state) {
     for (auto &primitive : primitives) {
         if (primitive.f_reverse) {
             primitive.f_reverse(m, external_state);
@@ -929,8 +929,8 @@ void restore_external_state(Module *m, std::vector<PinState> external_state) {
     }
 }
 
-std::vector<PinState*> get_io_state(Module *m) {
-    std::vector<PinState*> ioState;
+std::vector<IOStateElement*> get_io_state(Module *m) {
+    std::vector<IOStateElement*> ioState;
     for (auto &primitive : primitives) {
         if (primitive.f_serialize_state) {
             primitive.f_serialize_state(ioState);

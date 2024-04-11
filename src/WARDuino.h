@@ -144,8 +144,8 @@ typedef bool (*Primitive)(Module *);
 typedef struct PrimitiveEntry {
     const char *name;
     Primitive f;
-    void (*f_reverse)(Module *m, std::vector<PinState>);
-    void (*f_serialize_state)(std::vector<PinState*>&);
+    void (*f_reverse)(Module *m, std::vector<IOStateElement>);
+    void (*f_serialize_state)(std::vector<IOStateElement *>&);
     Type t;
 } PrimitiveEntry;
 

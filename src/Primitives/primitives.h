@@ -27,7 +27,7 @@ bool resolve_external_memory(char *symbol, Memory **val);
 
 void install_primitives();
 
-void restore_external_state(Module *m, std::vector<PinState> external_state);
+void restore_external_state(Module *m, std::vector<IOStateElement> external_state);
 
 inline void create_stack(std::vector<StackValue> *stack) {}
 

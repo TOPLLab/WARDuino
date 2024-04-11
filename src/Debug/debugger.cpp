@@ -849,15 +849,17 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 this->channel->write("%s", addComma ? "," : "");
                 this->channel->write("\"io\": [");
                 bool comma = false;
-                std::vector<PinState*> pinStates = get_io_state(m);
-                for (auto pinState : pinStates) {
+                std::vector<IOStateElement *> external_state = get_io_state(m);
+                for (auto state_elem : external_state) {
                     this->channel->write("%s{", comma ? ", ": "");
-                    this->channel->write("\"key\": \"%s\",", pinState->key.c_str());
-                    this->channel->write("\"output\": %s,", pinState->output ? "true" : "false");
-                    this->channel->write("\"value\": %d", pinState->value);
+                    this->channel->write(
+                        R"("key": "%s", "output": %s, "value": %d)",
+                        state_elem->key.c_str(),
+                        state_elem->output ? "true" : "false",
+                        state_elem->value);
                     this->channel->write("}");
                     comma = true;
-                    delete pinState;
+                    delete state_elem;
                 }
                 this->channel->write("]");
                 addComma = true;
@@ -1182,24 +1184,24 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
             case ioState: {
                 debug("receiving ioState\n");
                 uint8_t io_state_count = *program_state++;
-                std::vector<PinState> pinStates;
-                pinStates.resize(io_state_count);
+                std::vector<IOStateElement> external_state;
+                external_state.reserve(io_state_count);
                 for (int i = 0; i < io_state_count; i++) {
-                    std::string key = "";
-                    char c = *program_state++;
+                    IOStateElement state_elem;
+                    state_elem.key = "";
+                    char c = (char) *program_state++;
                     while (c != '\0') {
-                        key += c;
-                        c = *program_state++;
+                        state_elem.key += c;
+                        c = (char) *program_state++;
                     }
-                    uint8_t output = *program_state++;
-                    uint32_t value = read_B32(&program_state);
-                    debug("pin %d(%s) = %d\n", pin, output ? "output" : "input", value);
-
-                    pinStates[i].key = key;
-                    pinStates[i].value = value;
-                    pinStates[i].output = output;
+                    state_elem.output = *program_state++;
+                    state_elem.value = (int) read_B32(&program_state);
+                    external_state.emplace_back(state_elem);
+                    debug("pin %s(%s) = %d\n", state_elem.key.c_str(),
+                          state_elem.output ? "output" : "input",
+                          state_elem.value);
                 }
-                restore_external_state(m, pinStates);
+                restore_external_state(m, external_state);
                 break;
             }
             default: {
