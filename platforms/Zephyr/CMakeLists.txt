@@ -30,6 +30,7 @@ target_sources(app PRIVATE
     ../../src/Utils/sockets.cpp
     ../../src/Debug/debugger.cpp
     ../../src/Edward/proxy.cpp
+    ../../src/Edward/proxy_supervisor.cpp
     ../../src/Edward/RFC.cpp
     ../../src/Threading/zephyr-thread.cpp
     upload.h

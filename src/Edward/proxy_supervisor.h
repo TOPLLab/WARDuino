@@ -29,9 +29,7 @@ class ProxySupervisor {
     void deserializeRFCResult(RFC *rfc);
 
    public:
-#ifndef __ZEPHYR__
     warduino::thread thread;
-#endif
 
     ProxySupervisor(Channel *duplex, warduino::mutex *mutex);
 
