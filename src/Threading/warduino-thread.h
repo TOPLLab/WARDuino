@@ -1,6 +1,7 @@
 #pragma once
 #ifdef __ZEPHYR__
 #include <zephyr/kernel.h>
+#include <pthread.h>
 #else
 #include <condition_variable>
 #include <mutex>
@@ -15,7 +16,11 @@ class mutex {
    public:
     mutex() { k_mutex_init(&m); }
 
-    inline void lock() { k_mutex_lock(&m, K_FOREVER); }
+    inline void lock() { k_mutex_lock(&m, K_FOREVER);}
+
+    inline int try_lock() {
+        return k_mutex_lock(&m, K_MSEC(20)) == 0;
+    }
 
     inline void unlock() { k_mutex_unlock(&m); }
 
@@ -44,11 +49,36 @@ class unique_lock {
    private:
     mutex *m;
 };
+
+    class thread {
+       public:
+        thread() {}
+
+        thread(void *(*f)(void *)) {
+            pthread_create(&thid, NULL, f, NULL);
+        }
+
+        template <class F, class T>
+        thread(F&& f, T&& arg0) {
+            pthread_create(&thid, NULL, reinterpret_cast<void *(*)(void*)>(f), arg0);
+        }
+
+        void join() {
+            void *ret;
+            if (pthread_join(thid, &ret)) {
+                printk("Failed to join thread!\n");
+                k_fatal_halt(1);
+            }
+        }
+
+       private:
+        pthread_t thid;
+    };
 #else
 typedef std::mutex mutex;
 typedef std::lock_guard<std::mutex> lock_guard;
 typedef std::unique_lock<std::mutex> unique_lock;
-typedef std::thread thread;  // TODO: Add Zephyr implementation for thread
+typedef std::thread thread;
 #endif
 
 class condition_variable {

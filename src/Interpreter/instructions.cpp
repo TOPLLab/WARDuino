@@ -22,12 +22,10 @@ bool proxy_call(Module *m, uint32_t fidx) {
         rfc = new RFC(fidx, type);
     }
 
-#ifndef __ZEPHYR__
     if (!supervisor->call(rfc)) {
         dbg_info(": FAILED TO SEND\n", fidx);
         return false;
     }
-#endif
 
     if (!rfc->success) {
         // TODO exception bugger might be too small and msg not null terminated?
@@ -1521,14 +1519,14 @@ bool interpret(Module *m, bool waiting) {
         }
     }
 
-    /*if (m->warduino->program_state == PROXYrun) {
+    if (m->warduino->program_state == PROXYrun) {
         dbg_info("Trap was thrown during proxy call.\n");
         RFC *rfc = m->warduino->debugger->topProxyCall();
         rfc->success = false;
         rfc->exception = strdup(exception);
         rfc->exception_size = strlen(exception);
         m->warduino->debugger->sendProxyCallResult(m);
-    }*/
+    }
 
     // Resolve all unhandled callback events
     while (CallbackHandler::resolving_event && CallbackHandler::resolve_event())
