@@ -1,7 +1,7 @@
 #pragma once
 #ifdef __ZEPHYR__
-#include <zephyr/kernel.h>
 #include <pthread.h>
+#include <zephyr/kernel.h>
 #else
 #include <condition_variable>
 #include <mutex>
@@ -16,11 +16,9 @@ class mutex {
    public:
     mutex() { k_mutex_init(&m); }
 
-    inline void lock() { k_mutex_lock(&m, K_FOREVER);}
+    inline void lock() { k_mutex_lock(&m, K_FOREVER); }
 
-    inline int try_lock() {
-        return k_mutex_lock(&m, K_MSEC(20)) == 0;
-    }
+    inline int try_lock() { return k_mutex_lock(&m, K_MSEC(20)) == 0; }
 
     inline void unlock() { k_mutex_unlock(&m); }
 
@@ -50,30 +48,29 @@ class unique_lock {
     mutex *m;
 };
 
-    class thread {
-       public:
-        thread() {}
+class thread {
+   public:
+    thread() {}
 
-        thread(void *(*f)(void *)) {
-            pthread_create(&thid, NULL, f, NULL);
+    thread(void *(*f)(void *)) { pthread_create(&thid, NULL, f, NULL); }
+
+    template <class F, class T>
+    thread(F &&f, T &&arg0) {
+        pthread_create(&thid, NULL, reinterpret_cast<void *(*)(void *)>(f),
+                       arg0);
+    }
+
+    void join() {
+        void *ret;
+        if (pthread_join(thid, &ret)) {
+            printk("Failed to join thread!\n");
+            k_fatal_halt(1);
         }
+    }
 
-        template <class F, class T>
-        thread(F&& f, T&& arg0) {
-            pthread_create(&thid, NULL, reinterpret_cast<void *(*)(void*)>(f), arg0);
-        }
-
-        void join() {
-            void *ret;
-            if (pthread_join(thid, &ret)) {
-                printk("Failed to join thread!\n");
-                k_fatal_halt(1);
-            }
-        }
-
-       private:
-        pthread_t thid;
-    };
+   private:
+    pthread_t thid;
+};
 #else
 typedef std::mutex mutex;
 typedef std::lock_guard<std::mutex> lock_guard;
