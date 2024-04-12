@@ -49,6 +49,7 @@ enum ExecutionState {
     callbacksState = 0x09,
     eventsState = 0x0A,
     ioState = 0x0B,
+    overridesState = 0x0C,
 };
 
 enum InterruptTypes {
