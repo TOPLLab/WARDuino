@@ -724,11 +724,11 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 }
 
 void Debugger::snapshot(Module *m) {
-    uint16_t numberBytes = 11;
+    uint16_t numberBytes = 12;
     uint8_t state[] = {
         pcState,        breakpointsState, callstackState,      globalsState,
         tableState,     memoryState,      branchingTableState, stackState,
-        callbacksState, eventsState,     ioState};
+        callbacksState, eventsState,     ioState, overridesState};
     inspect(m, numberBytes, state);
 }
 
@@ -869,6 +869,23 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                     this->channel->write("}");
                     comma = true;
                     delete state_elem;
+                }
+                this->channel->write("]");
+                addComma = true;
+                break;
+            }
+            case overridesState: {
+                this->channel->write("%s", addComma ? "," : "");
+                this->channel->write(R"("overrides": [)");
+                bool comma = false;
+                for (auto key : overrides) {
+                    for (auto argResult : key.second) {
+                        this->channel->write("%s", comma ? ", ": "");
+                        this->channel->write(
+                            R"({"fidx": %d, "arg": %d, "return_value": %d})",
+                            key.first, argResult.first, argResult.second);
+                        comma = true;
+                    }
                 }
                 this->channel->write("]");
                 addComma = true;
@@ -1211,6 +1228,19 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                           state_elem.value);
                 }
                 restore_external_state(m, external_state);
+                break;
+            }
+            case overridesState: {
+                debug("receiving overridesState\n");
+                overrides.clear();
+                uint8_t overrides_count = *program_state++;
+                for (uint32_t i = 0; i < overrides_count; i++) {
+                    uint32_t fidx = read_B32(&program_state);
+                    uint32_t arg = read_B32(&program_state);
+                    uint32_t return_value = read_B32(&program_state);
+                    overrides[fidx][arg] = return_value;
+                    debug("Override %d %d %d\n", fidx, arg, return_value);
+                }
                 break;
             }
             default: {
