@@ -26,7 +26,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 30
+#define NUM_PRIMITIVES_ARDUINO 33
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -50,7 +50,7 @@ double sensor_emu = 0;
             FATAL("pim_index out of bounds");                              \
         }                                                                  \
     }
-
+//TODO: Fix typo "pim_index" instead of "prim_index"
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
     bool function_name(Module *m)
@@ -274,23 +274,35 @@ def_prim(print_string, twoToNoneU32) {
     return true;
 }
 
-void push_symbolic_int(Module *m) {
+void push_symbolic_int(Module *m, std::string primitive_origin, uint32_t arg) {
     int32_t concrete_value = 0;
     std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
     if (m->symbolic_concrete_values.find(var_name) !=
         m->symbolic_concrete_values.end()) {
-        concrete_value = m->symbolic_concrete_values[var_name].value.int32;
+        concrete_value = m->symbolic_concrete_values[var_name].concrete_value.value.int32;
+
+        std::cout << "Existing symbolic value " << var_name
+                  << ", value = " << concrete_value << std::endl;
     }
-    std::cout << "New symbolic value " << var_name
-              << ", start value = " << concrete_value << std::endl;
+    else {
+        std::cout << "New symbolic value " << var_name
+                  << ", start value = " << concrete_value << std::endl;
+    }
     pushInt32(concrete_value);
     m->symbolic_stack[m->sp] = m->ctx.bv_const(var_name.c_str(), 32);
     m->symbolic_concrete_values[var_name] = {
-        .value_type = I32, .value = {.int32 = concrete_value}};
+        .concrete_value = { .value_type = I32, .value = {.int32 = concrete_value} },
+        .primitive_origin = primitive_origin,
+        .primitive_argument = arg
+    };
 }
 
 def_prim(sym_int, NoneToOneU32) {
-    push_symbolic_int(m);
+    push_symbolic_int(m, "sym_int", 0);
+    return true;
+}
+
+def_prim(setup_uart_sensor, NoneToNoneU32) {
     return true;
 }
 
@@ -409,11 +421,28 @@ def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
     if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
-        push_symbolic_int(m);
+        push_symbolic_int(m, "chip_analog_read", pin);
         return true;
     }
     pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
+    return true;
+}
+
+def_prim(colour_sensor, oneToOneI32) {
+    uint8_t pin = arg0.uint32;
+    pop_args(1);
+    if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
+        push_symbolic_int(m, "colour_sensor", pin);
+        return true;
+    }
+    pushInt32(sin(sensor_emu) * 100);
+    sensor_emu += .25;
+    return true;
+}
+
+def_prim(drive_motor_degrees, threeToNoneU32) {
+    pop_args(3);
     return true;
 }
 
@@ -526,6 +555,9 @@ void install_primitives() {
     install_primitive(print_string);
 
     install_primitive(sym_int);
+    install_primitive(setup_uart_sensor);
+    install_primitive(colour_sensor);
+    install_primitive(drive_motor_degrees);
 
     install_primitive(wifi_connect);
     install_primitive(wifi_status);
