@@ -18,11 +18,7 @@ static uint8_t console_txbuf[CONFIG_CONSOLE_PUTCHAR_BUFSIZE];
 
 ssize_t war_console_read(void *dummy, void *buf, size_t size) {
     ARG_UNUSED(dummy);
-    printf("war_console_read\n");
-
-    ssize_t r = tty_read(&console_serial, buf, size);
-    printf("war_console_read done\n");
-    return r;
+    return tty_read(&console_serial, buf, size);
 }
 
 int war_console_init(void) {
