@@ -154,17 +154,59 @@ void ConcolicInterpreter::store(Module *m, uint32_t offset, uint32_t addr,
     }
 }
 
+z3::expr simplify_bool_conversion(z3::expr expression) {
+    if (expression.is_app()) {
+        z3::func_decl decl = expression.decl();
+        if (decl.decl_kind() == Z3_OP_EQ) {
+            if (expression.arg(0).decl().decl_kind() == Z3_OP_ITE) {
+                z3::expr iteTrue = expression.arg(0).arg(1);
+                z3::expr iteFalse = expression.arg(0).arg(2);
+                z3::expr r = expression.arg(1);
+                if (iteTrue.is_const() && r.is_const() &&
+                    iteTrue.get_numeral_int() == r.get_numeral_int()) {
+                    return expression.arg(0).arg(0);
+                }
+                else if (iteFalse.is_const() && r.is_const() &&
+                    iteFalse.get_numeral_int() == r.get_numeral_int()) {
+                    return !expression.arg(0).arg(0);
+                }
+            }
+            return expression;
+        }
+        else if (decl.decl_kind() == Z3_OP_DISTINCT) {
+            if (expression.arg(0).decl().decl_kind() == Z3_OP_ITE) {
+                z3::expr iteTrue = expression.arg(0).arg(1);
+                z3::expr iteFalse = expression.arg(0).arg(2);
+                z3::expr r = expression.arg(1);
+                if (iteTrue.is_const() && r.is_const() &&
+                    iteTrue.get_numeral_int() == r.get_numeral_int()) {
+                    return !expression.arg(0).arg(0);
+                }
+                else if (iteFalse.is_const() && r.is_const() &&
+                         iteFalse.get_numeral_int() == r.get_numeral_int()) {
+                    return expression.arg(0).arg(0);
+                }
+            }
+            return expression;
+        }
+        else if (decl.decl_kind() == Z3_OP_ITE) {
+        }
+        return expression;
+    }
+    return expression;
+}
+
 bool ConcolicInterpreter::i_instr_if(Module *m, uint8_t *block_ptr) {
     uint32_t cond = m->stack[m->sp].value.uint32;
-    z3::expr sym_cond = z3::ite(m->symbolic_stack[m->sp].value() != 0,
-                                m->ctx.bool_val(true), m->ctx.bool_val(false));
+    z3::expr sym_cond = m->symbolic_stack[m->sp].value() != 0;
+
+    sym_cond = simplify_bool_conversion(sym_cond);
+    sym_cond = sym_cond.simplify();
 
     // Update the path condition based on if the branch will be taken in the
     // current execution or not.
     m->path_condition = m->path_condition && (cond ? sym_cond : !sym_cond);
-    m->path_condition = m->path_condition.simplify();
-    std::cout << "Updated path condition = " << m->path_condition.simplify()
-              << std::endl;
+
     // Assert that a constant path condition must always be true, if it's false
     // then we are in an impossible branch so something went wrong.
     if (m->path_condition.is_const()) {
