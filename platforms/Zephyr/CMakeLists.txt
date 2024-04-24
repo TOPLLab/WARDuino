@@ -1,14 +1,6 @@
-# SPDX-License-Identifier: Apache-2.0
-
 cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(blinky)
-
-#add_custom_command(
-#    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/upload.h
-#    COMMAND xxd -i ${CMAKE_CURRENT_SOURCE_DIR}/src/upload.wasm > ${CMAKE_CURRENT_SOURCE_DIR}/src/upload.h
-#    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/upload.wasm
-#)
+project(warduino)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/upload.h
