@@ -277,10 +277,10 @@ bool resolve_primitive(char *symbol, Primitive *val) {
     return false;
 }
 
-// Memory external_mem = {0, 0, 0, nullptr};
+Memory external_mem = {0, 0, 0, nullptr};
 
 bool resolve_external_memory(char *symbol, Memory **val) {
-    /*if (!strcmp(symbol, "memory")) {
+    if (!strcmp(symbol, "memory")) {
         if (external_mem.bytes == nullptr) {
             external_mem.initial = 256;
             external_mem.maximum = 256;
@@ -291,7 +291,7 @@ bool resolve_external_memory(char *symbol, Memory **val) {
         }
         *val = &external_mem;
         return true;
-    }*/
+    }
 
     FATAL("Could not find memory %s \n", symbol);
     return false;
