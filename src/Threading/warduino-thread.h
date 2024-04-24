@@ -74,9 +74,7 @@ class thread {
 
 class condition_variable {
    public:
-    condition_variable() {
-        k_condvar_init(&c);
-    }
+    condition_variable() { k_condvar_init(&c); }
 
     inline void notify_one() { k_condvar_signal(&c); }
 
