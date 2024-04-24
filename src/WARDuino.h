@@ -143,6 +143,12 @@ struct SymbolicMemory {
     explicit SymbolicMemory(z3::context &ctx)
         : symbolic_pages(ctx.bv_val(0, 32)) {}
 };
+
+struct SymbolicValueMapping {
+    StackValue  concrete_value;
+    std::string primitive_origin;
+    uint32_t primitive_argument;
+};
 #endif
 
 typedef struct Options {
@@ -204,7 +210,7 @@ typedef struct Module {
         symbolic_stack;                                    // symbolic stack
     SymbolicMemory symbolic_memory = SymbolicMemory(ctx);  // symbolic memory
     int symbolic_variable_count = 0;
-    std::unordered_map<std::string, StackValue>
+    std::unordered_map<std::string, SymbolicValueMapping>
         symbolic_concrete_values;  // concrete values for symbolic variables
 
     // Create symbolic state based on concrete state.

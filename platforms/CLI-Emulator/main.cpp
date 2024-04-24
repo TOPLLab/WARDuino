@@ -152,7 +152,7 @@ struct debugger_options {
     bool no_socket;
 };
 
-void *setupDebuggerCommunication(debugger_options *options) {
+void setupDebuggerCommunication(debugger_options *options) {
     dbg_info("\n=== STARTED DEBUGGER (in separate thread) ===\n");
     // Start debugger
     Channel *duplex;
@@ -368,10 +368,10 @@ void z3_pretty_println(z3::expr expression) {
 }
 
 struct ConcolicModel {
-    std::unordered_map<std::string, StackValue> model;
+    std::unordered_map<std::string, SymbolicValueMapping> model;
     z3::expr path_condition;
 
-    explicit ConcolicModel(std::unordered_map<std::string, StackValue> model, z3::expr path_condition)
+    explicit ConcolicModel(std::unordered_map<std::string, SymbolicValueMapping> model, z3::expr path_condition)
         : model(std::move(model)), path_condition(std::move(path_condition)) {}
 };
 
@@ -381,11 +381,12 @@ void run_concolic(const std::vector<std::string>& snapshot_messages) {
     // with a loop that contains an if statement and, you run the loop 30 times
     // then you have 2^30 possible branching paths. You can take the if branch
     // in the first loop, not take it in the second, and so on.
-    wac->max_instructions = 50;
+    wac->max_instructions = 60;
+    int total_instructions_executed = 0;
 
     z3::expr global_condition = m->ctx.bool_val(true);
     int iteration_index = 0;
-    std::vector<std::unordered_map<std::string, StackValue>> models;
+    std::vector<std::unordered_map<std::string, SymbolicValueMapping>> models;
     std::vector<ConcolicModel> x0_models;
     while (true) {
         std::cout << std::endl
@@ -411,7 +412,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages) {
             std::cout << "Model that caused issue:" << std::endl;
             for (const auto &entry : m->symbolic_concrete_values) {
                 std::cout << "  " << entry.first << " = "
-                          << entry.second.value.int32 << std::endl;
+                          << entry.second.concrete_value.value.int32 << std::endl;
             }
             break;
         }
@@ -428,40 +429,30 @@ void run_concolic(const std::vector<std::string>& snapshot_messages) {
                 std::cout << func.name() << " = "
                           << model.get_const_interp(func) << std::endl;
                 m->symbolic_concrete_values[func.name().str()]
-                    .value.uint64 =
+                    .concrete_value.value.uint64 =
                     model.get_const_interp(func).get_numeral_uint64();
             }
         }
         iteration_index++;
         models.push_back(m->symbolic_concrete_values);
 
-        std::vector<Z3_ast> from;
-        std::vector<Z3_ast> to;
+        z3::expr_vector from(m->ctx);
+        z3::expr_vector to(m->ctx);
         for (int i = 1; i < m->symbolic_variable_count; i++) {
             std::string var_name = "x_" + std::to_string(i);
             from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
-            to.push_back(m->ctx.bv_val(m->symbolic_concrete_values[var_name].value.uint64, 32));
+            to.push_back(m->ctx.bv_val(m->symbolic_concrete_values[var_name].concrete_value.value.uint64, 32));
         }
-        std::cout << "x_0 only path condition: " << std::endl;
-        z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())));
-        z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())).simplify());
-        z3_pretty_println(m->path_condition);
-        z3::expr x0_only_path_condition = z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())).simplify();
-        bool already_exists = std::find_if(x0_models.begin(), x0_models.end(), [x0_only_path_condition](ConcolicModel model) {
+        z3::expr x0_only_path_condition = m->path_condition.substitute(from, to).simplify();
+        //z3_pretty_print(x0_only_path_condition);
+        bool already_exists = std::find_if(x0_models.begin(), x0_models.end(), [x0_only_path_condition](const ConcolicModel& model) {
                                   z3::solver s(m->ctx);
-                                  z3_pretty_println(model.path_condition == x0_only_path_condition);
-                                  //s.add(model.path_condition == x0_only_path_condition);
-                                  //s.add(z3::implies(model.path_condition, x0_only_path_condition) && z3::implies(x0_only_path_condition, model.path_condition));
-                                  //s.add(model.path_condition && x0_only_path_condition); // TODO: Incorrect, how does this work with overlap?
                                   s.add(z3::forall(m->ctx.bv_const("x_0", 32), model.path_condition == x0_only_path_condition));
-                                  std::cout << s.check() << std::endl;
                                   return s.check() == z3::sat;
                               }) != x0_models.end();
         if (!already_exists) {
-            x0_models.emplace_back(
-                m->symbolic_concrete_values,
-                z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())).simplify()
-            );
+            x0_models.emplace_back(m->symbolic_concrete_values,
+                                   x0_only_path_condition);
         }
 
         // Start a new concolic iteration by solving !path_condition.
@@ -469,41 +460,42 @@ void run_concolic(const std::vector<std::string>& snapshot_messages) {
         // simplify things so I can just let it handle that? Maybe I should
         // only use simplify when building up expressions during symbolic
         // execution?
-        std::cout << "Execution finished, path condition = "
+        /*std::cout << "Execution finished, path condition = "
                   << m->path_condition.simplify() << std::endl;
         std::cout << "PC = ";
         z3_pretty_print(m->path_condition);
-        std::cout << std::endl;
+        std::cout << std::endl;*/
         z3::solver s(m->ctx);
-        std::cout << "!path_condition = " << !m->path_condition
+        /*std::cout << "!path_condition = " << !m->path_condition
                   << std::endl;
         std::cout << "!path_condition (simplified) = "
-                  << (!m->path_condition).simplify() << std::endl;
+                  << (!m->path_condition).simplify() << std::endl;*/
         // s.add(!m->path_condition);
         global_condition = global_condition &&
                            !m->path_condition;  // Not this path and also
                                                 // not the previous paths
-        std::cout << "GPC = ";
+        /*std::cout << "GPC = ";
         z3_pretty_print(global_condition);
         std::cout << std::endl;
-        std::cout << global_condition << std::endl;
+        std::cout << global_condition << std::endl;*/
+        total_instructions_executed += m->instructions_executed;
         s.add(global_condition);
         if (s.check() == z3::unsat) {
             std::cout << "Explored all paths!" << std::endl;
             break;
         }
-        std::cout << "Solve !path_condition:" << std::endl
-                  << s.get_model() << std::endl;
+        /*std::cout << "Solve !path_condition:" << std::endl
+                  << s.get_model() << std::endl;*/
 
-        std::cout << "Model:" << std::endl;
         z3::model model = s.get_model();
+        //std::cout << "Model:" << std::endl;
         /*std::vector<Z3_ast> from;
         std::vector<Z3_ast> to;*/
         for (int i = 0; i < (int)model.size(); i++) {
             z3::func_decl func = model[i];
-            std::cout << func.name() << " = "
-                      << model.get_const_interp(func) << std::endl;
-            m->symbolic_concrete_values[func.name().str()].value.uint64 =
+            /*std::cout << func.name() << " = "
+                      << model.get_const_interp(func) << std::endl;*/
+            m->symbolic_concrete_values[func.name().str()].concrete_value.value.uint64 =
                 model.get_const_interp(func).get_numeral_uint64();
 
             /*if (func.name().str() != "x_0") {
@@ -517,22 +509,23 @@ void run_concolic(const std::vector<std::string>& snapshot_messages) {
     }
 
     std::cout << std::endl << "=== FINISHED ===" << std::endl;
-    std::cout << "Models found:" << std::endl;
+    /*std::cout << "Models found:" << std::endl;
     for (size_t i = 0; i < models.size(); i++) {
         std::cout << "- Model #" << i << ":" << std::endl;
         for (const auto &entry : models[i]) {
             std::cout << "  " << entry.first << " = "
                       << entry.second.value.int32 << std::endl;
         }
-    }
+    }*/
 
+    std::cout << "Total amount of instructions executed: " << total_instructions_executed << std::endl;
     std::cout << "Models found:" << std::endl;
     for (size_t i = 0; i < x0_models.size(); i++) {
         std::cout << "- Model #" << i << ":" << std::endl;
-        z3_pretty_println(x0_models[i].path_condition);
+        //z3_pretty_println(x0_models[i].path_condition);
         for (const auto &entry : x0_models[i].model) {
             std::cout << "  " << entry.first << " = "
-                      << entry.second.value.int32 << std::endl;
+                      << entry.second.concrete_value.value.int32 << std::endl;
         }
     }
 
@@ -541,7 +534,11 @@ void run_concolic(const std::vector<std::string>& snapshot_messages) {
     for (auto &model : x0_models) {
         nlohmann::json j;
         for (const auto &entry : model.model) {
-            j[entry.first] = entry.second.value.int32;
+            nlohmann::json value;
+            value["primitive"] = entry.second.primitive_origin;
+            value["arg"] = entry.second.primitive_argument;
+            value["value"] = entry.second.concrete_value.value.int32;
+            j[entry.first] = value;
         }
         json_models["models"].push_back(j);
     }
@@ -700,11 +697,11 @@ int main(int argc, const char *argv[]) {
         std::thread communication;
         if (!no_debug) {
             auto *options =
-                (debugger_options *)malloc(sizeof(struct debugger_options));
+                new debugger_options();
             options->no_socket = no_socket;
             options->socket = socket;
             setupDebuggerCommunication(options);
-            free(options);
+            delete options;
 
             communication = std::thread(startDebuggerCommunication);
         }
@@ -733,7 +730,9 @@ int main(int argc, const char *argv[]) {
         wac->debugger->stop();
         Z3_finalize_memory();
 
-        communication.join();
+        if (communication.joinable()) {
+            communication.join();
+        }
     }
 
     return 0;
