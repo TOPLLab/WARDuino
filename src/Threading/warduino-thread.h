@@ -71,24 +71,18 @@ class thread {
    private:
     pthread_t thid;
 };
-#else
-typedef std::mutex mutex;
-typedef std::lock_guard<std::mutex> lock_guard;
-typedef std::unique_lock<std::mutex> unique_lock;
-typedef std::thread thread;
-#endif
 
 class condition_variable {
    public:
     condition_variable() {
-#ifdef __ZEPHYR__
         k_condvar_init(&c);
-#endif
     }
 
-    void notify_one();
+    inline void notify_one() { k_condvar_signal(&c); }
 
-    void wait(warduino::unique_lock &l);
+    inline void wait(warduino::unique_lock &l) {
+        k_condvar_wait(&c, &l.m->m, K_FOREVER);
+    }
 
     template <typename P>
     void wait(warduino::unique_lock &m, P pred) {
@@ -98,10 +92,13 @@ class condition_variable {
     }
 
    private:
-#ifdef __ZEPHYR__
     k_condvar c;
-#else
-    std::condition_variable c;
-#endif
 };
+#else
+typedef std::mutex mutex;
+typedef std::lock_guard<std::mutex> lock_guard;
+typedef std::unique_lock<std::mutex> unique_lock;
+typedef std::thread thread;
+typedef std::condition_variable condition_variable;
+#endif
 }  // namespace warduino
