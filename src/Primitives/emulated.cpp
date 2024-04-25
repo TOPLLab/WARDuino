@@ -26,8 +26,8 @@
 #include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
-#define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES 30
+#define NUM_PRIMITIVES_ARDUINO 0
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -225,6 +225,18 @@ def_prim(clear_pixels, NoneToNoneU32) {
 def_prim(abort, NoneToNoneU32) {
     debug("EMU: abort\n");
     return false;
+}
+
+def_prim(dummy, twoToOneU32) {
+    uint32_t a = arg1.uint32;
+    uint32_t b = arg0.uint32;
+    StackValue val = {I32, {42}};
+    for (int i = 0; a + i < b; i += 4) {
+        m->warduino->interpreter->store(m, I32, a + i, val);
+    }
+    pop_args(2);
+    pushUInt32(b - a);
+    return true;
 }
 
 def_prim(millis, NoneToOneU64) {
@@ -494,6 +506,8 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
 void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
     dbg_info("INSTALLING FAKE ARDUINO\n");
+    install_primitive(dummy);
+
     install_primitive(abort);
     install_primitive(millis);
     install_primitive(micros);

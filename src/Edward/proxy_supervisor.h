@@ -6,6 +6,7 @@
 #include <set>
 #include <thread>
 
+#include "../Debug/debugger.h"
 #include "../Utils/sockets.h"
 #include "RFC.h"
 #ifndef ARDUINO
@@ -15,9 +16,8 @@
 #endif
 #include "sys/types.h"
 
-class ProxySupervisor {
+class ProxySupervisor : public Debugger {
    private:
-    Channel *channel;
     std::mutex *mutex;
     std::set<uint32_t> *proxied = new std::set<uint32_t>();
 
@@ -35,7 +35,7 @@ class ProxySupervisor {
     void listenToSocket();
 
     bool send(void *t_buffer, int t_size);
-    nlohmann::basic_json<> readReply();
+    nlohmann::basic_json<> readReply(RFC *rfc);
 
     bool call(RFC *callee);
 
