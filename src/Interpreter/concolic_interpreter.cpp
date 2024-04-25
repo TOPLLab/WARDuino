@@ -226,8 +226,6 @@ bool ConcolicInterpreter::i_instr_br_if(Module *m) {
     // Update the path condition based on if the branch will be taken in the
     // current execution or not.
     m->path_condition = m->path_condition && (cond ? sym_cond : !sym_cond);
-    std::cout << "Updated path condition = " << m->path_condition.simplify()
-              << std::endl;
 
     // Run the concrete implementation of the br_if instruction.
     return Interpreter::i_instr_br_if(m);
