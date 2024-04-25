@@ -161,7 +161,7 @@ If you need to cite WARDuino in your research, use:
 @article{	  WARDuino2024,
   title		= {WARDuino: An Embedded WebAssembly Virtual Machine},
   shorttitle	= {WARDuino},
-  author	= {Lauwaerts, Tom and Singh, Robbert Gurdeep and Scholliers,
+  author	= {Lauwaerts, Tom and Gurdeep Singh, Robbert and Scholliers,
 		  Christophe},
   year		= {2024},
   month		= feb,
