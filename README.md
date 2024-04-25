@@ -14,7 +14,7 @@
   <b>
     <a href="./README.md#build-and-development-instructions">Installation</a>
     <span> | </span>
-    <a href="./examples/">Examples</a>
+    <a href="./tutorials/">Examples</a>
     <span> | </span>
     <a href="./README.md#webassembly-specification-tests">Run Specification tests</a>
     <span> | </span>
