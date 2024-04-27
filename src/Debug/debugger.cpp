@@ -18,7 +18,7 @@
 
 Debugger::Debugger(Channel *duplex) {
     this->channel = duplex;
-    this->supervisor_mutex = new std::mutex();
+    this->supervisor_mutex = new warduino::mutex();
     this->supervisor_mutex->lock();
     this->asyncSnapshots = false;
 }
@@ -60,7 +60,7 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
 }
 
 void Debugger::pushMessage(uint8_t *msg) {
-    std::lock_guard<std::mutex> const lg(messageQueueMutex);
+    warduino::lock_guard const lg(messageQueueMutex);
     this->debugMessages.push_back(msg);
     this->freshMessages = !this->debugMessages.empty();
     this->messageQueueConditionVariable.notify_one();
@@ -117,7 +117,7 @@ void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
 }
 
 uint8_t *Debugger::getDebugMessage() {
-    std::lock_guard<std::mutex> const lg(messageQueueMutex);
+    warduino::lock_guard const lg(messageQueueMutex);
     uint8_t *ret = nullptr;
     if (!this->debugMessages.empty()) {
         ret = this->debugMessages.front();
@@ -1235,12 +1235,12 @@ bool Debugger::isProxied(uint32_t fidx) const {
 
 void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
     uint32_t amount_funcs = read_B32(&interruptData);
-    debug("funcs_total %" PRIu32 "\n", amount_funcs);
+    printf("funcs_total %" PRIu32 "\n", amount_funcs);
 
     m->warduino->debugger->supervisor->unregisterAllProxiedCalls();
     for (uint32_t i = 0; i < amount_funcs; i++) {
         uint32_t fidx = read_B32(&interruptData);
-        debug("registering fid=%" PRIu32 "\n", fidx);
+        printf("registering fid=%" PRIu32 "\n", fidx);
         m->warduino->debugger->supervisor->registerProxiedCall(fidx);
     }
 
@@ -1249,9 +1249,8 @@ void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
 
 void Debugger::startProxySupervisor(Channel *socket) {
     this->connected_to_proxy = true;
-
     this->supervisor = new ProxySupervisor(socket, this->supervisor_mutex);
-    debug("Connected to proxy.\n");
+    printf("Connected to proxy.\n");
 }
 
 bool Debugger::proxy_connected() const { return this->connected_to_proxy; }

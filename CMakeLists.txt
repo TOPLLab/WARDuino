@@ -54,7 +54,8 @@ if (BUILD_EMULATOR)
             src/Debug/debugger.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
-            src/Edward/RFC.cpp)
+            src/Edward/RFC.cpp
+    )
 
     add_definitions(-DINFO=0)
     add_definitions(-DDEBUG=0)
@@ -94,7 +95,8 @@ if (BUILD_UNITTEST)
             src/Debug/debugger.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
-            src/Edward/RFC.cpp)
+            src/Edward/RFC.cpp
+    )
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
