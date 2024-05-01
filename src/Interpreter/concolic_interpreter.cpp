@@ -433,8 +433,31 @@ bool ConcolicInterpreter::i_instr_math_f64(Module *m, uint8_t opcode) {
 }
 
 bool ConcolicInterpreter::i_instr_unary_i32(Module *m, uint8_t opcode) {
-    // TODO: Symbolic semantics
-    assert(false);
+    z3::expr e = m->symbolic_stack[m->sp].value().simplify();
+    switch (opcode) {
+        case 0x67: { // i32.clz
+            z3::expr result =  m->ctx.bv_val(32, 32);
+            for (int i = 0; i < 32; i++) {
+                result = z3::ite((e & m->ctx.bv_val(1 << i, 32)) >= 1, m->ctx.bv_val(32-i-1, 32), result);
+            }
+            m->symbolic_stack[m->sp] = result;
+            break;
+        }
+        case 0x68: { // i32.ctz
+            z3::expr result =  m->ctx.bv_val(32, 32);
+            for (int i = 31; i >= 0; i--) {
+                result = z3::ite((e & m->ctx.bv_val(1 << i, 32)) >= 1, m->ctx.bv_val(i, 32), result);
+            }
+            m->symbolic_stack[m->sp] = result;
+            break;
+        }
+        case 0x69: // i32.popcnt
+            assert(false); // TODO: Symbolic semantics
+        default:
+            return false;
+    }
+    Interpreter::i_instr_unary_i32(m, opcode);
+    return true;
 }
 
 bool ConcolicInterpreter::i_instr_unary_i64(Module *m, uint8_t opcode) {
