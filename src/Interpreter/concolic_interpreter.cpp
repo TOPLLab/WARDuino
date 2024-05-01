@@ -586,8 +586,7 @@ bool ConcolicInterpreter::i_instr_binary_i32(Module *m, uint8_t opcode) {
             c = lshr(a, b);
             break;  // i32.shr_u
         case 0x77:
-            // TODO: Symbolic semantics
-            assert(false);
+            c = z3::shl(a, b) | z3::lshr(a, 32 - b);
             break;  // i32.rotl
         case 0x78:
             // TODO: Symbolic semantics
