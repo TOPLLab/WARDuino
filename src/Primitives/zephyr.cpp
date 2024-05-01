@@ -20,6 +20,7 @@
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/spi.h>
 
 #include <chrono>
 #include <cmath>
@@ -33,7 +34,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 5
+#define NUM_PRIMITIVES_ARDUINO 10
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -54,7 +55,7 @@ double sensor_emu = 0;
             p->name = #prim_name;                                          \
             p->f = &(prim_name);                                           \
         } else {                                                           \
-            FATAL("pim_index out of bounds");                              \
+            FATAL("prim_index out of bounds");                             \
         }                                                                  \
     }
 
@@ -208,7 +209,16 @@ Type NoneToOneU64 = {.form = FUNC,
                      .mask = 0x82000};
 
 def_prim(chip_delay, oneToNoneU32) {
+    debug("chip_delay(%u)\n", arg0.uint32);
     k_msleep(arg0.uint32);
+    pop_args(1);
+    return true;
+}
+
+def_prim(chip_delay_us, oneToNoneU32) {
+    debug("chip_delay_us(%u)\n", arg0.uint32);
+    k_yield();
+    k_usleep(arg0.uint32);
     pop_args(1);
     return true;
 }
@@ -217,6 +227,7 @@ struct gpio_dt_spec specs[] = {DT_FOREACH_PROP_ELEM_SEP(
     DT_PATH(zephyr_user), warduino_gpios, GPIO_DT_SPEC_GET_BY_IDX, (, ))};
 
 def_prim(chip_pin_mode, twoToNoneU32) {
+    debug("chip_pin_mode(%u,%u)\n", arg1.uint32, arg0.uint32);
     gpio_dt_spec pin_spec = specs[arg1.uint32];
     gpio_pin_configure(pin_spec.port, pin_spec.pin,
                        arg0.uint32 == 0 ? GPIO_INPUT : GPIO_OUTPUT);
@@ -225,7 +236,7 @@ def_prim(chip_pin_mode, twoToNoneU32) {
 }
 
 def_prim(chip_digital_write, twoToNoneU32) {
-    printf("chip_digital_write(%u,%u)\n", arg1.uint32, arg0.uint32);
+    debug("chip_digital_write(%u,%u)\n", arg1.uint32, arg0.uint32);
     gpio_dt_spec pin_spec = specs[arg1.uint32];
     gpio_pin_set_raw(pin_spec.port, pin_spec.pin, arg0.uint32);
     pop_args(2);
@@ -233,7 +244,7 @@ def_prim(chip_digital_write, twoToNoneU32) {
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
-    printf("chip_digital_read(%u)\n", arg0.uint32);
+    debug("chip_digital_read(%u)\n", arg0.uint32);
     gpio_dt_spec pin_spec = specs[arg0.uint32];
     uint8_t res = gpio_pin_get_raw(pin_spec.port, pin_spec.pin);
     pop_args(1);
@@ -247,16 +258,96 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
+const struct device *const spi_dev = DEVICE_DT_GET(DT_NODELABEL(spi0));
+
+int write_spi_bytes(unsigned char *data, size_t len) {
+    if (!device_is_ready(spi_dev)) {
+        printk("%s: device not ready.\n", spi_dev->name);
+        return -1;
+    }
+
+    struct spi_buf tx_buf = { .buf = data, .len = len };
+    struct spi_buf_set tx_bufs = { .buffers = &tx_buf, .count = 1 };
+
+    // Now write the buffer using SPI.
+    struct spi_config config;
+    config.frequency = DT_PROP(DT_NODELABEL(spi0), clock_frequency);
+    config.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8);
+    config.slave = 0;
+    config.cs = {};
+
+    return spi_write(spi_dev, &config, &tx_bufs);
+}
+
+int write_spi_bytes_16_prim(int times, unsigned int color) {
+    unsigned char *data = new unsigned char[times * 2];
+    unsigned char colorB = color >> 8;
+    for (int x = 0; x < times; x++) {
+        data[x * 2] = color;
+        data[x * 2 + 1] = colorB;
+    }
+
+    int result = write_spi_bytes(data, times * 2);
+    delete[] data;
+    return result;
+}
+
+def_prim(write_spi_byte, oneToNoneU32) {
+    debug("write_spi_byte(%d)\n", arg0.uint32);
+    unsigned char data = (char) arg0.uint32;
+    int result = write_spi_bytes(&data, 1);
+    pop_args(1);
+    return result == 0;
+}
+
+def_prim(write_spi_bytes_16, twoToNoneU32) {
+    debug("write_spi_bytes_16(%d, %d)\n", arg1.uint32, arg0.uint32);
+    int result = write_spi_bytes_16_prim(arg1.uint32, arg0.uint32);
+    pop_args(2);
+    return result == 0;
+}
+
+def_prim(read_spi_byte, NoneToOneU32) {
+    debug("read_spi_byte(%u)\n", arg0.uint32);
+    struct spi_config config;
+
+    config.frequency = DT_PROP(DT_NODELABEL(spi0), clock_frequency);
+    config.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(9);
+    config.slave = 0;
+    config.cs = {}; // TODO: Chip select line, maybe useful or can we do it manually not sure
+
+    unsigned char data = 0;
+    struct spi_buf tx_buf = { .buf = &data, .len = 1 };
+    struct spi_buf_set tx_bufs = { .buffers = &tx_buf, .count = 1 };
+
+    printf("data= %c\n", data);
+
+    int result = spi_read(spi_dev, &config, &tx_bufs);
+    printf("result= %d\n", result);
+    pushInt32(0);
+    return true;
+}
+
+def_prim(abort, NoneToNoneU32) {
+    sprintf(exception, "Trap: assertion failed.");
+    return false;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
 void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
     install_primitive(chip_delay);
+    install_primitive(chip_delay_us);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
     install_primitive(chip_digital_read);
     install_primitive(print_int);
+    install_primitive(write_spi_byte);
+    install_primitive(write_spi_bytes_16);
+    install_primitive(read_spi_byte);
+    install_primitive(abort);
 }
 
 //------------------------------------------------------
