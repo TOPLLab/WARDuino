@@ -9,6 +9,7 @@ import {
     Expected,
     Framework,
     getValue, HybridScheduler,
+    DependenceScheduler,
     Kind,
     Message, OutputStyle,
     Step, Suite,
@@ -31,7 +32,7 @@ framework.style(OutputStyle.github);
 const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
 integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
-//integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
+// integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {connectionTimout: 0});
 
 const expectDUMP: Expectation[] = [
     {'pc': {kind: 'description', value: Description.defined} as Expected<string>},
@@ -63,29 +64,27 @@ const DUMP: Step = {
 
 // Test *dump* command
 
-integration.test({
-    title: 'Test DUMP blink',
-    program: `${EXAMPLES}blink.wast`,
-    steps: [DUMP]
-});
+const dumps = [
+    {
+        title: 'Test DUMP blink',
+        program: `${EXAMPLES}blink.wast`,
+        steps: [DUMP]
+    }, {
+        title: 'Test DUMP button',
+        program: `${EXAMPLES}button.wast`,
+        steps: [DUMP]
+    }, {
+        title: 'Test DUMP call',
+        program: `${EXAMPLES}call.wast`,
+        steps: [DUMP]
+    }, {
+        title: 'Test DUMP factorial',
+        program: `${EXAMPLES}factorial.wast`,
+        steps: [DUMP]
+    }
+]
 
-integration.test({
-    title: 'Test DUMP button',
-    program: `${EXAMPLES}button.wast`,
-    steps: [DUMP]
-});
-
-integration.test({
-    title: 'Test DUMP call',
-    program: `${EXAMPLES}call.wast`,
-    steps: [DUMP]
-});
-
-integration.test({
-    title: 'Test DUMP factorial',
-    program: `${EXAMPLES}factorial.wast`,
-    steps: [DUMP]
-});
+integration.tests(dumps);
 
 // Test *dump local* command
 
@@ -194,23 +193,26 @@ const running: Step[] = [DUMP, {
     }]
 }];
 
-integration.test({
+const run = [{
     title: 'Test RUN blink',
     program: `${EXAMPLES}blink.wast`,
+    dependencies: dumps,
     steps: running
-});
-
-integration.test({
+}, {
     title: 'Test RUN button',
     program: `${EXAMPLES}button.wast`,
+    dependencies: dumps,
     steps: running
-});
+}];
+
+integration.tests(run);
 
 // Test *pause* command
 
 const pauseTest: TestScenario = {
     title: 'Test PAUSE',
     program: `${EXAMPLES}blink.wast`,
+    dependencies: run,
     steps: [{
         title: 'Send RUN command',
         instruction: {kind: Kind.Request, value: Message.run},
@@ -239,7 +241,7 @@ integration.test(pauseTest);
 // Test *step into* command
 
 function stepping(start: number, end: number): Step[] {
-    return  [{
+    return [{
         title: 'Send DUMP command',
         instruction: {kind: Kind.Request, value: Message.dump},
         expected: [{'pc': {kind: 'primitive', value: start} as Expected<number>}]
@@ -253,35 +255,32 @@ function stepping(start: number, end: number): Step[] {
     }];
 }
 
-integration.test({
+const steps = [{
     title: 'Test STEP blink',
     program: `${EXAMPLES}blink.wast`,
     steps: stepping(169, 172)
-});
-
-integration.test({
+}, {
     title: 'Test STEP button',
     program: `${EXAMPLES}button.wast`,
     steps: stepping(296, 298)
-});
-
-integration.test({
+}, {
     title: 'Test STEP call',
     program: `${EXAMPLES}call.wast`,
     steps: stepping(167, 143)
-});
-
-integration.test({
+}, {
     title: 'Test STEP factorial',
     program: `${EXAMPLES}factorial.wast`,
     steps: stepping(155, 157)
-});
+}];
+
+integration.tests(steps);
 
 // Test *step over* command
 
 const stepOverTest: TestScenario = {
     title: 'Test STEP OVER',
     program: `${EXAMPLES}call.wast`,
+    dependencies: steps,
     steps: [{
         title: 'Send DUMP command',
         instruction: {kind: Kind.Request, value: Message.dump},
