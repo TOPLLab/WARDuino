@@ -25,7 +25,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES_ARDUINO 30
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -438,6 +438,12 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     return true;
 }
 
+def_prim(write_spi_bytes, twoToNoneU32) {
+    debug("EMU: write_spi_bytes(%u, %u) \n", arg1.uint32, arg0.uint32);
+    pop_args(2);
+    return true;
+}
+
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
@@ -517,6 +523,7 @@ void install_primitives() {
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
     install_primitive(write_spi_bytes_16);
+    install_primitive(write_spi_bytes);
 
     install_primitive(subscribe_interrupt);
 
