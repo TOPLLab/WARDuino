@@ -474,9 +474,12 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         std::cout << "!path_condition (simplified) = "
                   << (!m->path_condition).simplify() << std::endl;*/
         // s.add(!m->path_condition);
+        std::cout << m->path_condition.simplify() << std::endl;
+        m->path_condition = m->path_condition.simplify();
         global_condition = global_condition &&
                            !m->path_condition;  // Not this path and also
                                                 // not the previous paths
+
         /*std::cout << "GPC = ";
         z3_pretty_print(global_condition);
         std::cout << std::endl;
@@ -666,6 +669,7 @@ int main(int argc, const char *argv[]) {
             nlohmann::json json;
             json["choicepoints"] = choicepoints;
             std::cout << json << std::endl;
+            wac->free_module_state(m);
             exit(0);
         }
 
@@ -734,7 +738,7 @@ int main(int argc, const char *argv[]) {
             // TODO: Add option to calculate the choice points and add them as breakpoints from the remote debugger once
             // the user starts debugging instead of always adding them even when not debugging.
             for (uint8_t *choice_point : m->find_choice_points()) {
-                wac->debugger->addBreakpoint(choice_point);
+                //wac->debugger->addBreakpoint(choice_point);
             }
 
             dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
