@@ -375,13 +375,15 @@ struct ConcolicModel {
         : model(std::move(model)), path_condition(std::move(path_condition)) {}
 };
 
-void run_concolic(const std::vector<std::string>& snapshot_messages) {
+void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50) {
     wac->interpreter = new ConcolicInterpreter();
     // Has a big impact on performance, for example if you have a simple program
     // with a loop that contains an if statement and, you run the loop 30 times
     // then you have 2^30 possible branching paths. You can take the if branch
     // in the first loop, not take it in the second, and so on.
-    wac->max_instructions = 60;
+    //wac->max_instructions = -1;
+    //wac->max_instructions = 900;
+    wac->max_instructions = max_instructions;
     int total_instructions_executed = 0;
 
     z3::expr global_condition = m->ctx.bool_val(true);
@@ -557,6 +559,7 @@ int main(int argc, const char *argv[]) {
     const char *proxy = nullptr;
     const char *baudrate = nullptr;
     const char *mode = "interpreter";
+    const char *max_instructions_str = "50";
 
     const char *fname = nullptr;
     std::vector<StackValue> arguments = std::vector<StackValue>();
@@ -634,6 +637,8 @@ int main(int argc, const char *argv[]) {
                 snapshot_messages.emplace_back(current_msg);
                 ARGV_GET(current_msg);
             }
+        } else if(!strcmp("--max-instructions", arg)) {
+            ARGV_GET(max_instructions_str);
         }
     }
 
@@ -708,7 +713,7 @@ int main(int argc, const char *argv[]) {
 
         // Run Wasm module
         if (strcmp(mode, "concolic") == 0) {
-            run_concolic(snapshot_messages);
+            run_concolic(snapshot_messages, std::stoi(max_instructions_str));
         }
         else {
             // TODO: Add option to calculate the choice points and add them as breakpoints from the remote debugger once
