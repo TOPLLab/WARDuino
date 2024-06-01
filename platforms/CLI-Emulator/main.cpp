@@ -669,7 +669,7 @@ int main(int argc, const char *argv[]) {
             nlohmann::json json;
             json["choicepoints"] = choicepoints;
             std::cout << json << std::endl;
-            wac->free_module_state(m);
+            wac->unload_module(m);
             exit(0);
         }
 
