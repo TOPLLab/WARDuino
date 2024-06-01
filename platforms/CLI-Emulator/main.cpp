@@ -15,6 +15,7 @@
 #include "../../src/Debug/debugger.h"
 #include "../../src/Interpreter/concolic_interpreter.h"
 #include "../../src/Utils/macros.h"
+#include "../../src/Utils/util.h"
 #include "warduino/config.h"
 
 // Constants
@@ -560,6 +561,7 @@ int main(int argc, const char *argv[]) {
     const char *baudrate = nullptr;
     const char *mode = "interpreter";
     const char *max_instructions_str = "50";
+    bool dump_info = false;
 
     const char *fname = nullptr;
     std::vector<StackValue> arguments = std::vector<StackValue>();
@@ -637,8 +639,10 @@ int main(int argc, const char *argv[]) {
                 snapshot_messages.emplace_back(current_msg);
                 ARGV_GET(current_msg);
             }
-        } else if(!strcmp("--max-instructions", arg)) {
+        } else if (!strcmp("--max-instructions", arg)) {
             ARGV_GET(max_instructions_str);
+        } else if (!strcmp("--dump-info", arg)) {
+            dump_info = true;
         }
     }
 
@@ -654,6 +658,17 @@ int main(int argc, const char *argv[]) {
     }
 
     if (m) {
+        if (dump_info) {
+            auto choicepoints = std::vector<uint32_t>();
+            for (uint8_t *choice_point : m->find_choice_points()) {
+                choicepoints.push_back(toVirtualAddress(choice_point, m));
+            }
+            nlohmann::json json;
+            json["choicepoints"] = choicepoints;
+            std::cout << json << std::endl;
+            exit(0);
+        }
+
         if (strcmp(mode, "proxy") == 0) {
             // Run in proxy mode
             wac->debugger->proxify();
