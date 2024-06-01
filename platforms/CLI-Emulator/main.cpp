@@ -10,9 +10,11 @@
 #include <cstring>
 #include <stdexcept>
 #include <thread>
+#include <iostream>
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
+#include "../../src/Utils/util.h"
 #include "warduino/config.h"
 
 // Constants
@@ -267,6 +269,7 @@ int main(int argc, const char *argv[]) {
     const char *proxy = nullptr;
     const char *baudrate = nullptr;
     const char *mode = "interpreter";
+    bool dump_info = false;
 
     const char *fname = nullptr;
     std::vector<StackValue> arguments = std::vector<StackValue>();
@@ -337,6 +340,8 @@ int main(int argc, const char *argv[]) {
                 arguments.push_back(
                     parseParameter(number, function.type->params[i]));
             }
+        } else if (!strcmp("--dump-info", arg)) {
+            dump_info = true;
         }
     }
 
@@ -352,6 +357,40 @@ int main(int argc, const char *argv[]) {
     }
 
     if (m) {
+        if (dump_info) {
+            auto choicepoints = std::vector<uint32_t>();
+            for (uint8_t *choice_point : m->find_choice_points()) {
+                choicepoints.push_back(toVirtualAddress(choice_point, m));
+            }
+            auto after_choicepoints = std::vector<uint32_t>();
+            for (uint8_t *choice_point : m->find_choice_points(true)) {
+                after_choicepoints.push_back(toVirtualAddress(choice_point, m));
+            }
+            auto primitive_calls = std::vector<uint32_t>();
+            for (uint8_t *call_site : m->find_pc_before_primitive_calls()) {
+                primitive_calls.push_back(toVirtualAddress(call_site, m));
+            }
+            auto after_primitive_calls = std::vector<uint32_t>();
+            for (uint8_t *call_site : m->find_pc_after_primitive_calls()) {
+                after_primitive_calls.push_back(toVirtualAddress(call_site, m));
+            }
+            nlohmann::json json;
+            json["choicepoints"] = choicepoints;
+            json["after_choicepoints"] = after_choicepoints;
+            json["primitive_calls"] = primitive_calls;
+            json["after_primitive_calls"] = after_primitive_calls;
+
+            std::vector<std::string> fidx_mapping = std::vector<std::string>();
+            for (uint32_t fidx = 0; fidx < m->import_count; fidx++) {
+                fidx_mapping.emplace_back(m->functions[fidx].import_field);
+            }
+            json["primitive_fidx_mapping"] = fidx_mapping;
+
+            std::cout << json << std::endl;
+            wac->unload_module(m);
+            exit(0);
+        }
+
         if (strcmp(mode, "proxy") == 0) {
             // Run in proxy mode
             wac->debugger->proxify();

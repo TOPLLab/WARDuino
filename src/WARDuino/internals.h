@@ -129,4 +129,10 @@ typedef struct Module {
     uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
+
+    std::vector<uint8_t *> find_choice_points(bool after = false) const;
+    std::vector<uint8_t *> find_pc_before_primitive_calls() const;
+    std::vector<uint8_t *> find_pc_after_primitive_calls() const;
+    std::vector<uint8_t *> find_calls(
+        const std::function<bool(std::string)>& cond, bool after = false) const;
 } Module;
