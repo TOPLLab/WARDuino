@@ -666,8 +666,13 @@ int main(int argc, const char *argv[]) {
             for (uint8_t *choice_point : m->find_choice_points()) {
                 choicepoints.push_back(toVirtualAddress(choice_point, m));
             }
+            auto primitive_calls = std::vector<uint32_t>();
+            for (uint8_t *call_site : m->find_primitive_calls()) {
+                primitive_calls.push_back(toVirtualAddress(call_site, m));
+            }
             nlohmann::json json;
             json["choicepoints"] = choicepoints;
+            json["primitive_calls"] = primitive_calls;
             std::cout << json << std::endl;
             wac->unload_module(m);
             exit(0);

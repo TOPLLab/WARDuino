@@ -1075,12 +1075,8 @@ void Module::create_symbolic_state() {
 }
 #endif
 
-std::vector<uint8_t *> Module::find_choice_points() const {
-    std::set<std::string> symbolic_primitives = {
-        "chip_digital_read",
-        "chip_analog_read",
-    };
-    std::vector<uint8_t *> choice_point_pcs;
+std::vector<uint8_t *> Module::find_calls(std::function<bool(std::string)> cond) const {
+    std::vector<uint8_t *> call_sites;
     for (size_t i = import_count; i < functions.size(); i++) {
         Block *func = functions[i];
         uint8_t *pc = func->start_ptr;
@@ -1093,8 +1089,8 @@ std::vector<uint8_t *> Module::find_choice_points() const {
                 if (fidx < import_count) {
                     const char *module_name = functions[fidx]->import_module;
                     const char *field_name = functions[fidx]->import_field;
-                    if (!strcmp(module_name, "env") && symbolic_primitives.find(field_name) != symbolic_primitives.end()) {
-                        choice_point_pcs.push_back(instruction_start_pc);
+                    if (!strcmp(module_name, "env") && cond(field_name)) {
+                        call_sites.push_back(instruction_start_pc);
                     }
                 }
                 continue;
@@ -1102,5 +1098,20 @@ std::vector<uint8_t *> Module::find_choice_points() const {
             skip_immediates(&pc);
         }
     }
-    return choice_point_pcs;
+    return call_sites;
+}
+
+std::vector<uint8_t *> Module::find_choice_points() const {
+    std::set<std::string> symbolic_primitives = {
+        "chip_digital_read",
+        "chip_analog_read",
+        "colour_sensor",
+    };
+    return find_calls([symbolic_primitives](const std::string &field_name) {
+        return symbolic_primitives.find(field_name) != symbolic_primitives.end();
+    });
+}
+
+std::vector<uint8_t *> Module::find_primitive_calls() const {
+    return find_calls([](const std::string& x) { return true; });
 }
