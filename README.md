@@ -8,6 +8,7 @@
   <p>
     <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg"></a>
     <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml/badge.svg"></a>
+    <a href="https://doi.org/10.1016/j.cola.2024.101268"><img src="https://img.shields.io/badge/DOI-10.1016%2Fj.cola.2024.101268-blue.svg"></a>
     <a href="https://github.com/TOPLLab/WARDuino/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
   </p>
 
