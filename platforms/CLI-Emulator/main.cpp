@@ -382,7 +382,8 @@ struct Model {
     z3::expr x_only_path_condition(size_t index) {
         z3::expr_vector from(m->ctx);
         z3::expr_vector to(m->ctx);
-        for (size_t i = 0; i < values.size(); i++) { // model.size() maybe dangerous with substitute if it's higher than the current iteration symbolic variable count
+        // TODO: values.size() maybe dangerous with substitute if it's higher than the current iteration symbolic variable count
+        for (size_t i = 0; i < values.size(); i++) {
             if (i == index) continue;
             std::string var_name = "x_" + std::to_string(i);
             from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
@@ -440,6 +441,26 @@ struct Model {
             str += path.to_string(depth + 1);
         }
         return str;
+    }
+
+    nlohmann::json to_json() {
+        nlohmann::json graph;
+        graph["paths"] = to_json(0);
+        return graph;
+    }
+
+    nlohmann::json to_json(size_t depth) {
+        auto paths = std::vector<nlohmann::json>();
+        for (Model path : subpaths) {
+            nlohmann::json path_node;
+            SymbolicValueMapping value = path.values["x_" + std::to_string(depth)];
+            path_node["value"] = value.concrete_value.value.int32;
+            path_node["primitive"] = value.primitive_origin;
+            path_node["arg"] = value.primitive_argument;
+            path_node["paths"] = path.to_json(depth + 1);
+            paths.push_back(path_node);
+        }
+        return paths;
     }
 };
 
@@ -577,6 +598,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     std::cout << "Total amount of instructions executed: " << total_instructions_executed << std::endl;
     std::cout << "Models found:" << std::endl;
     std::cout << graph.to_string(0) << std::endl;
+    std::cout << graph.to_json() << std::endl;
     /*for (size_t i = 0; i < x0_models.size(); i++) {
         std::cout << "- Model #" << i << ":" << std::endl;
         //z3_pretty_println(x0_models[i].path_condition);
