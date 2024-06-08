@@ -425,6 +425,22 @@ struct Model {
             m.add_partial_match(em, depth + 1);
         }
     }
+
+    std::string to_string(size_t depth) {
+        std::string str = "";
+        if (depth == 0) {
+            str += "*\n";
+        }
+        for (Model path : subpaths) {
+            for (size_t i = 0; i < depth + 1; i++) {
+                str += "\t";
+            }
+            str += std::to_string(path.values["x_" + std::to_string(depth)].concrete_value.value.int32);
+            str += "\n";
+            str += path.to_string(depth + 1);
+        }
+        return str;
+    }
 };
 
 void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50) {
@@ -560,6 +576,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
 
     std::cout << "Total amount of instructions executed: " << total_instructions_executed << std::endl;
     std::cout << "Models found:" << std::endl;
+    std::cout << graph.to_string(0) << std::endl;
     /*for (size_t i = 0; i < x0_models.size(); i++) {
         std::cout << "- Model #" << i << ":" << std::endl;
         //z3_pretty_println(x0_models[i].path_condition);
