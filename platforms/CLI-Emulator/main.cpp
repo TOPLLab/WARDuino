@@ -371,10 +371,13 @@ void z3_pretty_println(z3::expr expression) {
 struct Model {
     std::unordered_map<std::string, SymbolicValueMapping> values;
     z3::expr path_condition;
+    std::vector<Model> subpaths;
 
     Model(const std::unordered_map<std::string, SymbolicValueMapping> &values,
           z3::expr path_condition)
-        : values(values), path_condition(std::move(path_condition)) {}
+        : values(values), path_condition(std::move(path_condition)) {
+        subpaths.push_back(*this);
+    }
 
     z3::expr x_only_path_condition(size_t index) {
         z3::expr_vector from(m->ctx);
@@ -386,6 +389,37 @@ struct Model {
             to.push_back(m->ctx.bv_val(values[var_name].concrete_value.value.uint64, 32));
         }
         return path_condition.substitute(from, to).simplify();
+    }
+
+    void add_partial_match(Model em, size_t depth) {
+        z3::expr x_only_path_condition = em.x_only_path_condition(depth);
+        std::cout << x_only_path_condition << std::endl;
+        std::string sym_var_name = "x_" + std::to_string(depth);
+        auto already_exists = std::find_if(
+            subpaths.begin(), subpaths.end(), [x_only_path_condition, this, sym_var_name, depth](Model otherModel) {
+                std::cout << "Compare with " << otherModel.x_only_path_condition(depth) << std::endl;
+                z3::solver s(m->ctx);
+                s.add(z3::forall(m->ctx.bv_const(sym_var_name.c_str(), 32),
+                                 otherModel.x_only_path_condition(depth) ==
+                                     x_only_path_condition));
+                return s.check() == z3::sat;
+            });
+        // Doesn't exist!
+        if (already_exists == subpaths.end()) {
+            std::cout << sym_var_name << std::endl;
+            std::cout << "New:" << std::endl;
+            std::cout << em.values[sym_var_name].concrete_value.value.uint64 << std::endl;
+            std::cout << "Existing:" << std::endl;
+            for (Model otherModel : subpaths) {
+                std::cout << otherModel.values[sym_var_name].concrete_value.value.uint64 << std::endl;
+            }
+            std::cout << "New subpath!" << std::endl;
+            subpaths.push_back(em);
+        }
+        else {
+            Model &m = *already_exists;
+            m.add_partial_match(em, depth + 1);
+        }
     }
 };
 
@@ -418,6 +452,10 @@ struct ConcolicModel {
             }
             std::cout << "New subpath!" << std::endl;
             subpaths.push_back(em);
+        }
+        else {
+            Model &m = *already_exists;
+            m.add_partial_match(em, 2);
         }
     }
 };
