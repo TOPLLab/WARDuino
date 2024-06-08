@@ -368,12 +368,57 @@ void z3_pretty_println(z3::expr expression) {
     std::cout << std::endl;
 }
 
-struct ConcolicModel {
-    std::unordered_map<std::string, SymbolicValueMapping> model;
+struct Model {
+    std::unordered_map<std::string, SymbolicValueMapping> values;
     z3::expr path_condition;
 
-    explicit ConcolicModel(std::unordered_map<std::string, SymbolicValueMapping> model, z3::expr path_condition)
-        : model(std::move(model)), path_condition(std::move(path_condition)) {}
+    Model(const std::unordered_map<std::string, SymbolicValueMapping> &values,
+          z3::expr path_condition)
+        : values(values), path_condition(std::move(path_condition)) {}
+};
+
+struct ConcolicModel {
+    std::unordered_map<std::string, SymbolicValueMapping> values;
+    z3::expr path_condition;
+    std::vector<Model> subpaths;
+
+    ConcolicModel(std::unordered_map<std::string, SymbolicValueMapping> model, z3::expr path_condition)
+        : values(std::move(model)), path_condition(path_condition) {
+    }
+
+    z3::expr x_only_path_condition(Model model, size_t index) {
+        z3::expr_vector from(m->ctx);
+        z3::expr_vector to(m->ctx);
+        for (size_t i = 0; i < model.values.size(); i++) { // model.size() maybe dangerous with substitute if it's higher than the current iteration symbolic variable count
+            if (i == index) continue;
+            std::string var_name = "x_" + std::to_string(i);
+            from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
+            to.push_back(m->ctx.bv_val(model.values[var_name].concrete_value.value.uint64, 32));
+        }
+        return model.path_condition.substitute(from, to).simplify();
+    }
+
+    void add_x0_equivalent(Model em) {
+        z3::expr x1_only_path_condition = x_only_path_condition(em, 1);
+        std::cout << x1_only_path_condition << std::endl;
+        auto already_exists = std::find_if(
+            subpaths.begin(), subpaths.end(), [x1_only_path_condition, this](Model otherModel) {
+            z3::solver s(m->ctx);
+            s.add(z3::forall(m->ctx.bv_const("x_0", 32),
+                x_only_path_condition(otherModel, 1) == x1_only_path_condition));
+            return s.check() == z3::sat;
+        });
+        // Doesn't exist!
+        if (already_exists == subpaths.end()) {
+            std::cout << "x_1" << std::endl;
+            std::cout << em.values["x_1"].concrete_value.value.uint64 << std::endl;
+            for (Model otherModel : subpaths) {
+                std::cout << otherModel.values["x_1"].concrete_value.value.uint64 << std::endl;
+            }
+            std::cout << "New subpath!" << std::endl;
+            subpaths.push_back(em);
+        }
+    }
 };
 
 void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50) {
@@ -448,14 +493,19 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         }
         z3::expr x0_only_path_condition = m->path_condition.substitute(from, to).simplify();
         //z3_pretty_print(x0_only_path_condition);
-        bool already_exists = std::find_if(x0_models.begin(), x0_models.end(), [x0_only_path_condition](const ConcolicModel& model) {
+        auto already_exists = std::find_if(x0_models.begin(), x0_models.end(), [x0_only_path_condition](const ConcolicModel& model) {
                                   z3::solver s(m->ctx);
                                   s.add(z3::forall(m->ctx.bv_const("x_0", 32), model.path_condition == x0_only_path_condition));
                                   return s.check() == z3::sat;
-                              }) != x0_models.end();
-        if (!already_exists) {
+                              });
+        if (already_exists == x0_models.end()) {
             x0_models.emplace_back(m->symbolic_concrete_values,
                                    x0_only_path_condition);
+            x0_models.back().subpaths.emplace_back(m->symbolic_concrete_values, m->path_condition);
+        } else {
+            ConcolicModel &model = *already_exists;
+            model.add_x0_equivalent(Model(m->symbolic_concrete_values, m->path_condition));
+            std::cout << "Path condition already exists " << model.path_condition << std::endl;
         }
 
         // Start a new concolic iteration by solving !path_condition.
@@ -529,7 +579,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     for (size_t i = 0; i < x0_models.size(); i++) {
         std::cout << "- Model #" << i << ":" << std::endl;
         //z3_pretty_println(x0_models[i].path_condition);
-        for (const auto &entry : x0_models[i].model) {
+        for (const auto &entry : x0_models[i].values) {
             std::cout << "  " << entry.first << " = "
                       << entry.second.concrete_value.value.int32 << std::endl;
         }
@@ -539,7 +589,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     json_models["models"] = std::vector<nlohmann::json>();
     for (auto &model : x0_models) {
         nlohmann::json j;
-        for (const auto &entry : model.model) {
+        for (const auto &entry : model.values) {
             nlohmann::json value;
             value["primitive"] = entry.second.primitive_origin;
             value["arg"] = entry.second.primitive_argument;
