@@ -375,6 +375,18 @@ struct Model {
     Model(const std::unordered_map<std::string, SymbolicValueMapping> &values,
           z3::expr path_condition)
         : values(values), path_condition(std::move(path_condition)) {}
+
+    z3::expr x_only_path_condition(size_t index) {
+        z3::expr_vector from(m->ctx);
+        z3::expr_vector to(m->ctx);
+        for (size_t i = 0; i < values.size(); i++) { // model.size() maybe dangerous with substitute if it's higher than the current iteration symbolic variable count
+            if (i == index) continue;
+            std::string var_name = "x_" + std::to_string(i);
+            from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
+            to.push_back(m->ctx.bv_val(values[var_name].concrete_value.value.uint64, 32));
+        }
+        return path_condition.substitute(from, to).simplify();
+    }
 };
 
 struct ConcolicModel {
@@ -386,28 +398,17 @@ struct ConcolicModel {
         : values(std::move(model)), path_condition(path_condition) {
     }
 
-    z3::expr x_only_path_condition(Model model, size_t index) {
-        z3::expr_vector from(m->ctx);
-        z3::expr_vector to(m->ctx);
-        for (size_t i = 0; i < model.values.size(); i++) { // model.size() maybe dangerous with substitute if it's higher than the current iteration symbolic variable count
-            if (i == index) continue;
-            std::string var_name = "x_" + std::to_string(i);
-            from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
-            to.push_back(m->ctx.bv_val(model.values[var_name].concrete_value.value.uint64, 32));
-        }
-        return model.path_condition.substitute(from, to).simplify();
-    }
-
     void add_x0_equivalent(Model em) {
-        z3::expr x1_only_path_condition = x_only_path_condition(em, 1);
+        z3::expr x1_only_path_condition = em.x_only_path_condition(1);
         std::cout << x1_only_path_condition << std::endl;
         auto already_exists = std::find_if(
             subpaths.begin(), subpaths.end(), [x1_only_path_condition, this](Model otherModel) {
-            z3::solver s(m->ctx);
-            s.add(z3::forall(m->ctx.bv_const("x_0", 32),
-                x_only_path_condition(otherModel, 1) == x1_only_path_condition));
-            return s.check() == z3::sat;
-        });
+                z3::solver s(m->ctx);
+                s.add(z3::forall(m->ctx.bv_const("x_0", 32),
+                                 otherModel.x_only_path_condition(1) ==
+                                     x1_only_path_condition));
+                return s.check() == z3::sat;
+            });
         // Doesn't exist!
         if (already_exists == subpaths.end()) {
             std::cout << "x_1" << std::endl;
