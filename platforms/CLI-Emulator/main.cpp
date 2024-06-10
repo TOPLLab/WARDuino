@@ -457,6 +457,7 @@ struct Model {
             path_node["value"] = value.concrete_value.value.int32;
             path_node["primitive"] = value.primitive_origin;
             path_node["arg"] = value.primitive_argument;
+            path_node["time_step"] = value.time_step;
             path_node["paths"] = path.to_json(depth + 1);
             paths.push_back(path_node);
         }

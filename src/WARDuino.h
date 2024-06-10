@@ -148,6 +148,7 @@ struct SymbolicValueMapping {
     StackValue  concrete_value;
     std::string primitive_origin;
     uint32_t primitive_argument;
+    int32_t time_step;
 };
 #endif
 
@@ -212,6 +213,7 @@ typedef struct Module {
     int symbolic_variable_count = 0;
     std::unordered_map<std::string, SymbolicValueMapping>
         symbolic_concrete_values;  // concrete values for symbolic variables
+    std::vector<uint32_t> trace;
 
     // Create symbolic state based on concrete state.
     void create_symbolic_state();

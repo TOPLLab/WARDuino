@@ -293,7 +293,8 @@ void push_symbolic_int(Module *m, std::string primitive_origin, uint32_t arg) {
     m->symbolic_concrete_values[var_name] = {
         .concrete_value = { .value_type = I32, .value = {.int32 = concrete_value} },
         .primitive_origin = primitive_origin,
-        .primitive_argument = arg
+        .primitive_argument = arg,
+        .time_step = m->instructions_executed - 1
     };
 }
 
