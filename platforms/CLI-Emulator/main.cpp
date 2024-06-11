@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <thread>
 #include <utility>
+#include <fstream>
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Interpreter/concolic_interpreter.h"
@@ -512,7 +513,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         if (iteration_index == 0) {
             z3::solver s(m->ctx);
             s.add(m->path_condition);
-            s.check();
+            assert(s.check() == z3::sat);
             std::cout << "Iteration 0, fixing default values" << std::endl;
             std::cout << "Model:" << std::endl;
             z3::model model = s.get_model();
@@ -712,9 +713,18 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp("--snapshot", arg)) {
             ARGV_GET(current_msg);
 
-            while (strcmp("end", current_msg) != 0) {
-                snapshot_messages.emplace_back(current_msg);
-                ARGV_GET(current_msg);
+            if (std::filesystem::exists(current_msg)) {
+                std::ifstream ifs(current_msg);
+                std::string line;
+                while (std::getline(ifs, line)) {
+                    snapshot_messages.emplace_back(line);
+                }
+            }
+            else {
+                while (strcmp("end", current_msg) != 0) {
+                    snapshot_messages.emplace_back(current_msg);
+                    ARGV_GET(current_msg);
+                }
             }
         } else if (!strcmp("--max-instructions", arg)) {
             ARGV_GET(max_instructions_str);
