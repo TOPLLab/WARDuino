@@ -2063,6 +2063,9 @@ bool Interpreter::interpret(Module *m, bool waiting) {
             debug("Max instructions executed\n");
             return true;
         }
+        if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count >= m->warduino->max_symbolic_variables) {
+            return true;
+        }
         switch (opcode) {
             //
             // Control flow operators

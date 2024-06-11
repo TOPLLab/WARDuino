@@ -466,7 +466,7 @@ struct Model {
     }
 };
 
-void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50) {
+void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1) {
     wac->interpreter = new ConcolicInterpreter();
     // Has a big impact on performance, for example if you have a simple program
     // with a loop that contains an if statement and, you run the loop 30 times
@@ -475,6 +475,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     //wac->max_instructions = -1;
     //wac->max_instructions = 900;
     wac->max_instructions = max_instructions;
+    wac->max_symbolic_variables = max_sym_vars;
     int total_instructions_executed = 0;
 
     z3::expr global_condition = m->ctx.bool_val(true);
@@ -639,6 +640,7 @@ int main(int argc, const char *argv[]) {
     const char *baudrate = nullptr;
     const char *mode = "interpreter";
     const char *max_instructions_str = "50";
+    const char *max_symbolic_variables_str = "-1";
     bool dump_info = false;
 
     const char *fname = nullptr;
@@ -728,6 +730,8 @@ int main(int argc, const char *argv[]) {
             }
         } else if (!strcmp("--max-instructions", arg)) {
             ARGV_GET(max_instructions_str);
+        } else if (!strcmp("--max-symbolic-variables", arg)) {
+            ARGV_GET(max_symbolic_variables_str);
         } else if (!strcmp("--dump-info", arg)) {
             dump_info = true;
         }
@@ -821,7 +825,7 @@ int main(int argc, const char *argv[]) {
 
         // Run Wasm module
         if (strcmp(mode, "concolic") == 0) {
-            run_concolic(snapshot_messages, std::stoi(max_instructions_str));
+            run_concolic(snapshot_messages, std::stoi(max_instructions_str), std::stoi(max_symbolic_variables_str));
         }
         else {
             // TODO: Add option to calculate the choice points and add them as breakpoints from the remote debugger once
