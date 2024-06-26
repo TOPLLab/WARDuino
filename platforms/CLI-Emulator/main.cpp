@@ -514,7 +514,8 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         if (iteration_index == 0) {
             z3::solver s(m->ctx);
             s.add(m->path_condition);
-            assert(s.check() == z3::sat);
+            auto result = s.check();
+            assert(result == z3::sat);
             std::cout << "Iteration 0, fixing default values" << std::endl;
             std::cout << "Model:" << std::endl;
             z3::model model = s.get_model();
