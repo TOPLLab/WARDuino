@@ -10,11 +10,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../zephyr-thread.h"
-
 #include "../Edward/proxy.h"
 #include "../Edward/proxy_supervisor.h"
 #include "../Utils/sockets.h"
+#include "../zephyr-thread.h"
 
 struct Module;
 struct Block;
@@ -103,7 +102,7 @@ class Debugger {
     Proxy *proxy = nullptr;  // proxy module for debugger
 
     bool connected_to_proxy = false;
-    //std::mutex *supervisor_mutex;
+    // std::mutex *supervisor_mutex;
     zephyr::mutex *supervisor_mutex;
 
     // Private methods
@@ -177,8 +176,8 @@ class Debugger {
 
    public:
     // Public fields
-    //std::mutex messageQueueMutex;  // mutual exclude debugMessages
-    //std::condition_variable messageQueueConditionVariable;
+    // std::mutex messageQueueMutex;  // mutual exclude debugMessages
+    // std::condition_variable messageQueueConditionVariable;
     zephyr::mutex messageQueueMutex;  // mutual exclude debugMessages
     zephyr::condition_variable messageQueueConditionVariable;
     bool freshMessages = false;

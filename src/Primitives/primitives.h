@@ -27,39 +27,38 @@ bool resolve_external_memory(char *symbol, Memory **val);
 
 void install_primitives();
 
-void restore_external_state(Module *m, std::vector<IOStateElement> external_state);
+void restore_external_state(Module *m,
+                            std::vector<IOStateElement> external_state);
 
 inline void create_stack(std::vector<StackValue> *stack) {}
 
-template<typename T, typename... Ts>
+template <typename T, typename... Ts>
 void create_stack(std::vector<StackValue> *stack, T value, Ts... args) {
     StackValue stackValue;
     if constexpr (std::is_same<T, int32_t>()) {
         stackValue.value.int32 = value;
         stackValue.value_type = I32;
-    }
-    else if constexpr (std::is_same<T, uint32_t>()) {
+    } else if constexpr (std::is_same<T, uint32_t>()) {
         stackValue.value.uint32 = value;
         stackValue.value_type = I32;
-    }
-    else if constexpr (std::is_same<T, int64_t>()) {
+    } else if constexpr (std::is_same<T, int64_t>()) {
         stackValue.value.int64 = value;
         stackValue.value_type = I64;
-    }
-    else if constexpr (std::is_same<T, uint64_t>()) {
+    } else if constexpr (std::is_same<T, uint64_t>()) {
         stackValue.value.uint64 = value;
         stackValue.value_type = I64;
-    }
-    else if constexpr (std::is_same<T, float>()) {
+    } else if constexpr (std::is_same<T, float>()) {
         stackValue.value.f32 = value;
         stackValue.value_type = F32;
-    }
-    else if constexpr (std::is_same<T, double>()) {
+    } else if constexpr (std::is_same<T, double>()) {
         stackValue.value.f64 = value;
         stackValue.value_type = F64;
     } else {
-        // This will trigger a compile time error if a different unsupported type is used.
-        static_assert(sizeof(T) == 0, "Unsupported argument type! Expected i32, i64, f32 or f64.");
+        // This will trigger a compile time error if a different unsupported
+        // type is used.
+        static_assert(
+            sizeof(T) == 0,
+            "Unsupported argument type! Expected i32, i64, f32 or f64.");
     }
     stack->push_back(stackValue);
 
@@ -69,7 +68,7 @@ void create_stack(std::vector<StackValue> *stack, T value, Ts... args) {
 template <typename... Ts>
 void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     Primitive primitive;
-    resolve_primitive((char*) function_name.c_str(), &primitive);
+    resolve_primitive((char *)function_name.c_str(), &primitive);
 
     std::vector<StackValue> argStack;
     create_stack(&argStack, args...);

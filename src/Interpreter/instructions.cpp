@@ -1539,10 +1539,13 @@ bool interpret(Module *m, bool waiting) {
                 /*std::unique_lock<std::mutex> lock(
                     m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(
-                    lock, [m] { return m->warduino->debugger->freshMessages; });*/
-                zephyr::lock_guard lock(m->warduino->debugger->messageQueueMutex);
+                    lock, [m] { return m->warduino->debugger->freshMessages;
+                });*/
+                zephyr::lock_guard lock(
+                    m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(
-                    m->warduino->debugger->messageQueueMutex, [m] { return m->warduino->debugger->freshMessages; });
+                    m->warduino->debugger->messageQueueMutex,
+                    [m] { return m->warduino->debugger->freshMessages; });
             }
             continue;
         }
