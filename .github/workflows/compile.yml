@@ -11,7 +11,7 @@ jobs:
         runs-on: ubuntu-latest
         if: github.event.pull_request.draft == false
         steps:
-            - uses: actions/checkout@v3
+            - uses: actions/checkout@v4
             - name: Run clang-format style check for C/C++ programs.
               uses: jidicula/clang-format-action@v3.5.1
               with:
@@ -29,7 +29,7 @@ jobs:
                 os: [ubuntu-20.04, ubuntu-22.04, macos-latest]
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   submodules: 'recursive'
 
@@ -71,7 +71,7 @@ jobs:
                         - tests/compilation/esp32/esp32.ino
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   submodules: 'recursive'
 
@@ -88,7 +88,7 @@ jobs:
                   sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
 
             - name: Upload sketches report to workflow artifact
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v4
               with:
                   name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
                   path: ${{ env.SKETCHES_REPORTS_PATH }}
@@ -105,14 +105,14 @@ jobs:
                       platform-name: esp32:esp32
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   submodules: 'recursive'
 
             - name: Build WARDuino for ESP-IDF
               uses: espressif/esp-idf-ci-action@v1
               with:
-                  esp_idf_version: v5.1
+                  esp_idf_version: v5.2
                   target: esp32
                   command: idf.py build -DBUILD_ESP=ON
                   path: .

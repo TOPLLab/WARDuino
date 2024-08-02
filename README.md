@@ -8,13 +8,14 @@
   <p>
     <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/compile.yml/badge.svg"></a>
     <a href="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml"><img src="https://github.com/TOPLLab/WARDuino/actions/workflows/test.yml/badge.svg"></a>
+    <a href="https://doi.org/10.1016/j.cola.2024.101268"><img src="https://img.shields.io/badge/DOI-10.1016%2Fj.cola.2024.101268-blue.svg"></a>
     <a href="https://github.com/TOPLLab/WARDuino/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MPL_2.0-blue.svg"></a>
   </p>
 
   <b>
     <a href="./README.md#build-and-development-instructions">Installation</a>
     <span> | </span>
-    <a href="./examples/">Examples</a>
+    <a href="./tutorials/">Examples</a>
     <span> | </span>
     <a href="./README.md#webassembly-specification-tests">Run Specification tests</a>
     <span> | </span>
@@ -161,7 +162,7 @@ If you need to cite WARDuino in your research, use:
 @article{	  WARDuino2024,
   title		= {WARDuino: An Embedded WebAssembly Virtual Machine},
   shorttitle	= {WARDuino},
-  author	= {Lauwaerts, Tom and Singh, Robbert Gurdeep and Scholliers,
+  author	= {Lauwaerts, Tom and Gurdeep Singh, Robbert and Scholliers,
 		  Christophe},
   year		= {2024},
   month		= feb,

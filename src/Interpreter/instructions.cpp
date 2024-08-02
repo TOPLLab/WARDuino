@@ -6,112 +6,7 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
-#include "../Utils/util_arduino.h"
-
-// Size of memory load.
-// This starts with the first memory load operator at opcode 0x28
-uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,  // loads
-                        4, 8, 4, 8, 1, 2, 1, 2, 4};                // stores
-
-//
-// Stack machine (byte code related functions)
-//
-void push_block(Module *m, Block *block, int sp) {
-    m->csp += 1;
-    m->callstack[m->csp].block = block;
-    m->callstack[m->csp].sp = sp;
-    m->callstack[m->csp].fp = m->fp;
-    m->callstack[m->csp].ra_ptr = m->pc_ptr;
-}
-
-Block *pop_block(Module *m) {
-    Frame *frame = &m->callstack[m->csp--];
-    Type *t = frame->block->type;
-
-    if (frame->block->block_type == 0xff) {
-        CallbackHandler::resolving_event = false;
-        // free if event guard
-        free(frame->block);
-        frame->block = nullptr;
-        frame = &m->callstack[m->csp--];
-        t = frame->block->type;
-    }
-
-    if (frame->block->block_type == 0xfe) {
-        m->warduino->program_state = PROXYhalt;
-        m->warduino->debugger->sendProxyCallResult(m);
-        // free if proxy guard
-        free(frame->block);
-        frame->block = nullptr;
-        frame = &m->callstack[m->csp--];
-        t = frame->block->type;
-    }
-
-    // TODO: validate return value if there is one
-
-    m->fp = frame->fp;  // Restore frame pointer
-
-    // Validate the return value
-    if (t->result_count == 1) {
-        if (m->stack[m->sp].value_type != t->results[0]) {
-            sprintf(exception, "call type mismatch");
-            return nullptr;
-        }
-    }
-
-    // Restore stack pointer
-    if (t->result_count == 1) {
-        // Save top value as result
-        if (frame->sp < m->sp) {
-            m->stack[frame->sp + 1] = m->stack[m->sp];
-            m->sp = frame->sp + 1;
-        }
-    } else {
-        if (frame->sp < m->sp) {
-            m->sp = frame->sp;
-        }
-    }
-
-    if (frame->block->block_type == 0x00) {
-        // Function, set pc to return address
-        m->pc_ptr = frame->ra_ptr;
-    }
-
-    return frame->block;
-}
-
-void setup_call(Module *m, uint32_t fidx) {
-    Block *func = &m->functions[fidx];
-    Type *type = func->type;
-
-    // Push current frame on the call stack
-    push_block(m, func, m->sp - type->param_count);
-
-#if TRACE
-    dbg_warn("  >> fn0x%x(%d) %s(", fidx, fidx,
-             func->export_name
-                 ? func->export_name
-                 : "") for (int p = ((int)type->param_count) - 1; p >= 0; p--) {
-        dbg_warn("%s%s", value_repr(&m->stack[m->sp - p]), p ? " " : "");
-    }
-    dbg_warn("), %d locals, %d results\n", func->local_count,
-             type->result_count);
-#endif
-
-    // Push locals (dropping extras)
-    m->fp = m->sp - ((int)type->param_count) + 1;
-    // TODO: validate arguments vs formal params
-
-    // Push function locals
-    for (uint32_t lidx = 0; lidx < func->local_count; lidx++) {
-        m->sp += 1;
-        m->stack[m->sp].value_type = func->local_value_type[lidx];
-        m->stack[m->sp].value.uint64 = 0;  // Initialize whole union to 0
-    }
-
-    // Set program counter to start of function
-    m->pc_ptr = func->start_ptr;
-}
+#include "../WARDuino/CallbackHandler.h"
 
 // performs proxy calls to an MCU
 bool proxy_call(Module *m, uint32_t fidx) {
@@ -127,10 +22,10 @@ bool proxy_call(Module *m, uint32_t fidx) {
         rfc = new RFC(fidx, type);
     }
 
-    /*if (!supervisor->call(rfc)) {
+    if (!supervisor->call(rfc)) {
         dbg_info(": FAILED TO SEND\n", fidx);
         return false;
-    }*/
+    }
 
     if (!rfc->success) {
         // TODO exception bugger might be too small and msg not null terminated?
@@ -207,7 +102,7 @@ bool i_instr_block(Module *m, uint8_t *block_ptr) {
     }
     auto block_itr = m->block_lookup.find(block_ptr);
     ASSERT(block_itr != m->block_lookup.end(), "could not find block");
-    push_block(m, block_itr->second, m->sp);
+    m->warduino->interpreter->push_block(m, block_itr->second, m->sp);
     return true;
 }
 
@@ -220,7 +115,7 @@ bool i_instr_loop(Module *m, uint8_t *block_ptr) {
         sprintf(exception, "call stack exhausted");
         return false;
     }
-    push_block(m, m->block_lookup[block_ptr], m->sp);
+    m->warduino->interpreter->push_block(m, m->block_lookup[block_ptr], m->sp);
     return true;
 }
 
@@ -235,7 +130,7 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
         sprintf(exception, "call stack exhausted");
         return false;
     }
-    push_block(m, block, m->sp);
+    m->warduino->interpreter->push_block(m, block, m->sp);
 
     uint32_t cond = m->stack[m->sp--].value.uint32;
     if (cond == 0) {  // if false (I32)
@@ -272,7 +167,7 @@ bool i_instr_else(Module *m) {
  * 0x0b end
  */
 bool i_instr_end(Module *m, bool *prog_done) {
-    Block *block = pop_block(m);
+    Block *block = m->warduino->interpreter->pop_block(m);
     if (block == nullptr) {
         return false;  // an exception (set by pop_block)
     }
@@ -398,7 +293,7 @@ bool i_instr_call(Module *m) {
             sprintf(exception, "call stack exhausted");
             return false;
         }
-        setup_call(m, fidx);  // regular function call
+        m->warduino->interpreter->setup_call(m, fidx);  // regular function call
 #if TRACE
         debug("      - calling function fidx: %d at: 0x%p\n", fidx, m->pc_ptr);
 #endif
@@ -455,7 +350,7 @@ bool i_instr_call_indirect(Module *m) {
             return false;
         }
 
-        setup_call(m, fidx);  // regular function call
+        m->warduino->interpreter->setup_call(m, fidx);  // regular function call
 
         // Validate signatures match
         if ((int)(ftype->param_count + func->local_count) !=
@@ -607,8 +502,6 @@ bool i_instr_grow_memory(Module *m) {
  * 0x0d XXX
  */
 bool i_instr_mem_load(Module *m, uint8_t opcode) {
-    bool overflow = false;
-    uint8_t *maddr, *mem_end;
     uint32_t flags = read_LEB_32(&m->pc_ptr);
     uint32_t offset = read_LEB_32(&m->pc_ptr);
     uint32_t addr = m->stack[m->sp--].value.uint32;
@@ -618,103 +511,17 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
             " offset: 0x%x, addr: 0x%x\n",
             flags, offset, addr);
     }
-    if (offset + addr < addr) {
-        overflow = true;
-    }
-    maddr = m->memory.bytes + offset + addr;
-    if (maddr < m->memory.bytes) {
-        overflow = true;
-    }
-    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
-    if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
-        overflow = true;
-    }
-    dbg_info("      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p\n", addr,
-             offset, maddr, mem_end);
-    if (!m->options.disable_memory_bounds) {
-        if (overflow) {
-            dbg_warn("memory start: %p, memory end: %p, maddr: %p\n",
-                     m->memory.bytes, mem_end, maddr);
-            sprintf(exception, "out of bounds memory access");
-            return false;
-        }
-    }
-    m->stack[++m->sp].value.uint64 = 0;  // initialize to 0
-    switch (opcode) {
-        case 0x28:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load
-        case 0x29:
-            memcpy(&m->stack[m->sp].value, maddr, 8);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load
-        case 0x2a:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
-            m->stack[m->sp].value_type = F32;
-            break;  // f32.load
-        case 0x2b:
-            memcpy(&m->stack[m->sp].value, maddr, 8);
-            m->stack[m->sp].value_type = F64;
-            break;  // f64.load
-        case 0x2c:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
-            sext_8_32(&m->stack[m->sp].value.uint32);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load8_s
-        case 0x2d:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load8_u
-        case 0x2e:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
-            sext_16_32(&m->stack[m->sp].value.uint32);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load16_s
-        case 0x2f:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
-            m->stack[m->sp].value_type = I32;
-            break;  // i32.load16_u
-        case 0x30:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
-            sext_8_64(&m->stack[m->sp].value.uint64);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load8_s
-        case 0x31:
-            memcpy(&m->stack[m->sp].value, maddr, 1);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load8_u
-        case 0x32:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
-            sext_16_64(&m->stack[m->sp].value.uint64);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load16_s
-        case 0x33:
-            memcpy(&m->stack[m->sp].value, maddr, 2);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load16_u
-        case 0x34:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
-            sext_32_64(&m->stack[m->sp].value.uint64);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load32_s
-        case 0x35:
-            memcpy(&m->stack[m->sp].value, maddr, 4);
-            m->stack[m->sp].value_type = I64;
-            break;  // i64.load32_u
-        default:
-            return false;
-    }
-    return true;
+
+    return m->warduino->interpreter->load(m, I32 + (0x28 - opcode), addr,
+                                          offset);
 }
 
 bool i_instr_mem_store(Module *m, uint8_t opcode) {
-    uint8_t *maddr, *mem_end;
+    StackValue *sval = &m->stack[m->sp--];
     uint32_t flags = read_LEB_32(&m->pc_ptr);
     uint32_t offset = read_LEB_32(&m->pc_ptr);
-    StackValue *sval = &m->stack[m->sp--];
+
     uint32_t addr = m->stack[m->sp--].value.uint32;
-    bool overflow = false;
 
     if (flags != 2 && TRACE) {
         dbg_info(
@@ -722,61 +529,15 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
             " offset: 0x%x, addr: 0x%x, val: %s\n",
             flags, offset, addr, value_repr(sval));
     }
-    if (offset + addr < addr) {
-        overflow = true;
+
+    if (offset + addr < addr && !m->options.disable_memory_bounds) {
+        m->warduino->interpreter->report_overflow(
+            m, m->memory.bytes + offset + addr);
     }
-    maddr = m->memory.bytes + offset + addr;
-    if (maddr < m->memory.bytes) {
-        overflow = true;
-    }
-    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
-    if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
-        overflow = true;
-    }
-    dbg_info(
-        "      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p, value: "
-        "%s\n",
-        addr, offset, maddr, mem_end, value_repr(sval));
-    if (!m->options.disable_memory_bounds) {
-        if (overflow) {
-            dbg_warn("memory start: %p, memory end: %p, maddr: %p\n",
-                     m->memory.bytes, mem_end, maddr);
-            sprintf(exception, "out of bounds memory access");
-            return false;
-        }
-    }
-    switch (opcode) {
-        case 0x36:
-            memcpy(maddr, &sval->value.uint32, 4);
-            break;  // i32.store
-        case 0x37:
-            memcpy(maddr, &sval->value.uint64, 8);
-            break;  // i64.store
-        case 0x38:
-            memcpy(maddr, &sval->value.f32, 4);
-            break;  // f32.store
-        case 0x39:
-            memcpy(maddr, &sval->value.f64, 8);
-            break;  // f64.store
-        case 0x3a:
-            memcpy(maddr, &sval->value.uint32, 1);
-            break;  // i32.store8
-        case 0x3b:
-            memcpy(maddr, &sval->value.uint32, 2);
-            break;  // i32.store16
-        case 0x3c:
-            memcpy(maddr, &sval->value.uint64, 1);
-            break;  // i64.store8
-        case 0x3d:
-            memcpy(maddr, &sval->value.uint64, 2);
-            break;  // i64.store16
-        case 0x3e:
-            memcpy(maddr, &sval->value.uint64, 4);
-            break;  // i64.store32
-        default:
-            return false;
-    }
-    return true;
+
+    addr += offset;
+    return m->warduino->interpreter->store(m, I32 + (0x36 - opcode), addr,
+                                           *sval);
 }
 
 /**
@@ -813,7 +574,7 @@ bool i_instr_const(Module *m, uint8_t opcode) {
 /**
  * 0x45 eqz
  */
-bool i_instr_unairy_u32(Module *m, uint8_t opcode) {
+bool i_instr_unary_u32(Module *m, uint8_t opcode) {
     switch (opcode) {
         case 0x45:  // i32.eqz
             m->stack[m->sp].value.uint32 =
@@ -995,7 +756,7 @@ bool i_instr_math_f64(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool i_instr_unairy_i32(Module *m, uint8_t opcode) {
+bool i_instr_unary_i32(Module *m, uint8_t opcode) {
     uint32_t a = m->stack[m->sp].value.uint32;
     uint32_t c;
     switch (opcode) {
@@ -1015,7 +776,7 @@ bool i_instr_unairy_i32(Module *m, uint8_t opcode) {
     return true;
 }
 
-bool i_instr_unairy_i64(Module *m, uint8_t opcode) {
+bool i_instr_unary_i64(Module *m, uint8_t opcode) {
     uint64_t d = m->stack[m->sp].value.uint64;
     uint64_t f;
     switch (opcode) {
@@ -1038,7 +799,7 @@ bool i_instr_unairy_i64(Module *m, uint8_t opcode) {
 /**
  * 0x0d XXX
  */
-bool i_instr_unairy_floating(Module *m, uint8_t opcode) {
+bool i_instr_unary_floating(Module *m, uint8_t opcode) {
     switch (opcode) {
         // unary f32
         case 0x8b:
@@ -1536,16 +1297,10 @@ bool interpret(Module *m, bool waiting) {
             m->warduino->program_state == PROXYhalt) {
             // wait until new debug messages arrive
             if (m->warduino->program_state == WARDUINOpause) {
-                /*std::unique_lock<std::mutex> lock(
+                warduino::unique_lock lock(
                     m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(
-                    lock, [m] { return m->warduino->debugger->freshMessages;
-                });*/
-                zephyr::lock_guard lock(
-                    m->warduino->debugger->messageQueueMutex);
-                m->warduino->debugger->messageQueueConditionVariable.wait(
-                    m->warduino->debugger->messageQueueMutex,
-                    [m] { return m->warduino->debugger->freshMessages; });
+                    lock, [m] { return m->warduino->debugger->freshMessages; });
             }
             continue;
         }
@@ -1561,6 +1316,9 @@ bool interpret(Module *m, bool waiting) {
             continue;
         }
         m->warduino->debugger->skipBreakpoint = nullptr;
+
+        // Take snapshot before executing an instruction
+        m->warduino->debugger->sendAsyncSnapshots(m);
 
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
@@ -1682,7 +1440,7 @@ bool interpret(Module *m, bool waiting) {
                 // unary
             case 0x45:  // i32.eqz
             case 0x50:  // i64.eqz
-                success &= i_instr_unairy_u32(m, opcode);
+                success &= i_instr_unary_u32(m, opcode);
                 continue;
 
                 // i32 binary
@@ -1705,17 +1463,17 @@ bool interpret(Module *m, bool waiting) {
 
                 // unary i32
             case 0x67 ... 0x69:
-                success &= i_instr_unairy_i32(m, opcode);
+                success &= i_instr_unary_i32(m, opcode);
                 continue;
 
                 // unary i64
             case 0x79 ... 0x7b:
-                success &= i_instr_unairy_i64(m, opcode);
+                success &= i_instr_unary_i64(m, opcode);
                 continue;
 
             case 0x8b ... 0x91:  // unary f32
             case 0x99 ... 0x9f:  // unary f64
-                success &= i_instr_unairy_floating(m, opcode);
+                success &= i_instr_unary_floating(m, opcode);
                 continue;
 
                 // i32 binary
@@ -1756,14 +1514,14 @@ bool interpret(Module *m, bool waiting) {
         }
     }
 
-    /*if (m->warduino->program_state == PROXYrun) {
+    if (m->warduino->program_state == PROXYrun) {
         dbg_info("Trap was thrown during proxy call.\n");
         RFC *rfc = m->warduino->debugger->topProxyCall();
         rfc->success = false;
         rfc->exception = strdup(exception);
         rfc->exception_size = strlen(exception);
         m->warduino->debugger->sendProxyCallResult(m);
-    }*/
+    }
 
     // Resolve all unhandled callback events
     while (CallbackHandler::resolving_event && CallbackHandler::resolve_event())

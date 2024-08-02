@@ -1,6 +1,5 @@
 #include "proxy_supervisor.h"
 
-//#include <netinet/in.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -15,9 +14,10 @@
 
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "../WARDuino/CallbackHandler.h"
 
 // TODO exception msg
-const char SUCCESS[] = "";  // Empty denotes success
+// const char SUCCESS[] = "";  // Empty denotes success
 const char NO_HOST_ERR[] = "No host and port set";
 const char CREATE_SOCK_ERR[] = "Could not create Socket";
 const char INVALID_HOST[] = "Invalid host";
@@ -29,7 +29,7 @@ bool is_success(const char *msg) {
     return (msg != nullptr) && (msg[0] == '\0');  // check if string is empty
 }
 
-bool continuing(std::mutex *mutex) {
+bool continuing(warduino::mutex *mutex) {
     if (mutex->try_lock()) {
         /* if we got the lock, unlock and return false */
         mutex->unlock();
@@ -53,11 +53,11 @@ Event *parseJSON(char *buff) {
     return new Event(*parsed.find("topic"), payload);
 }
 
-ProxySupervisor::ProxySupervisor(Channel *duplex, std::mutex *mutex) {
+ProxySupervisor::ProxySupervisor(Channel *duplex, warduino::mutex *mutex) {
     debug("Starting supervisor.\n");
     this->channel = duplex;
     this->mutex = mutex;
-    this->thread = std::thread(runSupervisor, this);
+    this->thread = warduino::thread(runSupervisor, this);
     this->proxyResult = nullptr;
 }
 

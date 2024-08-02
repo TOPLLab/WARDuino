@@ -1,3 +1,4 @@
+#include "../Interpreter/instructions.h"
 #ifndef ARDUINO
 
 /**
@@ -22,6 +23,7 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
@@ -568,6 +570,15 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 
     FATAL("Could not find memory %s \n", symbol);
     return false;
+}
+
+//------------------------------------------------------
+// Restore external state
+//------------------------------------------------------
+void restore_external_state(Module *m, std::vector<IOStateElement> external_state) {}
+
+std::vector<IOStateElement *> get_io_state(Module *m) {
+    return {};
 }
 
 #endif  // ARDUINO

@@ -11,8 +11,8 @@
  */
 #include "Arduino.h"
 
-//#include <HTTPClient.h>
-//#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFi.h>
 #include <sys/time.h>
 
 #include <cmath>
@@ -22,6 +22,7 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
 // NEOPIXEL
@@ -590,22 +591,12 @@ def_prim(chip_ledc_set_duty, threeToNoneU32) {
     return true;
 }
 
-def_prim(chip_ledc_setup, threeToNoneU32) {
+def_prim(chip_ledc_attach, threeToNoneU32) {
     uint32_t channel = arg2.uint32;
     uint32_t freq = arg1.uint32;
-    uint32_t ledc_timer = arg0.uint32;
-    // printf("chip_ledc_setup(%u, %u, %u)\n", channel, freq, ledc_timer);
-    ledcSetup(channel, freq, ledc_timer);
+    uint32_t resolution = arg0.uint32;
+    ledcAttach(channel, freq, resolution);
     pop_args(3);
-    return true;
-}
-
-def_prim(chip_ledc_attach_pin, twoToNoneU32) {
-    uint32_t pin = arg1.uint32;
-    uint32_t channel = arg0.uint32;
-    // printf("chip_ledc_attach_pin(%u,%u)\n", pin, channel);
-    ledcAttachPin(pin, channel);
-    pop_args(2);
     return true;
 }
 
@@ -991,8 +982,7 @@ void install_primitives() {
 
     // temporary primitives needed for analogWrite in ESP32
     install_primitive(chip_analog_write);
-    install_primitive(chip_ledc_setup);
-    install_primitive(chip_ledc_attach_pin);
+    install_primitive(chip_ledc_attach);
     install_primitive(chip_ledc_set_duty);
 
     dbg_info("INSTALLING ISRs\n");

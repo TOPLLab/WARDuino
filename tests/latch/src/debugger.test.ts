@@ -1,30 +1,37 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import {
+    ArduinoSpecification,
     Behaviour,
     Description,
+    EmulatorSpecification,
     Expectation,
     Expected,
     Framework,
-    getValue,
-    Instruction,
-    Step,
-    TestScenario
+    getValue, HybridScheduler,
+    Kind,
+    Message, OutputStyle,
+    Step, Suite,
+    TestScenario,
+    Breakpoint
 } from 'latch';
-import {EMULATOR, EmulatorBridge} from './util/warduino.bridge';
 
-const EXAMPLES: string = 'examples/';
+export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
+
+
+const EXAMPLES: string = `${__dirname}/../examples/`;
 
 /**
  * Tests of the Remote Debugger API
  */
 
 const framework = Framework.getImplementation();
+framework.style(OutputStyle.github);
 
-framework.platform(new EmulatorBridge(EMULATOR));
-//framework.platform(new HardwareBridge(ARDUINO), new DependenceScheduler(), true);
+const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
-framework.suite('Integration tests: Debugger');
+integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
+//integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
 
 const expectDUMP: Expectation[] = [
     {'pc': {kind: 'description', value: Description.defined} as Expected<string>},
@@ -50,36 +57,116 @@ const expectDUMPLocals: Expectation[] = [
 
 const DUMP: Step = {
     title: 'Send DUMP command',
-    instruction: Instruction.dump,
+    instruction: {kind: Kind.Request, value: Message.dump},
     expected: expectDUMP
 };
 
-const dumpTest: TestScenario = {
-    title: 'Test DUMP',
+// Test *dump* command
+
+integration.test({
+    title: 'Test DUMP blink',
     program: `${EXAMPLES}blink.wast`,
     steps: [DUMP]
-};
+});
 
-framework.test(dumpTest);
+integration.test({
+    title: 'Test DUMP button',
+    program: `${EXAMPLES}button.wast`,
+    steps: [DUMP]
+});
 
-const dumpLocalsTest: TestScenario = {
-    title: 'Test DUMPLocals',
+integration.test({
+    title: 'Test DUMP call',
+    program: `${EXAMPLES}call.wast`,
+    steps: [DUMP]
+});
+
+integration.test({
+    title: 'Test DUMP factorial',
+    program: `${EXAMPLES}factorial.wast`,
+    steps: [DUMP]
+});
+
+// Test *dump local* command
+
+integration.test({
+    title: 'Test DUMPLocals blink',
     program: `${EXAMPLES}blink.wast`,
     steps: [{
         title: 'Send DUMPLocals command',
-        instruction: Instruction.dumpLocals,
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
         expected: expectDUMPLocals
     }]
-};
+});
 
-framework.test(dumpLocalsTest);
+integration.test({
+    title: 'Test DUMPLocals button',
+    program: `${EXAMPLES}button.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals call',
+    program: `${EXAMPLES}call.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals factorial',
+    program: `${EXAMPLES}factorial.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals button',
+    program: `${EXAMPLES}button.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals call',
+    program: `${EXAMPLES}call.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPLocals factorial',
+    program: `${EXAMPLES}factorial.wast`,
+    steps: [{
+        title: 'Send DUMPLocals command',
+        instruction: {kind: Kind.Request, value: Message.dumpLocals},
+        expected: expectDUMPLocals
+    }]
+});
+
+// Test *dump full* command
 
 const dumpFullTest: TestScenario = {
     title: 'Test DUMPFull',
     program: `${EXAMPLES}blink.wast`,
     steps: [{
         title: 'Send DUMPFull command',
-        instruction: Instruction.dumpAll,
+        instruction: {kind: Kind.Request, value: Message.dumpAll},
         expected: expectDUMP.concat([{
             'locals.count': {
                 kind: 'comparison', value: (state: Object, value: number) => {
@@ -90,51 +177,55 @@ const dumpFullTest: TestScenario = {
     }]
 };
 
-framework.test(dumpFullTest);
+integration.test(dumpFullTest);
 
-const runTest: TestScenario = {
-    title: 'Test RUN',
-    program: `${EXAMPLES}blink.wast`,
-    dependencies: [dumpTest],
-    steps: [DUMP, {
-        title: 'Send RUN command',
-        instruction: Instruction.run,
-        delay: 100,
-        expectResponse: false
+// Test *run* command
+
+const running: Step[] = [DUMP, {
+    title: 'Send RUN command',
+    instruction: {kind: Kind.Request, value: Message.run},
+}, {
+    title: 'CHECK: execution continues',
+    instruction: {kind: Kind.Request, value: Message.dump},
+    expected: [{
+        'pc': {kind: 'description', value: Description.defined} as Expected<string>
     }, {
-        title: 'CHECK: execution continues',
-        instruction: Instruction.dump,
-        expected: [{
-            'pc': {kind: 'description', value: Description.defined} as Expected<string>
-        }, {
-            'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
-        }]
+        'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
     }]
-};
+}];
 
-framework.test(runTest);
+integration.test({
+    title: 'Test RUN blink',
+    program: `${EXAMPLES}blink.wast`,
+    steps: running
+});
+
+integration.test({
+    title: 'Test RUN button',
+    program: `${EXAMPLES}button.wast`,
+    steps: running
+});
+
+// Test *pause* command
 
 const pauseTest: TestScenario = {
     title: 'Test PAUSE',
     program: `${EXAMPLES}blink.wast`,
-    dependencies: [dumpTest],
     steps: [{
         title: 'Send RUN command',
-        instruction: Instruction.run,
-        expectResponse: false
+        instruction: {kind: Kind.Request, value: Message.run},
     }, {
         title: 'Send PAUSE command',
-        instruction: Instruction.pause,
-        expectResponse: false
+        instruction: {kind: Kind.Request, value: Message.pause},
     }, {
         title: 'Send DUMP command',
-        instruction: Instruction.dump,
+        instruction: {kind: Kind.Request, value: Message.dump},
         expected: [{
             'pc': {kind: 'description', value: Description.defined} as Expected<string>
         }]
     }, {
         title: 'CHECK: execution is stopped',
-        instruction: Instruction.dump,
+        instruction: {kind: Kind.Request, value: Message.dump},
         expected: [{
             'pc': {kind: 'description', value: Description.defined} as Expected<string>
         }, {
@@ -143,107 +234,92 @@ const pauseTest: TestScenario = {
     }]
 };
 
-framework.test(pauseTest);
+integration.test(pauseTest);
 
-const stepTest: TestScenario = {
-    title: 'Test STEP',
-    program: `${EXAMPLES}blink.wast`,
-    dependencies: [dumpTest],
-    steps: [{
+// Test *step into* command
+
+function stepping(start: number, end: number): Step[] {
+    return  [{
         title: 'Send DUMP command',
-        instruction: Instruction.dump,
-        expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: start} as Expected<number>}]
     }, {
         title: 'Send STEP command',
-        instruction: Instruction.step,
-        expectResponse: false
+        instruction: {kind: Kind.Request, value: Message.step},
     }, {
         title: 'CHECK: execution took one step',
-        instruction: Instruction.dump,
-        expected: [{'pc': {kind: 'primitive', value: 172} as Expected<number>}]
-    }]
-};
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: end} as Expected<number>}]
+    }];
+}
 
-framework.test(stepTest);
+integration.test({
+    title: 'Test STEP blink',
+    program: `${EXAMPLES}blink.wast`,
+    steps: stepping(169, 172)
+});
+
+integration.test({
+    title: 'Test STEP button',
+    program: `${EXAMPLES}button.wast`,
+    steps: stepping(296, 298)
+});
+
+integration.test({
+    title: 'Test STEP call',
+    program: `${EXAMPLES}call.wast`,
+    steps: stepping(167, 143)
+});
+
+integration.test({
+    title: 'Test STEP factorial',
+    program: `${EXAMPLES}factorial.wast`,
+    steps: stepping(155, 157)
+});
+
+// Test *step over* command
 
 const stepOverTest: TestScenario = {
     title: 'Test STEP OVER',
     program: `${EXAMPLES}call.wast`,
-    dependencies: [dumpTest],
     steps: [{
-            title: 'Send DUMP command',
-            instruction: Instruction.dump,
-            expected: [{'pc': {kind: 'primitive', value: 167} as Expected<number>}]
-        }, {
-            title: 'Send STEP OVER command',
-            instruction: Instruction.stepOver,
-            delay: 500,
-            expectResponse: false
-        }, {
-            title: 'CHECK: execution stepped over direct call',
-            instruction: Instruction.dump,
-            expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
-        }, {
-            title: 'Send STEP OVER command',
-            instruction: Instruction.stepOver,
-            expectResponse: false
-        }, {
-            title: 'CHECK: execution took one step',
-            instruction: Instruction.dump,
-            expected: [{'pc': {kind: 'primitive', value: 171} as Expected<number>}]
-        }, {
-            title: 'Send STEP OVER command',
-            instruction: Instruction.stepOver,
-            delay: 500,
-            expectResponse: false
-        }, {
-            title: 'CHECK: execution stepped over indirect call',
-            instruction: Instruction.dump,
-            expected: [{'pc': {kind: 'primitive', value: 174} as Expected<number>}]
-        }]
+        title: 'Send DUMP command',
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: 167} as Expected<number>}]
+    }, {
+        title: 'Send STEP OVER command',
+        instruction: {kind: Kind.Request, value: Message.stepOver},
+    }, {
+        title: 'CHECK: execution stepped over direct call',
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
+    }, {
+        title: 'Send STEP OVER command',
+        instruction: {kind: Kind.Request, value: Message.stepOver}
+    }, {
+        title: 'CHECK: execution took one step',
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: 171} as Expected<number>}]
+    }, {
+        title: 'Send STEP OVER command',
+        instruction: {kind: Kind.Request, value: Message.stepOver}
+    }, {
+        title: 'CHECK: execution stepped over indirect call',
+        instruction: {kind: Kind.Request, value: Message.dump},
+        expected: [{'pc': {kind: 'primitive', value: 174} as Expected<number>}]
+    }]
 }
 
-framework.test(stepOverTest);
+integration.test(stepOverTest);
 
 // EDWARD tests with mock proxy
-
-function encodeEvent(topic: string, payload: string): Promise<string> {
-    return Promise.resolve(`{topic: '${topic}', payload: '${payload}'}`);
-}
-
-function ackParser(text: string): Object {
-    return {'ack': text};
-}
-
-const eventNotificationTest: TestScenario = {
-    title: 'Test "pushed event" Notification',
-    program: `${EXAMPLES}blink.wast`,
-    dependencies: [dumpTest],
-    skip: true,
-    steps: [{
-        title: 'Push mock event',
-        instruction: Instruction.pushEvent,
-        payload: encodeEvent('interrupt', ''),
-        parser: ackParser,
-        expected: [{
-            'ack': {
-                kind: 'comparison',
-                value: (state: string, value: string) => value.includes('Interrupt: 73'),
-                message: 'no acknowledge received from runtime'
-            } as Expected<string>
-        }]
-    }]
-};
-
-framework.test(eventNotificationTest);
 
 const dumpEventsTest: TestScenario = {
     title: 'Test DUMPEvents',
     program: `${EXAMPLES}button.wast`,
-    dependencies: [dumpTest],
     steps: [{
         title: 'CHECK: event queue',
-        instruction: Instruction.dumpEvents,
+        instruction: {kind: Kind.Request, value: Message.dumpEvents},
         expected: [{
             'events': {
                 kind: 'comparison',
@@ -254,55 +330,6 @@ const dumpEventsTest: TestScenario = {
     }]
 };
 
-framework.test(dumpEventsTest);
+integration.test(dumpEventsTest);
 
-const receiveEventTest: TestScenario = {
-    title: 'Test Event Transfer (supervisor side)',
-    program: `${EXAMPLES}button.wast`,
-    dependencies: [dumpTest],
-    steps: [{
-        title: 'Send PAUSE command',
-        instruction: Instruction.pause,
-        expectResponse: false
-    }, {
-        title: 'Push mock event',
-        instruction: Instruction.pushEvent,
-        payload: encodeEvent('interrupt', ''),
-        expectResponse: false
-    }, {
-        title: 'CHECK: event queue',
-        instruction: Instruction.dumpEvents,
-        expected: [{
-            'events': {
-                kind: 'comparison',
-                value: (state: string, value: Array<any>) => value.length === 1,
-                message: 'events queue should include 1 event'
-            } as Expected<Array<any>>
-        }]
-    }],
-    skip: true
-};
-
-framework.test(receiveEventTest);
-
-const dumpCallbackMappingTest: TestScenario = {
-    title: 'Test DUMPCallbackmapping',
-    program: `${EXAMPLES}button.wast`,
-    dependencies: [dumpTest],
-    skip: true,
-    steps: [{
-        title: 'CHECK: callbackmapping',
-        instruction: Instruction.dumpCallbackmapping,
-        expected: [{
-            'callbacks': {
-                kind: 'comparison',
-                value: (state: string, value: Array<any>) => value.length === 1,
-                message: 'callbackmapping should contain one callback'
-            } as Expected<Array<any>>
-        }]
-    }]
-};
-
-framework.test(dumpCallbackMappingTest);
-
-framework.run();
+framework.run([integration]);

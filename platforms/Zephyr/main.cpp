@@ -5,8 +5,7 @@
 #include "../../src/WARDuino.h"
 #include "upload.h"
 
-//#define DEBUGGER_STACK_SIZE 2048
-#define DEBUGGER_STACK_SIZE 4096
+#define DEBUGGER_STACK_SIZE 2048
 #define DEBUGGER_PRIORITY 0
 
 BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
@@ -19,11 +18,7 @@ static uint8_t console_txbuf[CONFIG_CONSOLE_PUTCHAR_BUFSIZE];
 
 ssize_t war_console_read(void *dummy, void *buf, size_t size) {
     ARG_UNUSED(dummy);
-    // printf("war_console_read\n");
-
-    ssize_t r = tty_read(&console_serial, buf, size);
-    // printf("war_console_read done\n");
-    return r;
+    return tty_read(&console_serial, buf, size);
 }
 
 int war_console_init(void) {
