@@ -294,7 +294,7 @@ bool drive_pwm(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, float pwm1,
         return false;
     }
 
-    printf("pwm1 = %f, pwm2 = %f\n", pwm1, pwm2);
+    // printf("pwm1 = %f, pwm2 = %f\n", pwm1, pwm2);
 
     int ret = pwm_set_pulse_dt(&pwm1_spec, pwm1 * pwm1_spec.period);
     if (ret) {
@@ -355,7 +355,7 @@ class MotorEncoder {
         } else {
             encoder->angle--;
         }
-        encoder->last_update = k_uptime_ticks();
+        encoder->counted_ticks++;
         // printk("Rising edge detected on encoder pin5, angle %d\n",
         // encoder->angle); printk("%d\n",
         // gpio_pin_get_raw(encoder->pin6_encoder_spec.port,
@@ -377,6 +377,7 @@ class MotorEncoder {
         } else {
             encoder->angle--;
         }
+        encoder->counted_ticks++;
         // printk("Rising edge detected on encoder pin6, angle %d\n",
         // encoder->angle); printk("%d\n",
         // gpio_pin_get_raw(encoder->pin5_encoder_spec.port,
@@ -393,7 +394,10 @@ class MotorEncoder {
           target_angle(0),
           expect_pin5_int(true),
           expect_pin6_int(true),
-          last_update(0) {
+          last_speed_update(0),
+          counted_ticks(0),
+          last_update(0),
+          current_speed(0) {
         if (gpio_pin_configure_dt(&pin5_encoder_spec, GPIO_INPUT)) {
             FATAL("Failed to configure GPIO encoder pin5\n");
         }
@@ -433,6 +437,16 @@ class MotorEncoder {
 
     int64_t get_last_update() { return last_update; }
 
+    void check_speed() {
+        int64_t current_time = k_uptime_get();
+        if (current_time - last_speed_update > 10) {
+            current_speed = current_speed * 0.3f + (counted_ticks/10.0f) * 0.7f;
+            //current_speed = counted_ticks / 10.0f;
+            last_speed_update = current_time;
+            counted_ticks = 0;
+        }
+    }
+
    private:
     gpio_dt_spec pin5_encoder_spec;
     gpio_dt_spec pin6_encoder_spec;
@@ -443,8 +457,11 @@ class MotorEncoder {
     bool expect_pin5_int;
     bool expect_pin6_int;
 
+    int64_t last_speed_update;
+    int counted_ticks;
    public:
     volatile int64_t last_update;
+    volatile float current_speed;
 };
 
 // MotorEncoder encoder(specs[51], specs[50]);
@@ -456,9 +473,21 @@ MotorEncoder encoders[] = {MotorEncoder(specs[51], specs[50]),
 // MotorEncoder test_encoder = MotorEncoder(specs[57], specs[58]);
 
 def_prim(drive_motor_degrees, threeToNoneU32) {
-    int32_t speed = (int32_t)arg0.uint32;
-    int32_t degrees = (int32_t)arg1.uint32;
+    //int32_t speed = (int32_t)arg0.uint32;
+    int32_t degrees = arg1.int32;
     int32_t motor_index = (int32_t)arg2.uint32;
+
+    degrees = 360 * 20; // TODO: Remove, just for testing
+    motor_index = 1;
+    float target_speed = 0.55f; // 0.55, min = ~0.2f
+    uint64_t target_speed_set_time = k_uptime_get();
+    //float speed = target_speed * 10000;
+    float speed = 800;
+    float prev_error = 0.0f;
+    float integral = 0.0f;
+
+    uint64_t last_print_time = k_uptime_get();
+
     printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
 
     if (motor_index > 1) {
@@ -470,6 +499,7 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
     pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
     pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
     MotorEncoder *encoder = &encoders[motor_index];
+    bool correcting = false;
 
     encoder->set_target_angle(encoder->get_target_angle() + degrees);
 
@@ -480,27 +510,61 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
     while (abs(drift) > 0) {
         int speed_sign = std::signbit(drift) ? -1 : 1;
         drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
-        while (speed_sign *
+        k_msleep(500);
+        const int stall_time = 100;
+        /*while (speed_sign *
                        (encoder->get_angle() - encoder->get_target_angle()) >
-                   0 &&
-               k_uptime_ticks() - encoder->get_last_update() < 1000) {
+                   !correcting ? 5 : 0) {*/
+        while (true) {
+            k_msleep(10);
+            encoder->check_speed();
+            //int time_since_last_update = k_uptime_get() - encoder->last_update;
+
+            float error = target_speed - encoder->current_speed;
+            float derivative = error - prev_error;
+            integral = (2/3) * integral + error; // Damped integral
+            prev_error = error;
+            /*float kp = 2.0f;
+            float ki = 0.3f;
+            float kd = 0.8f;*/
+            float kp = 3.0f;
+            float ki = 0.3f;
+            float kd = 1.0f;
+            float speed_change = error * kp + integral * ki + derivative * kd;
+
+            if (k_uptime_get() - last_print_time > 500) {
+                printk(
+                    "actual_speed = %f, target_speed = %.4f, control_speed = %.4f, "
+                    "speed_diff = %.2f, error = %.4f, derivative = %.4f\n",
+                    encoder->current_speed, target_speed, speed, speed_change,
+                    error, derivative);
+                last_print_time = k_uptime_get();
+            }
+            speed += speed_change;
+            speed = std::max(600.0f, std::min(speed, 10000.0f));
+            drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
         }
-        bool not_moving = k_uptime_ticks() - encoder->get_last_update() >= 1000;
-        encoder->last_update = k_uptime_ticks();
-        printk("%lli\n", k_uptime_ticks() - encoder->get_last_update());
+        encoder->check_speed();
+        correcting = true;
+        target_speed = 0.35f;
+        speed = 750; // power estimate
+        //bool not_moving = k_uptime_get() - encoder->get_last_update() >= stall_time;
+        //printk("speed = %f\n", 1.0/(k_uptime_get() - encoder->get_last_update() + 1));
+        printk("speed = %f\n", encoder->current_speed);
+        //encoder->last_update = k_uptime_get();
         /*printf("PWM device %s\n", pwm1_spec.dev->name);
         printf("PWM device %s\n", pwm2_spec.dev->name);*/
         drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
         k_msleep(50);
         drift = encoder->get_angle() - encoder->get_target_angle();
-        printk("drift = %d, speed = %d\n", drift, speed);
+        // printk("drift = %d, speed = %d\n", drift, speed);
         // speed = std::max(775, speed - speed/3); // Reduce speed when going
         // fast to do corrections speed = 775;
-        if (not_moving) {
+        /*if (not_moving) {
             speed += 100;
         } else {
             speed = 800;
-        }
+        }*/
     }
 
     pop_args(3);
