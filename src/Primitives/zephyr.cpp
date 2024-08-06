@@ -355,7 +355,7 @@ class MotorEncoder {
         } else {
             encoder->angle--;
         }
-        encoder->last_update = k_uptime_ticks();
+        encoder->last_update = k_uptime_get();
         // printk("Rising edge detected on encoder pin5, angle %d\n",
         // encoder->angle); printk("%d\n",
         // gpio_pin_get_raw(encoder->pin6_encoder_spec.port,
@@ -483,11 +483,11 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
         while (speed_sign *
                        (encoder->get_angle() - encoder->get_target_angle()) >
                    0 &&
-               k_uptime_ticks() - encoder->get_last_update() < 1000) {
+               k_uptime_get() - encoder->get_last_update() < 150) {
         }
-        bool not_moving = k_uptime_ticks() - encoder->get_last_update() >= 1000;
-        encoder->last_update = k_uptime_ticks();
-        printk("%lli\n", k_uptime_ticks() - encoder->get_last_update());
+        bool not_moving = k_uptime_get() - encoder->get_last_update() >= 150;
+        encoder->last_update = k_uptime_get();
+        printk("%lli\n", k_uptime_get() - encoder->get_last_update());
         /*printf("PWM device %s\n", pwm1_spec.dev->name);
         printf("PWM device %s\n", pwm2_spec.dev->name);*/
         drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
@@ -574,11 +574,11 @@ def_prim(drive_motor_degrees_absolute, threeToNoneU32) {
         while (speed_sign *
                        (encoder->get_angle() - encoder->get_target_angle()) >
                    0 &&
-               k_uptime_ticks() - encoder->get_last_update() < 1000) {
+               k_uptime_get() - encoder->get_last_update() < 500) {
         }
-        bool not_moving = k_uptime_ticks() - encoder->get_last_update() >= 1000;
-        encoder->last_update = k_uptime_ticks();
-        printk("%lli\n", k_uptime_ticks() - encoder->get_last_update());
+        bool not_moving = k_uptime_get() - encoder->get_last_update() >= 500;
+        encoder->last_update = k_uptime_get();
+        printk("%lli\n", k_uptime_get() - encoder->get_last_update());
         /*printf("PWM device %s\n", pwm1_spec.dev->name);
         printf("PWM device %s\n", pwm2_spec.dev->name);*/
         drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
