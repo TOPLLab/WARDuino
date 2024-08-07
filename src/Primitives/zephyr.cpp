@@ -294,17 +294,15 @@ bool drive_pwm(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, float pwm1,
         return false;
     }
 
-    printf("pwm1 = %f, pwm2 = %f\n", pwm1, pwm2);
-
     int ret = pwm_set_pulse_dt(&pwm1_spec, pwm1 * pwm1_spec.period);
     if (ret) {
-        printf("Error %d: failed to set pulse width\n", ret);
+        printf("Error %d: failed to set pulse width, pwm1 = %f\n", ret, pwm1);
         return false;
     }
 
     ret = pwm_set_pulse_dt(&pwm2_spec, pwm2 * pwm2_spec.period);
     if (ret) {
-        printf("Error %d: failed to set pulse width\n", ret);
+        printf("Error %d: failed to set pulse width, pwm2 = %f\n", ret, pwm2);
         return false;
     }
     return true;
@@ -460,6 +458,8 @@ void drive_motor_to_target(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, MotorEn
            abs(encoder->get_angle() - encoder->get_target_angle()));
 
     int drift = encoder->get_angle() - encoder->get_target_angle();
+    // Reset stall timer, otherwise it will instantly think it's not moving.
+    encoder->last_update = k_uptime_get();
     while (abs(drift) > 0) {
         int speed_sign = std::signbit(drift) ? -1 : 1;
         drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
@@ -471,8 +471,12 @@ void drive_motor_to_target(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, MotorEn
         bool not_moving = k_uptime_get() - encoder->get_last_update() >= 150;
         if (not_moving) {
             speed += 100;
+            printf("Not moving, increasing speed to %d, %llims since last movement\n", speed, k_uptime_get() - encoder->get_last_update());
             drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
-            k_msleep(10);
+
+            // Wait for 10ms or movement.
+            uint64_t start_time = k_uptime_get();
+            while (k_uptime_get() - start_time < 10 && k_uptime_get() - encoder->get_last_update() >= 150) {}
             continue;
         }
         encoder->last_update = k_uptime_get();
