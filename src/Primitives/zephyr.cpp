@@ -455,25 +455,8 @@ MotorEncoder encoders[] = {MotorEncoder(specs[51], specs[50]),
                            MotorEncoder(specs[57], specs[58])};
 // MotorEncoder test_encoder = MotorEncoder(specs[57], specs[58]);
 
-def_prim(drive_motor_degrees, threeToNoneU32) {
-    int32_t speed = (int32_t)arg0.uint32;
-    int32_t degrees = (int32_t)arg1.uint32;
-    int32_t motor_index = (int32_t)arg2.uint32;
-    printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
-
-    if (motor_index > 1) {
-        printf("Invalid motor index %d\n", motor_index);
-        pop_args(3);
-        return true;
-    }
-
-    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
-    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
-    MotorEncoder *encoder = &encoders[motor_index];
-
-    encoder->set_target_angle(encoder->get_target_angle() + degrees);
-
-    printk("drift = %d\n",
+void drive_motor_to_target(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, MotorEncoder *encoder, int32_t speed) {
+    printf("drift = %d\n",
            abs(encoder->get_angle() - encoder->get_target_angle()));
 
     int drift = encoder->get_angle() - encoder->get_target_angle();
@@ -486,14 +469,20 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
                k_uptime_get() - encoder->get_last_update() < 150) {
         }
         bool not_moving = k_uptime_get() - encoder->get_last_update() >= 150;
+        if (not_moving) {
+            speed += 100;
+            drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
+            k_msleep(10);
+            continue;
+        }
         encoder->last_update = k_uptime_get();
-        printk("%lli\n", k_uptime_get() - encoder->get_last_update());
+        printf("%lli\n", k_uptime_get() - encoder->get_last_update());
         /*printf("PWM device %s\n", pwm1_spec.dev->name);
         printf("PWM device %s\n", pwm2_spec.dev->name);*/
         drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
         k_msleep(50);
         drift = encoder->get_angle() - encoder->get_target_angle();
-        printk("drift = %d, speed = %d\n", drift, speed);
+        printf("drift = %d, speed = %d\n", drift, speed);
         // speed = std::max(775, speed - speed/3); // Reduce speed when going
         // fast to do corrections speed = 775;
         if (not_moving) {
@@ -502,9 +491,34 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
             speed = 800;
         }
     }
+}
 
-    pop_args(3);
+bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t speed) {
+    printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
+
+    if (motor_index > 1) {
+        return false;
+    }
+
+    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
+    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
+    MotorEncoder *encoder = &encoders[motor_index];
+
+    encoder->set_target_angle(encoder->get_target_angle() + degrees);
+
+    drive_motor_to_target(pwm1_spec, pwm2_spec, encoder, speed);
     return true;
+}
+
+def_prim(drive_motor_degrees, threeToNoneU32) {
+    int32_t speed = (int32_t)arg0.uint32;
+    //speed = 10000;
+    int32_t degrees = (int32_t)arg1.uint32;
+    //degrees = 360 * 20;
+    int32_t motor_index = (int32_t)arg2.uint32;
+    bool result = drive_motor_degrees_relative(motor_index, degrees, speed);
+    pop_args(3);
+    return result;
 }
 
 def_prim_reverse(drive_motor_degrees) {
@@ -564,35 +578,7 @@ def_prim(drive_motor_degrees_absolute, threeToNoneU32) {
 
     encoder->set_target_angle(degrees);
 
-    printk("drift = %d\n",
-           abs(encoder->get_angle() - encoder->get_target_angle()));
-
-    int drift = encoder->get_angle() - encoder->get_target_angle();
-    while (abs(drift) > 0) {
-        int speed_sign = std::signbit(drift) ? -1 : 1;
-        drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
-        while (speed_sign *
-                       (encoder->get_angle() - encoder->get_target_angle()) >
-                   0 &&
-               k_uptime_get() - encoder->get_last_update() < 500) {
-        }
-        bool not_moving = k_uptime_get() - encoder->get_last_update() >= 500;
-        encoder->last_update = k_uptime_get();
-        printk("%lli\n", k_uptime_get() - encoder->get_last_update());
-        /*printf("PWM device %s\n", pwm1_spec.dev->name);
-        printf("PWM device %s\n", pwm2_spec.dev->name);*/
-        drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
-        k_msleep(50);
-        drift = encoder->get_angle() - encoder->get_target_angle();
-        printk("drift = %d, speed = %d\n", drift, speed);
-        // speed = std::max(775, speed - speed/3); // Reduce speed when going
-        // fast to do corrections speed = 775;
-        if (not_moving) {
-            speed += 100;
-        } else {
-            speed = 800;
-        }
-    }
+    drive_motor_to_target(pwm1_spec, pwm2_spec, encoder, speed);
 
     pop_args(3);
     return true;
