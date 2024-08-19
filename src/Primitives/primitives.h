@@ -35,7 +35,7 @@ inline void create_stack(std::vector<StackValue> *stack) {}
 template <typename T, typename... Ts>
 void create_stack(std::vector<StackValue> *stack, T value, Ts... args) {
     StackValue stackValue;
-    if constexpr (std::is_same<T, int32_t>()) {
+    if constexpr (std::is_same<T, int32_t>() || std::is_same<T, int>()) {
         stackValue.value.int32 = value;
         stackValue.value_type = I32;
     } else if constexpr (std::is_same<T, uint32_t>()) {
