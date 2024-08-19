@@ -524,7 +524,7 @@ def_prim_reverse(chip_digital_write) {
 def_prim_serialize(chip_digital_write) {
     for (int i = 0; i < NUM_DIGITAL_PINS; i++) {
         uint32_t bit_mask = digitalPinToBitMask(i);
-        auto *state = new PinState();
+        auto *state = new IOStateElement();
         state->key = "p" + std::to_string(i);
         uint8_t port = digitalPinToPort(i);
         if (*portModeRegister(port) & bit_mask) {  // DDR
