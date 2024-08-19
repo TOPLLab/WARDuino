@@ -317,7 +317,7 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 }
 
 //------------------------------------------------------
-// Restore external state
+// Restore external state when restoring a snapshot
 //------------------------------------------------------
 void restore_external_state(Module *m,
                             std::vector<IOStateElement> external_state) {

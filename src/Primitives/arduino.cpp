@@ -150,14 +150,31 @@ int prim_index = 0;
             PrimitiveEntry *p = &primitives[prim_index++];                 \
             p->name = #prim_name;                                          \
             p->f = &(prim_name);                                           \
+            p->f_reverse = nullptr;                                        \
+            p->f_serialize_state = nullptr;                                \
         } else {                                                           \
             FATAL("pim_index out of bounds");                              \
         }                                                                  \
     }
 
+#define install_primitive_reverse(prim_name)             \
+    {                                                    \
+        PrimitiveEntry *p = &primitives[prim_index - 1]; \
+        p->f_reverse = &(prim_name##_reverse);           \
+        p->f_serialize_state = &(prim_name##_serialize); \
+    }
+
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
     bool function_name(Module *m)
+
+#define def_prim_reverse(function_name)     \
+    void function_name##_reverse(Module *m, \
+                                 std::vector<IOStateElement> external_state)
+
+#define def_prim_serialize(function_name) \
+    void function_name##_serialize(       \
+        std::vector<IOStateElement *> &external_state)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
@@ -489,6 +506,37 @@ def_prim(chip_digital_write, twoToNoneU32) {
     digitalWrite(pin, val);
     pop_args(2);
     return true;
+}
+
+def_prim_reverse(chip_digital_write) {
+    for (IOStateElement state : external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'p') {
+            invoke_primitive(m, "chip_digital_write", stoi(state.key.substr(1)),
+                             (uint32_t)state.value);
+        }
+    }
+}
+
+def_prim_serialize(chip_digital_write) {
+    for (int i = 0; i < NUM_DIGITAL_PINS; i++) {
+        uint32_t bit_mask = digitalPinToBitMask(i);
+        auto *state = new PinState();
+        state->key = "p" + std::to_string(i);
+        uint8_t port = digitalPinToPort(i);
+        if (*portModeRegister(port) & bit_mask) {  // DDR
+            state->output = true;
+            state->value = (*portOutputRegister(port) & bit_mask) > 0;
+        } else {
+            state->output = false;
+            state->value = (*portInputRegister(port) & bit_mask) > 0;
+        }
+        external_state.push_back(state);
+    }
+    return ioState;
 }
 
 def_prim(chip_delay, oneToNoneU32) {
@@ -1025,4 +1073,45 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 
     FATAL("Could not find memory %s \n", symbol);
     return false;
+}
+
+//------------------------------------------------------
+// Restore external state when restoring a snapshot
+//------------------------------------------------------
+void restore_external_state(Module *m,
+                            std::vector<IOStateElement> external_state) {
+    uint8_t opcode = *m->pc_ptr;
+    // TODO: Maybe primitives can also be called using the other call
+    // instructions such as call_indirect
+    //  maybe there should just be a function that checks if a certain function
+    //  is being called that handles all these cases?
+    if (opcode == 0x10) {  // call opcode
+        uint8_t *pc_copy = m->pc_ptr + 1;
+        uint32_t fidx = read_LEB_32(&pc_copy);
+        if (fidx < m->import_count) {
+            for (auto &primitive : primitives) {
+                if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
+                    if (primitive.f_reverse) {
+                        debug("Reversing action for primitive %s\n",
+                              primitive.name);
+                        primitive.f_reverse(m, external_state);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------
+// Serialize external state into a snapshot
+//------------------------------------------------------
+std::vector<IOStateElement *> get_io_state(Module *m) {
+    std::vector<IOStateElement *> ioState;
+    for (auto &primitive : primitives) {
+        if (primitive.f_serialize_state) {
+            primitive.f_serialize_state(ioState);
+        }
+    }
+    return ioState;
 }
