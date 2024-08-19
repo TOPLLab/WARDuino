@@ -575,10 +575,9 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 //------------------------------------------------------
 // Restore external state
 //------------------------------------------------------
-void restore_external_state(Module *m, std::vector<IOStateElement> external_state) {}
+void restore_external_state(Module *m,
+                            std::vector<IOStateElement> external_state) {}
 
-std::vector<IOStateElement *> get_io_state(Module *m) {
-    return {};
-}
+std::vector<IOStateElement *> get_io_state(Module *m) { return {}; }
 
 #endif  // ARDUINO

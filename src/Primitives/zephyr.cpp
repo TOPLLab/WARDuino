@@ -322,16 +322,19 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 void restore_external_state(Module *m,
                             std::vector<IOStateElement> external_state) {
     uint8_t opcode = *m->pc_ptr;
-    // TODO: Maybe primitives can also be called using the other call instructions such as call_indirect
-    //  maybe there should just be a function that checks if a certain function is being called that handles all these cases?
-    if (opcode == 0x10) { // call opcode
+    // TODO: Maybe primitives can also be called using the other call
+    // instructions such as call_indirect
+    //  maybe there should just be a function that checks if a certain function
+    //  is being called that handles all these cases?
+    if (opcode == 0x10) {  // call opcode
         uint8_t *pc_copy = m->pc_ptr + 1;
         uint32_t fidx = read_LEB_32(&pc_copy);
         if (fidx < m->import_count) {
             for (auto &primitive : primitives) {
                 if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
                     if (primitive.f_reverse) {
-                        printf("Reversing action for primitive %s\n", primitive.name);
+                        debug("Reversing action for primitive %s\n",
+                              primitive.name);
                         primitive.f_reverse(m, external_state);
                     }
                     return;

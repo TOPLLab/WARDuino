@@ -10,9 +10,9 @@
 
 #include "Debug/debugger.h"
 #include "Edward/proxy_supervisor.h"
+#include "IO/io.h"
 #include "Interpreter/interpreter.h"
 #include "WARDuino/internals.h"
-#include "IO/io.h"
 
 // Constants
 #define WA_MAGIC 0x6d736100
