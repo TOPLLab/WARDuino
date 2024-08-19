@@ -536,7 +536,6 @@ def_prim_serialize(chip_digital_write) {
         }
         external_state.push_back(state);
     }
-    return ioState;
 }
 
 def_prim(chip_delay, oneToNoneU32) {
