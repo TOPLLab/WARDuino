@@ -10,7 +10,6 @@
 
 #include "Debug/debugger.h"
 #include "Edward/proxy_supervisor.h"
-#include "IO/io.h"
 #include "Interpreter/interpreter.h"
 #include "WARDuino/internals.h"
 
@@ -63,6 +62,12 @@
 extern char exception[512];
 
 typedef bool (*Primitive)(Module *);
+
+struct IOStateElement {
+    std::string key;
+    bool output;
+    int value;
+};
 
 typedef struct PrimitiveEntry {
     const char *name;
