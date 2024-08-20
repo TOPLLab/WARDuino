@@ -96,7 +96,7 @@ arduino-cli config init
 ```
 
 If you need additional boards, such as the esp32 boards, you can add them in the generated config file. More information on how to install the esp32 boards can be found <a href="./documentation/InstallArduinoESP32.md">here</a>.
-(_note: WARDuino requires at least version 2.0.2 of the esp32 board manager when using esp32 devices)_
+(_note: WARDuino requires at least version 3.0.0 of the esp32 board manager when using esp32 devices)_
 
 Thirdly, make sure you install the `PubSubClient` and `Adafruit NeoPixel` library. (used for MQTT and pixel primitives)
 
@@ -105,15 +105,15 @@ arduino-cli lib install "PubSubClient" # for MQTT
 arduino-cli lib install "Adafruit NeoPixel" # for some primitives
 ```
 
-To build for Arduino with WIFI support you need to also install the following third-party libraries.
-(You might need to set `enable_unsafe_install` to `true` in your arduino config)
+To build for Arduino with Wi-Fi support you need to also install the following third-party libraries.
+(You might need to set `enable_unsafe_install` to `true` in your Arduino config)
 
 ```bash
 arduino-cli lib install FreeRTOS
 arduino-cli lib install --git-url https://github.com/me-no-dev/AsyncTCP.git
 ```
 
-If you haven't done so already, clone (or symlink) this repository to `~/Arduino/libraries` to make WARDuino availible to Arduino.
+If you haven't done so already, clone (or symlink) this repository to `~/Arduino/libraries` to make WARDuino available to Arduino.
 
 
 After this initial installation steps you can start using WARDuino with the Arduino toolchain.
@@ -153,7 +153,7 @@ For a feature request or bug report, create a [GitHub issue](https://github.com/
 
 ## Acknowledgments
 
-WARDuino by Robbert Gurdeep Singh, Tom Lauwaerts, Carlos Rojas Castillo, and Christophe Scholliers is licensed under a [MPL-2.0 License](./LICENSE).
+WARDuino by Robbert Gurdeep Singh, Tom Lauwaerts, Carlos Rojas Castillo, Maarten Steevens and Christophe Scholliers is licensed under a [MPL-2.0 License](./LICENSE).
 This is a derivative work of [kanaka/wac](https://github.com/kanaka/wac) by Joel Martin.
 
 If you need to cite WARDuino in your research, use:
