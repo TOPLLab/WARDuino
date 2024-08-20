@@ -1001,6 +1001,7 @@ void install_primitives() {
 
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
+    install_primitive_reverse(chip_digital_write);
     install_primitive(chip_delay);
     install_primitive(chip_digital_read);
     install_primitive(chip_analog_read);
