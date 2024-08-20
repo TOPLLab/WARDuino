@@ -2,16 +2,8 @@
 #define WARDUINO_PRIM_H
 
 #include "../Utils/macros.h"
+#include "../Utils/util.h"
 #include "../WARDuino.h"
-
-/**
- * Find a primitive function by looking it up
- *
- * @param symbol name of primitive function
- * @param val    location to store a pointer to the function
- * @return true if function is found and assigned to val
- */
-bool resolve_primitive(char *symbol, Primitive *val);
 
 /**
  * Handle import of memory by keeping a array of 256 pages.
@@ -25,7 +17,7 @@ bool resolve_primitive(char *symbol, Primitive *val);
  */
 bool resolve_external_memory(char *symbol, Memory **val);
 
-void install_primitives();
+void install_primitives(Interpreter *interpreter);
 
 std::vector<IOStateElement *> get_io_state(Module *m);
 
@@ -70,7 +62,7 @@ void create_stack(std::vector<StackValue> *stack, T value, Ts... args) {
 template <typename... Ts>
 void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     Primitive primitive;
-    resolve_primitive((char *)function_name.c_str(), &primitive);
+    m->warduino->interpreter->find_primitive(function_name.c_str(), &primitive);
 
     std::vector<StackValue> argStack;
     create_stack(&argStack, args...);
@@ -79,6 +71,47 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
         m->stack[++m->sp] = arg;
     }
     primitive(m);
+}
+
+//------------------------------------------------------
+// Restore external state when restoring a snapshot
+//------------------------------------------------------
+inline void restore_external_state(Module *m,
+                            std::vector<IOStateElement> external_state) {
+    uint8_t opcode = *m->pc_ptr;
+    // TODO: Maybe primitives can also be called using the other call
+    // instructions such as call_indirect
+    //  maybe there should just be a function that checks if a certain function
+    //  is being called that handles all these cases?
+    if (opcode == 0x10) {  // call opcode
+        uint8_t *pc_copy = m->pc_ptr + 1;
+        uint32_t fidx = read_LEB_32(&pc_copy);
+        if (fidx < m->import_count) {
+            for (auto &primitive : m->warduino->interpreter->primitives) {
+                if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
+                    if (primitive.f_reverse) {
+                        debug("Reversing action for primitive %s\n",
+                              primitive.name);
+                        primitive.f_reverse(m, external_state);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------
+// Serialize external state into a snapshot
+//------------------------------------------------------
+inline std::vector<IOStateElement *> get_io_state(Module *m) {
+    std::vector<IOStateElement *> ioState;
+    for (auto &primitive : m->warduino->interpreter->primitives) {
+        if (primitive.f_serialize_state) {
+            primitive.f_serialize_state(ioState);
+        }
+    }
+    return ioState;
 }
 
 #endif

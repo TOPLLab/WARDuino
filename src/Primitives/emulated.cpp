@@ -26,30 +26,21 @@
 #include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
-#define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
-
-#define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
-
-// Global index for installing primitives
-int prim_index = 0;
-
 double sensor_emu = 0;
 
 /*
    Private macros to install a primitive
 */
-#define install_primitive(prim_name)                                       \
-    {                                                                      \
-        dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-                 prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
-        if (prim_index < ALL_PRIMITIVES) {                                 \
-            PrimitiveEntry *p = &primitives[prim_index++];                 \
-            p->name = #prim_name;                                          \
-            p->f = &(prim_name);                                           \
-        } else {                                                           \
-            FATAL("pim_index out of bounds");                              \
-        }                                                                  \
+#define install_primitive(prim_name)                                          \
+    {                                                                         \
+        dbg_info("installing primitive number: %d with name: %s\n",           \
+                 interpreter->primitives.size(), ALL_PRIMITIVES, #prim_name); \
+        PrimitiveEntry p;                                                     \
+        p.name = #prim_name;                                                  \
+        p.f = &(prim_name);                                                   \
+        p.f_reverse = nullptr;                                                \
+        p.f_serialize_state = nullptr;                                        \
+        interpreter->primitives.push_back(p);                                 \
     }
 
 #define def_prim(function_name, type) \
@@ -74,9 +65,6 @@ double sensor_emu = 0;
 #define arg7 get_arg(m, 7)
 #define arg8 get_arg(m, 8)
 #define arg9 get_arg(m, 9)
-
-// The primitive table
-PrimitiveEntry primitives[ALL_PRIMITIVES];
 
 //
 uint32_t param_arr_len0[0] = {};
@@ -491,7 +479,7 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
-void install_primitives() {
+void install_primitives(Interpreter *interpreter) {
     dbg_info("INSTALLING PRIMITIVES\n");
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(abort);
@@ -534,24 +522,6 @@ void install_primitives() {
     install_primitive(chip_ledc_set_duty);
 }
 
-//------------------------------------------------------
-// resolving the primitives
-//------------------------------------------------------
-bool resolve_primitive(char *symbol, Primitive *val) {
-    debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
-
-    for (auto &primitive : primitives) {
-        //        printf("Checking %s = %s  \n", symbol, primitive.name);
-        if (!strcmp(symbol, primitive.name)) {
-            debug("FOUND PRIMITIVE\n");
-            *val = primitive.f;
-            return true;
-        }
-    }
-    FATAL("Could not find primitive %s \n", symbol);
-    return false;
-}
-
 Memory external_mem{};
 
 bool resolve_external_memory(char *symbol, Memory **val) {
@@ -571,13 +541,5 @@ bool resolve_external_memory(char *symbol, Memory **val) {
     FATAL("Could not find memory %s \n", symbol);
     return false;
 }
-
-//------------------------------------------------------
-// Restore external state
-//------------------------------------------------------
-void restore_external_state(Module *m,
-                            std::vector<IOStateElement> external_state) {}
-
-std::vector<IOStateElement *> get_io_state(Module *m) { return {}; }
 
 #endif  // ARDUINO

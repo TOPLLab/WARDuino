@@ -1,5 +1,7 @@
 #pragma once
 #include <map>
+#include <vector>
+#include <string>
 
 // Structures
 typedef struct Type {
@@ -130,3 +132,19 @@ typedef struct Module {
 
     char *exception = nullptr;  // exception is set when the program fails
 } Module;
+
+struct IOStateElement {
+    std::string key;
+    bool output;
+    int value;
+};
+
+typedef bool (*Primitive)(Module *);
+
+typedef struct PrimitiveEntry {
+    const char *name;
+    Primitive f;
+    void (*f_reverse)(Module *m, std::vector<IOStateElement>);
+    void (*f_serialize_state)(std::vector<IOStateElement *> &);
+    Type t;
+} PrimitiveEntry;

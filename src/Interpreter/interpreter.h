@@ -54,6 +54,15 @@ class Interpreter {
 
     static void report_overflow(Module *m, uint8_t *maddr);
 
-   protected:
-   private:
+    /**
+     * Find a primitive function by looking it up
+     *
+     * @param symbol name of primitive function
+     * @param val    location to store a pointer to the function
+     * @return true if function is found and assigned to val
+     */
+    bool find_primitive(const char *symbol, Primitive *val);
+
+   public:
+    std::vector<PrimitiveEntry> primitives;
 };

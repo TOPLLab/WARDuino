@@ -33,29 +33,19 @@
 #include "../Utils/util.h"
 #include "primitives.h"
 
-#define NUM_PRIMITIVES 5
-
-// Global index for installing primitives
-int prim_index = 0;
-
-double sensor_emu = 0;
-
 /*
    Private macros to install a primitive
 */
-#define install_primitive(prim_name)                                       \
-    {                                                                      \
-        dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-                 prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
-        if (prim_index < ALL_PRIMITIVES) {                                 \
-            PrimitiveEntry *p = &primitives[prim_index++];                 \
-            p->name = #prim_name;                                          \
-            p->f = &(prim_name);                                           \
-            p->f_reverse = nullptr;                                        \
-            p->f_serialize_state = nullptr;                                \
-        } else {                                                           \
-            FATAL("pim_index out of bounds");                              \
-        }                                                                  \
+#define install_primitive(prim_name)                                          \
+    {                                                                         \
+        dbg_info("installing primitive number: %d with name: %s\n",           \
+                 interpreter->primitives.size(), ALL_PRIMITIVES, #prim_name); \
+        PrimitiveEntry p;                                                     \
+        p.name = #prim_name;                                                  \
+        p.f = &(prim_name);                                                   \
+        p.f_reverse = nullptr;                                                \
+        p.f_serialize_state = nullptr;                                        \
+        interpreter->primitives.push_back(p);                                 \
     }
 
 #define install_primitive_reverse(prim_name)             \
@@ -95,9 +85,6 @@ double sensor_emu = 0;
 #define arg7 get_arg(m, 7)
 #define arg8 get_arg(m, 8)
 #define arg9 get_arg(m, 9)
-
-// The primitive table
-PrimitiveEntry primitives[NUM_PRIMITIVES];
 
 //
 uint32_t param_arr_len0[0] = {};
@@ -274,24 +261,6 @@ void install_primitives() {
     install_primitive(print_int);
 }
 
-//------------------------------------------------------
-// resolving the primitives
-//------------------------------------------------------
-bool resolve_primitive(char *symbol, Primitive *val) {
-    debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
-
-    for (auto &primitive : primitives) {
-        //        printf("Checking %s = %s  \n", symbol, primitive.name);
-        if (!strcmp(symbol, primitive.name)) {
-            debug("FOUND PRIMITIVE\n");
-            *val = primitive.f;
-            return true;
-        }
-    }
-    FATAL("Could not find primitive %s \n", symbol);
-    return false;
-}
-
 Memory external_mem = {0, 0, 0, nullptr};
 
 bool resolve_external_memory(char *symbol, Memory **val) {
@@ -310,44 +279,6 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 
     FATAL("Could not find memory %s \n", symbol);
     return false;
-}
-
-//------------------------------------------------------
-// Restore external state when restoring a snapshot
-//------------------------------------------------------
-void restore_external_state(Module *m,
-                            std::vector<IOStateElement> external_state) {
-    uint8_t opcode = *m->pc_ptr;
-    // TODO: Maybe primitives can also be called using the other call
-    // instructions such as call_indirect
-    //  maybe there should just be a function that checks if a certain function
-    //  is being called that handles all these cases?
-    if (opcode == 0x10) {  // call opcode
-        uint8_t *pc_copy = m->pc_ptr + 1;
-        uint32_t fidx = read_LEB_32(&pc_copy);
-        if (fidx < m->import_count) {
-            for (auto &primitive : primitives) {
-                if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
-                    if (primitive.f_reverse) {
-                        debug("Reversing action for primitive %s\n",
-                              primitive.name);
-                        primitive.f_reverse(m, external_state);
-                    }
-                    return;
-                }
-            }
-        }
-    }
-}
-
-std::vector<IOStateElement *> get_io_state(Module *m) {
-    std::vector<IOStateElement *> ioState;
-    for (auto &primitive : primitives) {
-        if (primitive.f_serialize_state) {
-            primitive.f_serialize_state(ioState);
-        }
-    }
-    return ioState;
 }
 
 #endif  // ARDUINO

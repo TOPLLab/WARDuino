@@ -466,3 +466,18 @@ void Interpreter::report_overflow(Module *m, uint8_t *maddr) {
              m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE, maddr);
     sprintf(exception, "out of bounds memory access");
 }
+
+bool Interpreter::find_primitive(const char *symbol, Primitive *val) {
+    debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
+
+    for (auto &primitive : primitives) {
+        //        printf("Checking %s = %s  \n", symbol, primitive.name);
+        if (!strcmp(symbol, primitive.name)) {
+            debug("FOUND PRIMITIVE\n");
+            *val = primitive.f;
+            return true;
+        }
+    }
+    FATAL("Could not find primitive %s \n", symbol);
+    return false;
+}
