@@ -33,7 +33,7 @@
 #include "../Utils/util.h"
 #include "primitives.h"
 
-#define NUM_PRIMITIVES 5
+#define ALL_PRIMITIVES 5
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -97,7 +97,7 @@ double sensor_emu = 0;
 #define arg9 get_arg(m, 9)
 
 // The primitive table
-PrimitiveEntry primitives[NUM_PRIMITIVES];
+PrimitiveEntry primitives[ALL_PRIMITIVES];
 
 //
 uint32_t param_arr_len0[0] = {};
