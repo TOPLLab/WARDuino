@@ -116,4 +116,25 @@ jobs:
                   target: esp32
                   command: idf.py build -DBUILD_ESP=ON
                   path: .
+    
+    compile-with-zephyr:
+        name: (Zephyr) Compile                                                
+        needs: formatting-check 
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+        steps:        
+          - name: Checkout
+            uses: actions/checkout@v4
+            with:
+                submodules: 'recursive'
 
+          - name: Setup Zephyr project
+            uses: MaartenS11/action-zephyr-setup@main
+            with:
+                app-path: platforms/Zephyr
+                toolchains: arm-zephyr-eabi
+                sdk-version: 0.16.3
+          - name: Build
+            run: |
+              west build -b stm32l496g_disco
