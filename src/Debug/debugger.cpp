@@ -263,6 +263,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->pauseRuntime(m);
             free(interruptData);
             snapshot(m);
+            this->channel->write("\n");
             break;
         case interruptSetSnapshotPolicy:
             setSnapshotPolicy(interruptData + 1);
@@ -273,6 +274,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             uint16_t numberBytes = read_B16(&data);
             uint8_t *state = interruptData + 3;
             inspect(m, numberBytes, state);
+            this->channel->write("\n");
             free(interruptData);
             break;
         }
@@ -883,7 +885,7 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
             }
         }
     }
-    this->channel->write("}\n");
+    this->channel->write("}");
 }
 
 void Debugger::setSnapshotPolicy(const uint8_t *interruptData) {
@@ -907,8 +909,9 @@ void Debugger::handleSnapshotPolicy(Module *m) {
 }
 
 void Debugger::checkpoint(Module *m) {
-    this->channel->write("CHECKPOINT, {\"instructions_executed\" = %d}, ", instructions_executed);
+    this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, "snapshot": )", instructions_executed);
     snapshot(m);
+    this->channel->write("}\n");
     instructions_executed = 0;
 }
 
