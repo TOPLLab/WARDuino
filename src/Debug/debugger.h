@@ -76,7 +76,7 @@ enum InterruptTypes {
 
     // Pull Debugging
     interruptSnapshot = 0x60,
-    interruptEnableSnapshots = 0x61,
+    interruptSetSnapshotPolicy = 0x61,
     interruptLoadSnapshot = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
@@ -94,6 +94,12 @@ enum InterruptTypes {
     interruptStore = 0xa0,
     interruptStored = 0xa1,
 
+};
+
+enum class SnapshotPolicy : int {
+    none,               // Don't automatically take snapshots.
+    atEveryInstruction, // Take a snapshot after every instruction.
+    checkpointing,      // Take a snapshot every x instructions or at specific points were reversible primitives are used or sensor values are read.
 };
 
 class Debugger {
@@ -115,7 +121,8 @@ class Debugger {
     bool connected_to_proxy = false;
     warduino::mutex *supervisor_mutex;
 
-    bool asyncSnapshots;
+    SnapshotPolicy snapshotPolicy;
+    uint32_t instructions_executed;
 
     // Private methods
 
@@ -188,6 +195,9 @@ class Debugger {
 
     bool operation(Module *m, operation op);
 
+    bool isPrimitiveBeingCalled(Module *m);
+    void checkpoint(Module *m);
+
    public:
     // Public fields
     warduino::mutex messageQueueMutex;  // mutual exclude debugMessages
@@ -237,9 +247,9 @@ class Debugger {
 
     void snapshot(Module *m);
 
-    void enableSnapshots(uint8_t *interruptData);
+    void setSnapshotPolicy(const uint8_t *interruptData);
 
-    void sendAsyncSnapshots(Module *m);
+    void handleSnapshotPolicy(Module *m);
 
     void proxify();
 

@@ -1318,7 +1318,7 @@ bool interpret(Module *m, bool waiting) {
         m->warduino->debugger->skipBreakpoint = nullptr;
 
         // Take snapshot before executing an instruction
-        m->warduino->debugger->sendAsyncSnapshots(m);
+        m->warduino->debugger->handleSnapshotPolicy(m);
 
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
