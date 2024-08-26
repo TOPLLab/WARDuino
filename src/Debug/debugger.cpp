@@ -22,7 +22,7 @@ Debugger::Debugger(Channel *duplex) {
     this->channel = duplex;
     this->supervisor_mutex = new warduino::mutex();
     this->supervisor_mutex->lock();
-    this->asyncSnapshots = false;
+    this->snapshotPolicy = SnapshotPolicy::none;
 }
 
 // Public methods
@@ -190,6 +190,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             exit(0);
         case interruptPAUSE:
             this->pauseRuntime(m);
+            // Make a checkpoint so the debugger knows the current state and
+            // knows how many instructions were executed since the last checkpoint.
+            if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+                checkpoint(m);
+            }
             this->channel->write("PAUSE!\n");
             free(interruptData);
             break;
@@ -260,8 +265,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             snapshot(m);
             break;
-        case interruptEnableSnapshots:
-            enableSnapshots(interruptData + 1);
+        case interruptSetSnapshotPolicy:
+            setSnapshotPolicy(interruptData + 1);
             free(interruptData);
             break;
         case interruptInspect: {
@@ -921,15 +926,30 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
     this->channel->write("}\n");
 }
 
-void Debugger::enableSnapshots(const uint8_t *interruptData) {
-    asyncSnapshots = *interruptData;
+void Debugger::setSnapshotPolicy(const uint8_t *interruptData) {
+    snapshotPolicy = SnapshotPolicy{*interruptData};
 }
 
-void Debugger::sendAsyncSnapshots(Module *m) const {
-    if (asyncSnapshots) {
+void Debugger::handleSnapshotPolicy(Module *m) {
+    if (snapshotPolicy == SnapshotPolicy::atEveryInstruction) {
         this->channel->write("SNAPSHOT ");
         snapshot(m);
     }
+    else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+        if (instructions_executed >= 10 || isPrimitiveBeingCalled(m)) {
+            checkpoint(m);
+        }
+        instructions_executed++;
+    }
+    else if (snapshotPolicy != SnapshotPolicy::none) {
+        this->channel->write("WARNING: Invalid snapshot policy.");
+    }
+}
+
+void Debugger::checkpoint(Module *m) {
+    this->channel->write("CHECKPOINT, {\"instructions_executed\" = %d}, ", instructions_executed);
+    snapshot(m);
+    instructions_executed = 0;
 }
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {
@@ -1516,4 +1536,14 @@ Debugger::~Debugger() {
     this->stop();
     delete this->supervisor_mutex;
     delete this->supervisor;
+}
+bool Debugger::isPrimitiveBeingCalled(Module *m) {
+    // TODO: Maybe primitives can also be called using the other call operators
+    uint8_t opcode = *m->pc_ptr;
+    if (opcode == 0x10) {  // call opcode
+        uint8_t *pc_copy = m->pc_ptr + 1;
+        uint32_t fidx = read_LEB_32(&pc_copy);
+        return fidx < m->import_count;
+    }
+    return false;
 }
