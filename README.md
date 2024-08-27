@@ -121,9 +121,11 @@ You can upload the example file as follows, starting from the project root:
 
 ```bash
 cd platforms/Arduino
-make compile
+make compile BINARY={{Path to .wasm file}}
 make flash
 ```
+
+For more information on how to change the board type, or configure the serial port, see the [platform specific documentation](./platforms/Arduino/README.md).
 
 ### Build for Emulator
 

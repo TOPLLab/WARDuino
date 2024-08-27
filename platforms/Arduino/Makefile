@@ -1,5 +1,10 @@
 # Arduino Platform
 
+# default values
+PORT = /dev/ttyUSB0
+FQBN = esp32:esp32:esp32wrover
+
+# possible config file
 CONFIG = .config
 -include ${CONFIG}
 
@@ -38,13 +43,13 @@ ifndef FQBN
 endif
 	arduino-cli upload -p $(PORT) --fqbn $(FQBN) Arduino.ino
 
-compile: Arduino.ino
+recompile: Arduino.ino
 ifndef FQBN
 	$(error FQBN is not set. Use a .config file)
 endif
 	arduino-cli compile --fqbn $(FQBN) Arduino.ino
 
-recompile: clean compile
+compile: clean recompile
 
 monitor: 
 ifndef PORT
