@@ -10,3 +10,4 @@ raw/
 .vscode
 .idea
 idf/
+bin/

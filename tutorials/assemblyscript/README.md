@@ -11,6 +11,6 @@ npm install
 To compile and flash to an ESP32 with the ESP-IDF toolchain simple run:
 
 ```bash
-npm run all
+npm run build
 ```
 
