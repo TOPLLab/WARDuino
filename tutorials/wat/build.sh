@@ -15,7 +15,7 @@ src=$(basename -- "$src")
 echo -e "> compiling ${src} ..."
 
 if [[ $src == *.wat ]] || [[ $extension == *.wast ]]; then
-    wat2wasm --debug-names $src
+    wat2wasm --no-canonicalize-leb128s --disable-bulk-memory --debug-names $src
     src="${src%.*}"
     echo -e "> created ${src}.wasm"
 fi
