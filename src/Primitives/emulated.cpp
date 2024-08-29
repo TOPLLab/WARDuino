@@ -385,23 +385,62 @@ def_prim(http_post, tenToOneU32) {
     return true;
 }
 
+#define NUM_DIGITAL_PINS 19
+uint32_t PINS[NUM_DIGITAL_PINS] = {};
+uint8_t MODES[NUM_DIGITAL_PINS] = {};
+
 def_prim(chip_pin_mode, twoToNoneU32) {
-    debug("EMU: chip_pin_mode(%u,%u) \n", arg1.uint32, arg0.uint32);
+    uint8_t pin = arg1.uint32;
+    uint8_t val = arg0.uint32;
+    debug("EMU: chip_pin_mode(%u,%u) \n", pin, val);
+    if (pin < NUM_DIGITAL_PINS) {
+        MODES[pin] = val;
+    }
     pop_args(2);
-    return true;
+    return pin < NUM_DIGITAL_PINS;
 }
 
 def_prim(chip_digital_write, twoToNoneU32) {
-    debug("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
+    uint8_t pin = arg1.uint32;
+    uint8_t val = arg0.uint32;
+    debug("EMU: chip_digital_write(%u,%u) \n", pin, val);
+    if (pin < NUM_DIGITAL_PINS && MODES[pin] == 0x01) {
+        PINS[pin] = val;
+    }
     pop_args(2);
-    return true;
+    return pin < NUM_DIGITAL_PINS;
+}
+
+def_prim_reverse(chip_digital_write) {
+    for (IOStateElement state : external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'p') {
+            invoke_primitive(m, "chip_digital_write", stoi(state.key.substr(1)),
+                             (uint32_t)state.value);
+        }
+    }
+}
+
+def_prim_serialize(chip_digital_write) {
+    for (int pin = 0; pin < NUM_DIGITAL_PINS; pin++) {
+        auto *state = new IOStateElement();
+        state->key = "p" + std::to_string(pin);
+        state->output = MODES[pin] == 0x01;
+        state->value = PINS[pin];
+        external_state.push_back(state);
+    }
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    pushUInt32(1);  // HIGH
-    return true;
+    if (pin < NUM_DIGITAL_PINS) {
+        pushUInt32(PINS[pin]);
+    }
+    return pin < NUM_DIGITAL_PINS;
 }
 
 def_prim(chip_analog_read, oneToOneI32) {
