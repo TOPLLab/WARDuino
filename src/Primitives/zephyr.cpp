@@ -934,7 +934,7 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 //------------------------------------------------------
 void restore_external_state(Module *m,
                             std::vector<IOStateElement> external_state) {
-    uint8_t opcode = *m->pc_ptr;
+    /*uint8_t opcode = *m->pc_ptr;
     // TODO: Maybe primitives can also be called using the other call operators, maybe there should just be a function that checks if a certain function is being called?
     if (opcode == 0x10) { // call opcode
         uint8_t *pc_copy = m->pc_ptr + 1;
@@ -949,6 +949,13 @@ void restore_external_state(Module *m,
                     return;
                 }
             }
+        }
+    }*/
+    for (auto &primitive : primitives) {
+        printf("%s\n", primitive.name);
+        if (primitive.f_reverse) {
+            printf("Reversing action for primitive %s\n", primitive.name);
+            primitive.f_reverse(m, external_state);
         }
     }
 }
