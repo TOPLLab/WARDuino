@@ -756,12 +756,17 @@ int main(int argc, const char *argv[]) {
                 choicepoints.push_back(toVirtualAddress(choice_point, m));
             }
             auto primitive_calls = std::vector<uint32_t>();
-            for (uint8_t *call_site : m->find_primitive_calls()) {
+            for (uint8_t *call_site : m->find_pc_before_primitive_calls()) {
                 primitive_calls.push_back(toVirtualAddress(call_site, m));
+            }
+            auto after_primitive_calls = std::vector<uint32_t>();
+            for (uint8_t *call_site : m->find_pc_after_primitive_calls()) {
+                after_primitive_calls.push_back(toVirtualAddress(call_site, m));
             }
             nlohmann::json json;
             json["choicepoints"] = choicepoints;
             json["primitive_calls"] = primitive_calls;
+            json["after_primitive_calls"] = after_primitive_calls;
             std::cout << json << std::endl;
             wac->unload_module(m);
             exit(0);

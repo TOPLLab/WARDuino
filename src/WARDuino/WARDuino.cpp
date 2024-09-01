@@ -1075,7 +1075,7 @@ void Module::create_symbolic_state() {
 }
 #endif
 
-std::vector<uint8_t *> Module::find_calls(std::function<bool(std::string)> cond) const {
+std::vector<uint8_t *> Module::find_calls(const std::function<bool(std::string)>& cond, bool after) const {
     std::vector<uint8_t *> call_sites;
     for (size_t i = import_count; i < functions.size(); i++) {
         Block *func = functions[i];
@@ -1090,7 +1090,13 @@ std::vector<uint8_t *> Module::find_calls(std::function<bool(std::string)> cond)
                     const char *module_name = functions[fidx]->import_module;
                     const char *field_name = functions[fidx]->import_field;
                     if (!strcmp(module_name, "env") && cond(field_name)) {
-                        call_sites.push_back(instruction_start_pc);
+                        if (!after) {
+                            call_sites.push_back(instruction_start_pc);
+                        }
+                        else {
+                            // NOTE: Only works because this is a primitive call, if it was a regular call the vm would jump into a function and not just to the instruction after the call instruction.
+                            call_sites.push_back(pc);
+                        }
                     }
                 }
                 continue;
@@ -1112,6 +1118,10 @@ std::vector<uint8_t *> Module::find_choice_points() const {
     });
 }
 
-std::vector<uint8_t *> Module::find_primitive_calls() const {
+std::vector<uint8_t *> Module::find_pc_before_primitive_calls() const {
     return find_calls([](const std::string& x) { return true; });
+}
+
+std::vector<uint8_t *> Module::find_pc_after_primitive_calls() const {
+    return find_calls([](const std::string& x) { return true; }, true);
 }

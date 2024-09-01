@@ -220,9 +220,10 @@ typedef struct Module {
 #endif
     void memory_resize(uint32_t new_pages);
     std::vector<uint8_t *> find_choice_points() const;
-    std::vector<uint8_t *> find_primitive_calls() const;
+    std::vector<uint8_t *> find_pc_before_primitive_calls() const;
+    std::vector<uint8_t *> find_pc_after_primitive_calls() const;
     std::vector<uint8_t *> find_calls(
-        std::function<bool(std::string)> cond) const;
+        const std::function<bool(std::string)>& cond, bool after = false) const;
 } Module;
 
 typedef bool (*Primitive)(Module *);
