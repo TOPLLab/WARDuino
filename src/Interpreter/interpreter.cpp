@@ -200,6 +200,10 @@ bool Interpreter::interpret(Module *m, bool waiting) {
 
     while ((!program_done && success) || waiting) {
         if (m->warduino->program_state == WARDUINOstep) {
+            // Upon completing a step in checkpointing mode, make a checkpoint.
+            if (m->warduino->debugger->getSnapshotPolicy(m) == SnapshotPolicy::checkpointing) {
+                m->warduino->debugger->checkpoint(m);
+            }
             m->warduino->debugger->pauseRuntime(m);
         }
 
@@ -240,7 +244,7 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         m->warduino->debugger->skipBreakpoint = nullptr;
 
         // Take snapshot before executing an instruction
-        m->warduino->debugger->sendAsyncSnapshots(m);
+        m->warduino->debugger->handleSnapshotPolicy(m);
 
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
