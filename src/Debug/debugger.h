@@ -127,6 +127,7 @@ class Debugger {
 
     SnapshotPolicy snapshotPolicy;
     uint32_t instructions_executed;
+    uint8_t *prev_pc_ptr;
 
     std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
         overrides;
@@ -203,8 +204,7 @@ class Debugger {
 
     bool operation(Module *m, operation op);
 
-    bool isPrimitiveBeingCalled(Module *m);
-    void checkpoint(Module *m);
+    bool isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr);
 
    public:
     // Public fields
@@ -298,4 +298,9 @@ class Debugger {
 
     void addOverride(Module *m, uint8_t *interruptData);
     void removeOverride(Module *m, uint8_t *interruptData);
+
+    void checkpoint(Module *m, bool force = false);
+    inline SnapshotPolicy getSnapshotPolicy(Module *m) {
+        return snapshotPolicy;
+    }
 };
