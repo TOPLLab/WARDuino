@@ -23,6 +23,7 @@ Debugger::Debugger(Channel *duplex) {
     this->supervisor_mutex = new warduino::mutex();
     this->supervisor_mutex->lock();
     this->snapshotPolicy = SnapshotPolicy::none;
+    this->instructions_executed = 0;
 }
 
 // Public methods
@@ -192,7 +193,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             // Make a checkpoint so the debugger knows the current state and
             // knows how many instructions were executed since the last checkpoint.
             if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-                checkpoint(m);
+                checkpoint(m, true);
             }
             this->channel->write("PAUSE!\n");
             free(interruptData);
@@ -898,17 +899,22 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         snapshot(m);
     }
     else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-        if (instructions_executed >= 10 || isPrimitiveBeingCalled(m)) {
+        if (instructions_executed >= 10 || isPrimitiveBeingCalled(m, prev_pc_ptr)) {
             checkpoint(m);
         }
         instructions_executed++;
+        prev_pc_ptr = m->pc_ptr;
     }
     else if (snapshotPolicy != SnapshotPolicy::none) {
         this->channel->write("WARNING: Invalid snapshot policy.");
     }
 }
 
-void Debugger::checkpoint(Module *m) {
+void Debugger::checkpoint(Module *m, bool force) {
+    if (instructions_executed == 0 && !force) {
+        return;
+    }
+
     this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, "snapshot": )", instructions_executed);
     snapshot(m);
     this->channel->write("}\n");
@@ -1419,11 +1425,16 @@ Debugger::~Debugger() {
     delete this->supervisor_mutex;
     delete this->supervisor;
 }
-bool Debugger::isPrimitiveBeingCalled(Module *m) {
+
+bool Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
+    if (!pc_ptr) {
+        return false;
+    }
+
     // TODO: Maybe primitives can also be called using the other call operators
-    uint8_t opcode = *m->pc_ptr;
+    uint8_t opcode = *pc_ptr;
     if (opcode == 0x10) {  // call opcode
-        uint8_t *pc_copy = m->pc_ptr + 1;
+        uint8_t *pc_copy = pc_ptr + 1;
         uint32_t fidx = read_LEB_32(&pc_copy);
         return fidx < m->import_count;
     }
