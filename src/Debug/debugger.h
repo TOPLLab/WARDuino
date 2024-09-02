@@ -257,7 +257,7 @@ class Debugger {
 
     void snapshot(Module *m);
 
-    void setSnapshotPolicy(const uint8_t *interruptData);
+    void setSnapshotPolicy(Module *m, const uint8_t *interruptData);
 
     void handleSnapshotPolicy(Module *m);
 
@@ -293,7 +293,7 @@ class Debugger {
     bool handlePushedEvent(char *bytes) const;
 
     void checkpoint(Module *m, bool force = false);
-    inline SnapshotPolicy getSnapshotPolicy(Module *m) {
+    inline SnapshotPolicy getSnapshotPolicy() {
         return snapshotPolicy;
     }
 
