@@ -24,6 +24,7 @@ Debugger::Debugger(Channel *duplex) {
     this->supervisor_mutex->lock();
     this->snapshotPolicy = SnapshotPolicy::none;
     this->instructions_executed = 0;
+    this->remaining_instructions = -1;
 }
 
 // Public methods
@@ -212,6 +213,15 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleInterruptBP(m, interruptData);
             free(interruptData);
             break;
+        case interruptContinueFor: {
+            uint8_t *data = interruptData + 1;
+            uint32_t amount = read_B32(&data);
+            printf("Continue for %d instruction(s)\n", amount);
+            remaining_instructions = (int32_t) amount;
+            *program_state = WARDUINOrun;
+            free(interruptData);
+            break;
+        }
         case interruptDUMP:
             this->pauseRuntime(m);
             this->dump(m);
@@ -1559,5 +1569,21 @@ bool Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
         uint32_t fidx = read_LEB_32(&pc_copy);
         return fidx < m->import_count;
     }
+    return false;
+}
+bool Debugger::handleContinueFor(Module *m) {
+    if (remaining_instructions < 0)
+        return false;
+
+    if (remaining_instructions == 0) {
+        remaining_instructions = -1;
+        if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+            checkpoint(m);
+        }
+        this->channel->write("DONE!\n");
+        pauseRuntime(m);
+        return true;
+    }
+    remaining_instructions--;
     return false;
 }

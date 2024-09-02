@@ -243,6 +243,10 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         }
         m->warduino->debugger->skipBreakpoint = nullptr;
 
+        if (m->warduino->debugger->handleContinueFor(m)) {
+            continue;
+        }
+
         // Take snapshot before executing an instruction
         m->warduino->debugger->handleSnapshotPolicy(m);
 
