@@ -35,6 +35,7 @@ CXXSOURCES = \
            ../src/WARDuino/CallbackHandler.cpp \
            ../src/Primitives/emulated.cpp \
            ../src/Interpreter/instructions.cpp \
+	   ../src/Interpreter/interpreter.cpp \
            ../src/Edward/RFC.cpp \
            ../src/Edward/proxy.cpp \
            ../src/Edward/proxy_supervisor.cpp \
