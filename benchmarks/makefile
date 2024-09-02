@@ -40,7 +40,6 @@ CXXSOURCES = \
            ../src/Edward/proxy.cpp \
            ../src/Edward/proxy_supervisor.cpp \
            ../src/Utils/sockets.cpp \
-	   ../lib/json/single_include/nlohmann/json.hpp \
 	benchmarks.cpp
 
 all: $(OUTPUTDIR)$(TARGET) $(addprefix tasks/,$(addsuffix /wast/impl.wasm, $(TASKS)))
