@@ -264,12 +264,38 @@ def_prim(chip_pin_mode, twoToNoneU32) {
     return true;
 }
 
+std::unordered_map<uint32_t, uint32_t> io_map;
+
 def_prim(chip_digital_write, twoToNoneU32) {
     printf("chip_digital_write(%u,%u)\n", arg1.uint32, arg0.uint32);
     gpio_dt_spec pin_spec = specs[arg1.uint32];
     gpio_pin_set_raw(pin_spec.port, pin_spec.pin, arg0.uint32);
+    io_map[arg1.uint32] = arg0.uint32;
     pop_args(2);
     return true;
+}
+
+def_prim_serialize(chip_digital_write) {
+    for (auto pair : io_map) {
+        IOStateElement *state = new IOStateElement();
+        state->output = true;
+        state->key = "p" + std::to_string(pair.first);
+        state->value = pair.second;
+        external_state.push_back(state);
+    }
+}
+
+def_prim_reverse(chip_digital_write) {
+    for (IOStateElement state : external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'p') {
+            invoke_primitive(m, "chip_digital_write", stoi(state.key.substr(1)),
+                             (uint32_t)state.value);
+        }
+    }
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
@@ -547,19 +573,6 @@ def_prim_serialize(drive_motor_degrees) {
         state->key = "e" + std::to_string(i);
         state->value = encoders[i].get_target_angle();
         external_state.push_back(state);
-    }
-}
-
-def_prim_reverse(chip_digital_write) {
-    for (IOStateElement state : external_state) {
-        if (!state.output) {
-            continue;
-        }
-
-        if (state.key[0] == 'p') {
-            invoke_primitive(m, "chip_digital_write", stoi(state.key.substr(1)),
-                             (uint32_t)state.value);
-        }
     }
 }
 
@@ -880,6 +893,7 @@ void install_primitives() {
     install_primitive(chip_delay);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
+    install_primitive_reverse(chip_digital_write);
     install_primitive(chip_digital_read);
     install_primitive(print_int);
     install_primitive(motor_test);
