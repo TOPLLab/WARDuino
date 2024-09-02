@@ -61,6 +61,7 @@ enum InterruptTypes {
     interruptSTEPOver = 0x05,
     interruptBPAdd = 0x06,
     interruptBPRem = 0x07,
+    interruptContinueFor = 0x08,
     interruptInspect = 0x09,
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
@@ -129,6 +130,8 @@ class Debugger {
     SnapshotPolicy snapshotPolicy;
     uint32_t instructions_executed;
     uint8_t *prev_pc_ptr;
+
+    int32_t remaining_instructions;
 
     std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>> overrides;
 
@@ -257,6 +260,8 @@ class Debugger {
     void setSnapshotPolicy(const uint8_t *interruptData);
 
     void handleSnapshotPolicy(Module *m);
+
+    bool handleContinueFor(Module *m);
 
     void proxify();
 
