@@ -26,6 +26,7 @@ Debugger::Debugger(Channel *duplex) {
     this->snapshotPolicy = SnapshotPolicy::none;
     this->instructions_executed = 0;
     this->remaining_instructions = -1;
+    this->prev_pc_ptr = nullptr;
 }
 
 // Public methods
