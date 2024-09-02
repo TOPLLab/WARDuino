@@ -278,7 +278,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->channel->write("\n");
             break;
         case interruptSetSnapshotPolicy:
-            setSnapshotPolicy(interruptData + 1);
+            setSnapshotPolicy(m, interruptData + 1);
             free(interruptData);
             break;
         case interruptInspect: {
@@ -939,8 +939,11 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
     this->channel->write("}");
 }
 
-void Debugger::setSnapshotPolicy(const uint8_t *interruptData) {
+void Debugger::setSnapshotPolicy(Module *m, const uint8_t *interruptData) {
     snapshotPolicy = SnapshotPolicy{*interruptData};
+    if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+        checkpoint(m, true);
+    }
 }
 
 void Debugger::handleSnapshotPolicy(Module *m) {

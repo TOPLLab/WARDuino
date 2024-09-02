@@ -259,7 +259,7 @@ class Debugger {
 
     void snapshot(Module *m) const;
 
-    void setSnapshotPolicy(const uint8_t *interruptData);
+    void setSnapshotPolicy(Module *m, const uint8_t *interruptData);
 
     void handleSnapshotPolicy(Module *m);
 
@@ -306,7 +306,7 @@ class Debugger {
     void removeOverride(Module *m, uint8_t *interruptData);
 
     void checkpoint(Module *m, bool force = false);
-    inline SnapshotPolicy getSnapshotPolicy(Module *m) {
+    inline SnapshotPolicy getSnapshotPolicy() {
         return snapshotPolicy;
     }
 };
