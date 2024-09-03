@@ -14,8 +14,8 @@ DEBUGFLAGS = -DDEBUG=$(DEBUG) -DTRACE=$(TRACE) -DINFO=$(INFO) -DWARN=$(WARN)
 
 CXX       = g++
 CC        = gcc
-CFLAGS    = -g -Wall -c
-CXXFLAGS  = -g -v -std=c++11 -I ../lib/json/single_include -Wall
+CFLAGS    = -Wall -c -O3
+CXXFLAGS  = -v -O3 -std=c++11 -I ../lib/json/single_include -Wall
 
 
 
