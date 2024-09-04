@@ -50,20 +50,31 @@ jobs:
           cmake --build .
           echo "EMULATOR=$(realpath ./wdcli)" >> $GITHUB_ENV
 
+      - name: Get WABT commit ID
+        working-directory: lib/wabt
+        run: echo "WABT_VERSION=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Cache wabt
+        uses: actions/cache@v4
+        id: cache-wabt
+        with:
+          key: ${{ runner.os }}-wabt-${{ env.WABT_VERSION }}
+          path: lib/wabt/build
+          restore-keys: |
+            ${{ runner.os }}-wabt-
+
       - name: Build WABT  # Build latest version
+        if: steps.cache-wabt.outputs.cache-hit == false
+        working-directory: lib/wabt
         run: |
-          git clone --recursive https://github.com/TOPLLab/wabt.git
-          cd wabt
-          git checkout develop
-          git submodule update --init
           mkdir build; cd build
           cmake ..
           cmake --build .
 
       - name: Verify wat2wasm
         run: |
-          echo "WABT=$(readlink -f ./wabt/build)" >> $GITHUB_ENV
-          ./wabt/build/wat2wasm --version
+          echo "WABT=$(readlink -f ./lib/wabt/build)" >> $GITHUB_ENV
+          ./lib/wabt/build/wat2wasm --version
 
       - run: npm install
         working-directory: tests/latch/
@@ -94,20 +105,31 @@ jobs:
           cmake --build .
           echo "EMULATOR=$(realpath ./wdcli)" >> $GITHUB_ENV
 
+      - name: Get WABT commit ID
+        working-directory: lib/wabt
+        run: echo "WABT_VERSION=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Cache wabt
+        uses: actions/cache@v4
+        id: cache-wabt
+        with:
+          key: ${{ runner.os }}-wabt-${{ env.WABT_VERSION }}
+          path: lib/wabt/build
+          restore-keys: |
+            ${{ runner.os }}-wabt-
+
       - name: Build WABT  # Build latest version
+        if: steps.cache-wabt.outputs.cache-hit == false
+        working-directory: lib/wabt
         run: |
-          git clone --recursive https://github.com/TOPLLab/wabt.git
-          cd wabt
-          git checkout develop
-          git submodule update --init
           mkdir build; cd build
           cmake ..
           cmake --build .
 
       - name: Verify wat2wasm
         run: |
-          echo "WABT=$(readlink -f ./wabt/build)" >> $GITHUB_ENV
-          ./wabt/build/wat2wasm --version
+          echo "WABT=$(readlink -f ./lib/wabt/build)" >> $GITHUB_ENV
+          ./lib/wabt/build/wat2wasm --version
 
       - run: npm install
         working-directory: tests/latch/
@@ -136,20 +158,31 @@ jobs:
           cmake --build .
           echo "EMULATOR=$(realpath ./wdcli)" >> $GITHUB_ENV
 
+      - name: Get WABT commit ID
+        working-directory: lib/wabt
+        run: echo "WABT_VERSION=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Cache wabt
+        uses: actions/cache@v4
+        id: cache-wabt
+        with:
+          key: ${{ runner.os }}-wabt-${{ env.WABT_VERSION }}
+          path: lib/wabt/build
+          restore-keys: |
+            ${{ runner.os }}-wabt-
+
       - name: Build WABT  # Build latest version
+        if: steps.cache-wabt.outputs.cache-hit == false
+        working-directory: lib/wabt
         run: |
-          git clone --recursive https://github.com/TOPLLab/wabt.git
-          cd wabt
-          git checkout develop
-          git submodule update --init
           mkdir build; cd build
           cmake ..
           cmake --build .
 
       - name: Verify wat2wasm
         run: |
-          echo "WABT=$(readlink -f ./wabt/build)" >> $GITHUB_ENV
-          ./wabt/build/wat2wasm --version
+          echo "WABT=$(readlink -f ./lib/wabt/build)" >> $GITHUB_ENV
+          ./lib/wabt/build/wat2wasm --version
 
       - run: npm install
         working-directory: tests/latch/
