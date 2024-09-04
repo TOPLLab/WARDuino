@@ -35,3 +35,5 @@ core
 venv
 
 *.wasm
+
+./platforms/Arduino/node_modules
