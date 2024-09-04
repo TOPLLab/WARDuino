@@ -57,9 +57,9 @@ if (BUILD_EMULATOR)
             src/Edward/RFC.cpp
     )
 
-    add_definitions(-DINFO=0)
-    add_definitions(-DDEBUG=0)
-    add_definitions(-DTRACE=0)
+    add_definitions(-DINFO=1)
+    add_definitions(-DDEBUG=1)
+    add_definitions(-DTRACE=1)
     add_definitions(-DWARN=0)
 
     # Set default compile flags for GCC
@@ -67,6 +67,7 @@ if (BUILD_EMULATOR)
         add_compile_options(-g -v -Wall -Wextra -Wunused -O3)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
+    add_compile_options(-g )
     # WARDuino CLI
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
     target_link_libraries(wdcli PRIVATE Threads::Threads)

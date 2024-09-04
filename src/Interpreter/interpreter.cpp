@@ -188,6 +188,395 @@ bool Interpreter::load(Module *m, uint8_t type, uint32_t addr,
     return true;
 }
 
+
+void Interpreter::threadedInterpreter(Module *m)
+{
+    // instruction states and local variables
+    
+    uint8_t opcode;
+    uint8_t* block_ptr;
+    StackValue *target;
+
+    int32_t arg0;
+    int32_t arg1;
+    int32_t result;
+
+    Block *block = nullptr;
+    uint32_t fidx;
+    std::__1::map<uint8_t *, Block *>::iterator block_itr;
+
+    // Jump table for instruction dispatch
+    void* jumpTable[256] = {0};
+    
+    //set all instructions to undefined
+    for(int i = 0; i < 256; i++) {
+        jumpTable[i] = &&undefinedInstruction;
+    }
+
+    // set the jump table for the instructions
+    jumpTable[I32_CONST] = &&i32_const;  
+    jumpTable[SET_LOCAL] = &&set_local;
+    jumpTable[GET_LOCAL] = &&get_local;
+    jumpTable[LOOP] = &&loop;
+    jumpTable[BLOCK] = &&block;
+    jumpTable[END] = &&end;
+    jumpTable[CALL] = &&call;
+    jumpTable[BR_IF] = &&br_if;
+    jumpTable[BR] = &&br;
+    jumpTable[RETURN] = &&ret;
+    jumpTable[TEE_LOCAL] = &&tee_local;
+    jumpTable[SELECT] = &&i_instr_select;
+
+    // boolean instructions for 32 bit 
+    jumpTable[I32_EQ]   = &&math_binop_32_bool;
+    jumpTable[I32_NE]   = &&math_binop_32_bool;
+    jumpTable[I32_LT_S] = &&math_binop_32_bool;
+    jumpTable[I32_LT_U] = &&math_binop_32_bool;
+    jumpTable[I32_GT_S] = &&math_binop_32_bool;
+    jumpTable[I32_GT_U] = &&math_binop_32_bool;
+    jumpTable[I32_LE_S] = &&math_binop_32_bool;
+    jumpTable[I32_LE_U] = &&math_binop_32_bool;
+    jumpTable[I32_GE_S] = &&math_binop_32_bool;
+    jumpTable[I32_GE_U] = &&math_binop_32_bool;
+    // boolean instructions for 64 bit
+    jumpTable[I64_EQ]   = &&math_binop_64_bool;
+    jumpTable[I64_NE]   = &&math_binop_64_bool;
+    jumpTable[I64_LT_S] = &&math_binop_64_bool;
+    jumpTable[I64_LT_U] = &&math_binop_64_bool;
+    jumpTable[I64_GT_S] = &&math_binop_64_bool;
+    jumpTable[I64_GT_U] = &&math_binop_64_bool;
+    jumpTable[I64_LE_S] = &&math_binop_64_bool;
+    jumpTable[I64_LE_U] = &&math_binop_64_bool;
+    jumpTable[I64_GE_S] = &&math_binop_64_bool;
+    jumpTable[I64_GE_U] = &&math_binop_64_bool;
+    //binop instructions for 32 bit 
+    jumpTable[I32_ADD] = &&math_binop_32_int;
+    jumpTable[I32_SUB] = &&math_binop_32_int;
+    jumpTable[I32_MUL] = &&math_binop_32_int;
+    jumpTable[I32_DIV_S] = &&math_binop_32_int;
+    jumpTable[I32_DIV_U] = &&math_binop_32_int;
+    jumpTable[I32_REM_S] = &&math_binop_32_int;
+    jumpTable[I32_REM_U] = &&math_binop_32_int;
+    jumpTable[I32_AND] = &&math_binop_32_int;
+    jumpTable[I32_OR] = &&math_binop_32_int;
+    jumpTable[I32_XOR] = &&math_binop_32_int;
+    jumpTable[I32_SHL] = &&math_binop_32_int;
+    jumpTable[I32_SHR_S] = &&math_binop_32_int;
+    jumpTable[I32_SHR_U] = &&math_binop_32_int;
+    jumpTable[I32_ROTL] = &&math_binop_32_int;
+    jumpTable[I32_ROTR] = &&math_binop_32_int;
+    
+    jumpTable[I32_EQZ] = &&i32_eqz;
+    jumpTable[I64_EQZ] = &&i64_eqz;
+
+    goto nextInstruction;
+
+    // Basis set of instructions for implementing fibonacci
+    /*
+        I32 CONST 
+     */ 
+    i32_const:
+        target = &m->stack[++m->sp];
+        target->value_type = I32;
+        target->value.uint32 = read_LEB_signed(&m->pc_ptr, 32);
+        goto nextInstruction;
+
+    /*
+        Set_local on the stack 
+    */
+    set_local:    
+        arg0 = read_LEB_32(&m->pc_ptr);
+        m->stack[m->fp + arg0] = m->stack[m->sp--];
+        goto nextInstruction;
+
+    get_local:
+        arg0 = read_LEB_32(&m->pc_ptr);
+        m->stack[++m->sp] = m->stack[m->fp + arg0];
+        goto nextInstruction;
+
+    tee_local: 
+        arg0 = read_LEB_32(&m->pc_ptr);
+        m->stack[m->fp + arg0] = m->stack[m->sp];
+        goto nextInstruction;    
+
+    loop:
+        read_LEB_32(&m->pc_ptr);  // ignore block type
+        if (m->csp >= CALLSTACK_SIZE) {
+            sprintf(exception, "call stack exhausted");
+            exit(1);
+        }
+        m->warduino->interpreter->push_block(m, m->block_lookup[block_ptr], m->sp);
+        goto nextInstruction;
+
+    block:
+        read_LEB_32(&m->pc_ptr);  // ignore block type
+        if (m->csp >= CALLSTACK_SIZE) {
+            sprintf(exception, "call stack exhausted");
+            exit(1);
+        }
+        block_itr = m->block_lookup.find(block_ptr);
+        ASSERT(block_itr != m->block_lookup.end(), "could not find block");
+        m->warduino->interpreter->push_block(m, block_itr->second, m->sp);
+        goto nextInstruction;
+
+    end: 
+        block = m->warduino->interpreter->pop_block(m);
+        
+        if (block == nullptr) {
+            return;  // an exception (set by pop_block)
+        }
+
+        if (block->block_type == 0x00) {  // Function
+            if (m->csp == -1) {
+                return ;  // break loop
+            } else {
+                // Keep going at return address
+            }
+        } else if (block->block_type == 0x01) {  // init_expr
+            return;  // // break loop
+        } else {       
+            
+        }
+        goto nextInstruction;  
+
+    br_if: 
+        // condition
+        arg0 = read_LEB_32(&m->pc_ptr);
+        arg1 = m->stack[m->sp--].value.uint32;
+        if (arg1) {  // if true
+            m->csp -= arg0;
+            // set to end for pop_block
+            m->pc_ptr = m->callstack[m->csp].block->br_ptr;
+        }   
+        goto nextInstruction; 
+
+    br:
+       m->csp -= read_LEB_32(&m->pc_ptr);
+       // set to end for pop_block
+       m->pc_ptr = m->callstack[m->csp].block->br_ptr;  
+       goto nextInstruction; 
+
+    call: 
+        fidx = read_LEB_32(&m->pc_ptr);
+        if (fidx < m->import_count) {
+             // primitive call
+             ((Primitive)m->functions[fidx].func_ptr)(m);
+        } else {
+            if (m->csp >= CALLSTACK_SIZE) {
+                sprintf(exception, "call stack exhausted");
+                exit(1);
+            }
+            // regular function call
+            m->warduino->interpreter->setup_call(m, fidx);  
+        }
+        goto nextInstruction;   
+    
+    ret: 
+        while (m->csp >= 0 && m->callstack[m->csp].block->block_type != 0x00) {
+            m->csp--;
+        }
+        // Set the program count to the end of the function
+        // The actual pop_block and return is handled by the end opcode.
+        m->pc_ptr = m->callstack[0].block->end_ptr;
+        goto nextInstruction;
+
+    i_instr_select:
+        arg0 = m->stack[m->sp--].value.uint32;
+        m->sp--;
+        if (!arg0) {  // use a instead of b
+            m->stack[m->sp] = m->stack[m->sp + 1];
+        }
+        goto nextInstruction;
+
+    
+
+    //Binary boolean operators 32 bit
+    math_binop_32_bool:
+        arg0 = m->stack[m->sp - 1].value.uint32;
+        arg1 = m->stack[m->sp].value.uint32;
+        m->sp -= 1;
+        switch (opcode) {
+            case I32_EQ:
+                result = static_cast<uint32_t>(arg0 == arg1);
+                break;  
+            case I32_NE:
+                result = static_cast<uint32_t>(arg0 != arg1);
+                break; 
+            case I32_LT_S:
+                result = static_cast<uint32_t>((int32_t)arg0 < (int32_t)arg1);
+                break;  
+            case I32_LT_U:
+                result = static_cast<uint32_t>(arg0 < arg1);
+                break; 
+            case I32_GT_S:
+                result = static_cast<uint32_t>((int32_t)arg0 > (int32_t)arg1);
+                break;  
+            case I32_GT_U:
+                result = static_cast<uint32_t>(arg0 > arg1);
+                break;  
+            case I32_LE_S:
+                result = static_cast<uint32_t>((int32_t)arg0 <= (int32_t)arg1);
+                break; 
+            case I32_LE_U:
+                result = static_cast<uint32_t>(arg0 <= arg1);
+                break;  
+            case I32_GE_S:
+                result = static_cast<uint32_t>((int32_t)arg0 >= (int32_t)arg1);
+                break;  
+            case I32_GE_U:
+                result = static_cast<uint32_t>(arg0 >= arg1);
+                break; 
+            default:
+                printf("ran into an undefined instruction:: 0x%02hhX ", opcode);
+                exit(1);
+        }
+        // m->stack[m->sp].value_type = I32; (This is already set to I32 in the stack)
+        m->stack[m->sp].value.uint32 = result;
+        goto nextInstruction;
+
+    math_binop_32_int: 
+        // TODO: verify if this should not be done with int32_t instead
+        arg0 = m->stack[m->sp - 1].value.uint32;
+        arg1 = m->stack[m->sp].value.uint32;
+        m->sp -= 1;
+
+        if (opcode >= 0x6d && opcode <= 0x70 && arg1 == 0) {
+            sprintf(exception, "integer divide by zero");
+            exit(1);
+        }
+        switch (opcode) {
+            // case 0x6a: o = __builtin_add_overflow(a, b, &c); break;
+            // // i32.add case 0x6b: o = __builtin_sub_overflow(a, b,
+            // &c); break;  // i32.sub
+            case I32_ADD:
+                result = arg0 + arg1;
+                break;  // i32.add
+            case I32_SUB:
+                result = arg0 - arg1;
+                break;  // i32.sub
+            case I32_MUL:
+                result = arg0 * arg1;
+                break;  // i32.mul
+            case I32_DIV_S:
+                if (arg0 == 0x80000000 && arg1 == (uint32_t)-1) {
+                    sprintf(exception, "integer overflow");
+                    exit(1);
+                }
+                result = (int32_t)arg0 / (int32_t)arg1;
+                break;  // i32.div_s
+            case I32_DIV_U:
+                result = arg0 / arg1;
+                break;  // i32.div_u
+            case I32_REM_S:
+                if (arg0 == 0x80000000 && arg1 == (uint32_t)-1) {
+                    result = 0;
+                } else {
+                    result = (int32_t)arg0 % (int32_t)arg1;
+                };
+                break;  // i32.rem_s
+            case I32_REM_U:
+                result = arg0 % arg1;
+                break;  // i32.rem_u
+            case I32_AND:
+                result = arg0 & arg1;
+                break;  // i32.and
+            case I32_OR:
+                result = arg0 | arg1;
+                break;  // i32.or
+            case I32_XOR:
+                result = arg0 ^ arg1;
+                break;  // i32.xor
+            case I32_SHL:
+                result = arg0 << arg1;
+                break;  // i32.shl
+            case I32_SHR_S:
+                result = (int32_t)arg0 >> arg1;  // NOLINT(hicpp-signed-bitwise)
+                break;                // i32.shr_s
+            case I32_SHR_U:
+                result = arg0 >> arg1;
+                break;  // i32.shr_u
+            case I32_ROTL:
+                result = rotl32(arg0, arg1);
+                break;  // i32.rotl
+            case I32_ROTR:
+                result = rotr32(arg0, arg1);
+                break;  // i32.rotr
+            default:
+                exit(1);
+        }
+        // m->stack[m->sp].value_type = I32; (This is already set to I32 in the stack)
+        m->stack[m->sp].value.uint32 = result;
+        goto nextInstruction;
+
+    math_binop_64_bool:
+        arg0 = m->stack[m->sp - 1].value.uint64;
+        arg1 = m->stack[m->sp].value.uint64;
+        m->sp -= 1;
+        switch (opcode) {
+            case I64_EQ:
+                result = static_cast<uint32_t>(arg0 == arg1);
+                break;  
+            case I64_NE:
+                result = static_cast<uint32_t>(arg0 != arg1);
+                break;  
+            case I64_LT_S:
+                result = static_cast<uint32_t>((int64_t)arg0< (int64_t)arg1);
+                break;  
+            case I64_LT_U:
+                result = static_cast<uint32_t>(arg0 < arg1);
+                break;  
+            case I64_GT_S:
+                result = static_cast<uint32_t>((int64_t)arg0 > (int64_t)arg1);
+                break;  
+            case I64_GT_U:
+                result = static_cast<uint32_t>(arg0 > arg1);
+                break;  
+            case I64_LE_S:
+                result = static_cast<uint32_t>((int64_t)arg0 <= (int64_t)arg1);
+                break; 
+            case I64_LE_U:
+                result = static_cast<uint32_t>(arg0 <= arg1);
+                break;  
+            case I64_GE_S:
+                result = static_cast<uint32_t>((int64_t)arg0 >= (int64_t)arg1);
+                break;  
+            case I64_GE_U:
+                result = static_cast<uint32_t>(arg0 >= arg1);
+                break;  
+            default:
+                printf("ran into an undefined instruction:: 0x%02hhX ", opcode);
+                exit(1);
+        }
+        m->stack[m->sp].value_type = I32;
+        m->stack[m->sp].value.uint32 = result;   
+        goto nextInstruction;
+
+    i32_eqz:  // i32.eqz
+        m->stack[m->sp].value.uint32 = static_cast<uint32_t>(m->stack[m->sp].value.uint32 == 0);
+        goto nextInstruction;
+
+    i64_eqz:  // i64.eqz
+        m->stack[m->sp].value_type = I32;
+        m->stack[m->sp].value.uint32 = static_cast<uint32_t>(m->stack[m->sp].value.uint64 == 0);
+        goto nextInstruction;
+
+
+    // Administrative instructions 
+
+    nextInstruction:
+        //dbg_dump_stack(m);
+        opcode = *m->pc_ptr;
+        block_ptr = m->pc_ptr;
+        m->pc_ptr += 1;
+        goto *jumpTable[opcode];
+
+    undefinedInstruction:
+        printf("ran into an undefined instruction:: 0x%02hhX ", opcode);
+        exit(0);
+    
+}
+
+
 bool Interpreter::interpret(Module *m, bool waiting) {
     uint8_t *block_ptr;
     uint8_t opcode;
@@ -257,24 +646,24 @@ bool Interpreter::interpret(Module *m, bool waiting) {
             //
             // Control flow operators
             //
-            case 0x00:  // unreachable
+            case UNREACHABLE:  
                 sprintf(exception, "%s", "unreachable");
                 success &= false;
-            case 0x01:  // nop
+            case NOP:  
                 continue;
-            case 0x02:  // block
+            case BLOCK:  
                 success &= i_instr_block(m, block_ptr);
                 continue;
-            case 0x03:  // loop
+            case LOOP:  
                 success &= i_instr_loop(m, block_ptr);
                 continue;
-            case 0x04:  // if
+            case IF:  
                 success &= i_instr_if(m, block_ptr);
                 continue;
-            case 0x05:  // else
+            case ELSE:  // else
                 success &= i_instr_else(m);
                 continue;
-            case 0x0b:  // end
+            case END:  // end
                 success &= i_instr_end(m, &program_done);
                 continue;
             case 0x0c:  // br

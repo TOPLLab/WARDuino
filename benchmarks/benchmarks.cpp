@@ -108,10 +108,12 @@ int run_benchmarks(size_t num_benchmarks, string benchmarks[],
 }
 
 int main(int argc, const char *argv[]) {
-    string benchmarks[] = {"tak", "fib", "fac", "gcd", "catalan", "primes"};
-    uint32_t expected[] = {7, 91, 82, 62882, 244, 1824};
+    string benchmarks[] = {"tak", "fac", "fib", "gcd", "catalan", "primes"};
+    uint32_t expected[] = {7, 82, 91, 62882, 244, 1824};
+
     size_t num = (size_t)(sizeof(benchmarks) / sizeof(string *));
     size_t correct = run_benchmarks(num, benchmarks, expected);
+
     bool pass = (num == correct);
     printf("SUMMARY: %s (%zu / %zu)\n", pass ? "PASS" : "FAIL", correct, num);
     return pass ? 0 : 1;

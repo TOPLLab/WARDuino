@@ -1,5 +1,83 @@
 #include "../WARDuino.h"
 
+// Defining the instruction constants 
+
+
+#define UNREACHABLE 0x00
+#define NOP 0x01
+#define BLOCK 0x02
+#define LOOP 0x03
+#define IF 0x04
+#define ELSE 0x05
+#define END 0x0b
+#define BR 0x0c
+#define BR_IF 0x0d
+#define BR_TABLE 0x0e
+#define RETURN 0x0f
+#define CALL 0x10
+#define CALL_INDIRECT 0x11
+#define DROP 0x1a
+#define SELECT 0x1b
+#define GET_LOCAL 0x20
+#define SET_LOCAL 0x21
+#define TEE_LOCAL 0x22
+#define GET_GLOBAL 0x23
+#define SET_GLOBAL 0x24
+#define CURRENT_MEMORY 0x3f
+#define GROW_MEMORY 0x40
+#define MEMORY_LOAD_START 0x28
+#define MEMORY_LOAD_END 0x35
+#define MEMORY_STORE_START 0x36
+#define MEMORY_STORE_END 0x3e
+#define CONST_START 0x41
+#define CONST_END 0x44
+#define I32_CONST 0x41
+
+// binary boolean operators I32 unsigned int
+#define I32_EQ 0x46
+#define I32_NE 0x47
+#define I32_LT_S 0x48
+#define I32_LT_U 0x49
+#define I32_GT_S 0x4a
+#define I32_GT_U 0x4b
+#define I32_LE_S 0x4c
+#define I32_LE_U 0x4d
+#define I32_GE_S 0x4e
+#define I32_GE_U 0x4f
+
+//binary boolean operators I64
+#define I64_EQ 0x51
+#define I64_NE 0x52
+#define I64_LT_S 0x53
+#define I64_LT_U 0x54
+#define I64_GT_S 0x55
+#define I64_GT_U 0x56
+#define I64_LE_S 0x57
+#define I64_LE_U 0x58
+#define I64_GE_S 0x59
+#define I64_GE_U 0x5a
+
+#define I32_ADD 0x6a
+#define I32_SUB 0x6b
+#define I32_MUL 0x6c
+#define I32_DIV_S 0x6d
+#define I32_DIV_U 0x6e
+#define I32_REM_S 0x6f
+#define I32_REM_U 0x70
+#define I32_AND 0x71
+#define I32_OR 0x72
+#define I32_XOR 0x73
+#define I32_SHL 0x74
+#define I32_SHR_S 0x75
+#define I32_SHR_U 0x76
+#define I32_ROTL 0x77
+#define I32_ROTR 0x78
+
+
+#define I32_EQZ 0x45
+#define I64_EQZ 0x50
+
+
 bool i_instr_block(Module *m, uint8_t *block_ptr);
 
 bool i_instr_loop(Module *m, uint8_t *block_ptr);

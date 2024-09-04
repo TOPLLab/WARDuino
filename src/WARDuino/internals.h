@@ -119,6 +119,7 @@ typedef struct Module {
     Memory memory;
     uint32_t global_count = 0;      // number of globals
     StackValue *globals = nullptr;  // globals
+
     // Runtime state
     uint8_t *pc_ptr = nullptr;     // program counter
     int sp = -1;                   // operand stack pointer

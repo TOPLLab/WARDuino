@@ -6,11 +6,13 @@
 
   ;; Imports from the WARDuino VM
   (import "env" "chip_delay" (func $env.chip_delay (type $int32->void)))
+  (import "env" "display_init" (func $env.display_init (type $void->void)))
+
   (import "env" "chip_pin_mode" (func $env.chip_pin_mode (type $int32->int32->void)))
   (import "env" "chip_digital_write" (func $env.chip_digital_write (type $int32->int32->void)))
 
   ;; Non-mutable globals
-  (global $led i32 (i32.const 23))
+  (global $led i32 (i32.const 4))
   (global $on i32 (i32.const 1))
   (global $off i32 (i32.const 0))
 
@@ -18,8 +20,10 @@
   (func $init (type $void->void)
     ;; Set pin mode
     global.get $led
-    i32.const 2
-    call $env.chip_pin_mode)
+    i32.const 3
+    call $env.chip_pin_mode
+    call $env.display_init
+    )
 
   ;; Blink function (public)
   (func $blink (type $void->void)

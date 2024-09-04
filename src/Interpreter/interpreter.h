@@ -5,6 +5,7 @@
 #include "../WARDuino/internals.h"
 
 class Interpreter {
+
    public:
     /**
      * Push a new frame on to the call stack
@@ -12,6 +13,7 @@ class Interpreter {
      * @param block
      * @param sp stack pointer to return to
      */
+   
     void push_block(Module *m, Block *block, int sp);
 
     /**
@@ -45,12 +47,17 @@ class Interpreter {
      */
     bool interpret(Module *m, bool waiting = false);
 
+    // threaded interpreter test
+    void threadedInterpreter(Module *m);
+
     /* Stateful operations
      * ************************************************************************/
 
     bool store(Module *m, uint8_t type, uint32_t addr, StackValue &sval);
 
     bool load(Module *m, uint8_t type, uint32_t addr, uint32_t offset);
+
+
 
     static void report_overflow(Module *m, uint8_t *maddr);
 

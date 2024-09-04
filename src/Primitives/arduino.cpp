@@ -25,16 +25,52 @@
 #include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
-// NEOPIXEL
-#include <Adafruit_NeoPixel.h>
-#define PIN 33
-#define NUMPIXELS 64
-Adafruit_NeoPixel pixels =
-    Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 #define delay_us(ms) delayMicroseconds(ms)
 #include <SPI.h>
 SPIClass *spi = new SPIClass();
+
+#define DISPLAY
+
+#ifdef DISPLAY 
+
+#include <Adafruit_GFX.h>
+#include <Adafruit_ILI9341.h>
+
+#define TFT_RST 18
+#define TFT_CLK 19
+#define TFT_DC 21
+#define TFT_CS  22
+#define TFT_MOSI 23
+#define TFT_MISO 25
+
+#define LCD_BL    5    // BL   --> LEDK
+
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
+
+
+void setupDisplay() {
+   // Enable backlight.
+  pinMode(LCD_BL, OUTPUT);
+  digitalWrite(LCD_BL, LOW);
+  tft.begin();
+
+      printf("STARTING DISPLAY\n" );
+
+  tft.fillScreen(ILI9341_GREEN);
+
+  tft.setCursor(0, 0);
+  tft.setTextColor(ILI9341_WHITE);  
+  tft.setTextSize(1);
+  tft.println("Hello World!");
+
+
+
+}
+
+
+#endif 
+
 
 // Hardware SPI
 void write_spi_byte(unsigned char c) {
@@ -132,7 +168,22 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 38
+#define NUM_PRIMITIVES_ARDUINO 36
+
+
+// NEOPIXEL (TODO fix primitives API)
+#ifdef NEOPIXEL
+
+#include <Adafruit_NeoPixel.h>
+#define PIN 33
+#define NUMPIXELS 64
+Adafruit_NeoPixel pixels =
+    Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+#define NUM_PRIMITIVES_ARDUINO = 40;    
+
+#endif
+
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -486,6 +537,8 @@ def_prim(chip_digital_write, twoToNoneU32) {
     yield();
     uint8_t pin = arg1.uint32;
     uint8_t val = arg0.uint32;
+    printf("chip_pin_write %i \n", pin);
+
     digitalWrite(pin, val);
     pop_args(2);
     return true;
@@ -549,6 +602,8 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     return true;
 }
 
+#ifdef NEOPIXEL 
+
 def_prim(init_pixels, NoneToNoneU32) {
     pixels.begin();
     return true;
@@ -574,6 +629,8 @@ def_prim(clear_pixels, NoneToNoneU32) {
     pixels.clear();
     return true;
 }
+
+#endif
 
 // LED Control primitives
 
@@ -903,6 +960,30 @@ int32_t http_post_request(Module *m, const String url, const String body,
     return httpResponseCode;
 }
 
+
+//------------------------------------------------------
+// Display Primitives
+//------------------------------------------------------
+
+def_prim(display_init, NoneToNoneU32) {
+    setupDisplay();
+    return true;
+}
+
+def_prim(display_draw_rect, NoneToNoneU32) {
+     int16_t x = (int16_t)arg3.int32;
+     int16_t y = (int16_t)arg2.int32;
+     int16_t w = (int16_t)arg1.int32;
+     int16_t h = (int16_t)arg0.int32;
+     //uint16 color = arg0.uint32;
+    tft.drawRect(x, y, w, h, 0xFFFF);
+    printf("DRAW RECT x:%i y:%i w:%i h:%i\n", x,y,w,h);
+
+    pop_args(4);
+    return true;
+}
+
+
 //------------------------------------------------------
 // Installing all the primitives & ISRs
 //------------------------------------------------------
@@ -975,15 +1056,24 @@ void install_primitives() {
     install_primitive(mqtt_unsubscribe);
     install_primitive(mqtt_loop);
 
+
+    #ifdef NEOPIXEL
+
     install_primitive(init_pixels);
     install_primitive(set_pixel_color);
     install_primitive(clear_pixels);
     install_primitive(show_pixels);
+    
+    #endif
 
     // temporary primitives needed for analogWrite in ESP32
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_attach);
     install_primitive(chip_ledc_set_duty);
+
+    // Display primitives
+    install_primitive(display_init);
+    install_primitive(display_draw_rect);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();

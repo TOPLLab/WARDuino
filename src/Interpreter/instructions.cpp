@@ -74,22 +74,7 @@ bool proxy_call(Module *m, uint32_t fidx) {
    | call_indirect typeidx
    */
 
-/*
-Instruction: call funcidx
 
-Webassembly Description:
-
-1. Let 𝐹 be the current frame.
-2. Assert: due to validation, 𝐹.module.funcaddrs[𝑥] exists.
-3. Let 𝑎 be the function address 𝐹.module.funcaddrs[𝑥].
-4. Invoke the function instance at address 𝑎.
-
-Formal specification:
-
-𝐹.module.funcaddrs[𝑥] = 𝑎
------------------------------------
-𝐹; (call 𝑥) -> 𝐹; (invoke 𝑎)
-*/
 
 /**
  * 0x02
@@ -276,9 +261,30 @@ bool i_instr_return(Module *m) {
     return true;
 }
 
-/**
- * 0x10 call
- */
+
+
+
+/*
+
+0x10 call
+
+Instruction: call funcidx
+
+Webassembly Description:
+
+1. Let 𝐹 be the current frame.
+2. Assert: due to validation, 𝐹.module.funcaddrs[𝑥] exists.
+3. Let 𝑎 be the function address 𝐹.module.funcaddrs[𝑥].
+4. Invoke the function instance at address 𝑎.
+
+Formal specification:
+
+   𝐹.module.funcaddrs[𝑥] = 𝑎
+-----------------------------------
+   𝐹; (call 𝑥) -> 𝐹; (invoke 𝑎)
+
+*/
+
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
 
@@ -1267,6 +1273,7 @@ bool i_instr_callback(Module *m, uint8_t opcode) {
 }
 
 bool interpret(Module *m, bool waiting) {
+    
     uint8_t *block_ptr;
     uint8_t opcode;
 
@@ -1277,6 +1284,7 @@ bool interpret(Module *m, bool waiting) {
     bool program_done = false;
 
     while ((!program_done && success) || waiting) {
+        
         if (m->warduino->program_state == WARDUINOstep) {
             m->warduino->debugger->pauseRuntime(m);
         }

@@ -1,0 +1,32 @@
+{
+  "entries": [
+    "src/main.ts"
+  ],
+  "targets": {
+    "debug": {
+      "debug": true,
+      "outFile": "blink.wasm",
+      "textFile": "bin/main.debug.wast"
+    },
+    "release": {
+      "converge": true,
+      "optimizeLevel": 3,
+      "outFile": "blink.wasm",
+      "shrinkLevel": 2
+    }
+  },
+  "options": {
+      "disable": [
+          "mutable-globals",
+          "sign-extension",
+          "nontrapping-f2i",
+          "bulk-memory"
+      ],
+      "exportTable": true,
+      "exportRuntime": false,
+      "maximumMemory": 2,
+      "noAssert": false,
+      "runtime": "stub",
+      "sourceMap": true
+  }
+}

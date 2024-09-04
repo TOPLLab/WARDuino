@@ -42,7 +42,7 @@ compile: Arduino.ino
 ifndef FQBN
 	$(error FQBN is not set. Use a .config file)
 endif
-	arduino-cli compile --fqbn $(FQBN) Arduino.ino
+	arduino-cli compile --fqbn $(FQBN) Arduino.ino --build-property build.partitions=huge_app --build-property upload.maximum_size=3145728
 
 recompile: clean compile
 

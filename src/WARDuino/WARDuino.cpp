@@ -269,7 +269,7 @@ void WARDuino::run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     // WARNING: running code here to get initial value!
     dbg_info("  running init_expr at 0x%p: %s\n", m->pc_ptr,
              block_repr(&block));
-    interpreter->interpret(m);
+    interpreter->threadedInterpreter(m);
     *pc = m->pc_ptr;
 
     ASSERT(m->stack[m->sp].value_type == type,
@@ -332,6 +332,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     this->program_state = WARDUINOrun;
 
     while (pos < bytes_end) {
+        
         uint32_t id = read_LEB(&pos, 7);
         uint32_t section_len = read_LEB_32(&pos);
         uint8_t *start_pos = pos;
@@ -915,10 +916,10 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
     dbg_dump_stack(m);
     interpreter->setup_call(m, fidx);
     dbg_trace("Call setup\n");
-    result = interpreter->interpret(m);
+    interpreter->threadedInterpreter(m);
     dbg_trace("Interpretation ended\n");
     dbg_dump_stack(m);
-    return result;
+    return true;
 }
 
 void WARDuino::setInterpreter(Interpreter *interpreter) {
