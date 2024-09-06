@@ -27,7 +27,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES_ARDUINO 31
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -48,7 +48,7 @@ double sensor_emu = 0;
             p->name = #prim_name;                                          \
             p->f = &(prim_name);                                           \
         } else {                                                           \
-            FATAL("pim_index out of bounds");                              \
+            FATAL("prim_index out of bounds");                              \
         }                                                                  \
     }
 
@@ -488,6 +488,18 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     pop_args(2);
     return true;
 }
+
+def_prim(setup_uart_sensor, oneToNoneU32) {
+    pop_args(1);
+    return true;
+}
+
+def_prim(colour_sensor, oneToOneI32) {
+    pop_args(1);
+    pushUInt32(0);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -532,6 +544,9 @@ void install_primitives() {
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
     install_primitive(chip_ledc_set_duty);
+
+    install_primitive(setup_uart_sensor);
+    install_primitive(colour_sensor);
 }
 
 //------------------------------------------------------
