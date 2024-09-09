@@ -219,7 +219,7 @@ typedef struct Module {
     void create_symbolic_state();
 #endif
     void memory_resize(uint32_t new_pages);
-    std::vector<uint8_t *> find_choice_points() const;
+    std::vector<uint8_t *> find_choice_points(bool after = false) const;
     std::vector<uint8_t *> find_pc_before_primitive_calls() const;
     std::vector<uint8_t *> find_pc_after_primitive_calls() const;
     std::vector<uint8_t *> find_calls(

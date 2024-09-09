@@ -1107,7 +1107,7 @@ std::vector<uint8_t *> Module::find_calls(const std::function<bool(std::string)>
     return call_sites;
 }
 
-std::vector<uint8_t *> Module::find_choice_points() const {
+std::vector<uint8_t *> Module::find_choice_points(bool after) const {
     std::set<std::string> symbolic_primitives = {
         "chip_digital_read",
         "chip_analog_read",
@@ -1115,7 +1115,7 @@ std::vector<uint8_t *> Module::find_choice_points() const {
     };
     return find_calls([symbolic_primitives](const std::string &field_name) {
         return symbolic_primitives.find(field_name) != symbolic_primitives.end();
-    });
+    }, after);
 }
 
 std::vector<uint8_t *> Module::find_pc_before_primitive_calls() const {
