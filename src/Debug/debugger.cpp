@@ -744,7 +744,7 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 }
 
 void Debugger::snapshot(Module *m) {
-    uint16_t numberBytes = 11;
+    uint16_t numberBytes = 12;
     uint8_t state[] = {pcState,
                        breakpointsState,
                        callstackState,
@@ -756,7 +756,7 @@ void Debugger::snapshot(Module *m) {
                        callbacksState,
                        eventsState,
                        ioState,
-                        overridesState
+                       overridesState
     };
     inspect(m, numberBytes, state);
 }
