@@ -131,8 +131,6 @@ class Debugger {
     uint8_t *prev_pc_ptr;
     int32_t remaining_instructions;
 
-    std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>> overrides;
-
     std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
         overrides;
 
@@ -236,6 +234,8 @@ class Debugger {
     void stop();
 
     void pauseRuntime(const Module *m);  // pause runtime for given module
+
+    void notifyCompleteStep(Module *m) const; // notify the debugger frontend that a step was taken
 
     // Interrupts
 

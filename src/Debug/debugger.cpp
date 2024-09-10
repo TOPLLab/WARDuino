@@ -448,7 +448,6 @@ void Debugger::handleInterruptRUN(const Module *m,
 }
 
 void Debugger::handleSTEP(const Module *m, RunningState *program_state) {
-    this->channel->write("STEP!\n");
     *program_state = WARDUINOstep;
     this->skipBreakpoint = m->pc_ptr;
 }
@@ -1575,6 +1574,7 @@ bool Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
     }
     return false;
 }
+
 bool Debugger::handleContinueFor(Module *m) {
     if (remaining_instructions < 0)
         return false;
@@ -1590,4 +1590,12 @@ bool Debugger::handleContinueFor(Module *m) {
     }
     remaining_instructions--;
     return false;
+}
+
+void Debugger::notifyCompleteStep(Module *m) const {
+    // Upon completing a step in checkpointing mode, make a checkpoint.
+    if (m->warduino->debugger->getSnapshotPolicy() == SnapshotPolicy::checkpointing) {
+        m->warduino->debugger->checkpoint(m);
+    }
+    this->channel->write("STEP!\n");
 }
