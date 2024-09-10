@@ -772,6 +772,13 @@ int main(int argc, const char *argv[]) {
             json["after_choicepoints"] = after_choicepoints;
             json["primitive_calls"] = primitive_calls;
             json["after_primitive_calls"] = after_primitive_calls;
+
+            std::vector<std::string> fidx_mapping = std::vector<std::string>();
+            for (uint32_t fidx = 0; fidx < m->import_count; fidx++) {
+                fidx_mapping.emplace_back(m->functions[fidx]->import_field);
+            }
+            json["primitive_fidx_mapping"] = fidx_mapping;
+
             std::cout << json << std::endl;
             wac->unload_module(m);
             exit(0);
