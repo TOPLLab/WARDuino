@@ -235,6 +235,8 @@ class Debugger {
 
     void pauseRuntime(Module *m);  // pause runtime for given module
 
+    void notifyCompleteStep(Module *m) const; // notify the debugger frontend that a step was taken
+
     // Interrupts
 
     void addDebugMessage(size_t len, const uint8_t *buff);
