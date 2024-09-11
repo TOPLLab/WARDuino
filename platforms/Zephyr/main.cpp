@@ -55,20 +55,25 @@ int war_console_init(void) {
 
 WARDuino *wac = WARDuino::instance();
 
+int valread;
+uint8_t buffer[1024] = {0};
+
+void read_debug_messages() {
+    while ((valread = war_console_read(NULL, buffer, 1024)) > 0) {
+        wac->handleInterrupt(valread, buffer);
+    }
+}
+
 void startDebuggerStd() {
     Channel *duplex = new Duplex(stdin, stdout);
     wac->debugger->setChannel(duplex);
     duplex->open();
 
     war_console_init();
-    int valread;
-    uint8_t buffer[1024] = {0};
     while (true) {
-        k_msleep(1000);
-
-        while ((valread = war_console_read(NULL, buffer, 1024)) > 0) {
-            wac->handleInterrupt(valread, buffer);
-        }
+        k_msleep(500);
+        //printf("From debugger thread!\n");
+        read_debug_messages();
     }
 }
 

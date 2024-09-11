@@ -227,6 +227,7 @@ Type NoneToOneU64 = {.form = FUNC,
                      .mask = 0x82000};
 
 def_prim(chip_delay, oneToNoneU32) {
+    k_yield();
     k_msleep(arg0.uint32);
     pop_args(1);
     return true;
@@ -781,6 +782,62 @@ void serial_cb(const struct device *dev, void *user_data) {
     // printk("Sent ACK\n");
 }
 
+
+bool baudrate_configured = false;
+
+extern void read_debug_messages();
+
+void uartHeartbeat() {
+    if (data_mode && !baudrate_configured) {
+        printk("Changing baudrate to %d\n", baudrate);
+        uart_config cfg;
+        uart_config_get(uart_dev, &cfg);
+        cfg.baudrate = baudrate;
+
+        int config_err = uart_configure(uart_dev, &cfg);
+        printk("config_err = %d\n", config_err);
+        if (config_err) {
+            printk("UART configure error %d", config_err);
+        }
+
+        config_err = uart_config_get(uart_dev, &cfg);
+        printk("current baudrate after config change = %d\n", cfg.baudrate);
+        printk("config_err = %d\n", config_err);
+        baudrate_configured = true;
+    }
+
+    if (data_mode && baudrate_configured) {
+        //k_msleep(100);
+        // printk("Send NACK\n");
+        uart_poll_out(uart_dev, 0b00000010);
+
+        // printk("sensor_value = %d\n", sensor_value);
+
+        // This timer can sometimes block other things so let's read in new debug messages:
+        //read_debug_messages();
+    }
+}
+
+void my_work_handler(struct k_work *work) {
+    uartHeartbeat();
+}
+
+K_WORK_DEFINE(my_work, my_work_handler);
+
+void debug_work_handler(struct k_work *work) {
+    read_debug_messages();
+}
+
+K_WORK_DEFINE(debug_work, debug_work_handler);
+
+struct k_timer heartbeat_timer;
+void my_timer_func(struct k_timer *timer_id) {
+    //uartHeartbeat();
+    //printf("My timer func!\n");
+    /*k_work_submit(&my_work);
+    k_work_submit(&debug_work);*/
+}
+
 def_prim(setup_uart_sensor, oneToNoneU32) {
     if (!device_is_ready(uart_dev)) {
         printk("Input port is not ready!\n");
@@ -800,45 +857,17 @@ def_prim(setup_uart_sensor, oneToNoneU32) {
         return 0;
     }
     uart_irq_rx_enable(uart_dev);
+    k_timer_init(&heartbeat_timer, my_timer_func, nullptr);
+    k_timer_start(&heartbeat_timer, K_MSEC(1000), K_MSEC(1000));
     pop_args(1);
     return true;
 }
 
-void uartHeartbeat() {
-    while (true) {
-        if (data_mode) {
-            printk("Changing baudrate to %d\n", baudrate);
-            uart_config cfg;
-            uart_config_get(uart_dev, &cfg);
-            cfg.baudrate = baudrate;
-
-            int config_err = uart_configure(uart_dev, &cfg);
-            printk("config_err = %d\n", config_err);
-            if (config_err) {
-                printk("UART configure error %d", config_err);
-            }
-
-            config_err = uart_config_get(uart_dev, &cfg);
-            printk("current baudrate after config change = %d\n", cfg.baudrate);
-            printk("config_err = %d\n", config_err);
-
-            while (data_mode) {
-                k_msleep(100);
-                // printk("Send NACK\n");
-                uart_poll_out(uart_dev, 0b00000010);
-
-                // printk("sensor_value = %d\n", sensor_value);
-            }
-        }
-        k_msleep(500);
-    }
-}
-
-#define UART_HEARTBEAT_STACK_SIZE 2048
+/*#define UART_HEARTBEAT_STACK_SIZE 2048
 #define UART_HEARTBEAT_PRIORITY 0
 
 K_THREAD_DEFINE(uart_heartbeat_tid, UART_HEARTBEAT_STACK_SIZE, uartHeartbeat,
-                NULL, NULL, NULL, UART_HEARTBEAT_PRIORITY, 0, 0);
+                NULL, NULL, NULL, UART_HEARTBEAT_PRIORITY, 0, 0);*/
 
 def_prim(colour_sensor, oneToOneU32) {
     if (!device_is_ready(uart_dev)) {
