@@ -547,6 +547,8 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
     //degrees = 360 * 20;
     int32_t motor_index = (int32_t)arg2.uint32;
     bool result = drive_motor_degrees_relative(motor_index, degrees, speed);
+    // Print fidx, arguments and the state associated with this primitive before executing the action.
+    //printf("ACTION {")
     pop_args(3);
     return result;
 }
@@ -559,9 +561,14 @@ def_prim_reverse(drive_motor_degrees) {
 
         if (state.key[0] == 'e') {
             printf("Motor target location %d\n", state.value);
+            int motor_index = stoi(state.key.substr(1));
+            // TODO: This is a hack, we should take snapshots before calling
+            // primitives instead of after and just not restore io when
+            // restoring the last snapshot and transfer overrides from a future
+            // snapshot when doing forward execution.
             invoke_primitive(m, "drive_motor_degrees_absolute",
-                             stoi(state.key.substr(1)), (uint32_t)state.value,
-                             2000);
+                             motor_index, (uint32_t)state.value,
+                             motor_index == 0 ? 10000 : 2000);
         }
     }
 }
