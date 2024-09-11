@@ -27,7 +27,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 31
+#define NUM_PRIMITIVES_ARDUINO 32
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -500,6 +500,11 @@ def_prim(colour_sensor, oneToOneI32) {
     return true;
 }
 
+def_prim(drive_motor_degrees, threeToNoneU32) {
+    pop_args(3);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -547,6 +552,7 @@ void install_primitives() {
 
     install_primitive(setup_uart_sensor);
     install_primitive(colour_sensor);
+    install_primitive(drive_motor_degrees);
 }
 
 //------------------------------------------------------
