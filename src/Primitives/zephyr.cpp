@@ -832,10 +832,10 @@ K_WORK_DEFINE(debug_work, debug_work_handler);
 
 struct k_timer heartbeat_timer;
 void my_timer_func(struct k_timer *timer_id) {
-    //uartHeartbeat();
+    uartHeartbeat();
     //printf("My timer func!\n");
-    /*k_work_submit(&my_work);
-    k_work_submit(&debug_work);*/
+    //k_work_submit(&my_work);
+    k_work_submit(&debug_work);
 }
 
 def_prim(setup_uart_sensor, oneToNoneU32) {
@@ -857,8 +857,6 @@ def_prim(setup_uart_sensor, oneToNoneU32) {
         return 0;
     }
     uart_irq_rx_enable(uart_dev);
-    k_timer_init(&heartbeat_timer, my_timer_func, nullptr);
-    k_timer_start(&heartbeat_timer, K_MSEC(1000), K_MSEC(1000));
     pop_args(1);
     return true;
 }
@@ -939,6 +937,9 @@ void install_primitives() {
     install_primitive(drive_motor_degrees_absolute);
     install_primitive(colour_sensor);
     install_primitive(setup_uart_sensor);
+
+    k_timer_init(&heartbeat_timer, my_timer_func, nullptr);
+    k_timer_start(&heartbeat_timer, K_MSEC(1000), K_MSEC(1000));
 }
 
 //------------------------------------------------------

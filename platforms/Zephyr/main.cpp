@@ -70,11 +70,11 @@ void startDebuggerStd() {
     duplex->open();
 
     war_console_init();
-    while (true) {
+    /*while (true) {
         k_msleep(500);
         //printf("From debugger thread!\n");
         read_debug_messages();
-    }
+    }*/
 }
 
 K_THREAD_DEFINE(debugger_tid, DEBUGGER_STACK_SIZE, startDebuggerStd, NULL, NULL,
