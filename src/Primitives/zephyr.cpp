@@ -1002,11 +1002,26 @@ void restore_external_state(Module *m,
             }
         }
     }*/
-    for (auto &primitive : primitives) {
+    /*for (auto &primitive : primitives) {
         printf("%s\n", primitive.name);
         if (primitive.f_reverse) {
             printf("Reversing action for primitive %s\n", primitive.name);
             primitive.f_reverse(m, external_state);
+        }
+    }*/
+
+    std::set<std::string> prim_names;
+    for (uint32_t i = 0; i < m->import_count; i++) {
+        prim_names.emplace(m->functions[i].import_field);
+    }
+
+    for (PrimitiveEntry &p : primitives) {
+        if (prim_names.find(p.name) != prim_names.end()) {
+            printf("%s\n", p.name);
+            if (p.f_reverse) {
+                printf("Reversing action for primitive %s\n", p.name);
+                p.f_reverse(m, external_state);
+            }
         }
     }
 }
