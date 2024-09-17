@@ -2,13 +2,13 @@
   "name": "warduino-testsuite",
   "version": "1.0.0",
   "scripts": {
-    "debugtest": "latch ./src/debugger.test.ts",
-    "primtest": "latch ./src/primitives.test.ts",
-    "spectest": "latch ./src/spec.test.ts",
-    "comptest": "latch ./src/comp.test.ts"
+    "debugtest": "npx ts-node ./src/debugger.test.ts",
+    "primtest":  "npx ts-node ./src/primitives.test.ts",
+    "spectest":  "npx ts-node ./src/spec.test.ts",
+    "comptest":  "npx ts-node ./src/comp.test.ts"
   },
   "devDependencies": {
-    "latch": "file:./latch-0.2.1.tgz",
+    "latch": "file:./latch-0.3.0.tgz",
     "mqtt": "^4.3.7",
     "serialport": "^10.4.0",
     "typescript": "^4.5.5"
