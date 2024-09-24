@@ -10,6 +10,7 @@
 #endif
 
 #include "../Memory/mem.h"
+#include "../Primitives/primitives.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 #include "../WARDuino/CallbackHandler.h"
@@ -714,11 +715,18 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 }
 
 void Debugger::snapshot(Module *m) {
-    uint16_t numberBytes = 10;
-    uint8_t state[] = {
-        pcState,        breakpointsState, callstackState,      globalsState,
-        tableState,     memoryState,      branchingTableState, stackState,
-        callbacksState, eventsState};
+    uint16_t numberBytes = 11;
+    uint8_t state[] = {pcState,
+                       breakpointsState,
+                       callstackState,
+                       globalsState,
+                       tableState,
+                       memoryState,
+                       branchingTableState,
+                       stackState,
+                       callbacksState,
+                       eventsState,
+                       ioState};
     inspect(m, numberBytes, state);
 }
 
@@ -843,6 +851,26 @@ void Debugger::inspect(Module *m, uint16_t sizeStateArray, uint8_t *state) {
                 addComma = true;
                 break;
             }
+            case ioState: {
+                this->channel->write("%s", addComma ? "," : "");
+                this->channel->write("\"io\": [");
+                bool comma = false;
+                std::vector<IOStateElement *> external_state = get_io_state(m);
+                for (auto state_elem : external_state) {
+                    this->channel->write("%s{", comma ? ", " : "");
+                    this->channel->write(
+                        R"("key": "%s", "output": %s, "value": %d)",
+                        state_elem->key.c_str(),
+                        state_elem->output ? "true" : "false",
+                        state_elem->value);
+                    this->channel->write("}");
+                    comma = true;
+                    delete state_elem;
+                }
+                this->channel->write("]");
+                addComma = true;
+                break;
+            }
             default: {
                 debug("dumpExecutionState: Received unknown state request\n");
                 break;
@@ -953,7 +981,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     uint8_t *program_state = nullptr;
     uint8_t *end_state = nullptr;
     program_state = interruptData + 1;  // skip interruptLoadSnapshot
-    end_state = program_state + read_B32(&program_state);
+    uint32_t len = read_B32(&program_state);
+    end_state = program_state + len;
 
     debug("saving program_state\n");
     while (program_state < end_state) {
@@ -1167,6 +1196,29 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
 
                     CallbackHandler::push_event(topic, payload, payloadSize);
                 }
+                break;
+            }
+            case ioState: {
+                debug("receiving ioState\n");
+                uint8_t io_state_count = *program_state++;
+                std::vector<IOStateElement> external_state;
+                external_state.reserve(io_state_count);
+                for (int i = 0; i < io_state_count; i++) {
+                    IOStateElement state_elem;
+                    state_elem.key = "";
+                    char c = (char)*program_state++;
+                    while (c != '\0') {
+                        state_elem.key += c;
+                        c = (char)*program_state++;
+                    }
+                    state_elem.output = *program_state++;
+                    state_elem.value = (int)read_B32(&program_state);
+                    external_state.emplace_back(state_elem);
+                    debug("pin %s(%s) = %d\n", state_elem.key.c_str(),
+                          state_elem.output ? "output" : "input",
+                          state_elem.value);
+                }
+                restore_external_state(m, external_state);
                 break;
             }
             default: {

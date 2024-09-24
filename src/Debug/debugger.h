@@ -47,7 +47,8 @@ enum ExecutionState {
     branchingTableState = 0x07,
     stackState = 0x08,
     callbacksState = 0x09,
-    eventsState = 0x0A
+    eventsState = 0x0A,
+    ioState = 0x0B,
 };
 
 enum InterruptTypes {
