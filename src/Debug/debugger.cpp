@@ -23,6 +23,7 @@ Debugger::Debugger(Channel *duplex) {
     this->supervisor_mutex = new warduino::mutex();
     this->supervisor_mutex->lock();
     this->snapshotPolicy = SnapshotPolicy::none;
+    this->checkpointInterval = 10;
     this->instructions_executed = 0;
     this->remaining_instructions = -1;
     this->prev_pc_ptr = nullptr;
@@ -942,6 +943,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
 void Debugger::setSnapshotPolicy(Module *m, const uint8_t *interruptData) {
     snapshotPolicy = SnapshotPolicy{*interruptData};
     if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+        checkpointInterval = *(interruptData + 1);
         checkpoint(m, true);
     }
 }
@@ -950,9 +952,10 @@ void Debugger::handleSnapshotPolicy(Module *m) {
     if (snapshotPolicy == SnapshotPolicy::atEveryInstruction) {
         this->channel->write("SNAPSHOT ");
         snapshot(m);
+        this->channel->write("\n");
     }
     else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-        if (instructions_executed >= 10 || isPrimitiveBeingCalled(m, prev_pc_ptr)) {
+        if (instructions_executed >= checkpointInterval || isPrimitiveBeingCalled(m, prev_pc_ptr)) {
             checkpoint(m);
         }
         instructions_executed++;
