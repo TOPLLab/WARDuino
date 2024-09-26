@@ -1,0 +1,43 @@
+@InProceedings{	  gurdeep19,
+  title		= {{{WARDuino}}: A Dynamic {{WebAssembly}} Virtual Machine
+		  for Programming Microcontrollers},
+  shorttitle	= {{{WARDuino}}},
+  booktitle	= {Proceedings of the 16th {{ACM SIGPLAN International
+		  Conference}} on {{Managed Programming Languages}} and
+		  {{Runtimes}}},
+  author	= {Gurdeep Singh, Robbert and Scholliers, Christophe},
+  year		= {2019},
+  month		= oct,
+  series	= {{{MPLR}} 2019},
+  pages		= {27--36},
+  publisher	= {{Association for Computing Machinery}},
+  address	= {{New York, NY, USA}},
+  doi		= {10.1145/3357390.3361029},
+  abstract	= {It is extremely hard and time-consuming to make correct
+		  and efficient programs for microcontrollers. Usually
+		  microcontrollers are programmed in a low level programming
+		  language such as C which makes them hard to debug and
+		  maintain. To raise the abstraction level, many high level
+		  programming languages have provided support for programming
+		  microcontrollers. Examples include Python, Lua, C\# and
+		  JavaScript. Using these languages has the downside that
+		  they are orders of magnitude slower than the low-level
+		  languages. Moreover, they often provide no remote debugging
+		  support. In this paper we investigate the feasibility of
+		  using WebAssembly to program Arduino compatible
+		  microcontrollers. Our experiments lead to extending the
+		  standard WebAssembly VM with: 1) safe live code updates for
+		  functions and data 2) remote debugging support at the VM
+		  level 3) programmer configurable (Arduino) modules in order
+		  to keep the virtual machine's footprint as small as
+		  possible. The resulting WARDuino VM enables the programmer
+		  to have better performance than an interpreted approach
+		  while simultaneously increasing the ease of development. To
+		  evaluate our approach, we implemented a simple breakout
+		  game and conducted micro benchmarks which show that the VM
+		  runs approximately 5 times faster than Espruino, a popular
+		  JavaScript interpreter for the ESP32 microcontroller.},
+  isbn		= {978-1-4503-6977-0},
+  keywords	= {Arduino,Live Code Updates,Virtual Machine,WebAssembly}
+}
+
