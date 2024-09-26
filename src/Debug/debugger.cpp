@@ -873,10 +873,21 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                     addComma ? "," : "", m->memory.pages, m->memory.maximum,
                     m->memory.initial);
                 addComma = true;
-                for (uint32_t j = 0; j < total_elems; j++) {
-                    this->channel->write("%" PRIu8 "%s", m->memory.bytes[j],
-                                         (j + 1) == total_elems ? "" : ",");
+                uint8_t data = m->memory.bytes[0];
+                uint32_t count = 1;
+                bool arrayComma = false;
+                for (uint32_t j = 1; j < total_elems; j++) {
+                    if (m->memory.bytes[j] == data) {
+                        count++;
+                    }
+                    else {
+                        this->channel->write("%s%" PRIu8 ",%d", arrayComma ? "," : "", data, count);
+                        arrayComma = true;
+                        data = m->memory.bytes[j];
+                        count = 1;
+                    }
                 }
+                this->channel->write("%s%" PRIu8 ",%d", arrayComma ? "," : "", data, count);
                 this->channel->write("]}");  // closing memory
                 break;
             }
