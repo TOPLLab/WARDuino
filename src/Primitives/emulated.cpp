@@ -387,7 +387,7 @@ def_prim(http_post, tenToOneU32) {
     return true;
 }
 
-#define NUM_DIGITAL_PINS 19
+#define NUM_DIGITAL_PINS 25
 uint32_t PINS[NUM_DIGITAL_PINS] = {};
 uint8_t MODES[NUM_DIGITAL_PINS] = {};
 
@@ -406,11 +406,12 @@ def_prim(chip_digital_write, twoToNoneU32) {
     uint8_t pin = arg1.uint32;
     uint8_t val = arg0.uint32;
     debug("EMU: chip_digital_write(%u,%u) \n", pin, val);
-    if (pin < NUM_DIGITAL_PINS && MODES[pin] == 0x01) {
+    bool writable = pin < NUM_DIGITAL_PINS && MODES[pin] == 0x02;
+    if (writable) {
         PINS[pin] = val;
     }
     pop_args(2);
-    return pin < NUM_DIGITAL_PINS;
+    return writable;
 }
 
 def_prim_reverse(chip_digital_write) {
