@@ -70,6 +70,7 @@ if (BUILD_EMULATOR)
     # WARDuino CLI
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
     target_link_libraries(wdcli PRIVATE Threads::Threads)
+    target_link_libraries(wdcli PRIVATE SDL2)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
 endif (BUILD_EMULATOR)
 
