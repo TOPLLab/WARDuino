@@ -224,8 +224,27 @@ def_prim(clear_pixels, NoneToNoneU32) {
     return true;
 }
 
-def_prim(abort, NoneToNoneU32) {
+/*
+ * Read an ascii string from memory stored in UTF-16.
+ */
+std::string read_ascii_utf16(uint8_t *buffer) {
+    std::string str = "";
+    uint32_t i = 0;
+    while (buffer[i] != '\0') {
+        str += buffer[i];
+        i += 2;
+    }
+    return str;
+}
+
+def_prim(abort, fourToNoneU32) {
     debug("EMU: abort\n");
+ 
+    std::string message = read_ascii_utf16(&m->memory.bytes[arg3.uint32]);
+    std::string filename = read_ascii_utf16(&m->memory.bytes[arg2.uint32]);
+    
+    printf("\u001b[1m%s:%d:%d:\u001b[0m \u001b[31;1merror:\u001b[0m %s\n", filename.c_str(), arg1.uint32, arg0.uint32, message.c_str());
+    pop_args(4);
     return false;
 }
 
