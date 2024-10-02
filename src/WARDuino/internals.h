@@ -54,6 +54,15 @@ typedef struct StackValue {
         int64_t int64;
         float f32;
         double f64;
+
+        union { // TODO: temporary solution for SIMD types
+            int8_t i8x16[16];
+            int16_t i16x8[8];
+            int32_t i32x4[4];
+            int64_t i64x2[2];
+            float f32x4[4];
+            double f64x2[2];
+        } simd;
     } value;
 } StackValue;
 

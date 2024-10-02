@@ -55,5 +55,6 @@ class Interpreter {
     static void report_overflow(Module *m, uint8_t *maddr);
 
    protected:
+    bool interpret_simd(Module *m);
    private:
 };

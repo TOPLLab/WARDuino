@@ -73,3 +73,9 @@ bool i_instr_binary_f64(Module *m, uint8_t opcode);
 bool i_instr_conversion(Module *m, uint8_t opcode);
 
 bool i_instr_callback(Module *m, uint8_t opcode);
+
+bool i_instr_simd_splat(Module *m, uint8_t opcode);
+
+bool i_instr_simd_extract(Module *m, uint8_t opcode);
+
+bool i_instr_simd_replace(Module *m, uint8_t opcode);

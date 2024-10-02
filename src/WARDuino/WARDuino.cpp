@@ -53,9 +53,9 @@ bool resolvesym(char *filename, char *symbol, uint8_t external_kind, void **val,
 // char  exception[4096];
 
 // Static definition of block_types
-uint32_t block_type_results[4][1] = {{I32}, {I64}, {F32}, {F64}};
+uint32_t block_type_results[5][1] = {{I32}, {I64}, {F32}, {F64}, {V128}};
 
-Type block_types[5];
+Type block_types[6];
 
 void initTypes() {
     block_types[0].form = BLOCK;
@@ -140,6 +140,44 @@ void parse_memory_type(Module *m, uint8_t **pos) {
     }
 }
 
+void skip_immediates_simd(uint8_t **pos) {
+    uint8_t simd_opcode = **pos;
+    *pos += 1; // skip opcode
+    switch(simd_opcode) {
+        case 0x00 ... 0x0b: // v128.loadXXX, v128.store
+            read_LEB_32(pos);
+            break;
+        case 0x0c: // v128.const
+            // TODO: figure out how in the 9 hells i128's are stored in wasm
+            break;
+        case 0x0d: // i8x16.shuffle
+            *pos += 1;
+            break;
+        case 0x0e ... 0x14: // i8x16.swizzle, dim.splat
+            break;
+        case 0x15 ... 0x22: // dim.extract_lane, dim.replace_lane
+            *pos += 1;
+            break;
+        case 0x23 ... 0x53: // relational operators
+            break;
+        case 0x54 ... 0x5b: // v128.loadX_lane, v128.storeX_lane
+            read_LEB_32(pos);
+            *pos += 1;
+            break;
+        case 0x5c ... 0x5d: // v128.loadX_zero
+            read_LEB_32(pos);
+            break;
+        case 0x5e ... 0x7f: // math-like functionality, extensions, ...
+            break;
+        case 0x80 ... 0xff: {
+            uint8_t second_opcode = **pos;
+            assert(second_opcode == 0x01 && "3-byte SIMD instructions should have 0x01 as their 3rd byte.");
+            *pos++;
+            break;
+        }
+    }
+}
+
 void skip_immediates(uint8_t **pos) {
     uint32_t count, opcode = **pos;
     *pos = *pos + 1;
@@ -189,6 +227,9 @@ void skip_immediates(uint8_t **pos) {
                 read_LEB_32(pos);
             }
             read_LEB_32(pos);  // default target
+            break;
+        case 0xfd:
+            skip_immediates_simd(pos);
             break;
         default:  // no immediates
             break;

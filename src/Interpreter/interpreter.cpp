@@ -427,6 +427,11 @@ bool Interpreter::interpret(Module *m, bool waiting) {
             case 0xe0 ... 0xe3:
                 success &= i_instr_callback(m, opcode);
                 continue;
+
+            case 0xfd:
+                success &= interpret_simd(m);
+                continue;
+
             default:
                 sprintf(exception, "unrecognized opcode 0x%x", opcode);
                 if (m->options.return_exception) {
@@ -455,11 +460,54 @@ bool Interpreter::interpret(Module *m, bool waiting) {
     if (!success && m->options.return_exception) {
         m->exception = strdup(exception);
     } else if (!success) {
-        FATAL("%s\n", exception);
+        FATAL("%s (0x%x)\n", exception, opcode);
     }
 
     return success;
 }
+
+bool Interpreter::interpret_simd(Module *m) {
+    // this function should only be called from Interpreter::interpret
+    // and should only be called when the opcode is 0xfd
+    // -> at this point, the PC is pointing to the (first byte of) the actual
+    // opcode
+
+    // TODO: technically the 2nd byte (and onwards) of the multi-byte SIMD
+    //       opcodes are LEB-encoded u32's and could have multiple
+    //       representations. However, we only support the shortest possible
+    //       encodings; see https://webassembly.github.io/spec/core/appendix/index-instructions.html
+
+    const auto opcode = *m->pc_ptr;
+    m->pc_ptr++;
+    switch(opcode) {
+        case 0x0f ... 0x14:
+            return i_instr_simd_splat(m, opcode);
+
+        case 0x15: // interspersed with (dim).extract_lane
+        case 0x16:
+        case 0x18:
+        case 0x19:
+        case 0x1b:
+        case 0x1d:
+        case 0x1f:
+        case 0x21:
+            return i_instr_simd_extract(m, opcode);
+
+        case 0x17:
+        case 0x1a:
+        case 0x1c:
+        case 0x1e:
+        case 0x20:
+        case 0x22:
+            return i_instr_simd_replace(m, opcode);
+
+        default: {
+            sprintf(exception, "unrecognized SIMD opcode 0x%x (0x%x 0x%x)", opcode, 0xfd, opcode);
+            return false;
+        }
+    }
+}
+
 
 void Interpreter::report_overflow(Module *m, uint8_t *maddr) {
     dbg_warn("memory start: %p, memory end: %p, maddr: %p\n", m->memory.bytes,
