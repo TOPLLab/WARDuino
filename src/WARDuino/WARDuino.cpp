@@ -148,7 +148,7 @@ void skip_immediates_simd(uint8_t **pos) {
             read_LEB_32(pos);
             break;
         case 0x0c: // v128.const
-            // TODO: figure out how in the 9 hells i128's are stored in wasm
+            *pos += 16; // v128 consts are straight 16-byte blocks
             break;
         case 0x0d: // i8x16.shuffle
             *pos += 1;

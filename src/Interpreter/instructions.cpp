@@ -1394,3 +1394,91 @@ bool i_instr_simd_replace(Module *m, uint8_t opcode) {
 
     return false;
 }
+
+inline bool verify_endian() {
+    static bool _ = [] {
+        int n = 1;
+        if(*reinterpret_cast<char *>(&n) == 1) {
+            // little endian
+            return true;
+        }
+
+        FATAL("v128.const only supported on little-endian systems");
+        return false;
+    }();
+    return _;
+}
+
+bool i_instr_simd_const(Module* m){
+    verify_endian();
+
+    const uint8_t *data = m->pc_ptr;
+    m->pc_ptr += 16; // skip immediate 16-byte data
+
+    m->sp++;
+    auto &v = m->stack[m->sp].value.simd;
+    std::memcpy(&v, data, 16);
+    return true;
+}
+
+bool i_instr_simd_store(Module* m){
+    auto &sv = m->stack[m->sp--];
+    StackValue sv2;
+    sv2.value_type = I64;
+    sv2.value.uint64 = sv.value.simd.i64x2[1];
+
+    const uint32_t flags = read_LEB_32(&m->pc_ptr);
+    const uint32_t offset = read_LEB_32(&m->pc_ptr);
+
+    uint32_t ptr = m->stack[m->sp--].value.uint32;
+
+    if(flags != 2 && TRACE) {
+        dbg_info(
+            "      - unaligned store - flags: 0x%x, offset: 0x%x, addr: 0x%x, val: %s\n",
+            flags, offset, ptr, value_repr(&sv)
+        );
+    }
+
+    if(offset + ptr < ptr && !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->memory.bytes + offset + ptr);
+    }
+
+    ptr += offset;
+
+    // store in 2 consecutive locations
+    return m->warduino->interpreter->store(m, I64, ptr, sv) &&
+        m->warduino->interpreter->store(m, I64, ptr + 8, sv2);
+}
+
+bool i_instr_simd_load(Module* m) {
+    const uint32_t flags = read_LEB_32(&m->pc_ptr);
+    const uint32_t offset = read_LEB_32(&m->pc_ptr);
+    uint32_t ptr = m->stack[m->sp--].value.uint32;
+    if(flags != 2 && TRACE) {
+        dbg_info(
+            "      - unaligned load - flags: 0x%x, offset: 0x%x, addr: 0x%x, val: %s\n",
+            flags, offset, ptr
+        );
+    }
+
+    if(offset + ptr < ptr && !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->memory.bytes + offset + ptr);
+    }
+
+    ptr += offset;
+
+    // load from 2 consecutive locations
+    bool success = m->warduino->interpreter->load(m, I64, ptr, offset);
+    const auto i64_0 = m->stack[m->sp].value.int64;
+    m->sp--; // make sure we overwrite the previous load
+    success &= m->warduino->interpreter->load(m, I64, ptr + 8, offset);
+    const auto i64_1 = m->stack[m->sp].value.int64;
+
+    // reconstruct v128
+    auto & [value_type, value] = m->stack[m->sp];
+    value_type = V128;
+    value.simd.i64x2[0] = i64_0;
+    value.simd.i64x2[1] = i64_1;
+
+    return success;
+}

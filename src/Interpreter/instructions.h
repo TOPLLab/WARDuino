@@ -79,3 +79,9 @@ bool i_instr_simd_splat(Module *m, uint8_t opcode);
 bool i_instr_simd_extract(Module *m, uint8_t opcode);
 
 bool i_instr_simd_replace(Module *m, uint8_t opcode);
+
+bool i_instr_simd_const(Module *m);
+
+bool i_instr_simd_store(Module *m);
+
+bool i_instr_simd_load(Module *m);
