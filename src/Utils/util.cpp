@@ -110,6 +110,11 @@ StackValue *readWasmArgs(Type function, uint8_t *data) {
                 data += sizeof(double);
                 break;
             }
+            case V128: {
+                memcpy(&args[i].value.simd, data, 16 * sizeof(decltype(args[i].value.simd)));
+                data += sizeof(decltype(args[i].value.simd));
+                break;
+            }
             default: {
                 FATAL("no argument of type %" SCNu8 "\n", args[i].value_type);
             }

@@ -68,7 +68,6 @@ spec.tests(tests);
 framework.run([spec]);
 
 // Helper function
-
 function createTest(module: string, asserts: string[]): TestScenario {
     const steps: Step[] = [];
 

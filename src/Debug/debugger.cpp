@@ -361,6 +361,12 @@ void Debugger::printValue(StackValue *v, uint32_t idx, bool end = false) const {
             snprintf(buff, 255, R"("type":"F64","value":"%)" PRIx64 "\"",
                      v->value.uint64);
             break;
+        case V128:
+            // we'll just use hex-strings
+            // 64-bit = 8 bytes = 16 nibbles = 16 hex-characters
+            snprintf(buff, 255, R"("type":"V128","value":"%016lx%016lx")",
+                     v->value.simd.i64x2[0], v->value.simd.i64x2[1]);
+            break;
         default:
             snprintf(buff, 255, R"("type":"%02x","value":"%)" PRIx64 "\"",
                      v->value_type, v->value.uint64);

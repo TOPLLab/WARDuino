@@ -5,7 +5,7 @@
     (memory 1)
 
     (func $run (type $void->void)
-        (v128.store (i32.const 0) (v128.const i16x8 1 2 3 4 5 6 7 8))
+        (v128.store (i32.const 0) (v128.const i16x8 -1 2 -3 4 -5 6 -7 8))
 
         (v128.load (i32.const 0))
         i16x8.extract_lane_s 0

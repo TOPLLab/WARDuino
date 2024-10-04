@@ -1336,25 +1336,25 @@ bool i_instr_simd_extract(Module* m, uint8_t opcode){
     };
 
     switch(opcode) { // TODO: we ignore the _s and _u for now...
-        case 0x15: // i8x16.extract_lane_s
+        case 0x15:  // i8x16.extract_lane_s
         case 0x16: // i8x16.extract_lane_u
             return lane_handler(15, raw_top.value.simd.i8x16, raw_top.value.uint32, I32);
 
-        case 0x18: // i16x8.extract_lane_s
+        case 0x18:  // i16x8.extract_lane_s
         case 0x19: // i16x8.extract_lane_u
-            return lane_handler(8, raw_top.value.simd.i16x8, raw_top.value.uint32, I32);
+            return lane_handler(7, raw_top.value.simd.i16x8, raw_top.value.uint32, I32);
 
         case 0x1b: // i32x4.extract_lane
-            return lane_handler(4, raw_top.value.simd.i32x4, raw_top.value.uint32, I32);
+            return lane_handler(3, raw_top.value.simd.i32x4, raw_top.value.uint32, I32);
 
         case 0x1d: // i64x2.extract_lane
-            return lane_handler(2, raw_top.value.simd.i64x2, raw_top.value.uint64, I64);
+            return lane_handler(1, raw_top.value.simd.i64x2, raw_top.value.uint64, I64);
 
         case 0x1f: // f32x4.extract_lane
-            return lane_handler(4, raw_top.value.simd.f32x4, raw_top.value.uint32, F32);
+            return lane_handler(3, raw_top.value.simd.f32x4, raw_top.value.uint32, F32);
 
         case 0x21: // f64x2.extract_lane
-            return lane_handler(2, raw_top.value.simd.f64x2, raw_top.value.uint64, F64);
+            return lane_handler(1, raw_top.value.simd.f64x2, raw_top.value.uint64, F64);
     }
 
     return false;
@@ -1418,6 +1418,7 @@ bool i_instr_simd_const(Module* m){
     m->sp++;
     auto &v = m->stack[m->sp].value.simd;
     std::memcpy(&v, data, 16);
+    m->stack[m->sp].value_type = V128;
     return true;
 }
 
