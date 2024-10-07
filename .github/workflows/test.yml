@@ -1,32 +1,45 @@
-name: Tests
+name: WASM Spectests
 on: [ push ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  # Cancel in-flight jobs for the same branch or PR
 
 jobs:
   # Stage 1: unit test vm machinery
 
-  unit:
-    name: Run VM unit tests
-    runs-on: ${{matrix.os}}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ ubuntu-latest, macos-latest ]
+  test:
+    name: Run official testsuite
+    runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
 
-      - name: Create build folder
-        run: mkdir build-unit-tests
+      - name: Build warduino cli
+        run: cmake . -D BUILD_EMULATOR=ON ; cmake --build .
 
-      - name: Build unit tests
-        run: cmake .. -D BUILD_UNITTEST=ON ; cmake --build .
-        working-directory: build-unit-tests
+      - name: Build WABT  # Build latest version
+        run: |
+          git clone --recursive https://github.com/WebAssembly/wabt
+          cd wabt
+          git submodule update --init
+          mkdir build; cd build
+          cmake ..
+          cmake --build .
 
-      - name: Run unit tests
-        run: ctest -VV
-        working-directory: build-unit-tests
+      - name: Verify wat2wasm
+        run: ./wabt/build/wat2wasm --version
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Clone and run tests
+        run: ./tests/integration/run_spec_tests.py --compiler "./wabt/build/wat2wasm" --interpreter "./wdcli" --ignore "./tests/integration/ignore.txt"
 
   # Stage 2: integration testing with official Wasm specification test suite
 
