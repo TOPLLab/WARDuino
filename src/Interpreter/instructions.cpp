@@ -1265,3 +1265,221 @@ bool i_instr_callback(Module *m, uint8_t opcode) {
     // TODO
     return true;
 }
+
+/**
+ * [0xfd] 0x0f...0x14 SIMD splat operations
+ */
+bool i_instr_simd_splat(Module* m, uint8_t opcode) {
+    auto &raw_top = m->stack[m->sp];
+    auto &top = raw_top.value;
+
+    switch(opcode) {
+        case 0x0f: { // i8x16.splat
+            const int8_t val = top.int32;
+            for(auto &i : top.simd.i8x16) i = val;
+            break;
+        }
+
+        case 0x10: { // i16x8.splat
+            const int16_t val = top.int32;
+            for(auto &i : top.simd.i16x8) i = val;
+            break;
+        }
+
+        case 0x11: { // i32x4.splat
+            const int32_t val = top.int32;
+            for(auto &i : top.simd.i32x4) i = val;
+            break;
+        }
+
+        case 0x12: { // i64x2.splat
+            const int64_t val = top.int64;
+            for(auto &i : top.simd.i64x2) i = val;
+            break;
+        }
+
+        case 0x13: { // f32x4.splat
+            const float val = top.f32;
+            for(auto &i : top.simd.f32x4) i = val;
+            break;
+        }
+
+        case 0x14: { // f64x2.splat
+            const double val = top.f64;
+            for(auto &i : top.simd.f64x2) i = val;
+            break;
+        }
+    }
+
+    raw_top.value_type = V128;
+    return true;
+}
+
+bool i_instr_simd_extract(Module* m, uint8_t opcode){
+    // inner helper to check if lane is within bounds, then execute the operation
+    auto &raw_top = m->stack[m->sp];
+    const uint8_t lane = *m->pc_ptr;
+    m->pc_ptr++;
+
+    // expect the compiler to inline the lambda - see
+    // https://stackoverflow.com/questions/13722426/why-can-lambdas-be-better-optimized-by-the-compiler-than-plain-functions/13722515#13722515
+    auto lane_handler = [&raw_top, lane]<typename I, typename O>(const int max, I *in, O &out, const uint8_t type) {
+        if(lane > max) {
+            sprintf(exception, "lane index out of bounds (%d > %d)", lane, max);
+            return false;
+        }
+
+        out = in[lane];
+        raw_top.value_type = type;
+
+        return true;
+    };
+
+    switch(opcode) { // TODO: we ignore the _s and _u for now...
+        case 0x15:  // i8x16.extract_lane_s
+        case 0x16: // i8x16.extract_lane_u
+            return lane_handler(15, raw_top.value.simd.i8x16, raw_top.value.uint32, I32);
+
+        case 0x18:  // i16x8.extract_lane_s
+        case 0x19: // i16x8.extract_lane_u
+            return lane_handler(7, raw_top.value.simd.i16x8, raw_top.value.uint32, I32);
+
+        case 0x1b: // i32x4.extract_lane
+            return lane_handler(3, raw_top.value.simd.i32x4, raw_top.value.uint32, I32);
+
+        case 0x1d: // i64x2.extract_lane
+            return lane_handler(1, raw_top.value.simd.i64x2, raw_top.value.uint64, I64);
+
+        case 0x1f: // f32x4.extract_lane
+            return lane_handler(3, raw_top.value.simd.f32x4, raw_top.value.uint32, F32);
+
+        case 0x21: // f64x2.extract_lane
+            return lane_handler(1, raw_top.value.simd.f64x2, raw_top.value.uint64, F64);
+    }
+
+    return false;
+}
+
+bool i_instr_simd_replace(Module *m, uint8_t opcode) {
+    auto &v128 = m->stack[m->sp - 1];
+    auto &update = m->stack[m->sp].value;
+    const uint8_t lane = *m->pc_ptr;
+    m->pc_ptr++;
+    m->sp -= 1;
+
+    auto lane_handler = [&v128, lane]<typename O>(const int max, O *out, O replace) {
+        if(lane > max) {
+            sprintf(exception, "lane index out of bounds (%d > %d)", lane, max);
+            return false;
+        }
+
+        out[lane] = replace;
+        return true;
+    };
+
+    switch(opcode) {
+        case 0x17: // i8x16.replace_lane
+            return lane_handler(15, v128.value.simd.i8x16, static_cast<int8_t>(update.uint32));
+        case 0x1a: // i16x8.replace_lane
+            return lane_handler(8, v128.value.simd.i16x8, static_cast<int16_t>(update.uint32));
+        case 0x1c: // i32x4.replace_lane
+            return lane_handler(4, v128.value.simd.i32x4, static_cast<int32_t>(update.uint32));
+        case 0x1e: // i64x2.replace_lane
+            return lane_handler(2, v128.value.simd.i64x2, static_cast<int64_t>(update.uint64));
+        case 0x20: // f32x4.replace_lane
+            return lane_handler(4, v128.value.simd.f32x4, update.f32);
+        case 0x22: // f64x2.replace_lane
+            return lane_handler(2, v128.value.simd.f64x2, update.f64);
+    }
+
+    return false;
+}
+
+inline bool verify_endian() {
+    static bool _ = [] {
+        int n = 1;
+        if(*reinterpret_cast<char *>(&n) == 1) {
+            // little endian
+            return true;
+        }
+
+        FATAL("v128.const only supported on little-endian systems");
+        return false;
+    }();
+    return _;
+}
+
+bool i_instr_simd_const(Module* m){
+    verify_endian();
+
+    const uint8_t *data = m->pc_ptr;
+    m->pc_ptr += 16; // skip immediate 16-byte data
+
+    m->sp++;
+    auto &v = m->stack[m->sp].value.simd;
+    std::memcpy(&v, data, 16);
+    m->stack[m->sp].value_type = V128;
+    return true;
+}
+
+bool i_instr_simd_store(Module* m){
+    auto &sv = m->stack[m->sp--];
+    StackValue sv2;
+    sv2.value_type = I64;
+    sv2.value.uint64 = sv.value.simd.i64x2[1];
+
+    const uint32_t flags = read_LEB_32(&m->pc_ptr);
+    const uint32_t offset = read_LEB_32(&m->pc_ptr);
+
+    uint32_t ptr = m->stack[m->sp--].value.uint32;
+
+    if(flags != 2 && TRACE) {
+        dbg_info(
+            "      - unaligned store - flags: 0x%x, offset: 0x%x, addr: 0x%x, val: %s\n",
+            flags, offset, ptr, value_repr(&sv)
+        );
+    }
+
+    if(offset + ptr < ptr && !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->memory.bytes + offset + ptr);
+    }
+
+    ptr += offset;
+
+    // store in 2 consecutive locations
+    return m->warduino->interpreter->store(m, I64, ptr, sv) &&
+        m->warduino->interpreter->store(m, I64, ptr + 8, sv2);
+}
+
+bool i_instr_simd_load(Module* m) {
+    const uint32_t flags = read_LEB_32(&m->pc_ptr);
+    const uint32_t offset = read_LEB_32(&m->pc_ptr);
+    uint32_t ptr = m->stack[m->sp--].value.uint32;
+    if(flags != 2 && TRACE) {
+        dbg_info(
+            "      - unaligned load - flags: 0x%x, offset: 0x%x, addr: 0x%x, val: %s\n",
+            flags, offset, ptr
+        );
+    }
+
+    if(offset + ptr < ptr && !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->memory.bytes + offset + ptr);
+    }
+
+    ptr += offset;
+
+    // load from 2 consecutive locations
+    bool success = m->warduino->interpreter->load(m, I64, ptr, offset);
+    const auto i64_0 = m->stack[m->sp].value.int64;
+    m->sp--; // make sure we overwrite the previous load
+    success &= m->warduino->interpreter->load(m, I64, ptr + 8, offset);
+    const auto i64_1 = m->stack[m->sp].value.int64;
+
+    // reconstruct v128
+    auto & [value_type, value] = m->stack[m->sp];
+    value_type = V128;
+    value.simd.i64x2[0] = i64_0;
+    value.simd.i64x2[1] = i64_1;
+
+    return success;
+}

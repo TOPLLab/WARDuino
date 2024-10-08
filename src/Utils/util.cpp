@@ -61,9 +61,11 @@ uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
             FATAL("Unsigned LEB at byte %p overflow", (void *)startpos);
         }
     }
+
     if (sign && (shift < maxbits) && (byte & 0x40u)) {
         // Sign extend by highest bits set 1 except last shift bits
-        result |= UINT64_MAX << shift;
+        const auto old = result;
+        result |= (~0ul) << shift;
     }
     return result;
 }
@@ -92,22 +94,31 @@ StackValue *readWasmArgs(Type function, uint8_t *data) {
 
         switch (args[i].value_type) {
             case I32: {
-                args[i].value.int32 = read_LEB_signed(&data, 32);
+                args[i].value.uint32 = read_LEB_signed(&data, 32);
                 break;
             }
             case F32: {
                 memcpy(&args[i].value.f32, data,
                        sizeof(float));  // todo read ieee 754
+                printf("Received F32 %f (%02x%02x%02x%02x)", args[i].value.f32, data[0], data[1], data[2], data[3]);
                 data += sizeof(float);
                 break;
             }
             case I64: {
-                args[i].value.int64 = read_LEB_signed(&data, 64);
+                args[i].value.uint64 = read_LEB_signed(&data, 64);
                 break;
             }
             case F64: {
                 memcpy(&args[i].value.f64, data, sizeof(double));
+                printf("Received F64 %lf (%02x%02x%02x%02x%02x%02x%02x%02x)",
+                       args[i].value.f64, data[0], data[1], data[2], data[3],
+                       data[4], data[5], data[6], data[7]);
                 data += sizeof(double);
+                break;
+            }
+            case V128: {
+                memcpy(&args[i].value.simd, data, sizeof(decltype(args[i].value.simd)));
+                data += sizeof(decltype(args[i].value.simd));
                 break;
             }
             default: {
