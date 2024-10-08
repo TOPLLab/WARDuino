@@ -5,11 +5,46 @@ interface Cursor {
     value: number;
 }
 
-// 8b  -> 16 elems; pad  2
-// 16b ->  8 elems, pad  4
-// 32b ->  4 elems, pad  8
-// 64b ->  2 elems, pad 16
-// -> 128 / b elems; pad b / 4
+function float32HexStr(x: number): string {
+    const ab = new ArrayBuffer(4);
+    const fb = new Float32Array(ab);
+    fb[0] = x;
+    const ui8 = new Uint8Array(ab);
+    let res = '';
+    for (let i = 3; i >= 0; i--) {
+        res += ui8[i].toString(16).padStart(2, '0');
+    }
+    return res;
+}
+
+function float64HexStr(x: number): string {
+    const ab = new ArrayBuffer(8);
+    const fb = new Float64Array(ab);
+    fb[0] = x;
+    const ui8 = new Uint8Array(ab);
+    let res = '';
+    for (let i = 7; i >= 0; i--) {
+        res += ui8[i].toString(16).padStart(2, '0');
+    }
+    return res;
+}
+
+function parseWasmFloat32(str: string) {
+    const strBuf = str.replace(/_/gi, ''); // remove those damned underscores
+
+    const flt = parseHexFloat(strBuf);
+    const res = float32HexStr(flt);
+    return res;
+}
+
+function parseWasmFloat64(str: string): string|undefined {
+    const strBuf = str.replace(/_/gi, ''); // remove those damned underscores
+
+    // just use hexFloat - it works for 64-bit floats
+    const flt = parseHexFloat(strBuf);
+    const res = float64HexStr(flt);
+    return res;
+}
 
 function parseV128(type: string, args: string[]): string | undefined {
     const int_lambda = (bit_width: number, mask: bigint): string|undefined => {
@@ -17,7 +52,7 @@ function parseV128(type: string, args: string[]): string | undefined {
         const pad_len = bit_width / 4;
 
         if(args.length !== elems) return undefined;
-        return args
+        const res = args
             .map(str => str.replace(/_/gi, '')) // WASM allows _ in numbers, TS doesn't like those
             .map(str => {
                 let start_idx = 0;
@@ -29,37 +64,15 @@ function parseV128(type: string, args: string[]): string | undefined {
             .map(num => num & mask) // ensure correct bit width
             .map(num => num.toString(16).padStart(pad_len, '0')) // convert to hex
             .reduce((acc, val) => acc + val, ''); // concat
+        return res;
     };
 
-    const float_lambda = (bit_width: number, mask: bigint, flt2bigint: (flt: number, ab: ArrayBuffer) => bigint): string|undefined => {
-        const elems = 128 / bit_width;
-        const pad_len = bit_width / 4;
-
-        if(args.length !== elems) return undefined;
-        return args
-            .map(str => str.replace(/_/gi, '')) // WASM allows _ in numbers, TS doesn't like those
-            .map(str => parseFloat(str)) // parse to float ~ might not accept all floats
-            .map(flt => {
-                const buf = new ArrayBuffer(bit_width / 8);
-                return flt2bigint(flt, buf) & mask;
-            })
-            .map(num => num.toString(16).padStart(pad_len, '0')) // convert to hex
-            .reduce((acc, str) => acc + str, ''); // concat
-    };
-
-    const flt32_lambda = (flt: number, ab: ArrayBuffer) => {
-        const fltBuffer = new Float32Array(ab);
-        fltBuffer[0] = flt;
-        const intBuffer = new Int32Array(ab);
-        return BigInt(intBuffer[0]);
-    };
-
-    const flt64_lambda = (flt: number, ab: ArrayBuffer) => {
-        const fltBuffer = new Float64Array(ab);
-        fltBuffer[0] = flt;
-        const intBuffer = new BigInt64Array(ab);
-        return intBuffer[0];
-    };
+    const float_lambda = (elem_count: number, parser: (s: string) => string|undefined): string|undefined => {
+        if(args.length !== elem_count) return undefined;
+        const parsed = args.map(str => parser(str));
+        if(parsed.some(str => str === undefined)) return undefined;
+        return parsed.reduce((acc, val) => acc + (val as string), '');
+    }
 
     switch(type) {
         case 'i8x16': return int_lambda(8,  0x00000000000000ffn);
@@ -67,8 +80,8 @@ function parseV128(type: string, args: string[]): string | undefined {
         case 'i32x4': return int_lambda(32, 0x00000000ffffffffn);
         case 'i64x2': return int_lambda(64, 0xffffffffffffffffn);
 
-        case 'f32x4': return float_lambda(32, 0x00000000ffffffffn, flt32_lambda);
-        case 'f64x2': return float_lambda(64, 0xffffffffffffffffn, flt64_lambda);
+        case 'f32x4': return float_lambda(4, parseWasmFloat32);
+        case 'f64x2': return float_lambda(2, parseWasmFloat64);
 
         default: return undefined;
     }
@@ -118,11 +131,10 @@ export function parseArguments(input: string, index: Cursor): WASM.Value[] {
 
         delta = consume(input, cursor, /^[^.)]*/d);
         const type: WASM.Type = WASM.typing.get(input.slice(cursor + delta - 3, cursor + delta)) ?? WASM.Type.i64;
-        // console.log(`arg #${args.length}.type: ${input.slice(cursor + delta - 3, cursor + delta)}`);
 
         cursor += delta + consume(input, cursor + delta, /^[^)]*const /d);
         delta = consume(input, cursor, /^[^)]*/d);
-        let maybe: number | undefined;
+        let maybe: number | bigint | undefined;
         if (type === WASM.Type.f32 || type === WASM.Type.f64) {
             maybe = parseHexFloat(input.slice(cursor, cursor + delta));
         } else {
@@ -179,6 +191,10 @@ function parseHexFloat(input: string): number {
         return Infinity;
     }
 
+    if (input.includes('e')) {
+        return parseFloat(input);
+    }
+
     const radix: number = input.includes('0x') ? 16 : 10;
     let base: string = input, mantissa, exponent = 0;
 
@@ -200,16 +216,11 @@ function parseHexFloat(input: string): number {
     return mantissa * Math.pow(2, exponent);
 }
 
-function parseInteger(hex: string, bytes: number = 4): number {
-    if (!hex.includes('0x')) {
-        return parseInt(hex);
+function parseInteger(hex: string, bytes: number = 4): bigint {
+    if(hex.startsWith('-')) {
+        return BigInt(-1) * BigInt(hex.slice(1));
     }
-    const mask = parseInt('0x80' + '00'.repeat(bytes - 1), 16);
-    let integer = parseInt(hex, 16);
-    if (integer >= mask) {
-        integer = integer - mask * 2;
-    }
-    return integer;
+    return BigInt(hex);
 }
 
 export function find(regex: RegExp, input: string) {
