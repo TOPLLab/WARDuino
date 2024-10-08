@@ -127,7 +127,7 @@ class Debugger {
     warduino::mutex *supervisor_mutex;
 
     SnapshotPolicy snapshotPolicy;
-    uint8_t checkpointInterval;
+    uint32_t checkpointInterval;
     uint32_t instructions_executed;
     uint8_t *prev_pc_ptr;
     int32_t remaining_instructions;
@@ -260,7 +260,7 @@ class Debugger {
 
     void snapshot(Module *m) const;
 
-    void setSnapshotPolicy(Module *m, const uint8_t *interruptData);
+    void setSnapshotPolicy(Module *m, uint8_t *interruptData);
 
     void handleSnapshotPolicy(Module *m);
 

@@ -940,10 +940,11 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
     this->channel->write("}");
 }
 
-void Debugger::setSnapshotPolicy(Module *m, const uint8_t *interruptData) {
+void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
     snapshotPolicy = SnapshotPolicy{*interruptData};
     if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-        checkpointInterval = *(interruptData + 1);
+        uint8_t *ptr = interruptData + 1;
+        checkpointInterval = read_B32(&ptr);
         checkpoint(m, true);
     }
 }
