@@ -57,20 +57,20 @@ double sensor_emu = 0;
 #define install_primitive_reverse(prim_name)             \
     {                                                    \
         PrimitiveEntry *p = &primitives[prim_index - 1]; \
-        p->f_reverse = &(prim_name## _reverse);           \
-        p->f_serialize_state = &(prim_name## _serialize); \
+        p->f_reverse = &(prim_name##_reverse);           \
+        p->f_serialize_state = &(prim_name##_serialize); \
     }
 
 #define def_prim(function_name, type) \
-    Type function_name## _type = type; \
+    Type function_name##_type = type; \
     bool function_name([[maybe_unused]] Module *m)
 
 #define def_prim_reverse(function_name)     \
-    void function_name## _reverse(Module *m, \
+    void function_name##_reverse(Module *m, \
                                  std::vector<IOStateElement> external_state)
 
 #define def_prim_serialize(function_name) \
-    void function_name## _serialize(       \
+    void function_name##_serialize(       \
         std::vector<IOStateElement *> &external_state)
 
 // TODO: use fp
@@ -270,7 +270,8 @@ def_prim(test, oneToNoneU32) {
     Callback c = Callback(m, topic, fidx);
     CallbackHandler::add_callback(c);
     auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
-    CallbackHandler::push_event(topic, reinterpret_cast<const char *>(payload), 11);
+    CallbackHandler::push_event(topic, reinterpret_cast<const char *>(payload),
+                                11);
     pop_args(1);
     return true;
 }
@@ -345,7 +346,8 @@ def_prim(http_get, fourToOneU32) {
         return false;  // TRAP
     }
     for (unsigned long i = 0; i < answer.length(); i++) {
-        m->memory.bytes[response + i] = *reinterpret_cast<unsigned char *>(&answer[i]);
+        m->memory.bytes[response + i] =
+            *reinterpret_cast<unsigned char *>(&answer[i]);
     }
 
     // Pop args and return response address
