@@ -10,7 +10,7 @@
 #endif
 
 // Assert calloc
-void *acalloc(size_t nmemb, size_t size, const char *name, bool psram) {
+void *acalloc(size_t nmemb, size_t size, const char *name, [[maybe_unused]] bool psram) {
     if ((int)(nmemb * size) == 0) {
         return nullptr;
     } else {
@@ -38,7 +38,7 @@ void *acalloc(size_t nmemb, size_t size, const char *name, bool psram) {
 
 // Assert realloc/calloc
 void *arecalloc(void *ptr, size_t old_nmemb, size_t nmemb, size_t size,
-                const char *name, bool psram) {
+                const char *name, [[maybe_unused]] bool psram) {
 #ifdef ARDUINO
     void *res;
     if (psramInit() && psram) {
