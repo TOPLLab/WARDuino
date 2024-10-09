@@ -158,7 +158,8 @@ class Debugger {
 
     void dumpCallbackmapping() const;
 
-    void inspect(Module *m, uint16_t sizeStateArray, const uint8_t *state) const;
+    void inspect(Module *m, uint16_t sizeStateArray,
+                 const uint8_t *state) const;
 
     //// Handle live code update
 
