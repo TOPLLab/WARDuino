@@ -113,7 +113,7 @@ bool CallbackHandler::resolve_event(bool force) {
     CallbackHandler::resolving_event = true;
     CallbackHandler::events->pop_front();
 
-    debug("Resolving an event. (%lu remaining)\n",
+    debug("Resolving an event. (%zu remaining)\n",
           CallbackHandler::events->size());
 
     auto iterator = CallbackHandler::callbacks->find(event.topic);
