@@ -32,7 +32,7 @@ std::vector<IOStateElement *> get_io_state(Module *m);
 void restore_external_state(Module *m,
                             std::vector<IOStateElement> external_state);
 
-inline void create_stack(std::vector<StackValue>*) {}
+inline void create_stack(std::vector<StackValue> *) {}
 
 template <typename T, typename... Ts>
 void create_stack(std::vector<StackValue> *stack, T value, Ts... args) {
