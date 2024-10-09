@@ -119,7 +119,7 @@ class Debugger {
 
     // Private methods
 
-    void printValue(StackValue *v, uint32_t idx, bool end) const;
+    void printValue(const StackValue *v, uint32_t idx, bool end) const;
 
     // TODO Move parsing to WARDuino class?
     void parseDebugBuffer(size_t len, const uint8_t *buff);
@@ -128,15 +128,15 @@ class Debugger {
 
     //// Handle REPL interrupts
 
-    void handleInvoke(Module *m, uint8_t *interruptData);
+    void handleInvoke(Module *m, uint8_t *interruptData) const;
 
     //// Handle Interrupt Types
 
-    void handleInterruptRUN(Module *m, RunningState *program_state);
+    void handleInterruptRUN(const Module *m, RunningState *program_state);
 
-    void handleSTEP(Module *m, RunningState *program_state);
+    void handleSTEP(const Module *m, RunningState *program_state);
 
-    void handleSTEPOver(Module *m, RunningState *program_state);
+    void handleSTEPOver(const Module *m, RunningState *program_state);
 
     void handleInterruptBP(Module *m, uint8_t *interruptData);
 
@@ -144,9 +144,9 @@ class Debugger {
 
     void dump(Module *m, bool full = false) const;
 
-    void dumpStack(Module *m) const;
+    void dumpStack(const Module *m) const;
 
-    void dumpLocals(Module *m) const;
+    void dumpLocals(const Module *m) const;
 
     void dumpBreakpoints(Module *m) const;
 
@@ -158,27 +158,27 @@ class Debugger {
 
     void dumpCallbackmapping() const;
 
-    void inspect(Module *m, uint16_t sizeStateArray, uint8_t *state);
+    void inspect(Module *m, uint16_t sizeStateArray, const uint8_t *state) const;
 
     //// Handle live code update
 
-    static bool handleChangedFunction(Module *m, uint8_t *bytes);
+    static bool handleChangedFunction(const Module *m, uint8_t *bytes);
 
-    bool handleChangedLocal(Module *m, uint8_t *bytes) const;
+    bool handleChangedLocal(const Module *m, uint8_t *bytes) const;
 
-    bool handleUpdateModule(Module *m, uint8_t *data);
+    static bool handleUpdateModule(Module *m, uint8_t *data);
 
-    bool handleUpdateGlobalValue(Module *m, uint8_t *data);
+    bool handleUpdateGlobalValue(const Module *m, uint8_t *data) const;
 
-    bool handleUpdateStackValue(Module *m, uint8_t *bytes);
+    bool handleUpdateStackValue(const Module *m, uint8_t *bytes) const;
 
-    bool reset(Module *m);
+    bool reset(Module *m) const;
 
     //// Handle out-of-place debugging
 
     void freeState(Module *m, uint8_t *interruptData);
 
-    static uint8_t *findOpcode(Module *m, Block *block);
+    static uint8_t *findOpcode(Module *m, const Block *block);
 
     bool saveState(Module *m, uint8_t *interruptData);
 
@@ -213,7 +213,7 @@ class Debugger {
 
     void stop();
 
-    void pauseRuntime(Module *m);  // pause runtime for given module
+    void pauseRuntime(const Module *m);  // pause runtime for given module
 
     // Interrupts
 
@@ -235,20 +235,20 @@ class Debugger {
 
     // Out-of-place debugging: EDWARD
 
-    void snapshot(Module *m);
+    void snapshot(Module *m) const;
 
-    void enableSnapshots(uint8_t *interruptData);
+    void enableSnapshots(const uint8_t *interruptData);
 
-    void sendAsyncSnapshots(Module *m);
+    void sendAsyncSnapshots(Module *m) const;
 
     void proxify();
 
     void handleProxyCall(Module *m, RunningState *program_state,
-                         uint8_t *interruptData);
+                         uint8_t *interruptData) const;
 
-    RFC *topProxyCall();
+    RFC *topProxyCall() const;
 
-    void sendProxyCallResult(Module *m);
+    void sendProxyCallResult(Module *m) const;
 
     bool isProxy() const;
 
@@ -258,11 +258,11 @@ class Debugger {
 
     bool proxy_connected() const;
 
-    void disconnect_proxy();
+    void disconnect_proxy() const;
 
     // Pull-based
 
-    void handleMonitorProxies(Module *m, uint8_t *interruptData);
+    void handleMonitorProxies(const Module *m, uint8_t *interruptData) const;
 
     // Push-based
 

@@ -83,7 +83,7 @@ Sink::Sink(FILE *out) {
     this->outDescriptor = fileno(out);
 }
 
-int Sink::write(const char *fmt, ...) const {
+int Sink::write(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     int written = vfprintf(this->outStream, fmt, args);
@@ -105,7 +105,7 @@ FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) {
     this->fd = fileDescriptor;
 }
 
-int FileDescriptorChannel::write(const char *fmt, ...) const {
+int FileDescriptorChannel::write(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     int written = vdprintf(this->fd, fmt, args);
@@ -151,7 +151,7 @@ void ClientSocket::open() {
     this->socket = this->fileDescriptor;
 }
 
-int WebSocket::write(const char *fmt, ...) const {
+int WebSocket::write(const char *fmt, ...) {
     if (this->socket < 0) {
         return 0;
     }
