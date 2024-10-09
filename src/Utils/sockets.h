@@ -18,8 +18,8 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address);
 class Channel {
    public:
     virtual void open() {}
-    virtual int write(char const *fmt, ...) { return 0; }
-    virtual ssize_t read(void *out, size_t size) { return 0; }
+    virtual int write(char const *, ...) { return 0; }
+    virtual ssize_t read(void *, size_t) { return 0; }
     virtual void close() {}
     virtual ~Channel() = default;
 };
@@ -31,7 +31,6 @@ class Channel {
 class Sink : public Channel {
    private:
     FILE *outStream;
-    int outDescriptor;
 
    public:
     explicit Sink(FILE *out);

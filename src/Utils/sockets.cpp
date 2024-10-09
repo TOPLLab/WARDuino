@@ -78,10 +78,7 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
 }
 #endif
 
-Sink::Sink(FILE *out) {
-    this->outStream = out;
-    this->outDescriptor = fileno(out);
-}
+Sink::Sink(FILE *out) { this->outStream = out; }
 
 int Sink::write(const char *fmt, ...) {
     va_list args;
