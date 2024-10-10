@@ -216,7 +216,8 @@ function parseHexFloat(input: string): number {
     return mantissa * Math.pow(2, exponent);
 }
 
-function parseInteger(hex: string, bytes: number = 4): bigint {
+function parseInteger(hexU: string, bytes: number = 4): bigint {
+    const hex = hexU.replace(/_/g, '');
     if(hex.startsWith('-')) {
         return BigInt(-1) * BigInt(hex.slice(1));
     }

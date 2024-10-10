@@ -85,3 +85,13 @@ bool i_instr_simd_const(Module *m);
 bool i_instr_simd_store(Module *m);
 
 bool i_instr_simd_load(Module *m);
+
+bool i_instr_simd_bin_bit_op(Module *m, uint8_t opcode);
+
+bool i_instr_simd_v128_not(Module *m);
+
+bool i_instr_simd_bin_v128_v128_op(Module *m, uint8_t opcode);
+
+bool i_instr_simd_shift(Module *m, uint8_t opcode);
+
+bool i_instr_simd_ext_add_pairwise(Module *m, uint8_t opcode);
