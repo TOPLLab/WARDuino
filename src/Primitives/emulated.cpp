@@ -63,7 +63,7 @@ double sensor_emu = 0;
 
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
-    bool function_name(Module *m)
+    bool function_name([[maybe_unused]] Module *m)
 
 #define def_prim_reverse(function_name)     \
     void function_name##_reverse(Module *m, \
@@ -270,7 +270,8 @@ def_prim(test, oneToNoneU32) {
     Callback c = Callback(m, topic, fidx);
     CallbackHandler::add_callback(c);
     auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
-    CallbackHandler::push_event(topic, (const char *)payload, 11);
+    CallbackHandler::push_event(topic, reinterpret_cast<const char *>(payload),
+                                11);
     pop_args(1);
     return true;
 }
@@ -318,11 +319,11 @@ def_prim(wifi_connected, NoneToOneU32) {
 
 def_prim(wifi_localip, twoToOneU32) {
     uint32_t buff = arg1.uint32;
-    uint32_t size = arg0.uint32;
+    // uint32_t size = arg0.uint32; // never used in emulator
     std::string ip = "192.168.0.181";
 
     for (unsigned long i = 0; i < ip.length(); i++) {
-        m->memory.bytes[buff + i] = (uint32_t)ip[i];
+        m->memory.bytes[buff + i] = *reinterpret_cast<uint8_t *>(&ip[i]);
     }
     pop_args(2);
     pushInt32(buff);
@@ -345,7 +346,8 @@ def_prim(http_get, fourToOneU32) {
         return false;  // TRAP
     }
     for (unsigned long i = 0; i < answer.length(); i++) {
-        m->memory.bytes[response + i] = (uint32_t)answer[i];
+        m->memory.bytes[response + i] =
+            *reinterpret_cast<unsigned char *>(&answer[i]);
     }
 
     // Pop args and return response address
@@ -365,7 +367,7 @@ def_prim(http_post, tenToOneU32) {
     uint32_t authorization = arg3.uint32;
     uint32_t authorization_len = arg2.uint32;
     int32_t response = arg1.uint32;
-    uint32_t size = arg0.uint32;
+    // uint32_t size = arg0.uint32; // never used in emulator
 
     std::string url_parsed = parse_utf8_string(m->memory.bytes, url_len, url);
     std::string body_parsed =
@@ -398,14 +400,14 @@ def_prim(chip_digital_write, twoToNoneU32) {
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
-    uint8_t pin = arg0.uint32;
+    // uint8_t pin = arg0.uint32; // never used in emulator
     pop_args(1);
     pushUInt32(1);  // HIGH
     return true;
 }
 
 def_prim(chip_analog_read, oneToOneI32) {
-    uint8_t pin = arg0.uint32;
+    // uint8_t pin = arg0.uint32; // never used in emulator
     pop_args(1);
     pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
@@ -460,11 +462,11 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
-    uint8_t mode = arg0.uint32;
+    // uint8_t mode = arg0.uint32; // never used in emulator
 
     debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, tidx, mode);
 
-    if (tidx < 0 || m->table.size < tidx) {
+    if (m->table.size < tidx) {
         debug("subscribe_interrupt: out of range table index %i\n", tidx);
         return false;
     }
@@ -554,6 +556,7 @@ void install_primitives() {
 //------------------------------------------------------
 // resolving the primitives
 //------------------------------------------------------
+// ReSharper disable once CppDFAConstantFunctionResult
 bool resolve_primitive(char *symbol, Primitive *val) {
     debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
 
@@ -566,34 +569,35 @@ bool resolve_primitive(char *symbol, Primitive *val) {
         }
     }
     FATAL("Could not find primitive %s \n", symbol);
-    return false;
+    // return false; // unreachable
 }
 
 Memory external_mem{};
 
+// ReSharper disable once CppDFAConstantFunctionResult
 bool resolve_external_memory(char *symbol, Memory **val) {
     if (!strcmp(symbol, "memory")) {
         if (external_mem.bytes == nullptr) {
             external_mem.initial = 256;
             external_mem.maximum = 256;
             external_mem.pages = 256;
-            external_mem.bytes = (uint8_t *)acalloc(
-                external_mem.pages * PAGE_SIZE, sizeof(uint32_t),
-                "Module->memory.bytes primitive");
+            external_mem.bytes = static_cast<uint8_t *>(
+                acalloc(external_mem.pages * PAGE_SIZE, sizeof(uint32_t),
+                        "Module->memory.bytes primitive"));
         }
         *val = &external_mem;
         return true;
     }
 
     FATAL("Could not find memory %s \n", symbol);
-    return false;
+    // return false; // unreachable
 }
 
 //------------------------------------------------------
 // Restore external state when restoring a snapshot
 //------------------------------------------------------
 void restore_external_state(Module *m,
-                            std::vector<IOStateElement> external_state) {
+                            const std::vector<IOStateElement> &external_state) {
     uint8_t opcode = *m->pc_ptr;
     // TODO: Maybe primitives can also be called using the other call
     // instructions such as call_indirect
@@ -617,7 +621,7 @@ void restore_external_state(Module *m,
     }
 }
 
-std::vector<IOStateElement *> get_io_state(Module *m) {
+std::vector<IOStateElement *> get_io_state(Module *) {
     std::vector<IOStateElement *> ioState;
     for (auto &primitive : primitives) {
         if (primitive.f_serialize_state) {

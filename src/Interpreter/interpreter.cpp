@@ -461,7 +461,8 @@ bool Interpreter::interpret(Module *m, bool waiting) {
     return success;
 }
 
-void Interpreter::report_overflow(Module *m, uint8_t *maddr) {
+void Interpreter::report_overflow([[maybe_unused]] Module *m,
+                                  [[maybe_unused]] uint8_t *maddr) {
     dbg_warn("memory start: %p, memory end: %p, maddr: %p\n", m->memory.bytes,
              m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE, maddr);
     sprintf(exception, "out of bounds memory access");

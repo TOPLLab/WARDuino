@@ -10,7 +10,7 @@ void push_guard(Module *m) {
     if (m == nullptr) {
         return;
     }
-    auto *guard = (Block *)malloc(sizeof(struct Block));
+    auto *guard = static_cast<Block *>(malloc(sizeof(Block)));
     guard->block_type = 255;
     guard->type = nullptr;
     guard->local_value_type = nullptr;
@@ -69,12 +69,9 @@ size_t CallbackHandler::callback_count(const std::string &topic) {
 // WARNING: Push event functions should not use IO functions, since they can be
 // called from ISR callbacks
 void CallbackHandler::push_event(std::string topic, const char *payload,
-                                 unsigned int length) {
-    char *message = (char *)(malloc(sizeof(char) * length + 1));
-    snprintf(message, length + 1, "%s", payload);
-    auto event =
-        new Event(std::move(topic), reinterpret_cast<const char *>(message));
-    CallbackHandler::push_event(event);
+                                 const unsigned int length) {
+    CallbackHandler::push_event(
+        new Event(std::move(topic), std::string(payload, length)));
 }
 
 void CallbackHandler::push_event(Event *event) {
@@ -116,7 +113,7 @@ bool CallbackHandler::resolve_event(bool force) {
     CallbackHandler::resolving_event = true;
     CallbackHandler::events->pop_front();
 
-    debug("Resolving an event. (%lu remaining)\n",
+    debug("Resolving an event. (%zu remaining)\n",
           CallbackHandler::events->size());
 
     auto iterator = CallbackHandler::callbacks->find(event.topic);
@@ -130,7 +127,7 @@ bool CallbackHandler::resolve_event(bool force) {
         push_guard(module);
     } else {
         // TODO handle error: event for non-existing iterator
-        printf("No handler found for %s (in %u items)!\n", event.topic.c_str(),
+        printf("No handler found for %s (in %zu items)!\n", event.topic.c_str(),
                CallbackHandler::callbacks->size());
     }
     return !CallbackHandler::events->empty();
