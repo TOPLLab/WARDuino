@@ -1979,6 +1979,23 @@ bool i_instr_simd_ext_add_pairwise(Module* m, uint8_t opcode){
         case 0x7d: return simd_ext_add<uint8_t>(m);
         case 0x7e: return simd_ext_add<int16_t>(m);
         case 0x7f: return simd_ext_add<uint16_t>(m);
-        default: return false;
+        default:
+            return false;
     }
+}
+
+bool i_instr_simd_swizzle(Module* m){
+    const int8_t *current = m->stack[m->sp - 1].value.simd.i8x16;
+    uint8_t swizzle[16];
+    memcpy(swizzle, m->stack[m->sp].value.simd.i8x16, 16 * sizeof(int8_t));
+    int8_t lanes[16];
+
+    for(int i = 0; i < 16; i++) {
+        lanes[i] = swizzle[i] < 16 ? current[swizzle[i]] : static_cast<int8_t>(0);
+    }
+
+    m->sp--;
+    m->stack[m->sp].value_type = V128;
+    memcpy(m->stack[m->sp].value.simd.i8x16, lanes, 16 * sizeof(int8_t));
+    return true;
 }

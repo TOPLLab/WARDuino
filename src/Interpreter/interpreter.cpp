@@ -497,11 +497,15 @@ bool Interpreter::interpret_simd(Module *m) {
 
     const auto opcode = *m->pc_ptr;
     m->pc_ptr++;
+
     switch(opcode) {
         case 0x00: return i_instr_simd_load(m);
 
         case 0x0b: return i_instr_simd_store(m);
         case 0x0c: return i_instr_simd_const(m);
+
+        case 0x0d: return not_implemented(opcode); // TODO: i8x16.shuffle
+        case 0x0e: return i_instr_simd_swizzle(m);
 
         case 0x0f ... 0x14: return i_instr_simd_splat(m, opcode);
 
