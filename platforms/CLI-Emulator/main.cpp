@@ -406,6 +406,12 @@ int main(int argc, const char *argv[]) {
         } else {
             wac->run_module(m);
         }
+
+        if(m->exception) {
+            fprintf(stderr, "wdcli: exception: %s\n", m->exception);
+            return 1;
+        }
+
         wac->unload_module(m);
         wac->debugger->stop();
 

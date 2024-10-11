@@ -28,6 +28,8 @@
 #define F32 0x7d  // -0x03
 #define F64 0x7c  // -0x04
 
+#define V128 0x7b // according to the spec? TODO
+
 #define I32_8 0x7b   // -0x05
 #define I32_16 0x7a  // -0x06
 #define I64_8 0x79   // -0x07
