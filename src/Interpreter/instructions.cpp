@@ -1261,7 +1261,9 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
 /**
  * 0xe0 ... 0xe3 callback operations
  */
-bool i_instr_callback(Module *m, uint8_t opcode) {
+// TODO: Remove [[maybe_unused]] when implemented
+bool i_instr_callback([[maybe_unused]] Module *m,
+                      [[maybe_unused]] uint8_t opcode) {
     // TODO
     return true;
 }

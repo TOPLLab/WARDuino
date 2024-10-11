@@ -1079,7 +1079,7 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 // Restore external state when restoring a snapshot
 //------------------------------------------------------
 void restore_external_state(Module *m,
-                            std::vector<IOStateElement> external_state) {
+                            const std::vector<IOStateElement> &external_state) {
     uint8_t opcode = *m->pc_ptr;
     // TODO: Maybe primitives can also be called using the other call
     // instructions such as call_indirect
