@@ -30,7 +30,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 33
+#define NUM_PRIMITIVES_ARDUINO 34
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -636,8 +636,12 @@ SDL_Renderer *renderer;
 SDL_Window* window = NULL;
 SDL_Surface* screenSurface = NULL;
 
-SDL_Surface *texSurface = nullptr;
 SDL_Texture *texture;
+
+const int w = 16 * 32;
+const int h = 16 * 32;
+uint32_t pixels1[w * h] = {};
+uint32_t pixels2[w * h] = {};
 
 def_prim(init_display, NoneToNoneU32) {
     printf("init_display \n");
@@ -662,8 +666,19 @@ def_prim(init_display, NoneToNoneU32) {
         return false;                                                                                  
     }
     
-    texSurface = SDL_LoadBMP("/home/maarten/Documents/School/Phd/WARDuinoBuilds/WARDuino-platformer/sprites.bmp");
+    SDL_Surface *texSurface = SDL_LoadBMP("/home/maarten/Documents/School/Phd/WARDuinoBuilds/WARDuino-platformer/sprites.bmp");
     texture = SDL_CreateTextureFromSurface(renderer, texSurface);
+    
+    // Make texture from raw bytes:
+    
+    /*SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
+        pixels,                        // Pointer to the pixel data
+        w, h,     // Width and height of the image
+        8 * 4,                            // Bits per pixel (RGBA = 32)
+        w * 4,               // Pitch (width * 4 bytes per pixel)
+        0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000  // Masks for RGBA
+    );
+    texture = SDL_CreateTextureFromSurface(renderer, surface);*/
     
     return true;
 }
@@ -685,6 +700,28 @@ def_prim(draw_rect, fiveToNoneU32) {
     //SDL_RenderDrawRect(renderer, &rect);   
     SDL_RenderFillRect(renderer, &rect);
     
+    int w = 32;
+    int h = 32;
+    int x = (arg0.uint32 % 16) * w;
+    int y = (arg0.uint32 / 16) * h;
+    SDL_Rect src_rect = {x, y, w, h};
+    SDL_RenderCopy(renderer, texture, &src_rect, &rect);
+    
+    pop_args(5);
+    return true;
+}
+
+def_prim(draw_raw, fiveToNoneU32) {
+    uint32_t r = (arg0.uint32 >> 16)  & 0xff;
+    uint32_t g = (arg0.uint32 >> 8) & 0xff;
+    uint32_t b = arg0.uint32 & 0xff;
+    //printf("(%d, %d) (%d, %d)\n", arg4.int32, arg3.int32, arg2.int32, arg1.int32);
+    
+    SDL_Rect rect = {arg4.int32, arg3.int32, arg2.int32, arg1.int32}; 
+    SDL_SetRenderDrawColor(renderer, r, g, b, 255);                                       
+    //SDL_RenderDrawRect(renderer, &rect);   
+    SDL_RenderFillRect(renderer, &rect);
+    
     //SDL_Surface *texSurface = SDL_LoadBMP("/home/maarten/Documents/School/Phd/WARDuinoBuilds/rock.bmp");
     /*char bytes[2 * 2] = {0,1,1,0};
     SDL_Surface *texSurface = SDL_CreateRGBSurface*/
@@ -695,12 +732,44 @@ def_prim(draw_rect, fiveToNoneU32) {
         bytes
     }*/
     
-    int w = 32;
+    /*SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
+        pixels,                        // Pointer to the pixel data
+        32, 32,     // Width and height of the image
+        8 * 4,                            // Bits per pixel (RGBA = 32)
+        32 * 4,               // Pitch (width * 4 bytes per pixel)
+        0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000  // Masks for RGBA
+    );
+    texture = SDL_CreateTextureFromSurface(renderer, surface);*/
+    
+    int w = arg2.uint32;
+    int h = arg1.uint32;
+    //printf("addr = %d\n", arg0.uint32);
+    for (int i = 0; i < w * h; i++) {
+        uint32_t c = m->memory.bytes[arg0.uint32 + i * 4];
+        c = c | m->memory.bytes[arg0.uint32 + i * 4 + 1] << 8;
+        c = c | m->memory.bytes[arg0.uint32 + i * 4 + 2] << 16;
+        c = c | m->memory.bytes[arg0.uint32 + i * 4 + 3] << 24;
+        //printf("0x%x ", c);
+        
+        pixels1[i] = c;
+    }
+    //printf("\n");
+    SDL_Texture *texture = SDL_CreateTexture(renderer, 
+                                SDL_PIXELFORMAT_ARGB8888, 
+                                SDL_TEXTUREACCESS_STREAMING, 
+                                w, h);
+    
+    SDL_UpdateTexture(texture, NULL, pixels1, w * sizeof(uint32_t));
+    
+    SDL_Rect src_rect = {0, 0, w, h};
+    SDL_RenderCopy(renderer, texture, &src_rect, &rect);
+    
+    /*int w = 32;
     int h = 32;
     int x = (arg0.uint32 % 16) * w;
     int y = (arg0.uint32 / 16) * h;
     SDL_Rect src_rect = {x, y, w, h};
-    SDL_RenderCopy(renderer, texture, &src_rect, &rect);
+    SDL_RenderCopy(renderer, texture, &src_rect, &rect);*/
     
     pop_args(5);
     return true;
@@ -761,6 +830,7 @@ void install_primitives() {
     install_primitive(dispose_display); 
     install_primitive(present_display_buffer);
     install_primitive(draw_rect);
+    install_primitive(draw_raw);
 }
 
 //------------------------------------------------------
