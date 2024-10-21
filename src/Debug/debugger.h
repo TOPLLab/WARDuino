@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
+#include <optional>
 #include <queue>  // std::queue
 #include <set>
 #include <thread>
@@ -108,7 +109,7 @@ enum class SnapshotPolicy : int {
 };
 
 class Debugger {
-   private:
+private:
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
@@ -126,14 +127,16 @@ class Debugger {
     bool connected_to_proxy = false;
     warduino::mutex *supervisor_mutex;
 
+    std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
+        overrides;
+
     SnapshotPolicy snapshotPolicy;
     uint32_t checkpointInterval;
     uint32_t instructions_executed;
     uint8_t *prev_pc_ptr;
     int32_t remaining_instructions;
-
-    std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
-        overrides;
+    std::optional<uint32_t> fidx_called;
+    uint32_t prim_args[8];
 
     // Private methods
 
@@ -207,7 +210,7 @@ class Debugger {
 
     bool operation(Module *m, operation op);
 
-    bool isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr);
+    std::optional<uint32_t> isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr);
 
    public:
     // Public fields

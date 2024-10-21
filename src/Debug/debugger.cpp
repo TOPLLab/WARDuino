@@ -27,6 +27,7 @@ Debugger::Debugger(Channel *duplex) {
     this->instructions_executed = 0;
     this->remaining_instructions = -1;
     this->prev_pc_ptr = nullptr;
+    this->fidx_called = {};
 }
 
 // Public methods
@@ -956,11 +957,19 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         this->channel->write("\n");
     }
     else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-        if (instructions_executed >= checkpointInterval || isPrimitiveBeingCalled(m, prev_pc_ptr)) {
+        if (instructions_executed >= checkpointInterval || fidx_called) {
             checkpoint(m);
         }
         instructions_executed++;
         prev_pc_ptr = m->pc_ptr;
+
+        // Store arguments of last primitive call.
+        if ((fidx_called = isPrimitiveBeingCalled(m, m->pc_ptr))) {
+            const Type *type = m->functions[*fidx_called].type;
+            for (int32_t i = 0; i < type->param_count; i++) {
+                prim_args[type->param_count - i - 1] =  m->stack[m->sp - i].value.uint32;
+            }
+        }
     }
     else if (snapshotPolicy != SnapshotPolicy::none) {
         this->channel->write("WARNING: Invalid snapshot policy.");
@@ -972,7 +981,18 @@ void Debugger::checkpoint(Module *m, bool force) {
         return;
     }
 
-    this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, "snapshot": )", instructions_executed);
+    this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, )", instructions_executed);
+    if (fidx_called) {
+        this->channel->write("\"fidx_called\": %d, \"args\": [", *fidx_called);
+        const Block &func_block = m->functions[*fidx_called];
+        bool comma = false;
+        for (uint32_t i = 0; i < func_block.type->param_count; i++) {
+            channel->write("%s%d", comma ? ", " : "", prim_args[i]);
+            comma = true;
+        }
+        this->channel->write("], ");
+    }
+    this->channel->write(R"("snapshot": )", instructions_executed);
     snapshot(m);
     this->channel->write("}\n");
     instructions_executed = 0;
@@ -1564,9 +1584,9 @@ Debugger::~Debugger() {
     delete this->supervisor;
 }
 
-bool Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
+std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
     if (!pc_ptr) {
-        return false;
+        return {};
     }
 
     // TODO: Maybe primitives can also be called using the other call operators
@@ -1574,9 +1594,9 @@ bool Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
     if (opcode == 0x10) {  // call opcode
         uint8_t *pc_copy = pc_ptr + 1;
         uint32_t fidx = read_LEB_32(&pc_copy);
-        return fidx < m->import_count;
+        return fidx;
     }
-    return false;
+    return {};
 }
 
 bool Debugger::handleContinueFor(Module *m) {
