@@ -1,3 +1,5 @@
+#include <random>
+
 #include "../Interpreter/instructions.h"
 #ifndef ARDUINO
 
@@ -496,7 +498,10 @@ def_prim(setup_uart_sensor, oneToNoneU32) {
 
 def_prim(colour_sensor, oneToOneI32) {
     pop_args(1);
-    pushUInt32(0);
+    std::random_device r;
+    std::default_random_engine random_engine(r());
+    std::uniform_int_distribution<int> uniform_dist(0, 100);
+    pushUInt32(uniform_dist(random_engine););
     return true;
 }
 
