@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
+#include <optional>
 #include <queue>  // std::queue
 #include <set>
 #include <thread>
@@ -109,7 +110,7 @@ enum class SnapshotPolicy : int {
 };
 
 class Debugger {
-   private:
+private:
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
@@ -131,6 +132,8 @@ class Debugger {
     uint32_t checkpointInterval;
     uint32_t instructions_executed;
     uint8_t *prev_pc_ptr;
+    std::optional<uint32_t> fidx_called;
+    uint32_t prim_args[8];
 
     int32_t remaining_instructions;
 
@@ -207,7 +210,7 @@ class Debugger {
 
     bool operation(Module *m, operation op);
 
-    bool isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr);
+    std::optional<uint32_t> isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr);
 
    public:
     // Public fields
