@@ -618,6 +618,7 @@ char checksum;
 int baudrate = -1;
 int bytes_received = 0;
 
+uint8_t mode = 2;
 int mode0_format_location = 0;
 
 volatile bool data_mode = false;
@@ -804,6 +805,11 @@ void uartHeartbeat() {
         printk("current baudrate after config change = %d\n", cfg.baudrate);
         printk("config_err = %d\n", config_err);
         baudrate_configured = true;
+
+        // Change to mode 2
+        uart_poll_out(uart_dev, 0x43);
+        uart_poll_out(uart_dev, mode);
+        uart_poll_out(uart_dev, 0xff ^ 0x43 ^ mode);
     }
 
     if (data_mode && baudrate_configured) {
@@ -838,7 +844,7 @@ void my_timer_func(struct k_timer *timer_id) {
     k_work_submit(&debug_work);
 }
 
-def_prim(setup_uart_sensor, oneToNoneU32) {
+def_prim(setup_uart_sensor, twoToNoneU32) {
     if (!device_is_ready(uart_dev)) {
         printk("Input port is not ready!\n");
         return 0;
@@ -857,7 +863,8 @@ def_prim(setup_uart_sensor, oneToNoneU32) {
         return 0;
     }
     uart_irq_rx_enable(uart_dev);
-    pop_args(1);
+    mode = arg0.uint32;
+    pop_args(2);
     return true;
 }
 
