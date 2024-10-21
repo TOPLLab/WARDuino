@@ -35,7 +35,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 11
+#define NUM_PRIMITIVES_ARDUINO 12
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -609,6 +609,29 @@ def_prim(drive_motor_degrees_absolute, threeToNoneU32) {
     return true;
 }
 
+def_prim(drive_motor, threeToNoneU32) {
+    int32_t brake = (int32_t)arg0.uint32;
+    int32_t speed = (int32_t)arg1.uint32;
+    int32_t motor_index = (int32_t)arg2.uint32;
+
+    if (motor_index > 1) {
+        return false;
+    }
+
+    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
+    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
+    MotorEncoder *encoder = &encoders[motor_index];
+
+    drive_motor(pwm1_spec, pwm2_spec, speed / 10000.0f);
+
+    if (speed == 0 && brake == 1) {
+        drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
+    }
+
+    pop_args(3);
+    return true;
+}
+
 static const struct device *const uart_dev =
     DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
 volatile int payload_bytes = 0;
@@ -942,6 +965,7 @@ void install_primitives() {
     install_primitive(drive_motor_degrees);
     install_primitive_reverse(drive_motor_degrees);
     install_primitive(drive_motor_degrees_absolute);
+    install_primitive(drive_motor);
     install_primitive(colour_sensor);
     install_primitive(setup_uart_sensor);
 
