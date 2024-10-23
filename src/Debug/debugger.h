@@ -128,10 +128,10 @@ private:
     bool connected_to_proxy = false;
     warduino::mutex *supervisor_mutex;
 
+    // Checkpointing
     SnapshotPolicy snapshotPolicy;
     uint32_t checkpointInterval;
     uint32_t instructions_executed;
-    uint8_t *prev_pc_ptr;
     std::optional<uint32_t> fidx_called;
     uint32_t prim_args[8];
 
