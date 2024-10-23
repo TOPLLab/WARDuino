@@ -127,9 +127,11 @@ private:
     bool connected_to_proxy = false;
     warduino::mutex *supervisor_mutex;
 
+    // Mocking
     std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
         overrides;
 
+    // Checkpointing
     SnapshotPolicy snapshotPolicy;
     uint32_t checkpointInterval;
     uint32_t instructions_executed;

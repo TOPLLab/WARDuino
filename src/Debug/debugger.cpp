@@ -26,7 +26,6 @@ Debugger::Debugger(Channel *duplex) {
     this->checkpointInterval = 10;
     this->instructions_executed = 0;
     this->remaining_instructions = -1;
-    this->prev_pc_ptr = nullptr;
     this->fidx_called = {};
 }
 
@@ -961,12 +960,11 @@ void Debugger::handleSnapshotPolicy(Module *m) {
             checkpoint(m);
         }
         instructions_executed++;
-        prev_pc_ptr = m->pc_ptr;
 
         // Store arguments of last primitive call.
         if ((fidx_called = isPrimitiveBeingCalled(m, m->pc_ptr))) {
             const Type *type = m->functions[*fidx_called].type;
-            for (int32_t i = 0; i < type->param_count; i++) {
+            for (uint32_t i = 0; i < type->param_count; i++) {
                 prim_args[type->param_count - i - 1] =  m->stack[m->sp - i].value.uint32;
             }
         }
