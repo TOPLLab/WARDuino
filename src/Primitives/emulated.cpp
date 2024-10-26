@@ -438,7 +438,7 @@ def_prim_serialize(chip_digital_write) {
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
-    // uint8_t pin = arg0.uint32; // never used in emulator
+    uint8_t pin = arg0.uint32;
     pop_args(1);
     if (pin < NUM_DIGITAL_PINS) {
         pushUInt32(PINS[pin]);
