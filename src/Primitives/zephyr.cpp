@@ -886,7 +886,13 @@ def_prim(setup_uart_sensor, twoToNoneU32) {
         return 0;
     }
     uart_irq_rx_enable(uart_dev);
-    mode = arg0.uint32;
+    uint8_t new_mode = arg0.uint32;
+    if (new_mode != mode && data_mode) {
+        uart_poll_out(uart_dev, 0x43);
+        uart_poll_out(uart_dev, new_mode);
+        uart_poll_out(uart_dev, 0xff ^ 0x43 ^ new_mode);
+    }
+    mode = new_mode;
     pop_args(2);
     return true;
 }
