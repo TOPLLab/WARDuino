@@ -109,7 +109,11 @@
             <&pwm8 3 10000 PWM_POLARITY_NORMAL>,
             <&pwm8 4 10000 PWM_POLARITY_NORMAL>,
             <&pwm8 1 10000 PWM_POLARITY_NORMAL>,
-            <&pwm8 2 10000 PWM_POLARITY_NORMAL>;
+            <&pwm8 2 10000 PWM_POLARITY_NORMAL>,
+            <&pwm1 3 10000 PWM_POLARITY_NORMAL>,
+            <&pwm1 4 10000 PWM_POLARITY_NORMAL>,
+            <&pwm1 1 10000 PWM_POLARITY_NORMAL>,
+            <&pwm1 2 10000 PWM_POLARITY_NORMAL>;
             
         warduino-uarts =
             <&usart1>;
@@ -123,6 +127,16 @@
         pinctrl-0 = <&tim8_ch3_pc8 &tim8_ch4_pc9 &tim8_ch1_pc6 &tim8_ch2_pc7>;
         pinctrl-names =
             "default";
+    };
+};
+
+&timers1 {
+    status = "okay";
+    pwm1: pwm {
+        status = "okay";
+        pinctrl-0 = <&tim1_ch3_pe13 &tim1_ch4_pe14 &tim1_ch1_pa8 &tim1_ch2_pa9>;
+        pinctrl-names =
+                "default";
     };
 };
 

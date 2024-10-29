@@ -250,6 +250,10 @@ const struct pwm_dt_spec pwm_specs[] = {
     PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1),
     PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 2),
     PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 3),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 4),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 5),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 6),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 7),
 };
 
 /*struct gpio_dt_spec pwm_specs[] = {
@@ -411,7 +415,7 @@ class MotorEncoder {
     }
 
    public:
-    MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_encoder_spec)
+    MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_encoder_spec, const char *name)
         : pin5_encoder_spec(pin5_encoder_spec),
           pin6_encoder_spec(pin6_encoder_spec),
           angle(0),
@@ -426,15 +430,21 @@ class MotorEncoder {
             FATAL("Failed to configure GPIO encoder pin6\n");
         }
 
-        gpio_pin_interrupt_configure_dt(&pin5_encoder_spec,
-                                        GPIO_INT_EDGE_RISING);
+        int result = gpio_pin_interrupt_configure_dt(&pin5_encoder_spec,
+                                                     GPIO_INT_EDGE_RISING);
+        if (result != 0) {
+            printf("Failed to configure interrupt on pin5 for %s, error code %d\n", name, result);
+        }
         gpio_init_callback(&pin5_encoder_cb_data,
                            MotorEncoder::encoder_pin5_edge_rising,
                            BIT(pin5_encoder_spec.pin));
         gpio_add_callback(pin5_encoder_spec.port, &pin5_encoder_cb_data);
 
-        gpio_pin_interrupt_configure_dt(&pin6_encoder_spec,
-                                        GPIO_INT_EDGE_RISING);
+        result = gpio_pin_interrupt_configure_dt(&pin6_encoder_spec,
+                                                GPIO_INT_EDGE_RISING);
+        if (result != 0) {
+            printf("Failed to configure interrupt on pin6 for %s, error code %d\n", name, result);
+        }
         gpio_init_callback(&pin6_encoder_cb_data,
                            MotorEncoder::encoder_pin6_edge_rising,
                            BIT(pin6_encoder_spec.pin));
@@ -476,8 +486,11 @@ class MotorEncoder {
 // MotorEncoder encoder(specs[57], specs[58]);
 // MotorEncoder encoder(specs[58], specs[57]);
 
-MotorEncoder encoders[] = {MotorEncoder(specs[51], specs[50]),
-                           MotorEncoder(specs[57], specs[58])};
+MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
+                           new MotorEncoder(specs[57], specs[58], "Port B"),
+                           //MotorEncoder(specs[17], specs[13], "Port C"), // TODO: Disable when using motor D, causes conflict with interrupts
+                           nullptr,
+                           new MotorEncoder(specs[27], specs[26], "Port D")};
 // MotorEncoder test_encoder = MotorEncoder(specs[57], specs[58]);
 
 void drive_motor_to_target(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, MotorEncoder *encoder, int32_t speed) {
@@ -527,13 +540,13 @@ void drive_motor_to_target(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, MotorEn
 bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t speed) {
     printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
 
-    if (motor_index > 1) {
+    if (motor_index > 3) {
         return false;
     }
 
     pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
     pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
-    MotorEncoder *encoder = &encoders[motor_index];
+    MotorEncoder *encoder = encoders[motor_index];
 
     encoder->set_target_angle(encoder->get_target_angle() + degrees);
 
@@ -579,7 +592,7 @@ def_prim_serialize(drive_motor_degrees) {
         IOStateElement *state = new IOStateElement();
         state->output = true;
         state->key = "e" + std::to_string(i);
-        state->value = encoders[i].get_target_angle();
+        state->value = encoders[i]->get_target_angle();
         external_state.push_back(state);
     }
 }
@@ -599,7 +612,7 @@ def_prim(drive_motor_degrees_absolute, threeToNoneU32) {
 
     pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
     pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
-    MotorEncoder *encoder = &encoders[motor_index];
+    MotorEncoder *encoder = encoders[motor_index];
 
     encoder->set_target_angle(degrees);
 
@@ -614,13 +627,15 @@ def_prim(drive_motor, threeToNoneU32) {
     int32_t speed = (int32_t)arg1.uint32;
     int32_t motor_index = (int32_t)arg2.uint32;
 
-    if (motor_index > 1) {
+    printf("drive_motor(%d, %d, %d)\n", motor_index, speed, brake);
+
+    if (motor_index > 3) {
+        FATAL("Motor index out of bounds!");
         return false;
     }
 
     pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
     pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
-    MotorEncoder *encoder = &encoders[motor_index];
 
     drive_motor(pwm1_spec, pwm2_spec, speed / 10000.0f);
 
