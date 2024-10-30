@@ -182,6 +182,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
     fflush(stdout);
 
     this->channel->write("Interrupt: %x\n", *interruptData);
+    uint8_t interrupt = *interruptData;
 
     long start = 0, size = 0;
     switch (*interruptData) {
@@ -371,6 +372,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
     }
     fflush(stdout);
+
+    handleCallbacks(m, interrupt);
+
     return true;
 }
 
@@ -1631,6 +1635,28 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     overrides[fidx.value()].erase(arg);
 }
 
+Debugger::~Debugger() {
+    this->disconnect_proxy();
+    this->stop();
+    delete this->supervisor_mutex;
+    delete this->supervisor;
+}
+
+std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
+    if (!pc_ptr) {
+        return {};
+    }
+
+    // TODO: Maybe primitives can also be called using the other call operators
+    uint8_t opcode = *pc_ptr;
+    if (opcode == 0x10) {  // call opcode
+        uint8_t *pc_copy = pc_ptr + 1;
+        uint32_t fidx = read_LEB_32(&pc_copy);
+        return fidx;
+    }
+    return {};
+}
+
 bool Debugger::handleContinueFor(Module *m) {
     if (remaining_instructions < 0) return false;
 
@@ -1656,9 +1682,32 @@ void Debugger::notifyCompleteStep(Module *m) const {
     this->channel->write("STEP!\n");
 }
 
-Debugger::~Debugger() {
-    this->disconnect_proxy();
-    this->stop();
-    delete this->supervisor_mutex;
-    delete this->supervisor;
+void Debugger::addCallback(uint8_t interrupt, uint32_t fidx) {
+    if (callbacks.find(interrupt) == callbacks.end()) {
+        callbacks[interrupt] = {};
+    }
+
+    std::set<uint32_t> &callbacksFidxs = callbacks[interrupt];
+    callbacksFidxs.insert(fidx);
+}
+
+void Debugger::handleCallbacks(Module *m, uint8_t interrupt) {
+    auto result = callbacks.find(interrupt);
+    if (result != callbacks.end()) {
+        std::set<uint32_t > &callBackFidxs = result->second;
+        for (uint32_t tidx : callBackFidxs) {
+            // Run primitive
+            printf("Invoke debugger callback %d\n", tidx);
+            //invoke_primitive(m, "drive_motor", 0, 0, 1);
+            //invoke_primitive(m, "drive_motor", 1, 0, 1);
+
+            uint32_t fidx = m->table.entries[tidx];
+            uint8_t *pc = m->pc_ptr;
+            //addBreakpoint(pc);
+            mark = pc;
+
+            m->warduino->interpreter->setup_call(m, fidx);
+            handleInterruptRUN(m, &m->warduino->program_state);
+        }
+    }
 }

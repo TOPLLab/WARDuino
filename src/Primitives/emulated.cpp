@@ -28,6 +28,8 @@
 
 #define NUM_GLOBALS 0
 #define ALL_GLOBALS NUM_GLOBALS
+#define NUM_PRIMITIVES 0
+#define NUM_PRIMITIVES_ARDUINO 34
 
 int global_index = 0;
 
@@ -462,6 +464,20 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     return true;
 }
 
+def_prim(add_debug_callback, twoToNoneU32) {
+    uint8_t tidx = arg0.uint32;
+
+        if (tidx < 0 || m->table.size < tidx) {
+        printf("subscribe_interrupt: out of range table index %i\n", tidx);
+        return false;
+    }
+
+    printf("Register debugger callback on interrupt %d, tidx %d\n", arg1.uint32, tidx);
+    m->warduino->debugger->addCallback(arg1.uint32, tidx);
+    pop_args(2);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -516,6 +532,8 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(read_uart_sensor);
     install_primitive(nxt_touch_sensor);
     install_primitive(ev3_touch_sensor);
+
+    install_primitive(add_debug_callback);
 }
 
 Memory external_mem{};

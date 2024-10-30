@@ -377,6 +377,25 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
 
 #endif
 
+def_prim(add_debug_callback, twoToNoneU32) {
+    uint8_t tidx = arg0.uint32;
+
+    if (tidx < 0 || m->table.size < tidx) {
+        printf("subscribe_interrupt: out of range table index %i\n", tidx);
+        return false;
+    }
+
+    printf("Register debugger callback on interrupt %d, tidx %d\n", arg1.uint32, tidx);
+    m->warduino->debugger->addCallback(arg1.uint32, tidx);
+    pop_args(2);
+    return true;
+}
+
+def_prim(abort, NoneToNoneU32) {
+    debug("EMU: abort\n");
+    return false;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -405,6 +424,8 @@ void install_primitives(Interpreter *interpreter) {
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(500), K_MSEC(500));
 #endif
+
+    install_primitive(add_debug_callback);
 }
 
 Memory external_mem = {0, 0, 0, nullptr};

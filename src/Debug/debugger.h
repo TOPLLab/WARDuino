@@ -142,6 +142,9 @@ class Debugger {
     // Continue for
     int32_t remaining_instructions;
 
+    // Debugger callbacks
+    std::unordered_map<uint8_t, std::set<uint32_t>> callbacks;
+
     // Private methods
 
     void printValue(const StackValue *v, uint32_t idx, bool end) const;
@@ -213,6 +216,8 @@ class Debugger {
     static void updateCallbackmapping(Module *m, const char *interruptData);
 
     bool operation(Module *m, operation op);
+
+    std::optional<uint32_t> isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr);
 
    public:
     // Public fields
@@ -315,4 +320,8 @@ class Debugger {
     // Checkpointing
     void checkpoint(Module *m, bool force = false);
     inline SnapshotPolicy getSnapshotPolicy() { return snapshotPolicy; }
+
+    // Debugger callbacks
+    void addCallback(uint8_t interrupt, uint32_t fidx);
+    void handleCallbacks(Module *m, uint8_t interrupt);
 };
