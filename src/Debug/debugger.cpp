@@ -962,7 +962,7 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         instructions_executed++;
 
         // Store arguments of last primitive call.
-        if ((fidx_called = isPrimitiveBeingCalled(m, m->pc_ptr))) {
+        if ((fidx_called = getPrimitiveBeingCalled(m->pc_ptr))) {
             const Type *type = m->functions[*fidx_called].type;
             for (uint32_t i = 0; i < type->param_count; i++) {
                 prim_args[type->param_count - i - 1] =
@@ -1583,8 +1583,7 @@ Debugger::~Debugger() {
     delete this->supervisor;
 }
 
-std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m,
-                                                         uint8_t *pc_ptr) {
+std::optional<uint32_t> Debugger::getPrimitiveBeingCalled(uint8_t *pc_ptr) {
     if (!pc_ptr) {
         return {};
     }

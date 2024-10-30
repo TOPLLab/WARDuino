@@ -214,7 +214,7 @@ class Debugger {
 
     bool operation(Module *m, operation op);
 
-    std::optional<uint32_t> isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr);
+    std::optional<uint32_t> getPrimitiveBeingCalled(uint8_t *pc_ptr);
 
    public:
     // Public fields
