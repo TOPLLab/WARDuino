@@ -29,7 +29,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 32
+#define NUM_PRIMITIVES_ARDUINO 34
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -510,6 +510,26 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
     return true;
 }
 
+def_prim(drive_motor, threeToNoneU32) {
+    printf("Drive motor\n");
+    pop_args(3);
+    return true;
+}
+
+def_prim(add_debug_callback, twoToNoneU32) {
+    uint8_t tidx = arg0.uint32;
+
+        if (tidx < 0 || m->table.size < tidx) {
+        printf("subscribe_interrupt: out of range table index %i\n", tidx);
+        return false;
+    }
+
+    printf("Register debugger callback on interrupt %d, tidx %d\n", arg1.uint32, tidx);
+    m->warduino->debugger->addCallback(arg1.uint32, tidx);
+    pop_args(2);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -558,6 +578,9 @@ void install_primitives() {
     install_primitive(setup_uart_sensor);
     install_primitive(colour_sensor);
     install_primitive(drive_motor_degrees);
+    install_primitive(drive_motor);
+
+    install_primitive(add_debug_callback);
 }
 
 //------------------------------------------------------

@@ -965,6 +965,25 @@ def_prim(colour_sensor, oneToOneU32) {
     return true;
 }
 
+def_prim(add_debug_callback, twoToNoneU32) {
+    uint8_t tidx = arg0.uint32;
+
+    if (tidx < 0 || m->table.size < tidx) {
+        printf("subscribe_interrupt: out of range table index %i\n", tidx);
+        return false;
+    }
+
+    printf("Register debugger callback on interrupt %d, tidx %d\n", arg1.uint32, tidx);
+    m->warduino->debugger->addCallback(arg1.uint32, tidx);
+    pop_args(2);
+    return true;
+}
+
+def_prim(abort, NoneToNoneU32) {
+    debug("EMU: abort\n");
+    return false;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -984,6 +1003,8 @@ void install_primitives() {
     install_primitive(drive_motor);
     install_primitive(colour_sensor);
     install_primitive(setup_uart_sensor);
+
+    install_primitive(add_debug_callback);
 
     k_timer_init(&heartbeat_timer, my_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(1000), K_MSEC(1000));

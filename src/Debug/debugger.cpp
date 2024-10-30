@@ -180,6 +180,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
     fflush(stdout);
 
     this->channel->write("Interrupt: %x\n", *interruptData);
+    uint8_t interrupt = *interruptData;
 
     long start = 0, size = 0;
     switch (*interruptData) {
@@ -367,6 +368,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
     }
     fflush(stdout);
+
+    handleCallbacks(m, interrupt);
+
     return true;
 }
 
@@ -1582,6 +1586,7 @@ std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_
     }
     return {};
 }
+
 bool Debugger::handleContinueFor(Module *m) {
     if (remaining_instructions < 0)
         return false;
@@ -1598,10 +1603,41 @@ bool Debugger::handleContinueFor(Module *m) {
     remaining_instructions--;
     return false;
 }
+
 void Debugger::notifyCompleteStep(Module *m) const {
     // Upon completing a step in checkpointing mode, make a checkpoint.
     if (m->warduino->debugger->getSnapshotPolicy() == SnapshotPolicy::checkpointing) {
         m->warduino->debugger->checkpoint(m);
     }
     this->channel->write("STEP!\n");
+}
+
+void Debugger::addCallback(uint8_t interrupt, uint32_t fidx) {
+    if (callbacks.find(interrupt) == callbacks.end()) {
+        callbacks[interrupt] = {};
+    }
+
+    std::set<uint32_t> &callbacksFidxs = callbacks[interrupt];
+    callbacksFidxs.insert(fidx);
+}
+
+void Debugger::handleCallbacks(Module *m, uint8_t interrupt) {
+    auto result = callbacks.find(interrupt);
+    if (result != callbacks.end()) {
+        std::set<uint32_t > &callBackFidxs = result->second;
+        for (uint32_t tidx : callBackFidxs) {
+            // Run primitive
+            printf("Invoke debugger callback %d\n", tidx);
+            //invoke_primitive(m, "drive_motor", 0, 0, 1);
+            //invoke_primitive(m, "drive_motor", 1, 0, 1);
+
+            uint32_t fidx = m->table.entries[tidx];
+            uint8_t *pc = m->pc_ptr;
+            //addBreakpoint(pc);
+            mark = pc;
+
+            m->warduino->interpreter->setup_call(m, fidx);
+            handleInterruptRUN(m, &m->warduino->program_state);
+        }
+    }
 }

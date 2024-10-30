@@ -139,6 +139,9 @@ private:
 
     std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>> overrides;
 
+    // Debugger callbacks
+    std::unordered_map<uint8_t, std::set<uint32_t>> callbacks;
+
     // Private methods
 
     void printValue(StackValue *v, uint32_t idx, bool end) const;
@@ -309,4 +312,8 @@ private:
 
     void addOverride(Module *m, uint8_t *interruptData);
     void removeOverride(Module *m, uint8_t *interruptData);
+
+    // Debugger callbacks
+    void addCallback(uint8_t interrupt, uint32_t fidx);
+    void handleCallbacks(Module *m, uint8_t interrupt);
 };
