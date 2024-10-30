@@ -121,7 +121,8 @@ class Debugger {
 
     bool asyncSnapshots;
 
-    std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>> overrides;
+    std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
+        overrides;
 
     // Private methods
 
@@ -278,8 +279,12 @@ class Debugger {
     bool handlePushedEvent(char *bytes) const;
 
     // Concolic Multiverse Debugging
-    inline bool isMocked(uint32_t fidx, uint32_t argument) { return overrides.count(fidx) > 0 && overrides[fidx].count(argument) > 0; }
-    inline uint32_t getMockedValue(uint32_t fidx, uint32_t argument) { return overrides[fidx][argument]; }
+    inline bool isMocked(uint32_t fidx, uint32_t argument) {
+        return overrides.count(fidx) > 0 && overrides[fidx].count(argument) > 0;
+    }
+    inline uint32_t getMockedValue(uint32_t fidx, uint32_t argument) {
+        return overrides[fidx][argument];
+    }
 
     void addOverride(Module *m, uint8_t *interruptData);
     void removeOverride(Module *m, uint8_t *interruptData);

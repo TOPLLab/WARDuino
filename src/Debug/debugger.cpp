@@ -1,9 +1,9 @@
 #include "debugger.h"
 
 #include <algorithm>
-#include <optional>
 #include <cinttypes>
 #include <cstring>
+#include <optional>
 #ifndef ARDUINO
 #include <nlohmann/json.hpp>
 #else
@@ -735,10 +735,18 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 
 void Debugger::snapshot(Module *m) const {
     uint16_t numberBytes = 12;
-    uint8_t state[] = {
-        pcState,        breakpointsState, callstackState,      globalsState,
-        tableState,     memoryState,      branchingTableState, stackState,
-        callbacksState, eventsState,     ioState, overridesState};
+    uint8_t state[] = {pcState,
+                       breakpointsState,
+                       callstackState,
+                       globalsState,
+                       tableState,
+                       memoryState,
+                       branchingTableState,
+                       stackState,
+                       callbacksState,
+                       eventsState,
+                       ioState,
+                       overridesState};
     inspect(m, numberBytes, state);
 }
 
@@ -893,7 +901,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 bool comma = false;
                 for (auto key : overrides) {
                     for (auto argResult : key.second) {
-                        this->channel->write("%s", comma ? ", ": "");
+                        this->channel->write("%s", comma ? ", " : "");
                         this->channel->write(
                             R"({"fidx": %d, "arg": %d, "return_value": %d})",
                             key.first, argResult.first, argResult.second);
@@ -1443,7 +1451,8 @@ bool Debugger::reset(Module *m) const {
     return true;
 }
 
-std::optional<uint32_t> resolve_imported_function(Module *m, std::string function_name) {
+std::optional<uint32_t> resolve_imported_function(Module *m,
+                                                  std::string function_name) {
     for (uint32_t fidx = 0; fidx < m->import_count; fidx++) {
         if (!strcmp(m->functions[fidx].import_field, function_name.c_str())) {
             return fidx;
@@ -1469,11 +1478,14 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
 
     std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
     if (!fidx) {
-        channel->write("Cannot override the result for unknown function \"%s\".\n", primitive_name.c_str());
+        channel->write(
+            "Cannot override the result for unknown function \"%s\".\n",
+            primitive_name.c_str());
         return;
     }
 
-    channel->write("Override %s(%d) = %d.\n", primitive_name.c_str(), arg, result);
+    channel->write("Override %s(%d) = %d.\n", primitive_name.c_str(), arg,
+                   result);
     overrides[fidx.value()][arg] = result;
 }
 
@@ -1483,16 +1495,19 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
 
     std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
     if (!fidx) {
-        channel->write("Cannot remove override for unknown function \"%s\".\n", primitive_name.c_str());
+        channel->write("Cannot remove override for unknown function \"%s\".\n",
+                       primitive_name.c_str());
         return;
     }
 
     if (overrides[fidx.value()].count(arg) == 0) {
-        channel->write("Override for %s(%d) not found.\n", primitive_name.c_str(), arg);
+        channel->write("Override for %s(%d) not found.\n",
+                       primitive_name.c_str(), arg);
         return;
     }
 
-    channel->write("Removing override %s(%d) = %d.\n", primitive_name.c_str(), arg, overrides[fidx.value()][arg]);
+    channel->write("Removing override %s(%d) = %d.\n", primitive_name.c_str(),
+                   arg, overrides[fidx.value()][arg]);
     overrides[fidx.value()].erase(arg);
 }
 

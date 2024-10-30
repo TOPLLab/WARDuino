@@ -291,7 +291,8 @@ bool i_instr_call(Module *m) {
         if (m->sp >= 0) {
             uint32_t arg = m->stack[m->sp].value.uint32;
             if (m->warduino->debugger->isMocked(fidx, arg)) {
-                m->stack[m->sp].value.uint32 = m->warduino->debugger->getMockedValue(fidx, arg);
+                m->stack[m->sp].value.uint32 =
+                    m->warduino->debugger->getMockedValue(fidx, arg);
                 return true;
             }
         }
