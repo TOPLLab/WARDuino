@@ -491,8 +491,8 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     return true;
 }
 
-def_prim(setup_uart_sensor, oneToNoneU32) {
-    pop_args(1);
+def_prim(setup_uart_sensor, twoToNoneU32) {
+    pop_args(2);
     return true;
 }
 
