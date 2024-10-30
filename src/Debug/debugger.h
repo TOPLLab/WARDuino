@@ -103,13 +103,15 @@ enum InterruptTypes {
 };
 
 enum class SnapshotPolicy : int {
-    none,               // Don't automatically take snapshots.
-    atEveryInstruction, // Take a snapshot after every instruction.
-    checkpointing,      // Take a snapshot every x instructions or at specific points were reversible primitives are used or sensor values are read.
+    none,                // Don't automatically take snapshots.
+    atEveryInstruction,  // Take a snapshot after every instruction.
+    checkpointing,       // Take a snapshot every x instructions or at specific
+                         // points were reversible primitives are used or sensor
+                         // values are read.
 };
 
 class Debugger {
-private:
+   private:
     std::deque<uint8_t *> debugMessages = {};
 
     // Help variables
@@ -241,7 +243,8 @@ private:
 
     void pauseRuntime(const Module *m);  // pause runtime for given module
 
-    void notifyCompleteStep(Module *m) const; // notify the debugger frontend that a step was taken
+    void notifyCompleteStep(
+        Module *m) const;  // notify the debugger frontend that a step was taken
 
     // Interrupts
 
@@ -312,7 +315,5 @@ private:
     void removeOverride(Module *m, uint8_t *interruptData);
 
     void checkpoint(Module *m, bool force = false);
-    inline SnapshotPolicy getSnapshotPolicy() {
-        return snapshotPolicy;
-    }
+    inline SnapshotPolicy getSnapshotPolicy() { return snapshotPolicy; }
 };

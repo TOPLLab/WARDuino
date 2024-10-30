@@ -195,7 +195,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptPAUSE:
             this->pauseRuntime(m);
             // Make a checkpoint so the debugger knows the current state and
-            // knows how many instructions were executed since the last checkpoint.
+            // knows how many instructions were executed since the last
+            // checkpoint.
             if (snapshotPolicy == SnapshotPolicy::checkpointing) {
                 checkpoint(m, true);
             }
@@ -219,7 +220,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             uint8_t *data = interruptData + 1;
             uint32_t amount = read_B32(&data);
             printf("Continue for %d instruction(s)\n", amount);
-            remaining_instructions = (int32_t) amount;
+            remaining_instructions = (int32_t)amount;
             *program_state = WARDUINOrun;
             free(interruptData);
             break;
@@ -954,8 +955,7 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         this->channel->write("SNAPSHOT ");
         snapshot(m);
         this->channel->write("\n");
-    }
-    else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+    } else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
         if (instructions_executed >= checkpointInterval || fidx_called) {
             checkpoint(m);
         }
@@ -965,11 +965,11 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         if ((fidx_called = isPrimitiveBeingCalled(m, m->pc_ptr))) {
             const Type *type = m->functions[*fidx_called].type;
             for (uint32_t i = 0; i < type->param_count; i++) {
-                prim_args[type->param_count - i - 1] =  m->stack[m->sp - i].value.uint32;
+                prim_args[type->param_count - i - 1] =
+                    m->stack[m->sp - i].value.uint32;
             }
         }
-    }
-    else if (snapshotPolicy != SnapshotPolicy::none) {
+    } else if (snapshotPolicy != SnapshotPolicy::none) {
         this->channel->write("WARNING: Invalid snapshot policy.");
     }
 }
@@ -979,7 +979,8 @@ void Debugger::checkpoint(Module *m, bool force) {
         return;
     }
 
-    this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, )", instructions_executed);
+    this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, )",
+                         instructions_executed);
     if (fidx_called) {
         this->channel->write("\"fidx_called\": %d, \"args\": [", *fidx_called);
         const Block &func_block = m->functions[*fidx_called];
@@ -1582,7 +1583,8 @@ Debugger::~Debugger() {
     delete this->supervisor;
 }
 
-std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
+std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m,
+                                                         uint8_t *pc_ptr) {
     if (!pc_ptr) {
         return {};
     }
@@ -1598,8 +1600,7 @@ std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_
 }
 
 bool Debugger::handleContinueFor(Module *m) {
-    if (remaining_instructions < 0)
-        return false;
+    if (remaining_instructions < 0) return false;
 
     if (remaining_instructions == 0) {
         remaining_instructions = -1;
@@ -1616,7 +1617,8 @@ bool Debugger::handleContinueFor(Module *m) {
 
 void Debugger::notifyCompleteStep(Module *m) const {
     // Upon completing a step in checkpointing mode, make a checkpoint.
-    if (m->warduino->debugger->getSnapshotPolicy() == SnapshotPolicy::checkpointing) {
+    if (m->warduino->debugger->getSnapshotPolicy() ==
+        SnapshotPolicy::checkpointing) {
         m->warduino->debugger->checkpoint(m);
     }
     this->channel->write("STEP!\n");
