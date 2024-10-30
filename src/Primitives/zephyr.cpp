@@ -555,16 +555,11 @@ bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t 
 }
 
 def_prim(drive_motor_degrees, threeToNoneU32) {
-    int32_t speed = (int32_t)arg0.uint32;
-    //speed = 10000;
-    int32_t degrees = (int32_t)arg1.uint32;
-    //degrees = 360 * 20;
-    int32_t motor_index = (int32_t)arg2.uint32;
-    bool result = drive_motor_degrees_relative(motor_index, degrees, speed);
-    // Print fidx, arguments and the state associated with this primitive before executing the action.
-    //printf("ACTION {")
+    int32_t speed = arg0.int32;
+    int32_t degrees = arg1.uint32;
+    int32_t motor_index = arg2.uint32;
     pop_args(3);
-    return result;
+    return drive_motor_degrees_relative(motor_index, degrees, speed);
 }
 
 def_prim_reverse(drive_motor_degrees) {
