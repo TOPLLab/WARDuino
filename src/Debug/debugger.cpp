@@ -219,7 +219,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptContinueFor: {
             uint8_t *data = interruptData + 1;
             uint32_t amount = read_B32(&data);
-            printf("Continue for %d instruction(s)\n", amount);
+            debug("Continue for %" PRIu32 " instruction(s)\n", amount);
             remaining_instructions = (int32_t)amount;
             *program_state = WARDUINOrun;
             free(interruptData);
