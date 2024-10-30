@@ -35,7 +35,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 12
+#define NUM_PRIMITIVES_ARDUINO 13
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -391,6 +391,8 @@ class MotorEncoder {
         // encoder->pin6_encoder_spec.pin));
         encoder->expect_pin5_int = false;
         encoder->expect_pin6_int = true;
+
+        printf("encoder->angle = %d\n", encoder->angle);
     }
 
     static void encoder_pin6_edge_rising(const struct device *dev,
@@ -412,6 +414,8 @@ class MotorEncoder {
         // encoder->pin5_encoder_spec.pin));
         encoder->expect_pin6_int = false;
         encoder->expect_pin5_int = true;
+
+        printf("encoder->angle = %d\n", encoder->angle);
     }
 
    public:
@@ -989,6 +993,7 @@ def_prim(abort, NoneToNoneU32) {
 //------------------------------------------------------
 void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
+    install_primitive(abort);
     install_primitive(chip_delay);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
