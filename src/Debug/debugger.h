@@ -134,10 +134,10 @@ class Debugger {
 
     // Checkpointing
     SnapshotPolicy snapshotPolicy;
-    uint32_t checkpointInterval;         // #instructions between checkpoints
-    uint32_t instructions_executed;      // #instructions since last checkpoint
-    std::optional<uint32_t> fidx_called; // The primitive that was executed
-    uint32_t prim_args[8];               // The arguments of the executed prim
+    uint32_t checkpointInterval;          // #instructions between checkpoints
+    uint32_t instructions_executed;       // #instructions since last checkpoint
+    std::optional<uint32_t> fidx_called;  // The primitive that was executed
+    uint32_t prim_args[8];                // The arguments of the executed prim
 
     // Continue for
     int32_t remaining_instructions;
