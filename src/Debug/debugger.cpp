@@ -999,7 +999,7 @@ void Debugger::checkpoint(Module *m, bool force) {
     this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, )",
                          instructions_executed);
     if (fidx_called) {
-        this->channel->write("\"fidx_called\": %d, \"args\": [", *fidx_called);
+        this->channel->write(R"("fidx_called": %d, "args": [)", *fidx_called);
         const Block &func_block = m->functions[*fidx_called];
         bool comma = false;
         for (uint32_t i = 0; i < func_block.type->param_count; i++) {
