@@ -25,8 +25,8 @@ Debugger::Debugger(Channel *duplex) {
     this->snapshotPolicy = SnapshotPolicy::none;
     this->checkpointInterval = 10;
     this->instructions_executed = 0;
-    this->remaining_instructions = -1;
     this->fidx_called = {};
+    this->remaining_instructions = -1;
 }
 
 // Public methods
@@ -943,11 +943,28 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
 
 void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
     snapshotPolicy = SnapshotPolicy{*interruptData};
+
+    // Make a checkpoint when you first enable checkpointing
     if (snapshotPolicy == SnapshotPolicy::checkpointing) {
         uint8_t *ptr = interruptData + 1;
         checkpointInterval = read_B32(&ptr);
         checkpoint(m, true);
     }
+}
+
+std::optional<uint32_t> getPrimitiveBeingCalled(uint8_t *pc_ptr) {
+    if (!pc_ptr) {
+        return {};
+    }
+
+    // TODO: Support call_indirect
+    uint8_t opcode = *pc_ptr;
+    if (opcode == 0x10) {  // call opcode
+        uint8_t *pc_copy = pc_ptr + 1;
+        uint32_t fidx = read_LEB_32(&pc_copy);
+        return fidx;
+    }
+    return {};
 }
 
 void Debugger::handleSnapshotPolicy(Module *m) {
@@ -1576,28 +1593,6 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     overrides[fidx.value()].erase(arg);
 }
 
-Debugger::~Debugger() {
-    this->disconnect_proxy();
-    this->stop();
-    delete this->supervisor_mutex;
-    delete this->supervisor;
-}
-
-std::optional<uint32_t> Debugger::getPrimitiveBeingCalled(uint8_t *pc_ptr) {
-    if (!pc_ptr) {
-        return {};
-    }
-
-    // TODO: Maybe primitives can also be called using the other call operators
-    uint8_t opcode = *pc_ptr;
-    if (opcode == 0x10) {  // call opcode
-        uint8_t *pc_copy = pc_ptr + 1;
-        uint32_t fidx = read_LEB_32(&pc_copy);
-        return fidx;
-    }
-    return {};
-}
-
 bool Debugger::handleContinueFor(Module *m) {
     if (remaining_instructions < 0) return false;
 
@@ -1621,4 +1616,11 @@ void Debugger::notifyCompleteStep(Module *m) const {
         m->warduino->debugger->checkpoint(m);
     }
     this->channel->write("STEP!\n");
+}
+
+Debugger::~Debugger() {
+    this->disconnect_proxy();
+    this->stop();
+    delete this->supervisor_mutex;
+    delete this->supervisor;
 }

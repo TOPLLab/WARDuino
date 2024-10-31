@@ -106,8 +106,7 @@ enum class SnapshotPolicy : int {
     none,                // Don't automatically take snapshots.
     atEveryInstruction,  // Take a snapshot after every instruction.
     checkpointing,       // Take a snapshot every x instructions or at specific
-                         // points were reversible primitives are used or sensor
-                         // values are read.
+                         // points where primitives are used.
 };
 
 class Debugger {
@@ -135,12 +134,13 @@ class Debugger {
 
     // Checkpointing
     SnapshotPolicy snapshotPolicy;
-    uint32_t checkpointInterval;
-    uint32_t instructions_executed;
-    uint8_t *prev_pc_ptr;
+    uint32_t checkpointInterval;         // #instructions between checkpoints
+    uint32_t instructions_executed;      // #instructions since last checkpoint
+    std::optional<uint32_t> fidx_called; // The primitive that was executed
+    uint32_t prim_args[8];               // The arguments of the executed prim
+
+    // Continue for
     int32_t remaining_instructions;
-    std::optional<uint32_t> fidx_called;
-    uint32_t prim_args[8];
 
     // Private methods
 
@@ -213,8 +213,6 @@ class Debugger {
     static void updateCallbackmapping(Module *m, const char *interruptData);
 
     bool operation(Module *m, operation op);
-
-    std::optional<uint32_t> getPrimitiveBeingCalled(uint8_t *pc_ptr);
 
    public:
     // Public fields
@@ -314,6 +312,7 @@ class Debugger {
     void addOverride(Module *m, uint8_t *interruptData);
     void removeOverride(Module *m, uint8_t *interruptData);
 
+    // Checkpointing
     void checkpoint(Module *m, bool force = false);
     inline SnapshotPolicy getSnapshotPolicy() { return snapshotPolicy; }
 };
