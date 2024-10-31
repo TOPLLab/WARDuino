@@ -78,13 +78,11 @@ function createTest(module: string, asserts: string[]): TestScenario {
         const args: WASM.Value[] = parseArguments(assert.replace(`(invoke "${func} "`, ''), cursor);
         const result: WASM.Value | undefined = parseResult(assert.slice(cursor.value));
 
-        if (result !== undefined) {
-            steps.push({
-                title: assert,
-                instruction: invoke(func, args),
-                expected: returns(result)
-            });
-        }
+        steps.push({
+            title: assert,
+            instruction: invoke(func, args),
+            expected: returns(result ?? WASM.nothing)
+        });
     }
 
     return {

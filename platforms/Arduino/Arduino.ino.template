@@ -53,12 +53,13 @@ void setup(void) {
 }
 
 void loop() {
-    disableCore0WDT();
     m = wac->load_module(wasm, wasm_len, {});
 
     printf("LOADED \n\n");
     {{PAUSED}}
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
+
+    disableCore0WDT();
     printf("START\n\n");
 
     Serial.println("\nFree heap:");

@@ -1,3 +1,6 @@
 [submodule "lib/json"]
 	path = lib/json
 	url = https://github.com/nlohmann/json
+[submodule "lib/wabt"]
+	path = lib/wabt
+	url = git@github.com:TOPLLab/wabt.git
