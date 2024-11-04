@@ -32,8 +32,9 @@
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "primitives.h"
+#include "Mindstorms/Motor.h"
 
-#define ALL_PRIMITIVES 12
+#define ALL_PRIMITIVES 10
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -314,50 +315,35 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
-bool drive_pwm(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, float pwm1,
-               float pwm2) {
-    if (!pwm_is_ready_dt(&pwm1_spec)) {
-        printf("Error: PWM device %s is not ready\n", pwm1_spec.dev->name);
-        return false;
+def_prim(drive_motor, threeToNoneU32) {
+    int32_t brake = (int32_t)arg0.uint32;
+    int32_t speed = (int32_t)arg1.uint32;
+    int32_t motor_index = (int32_t)arg2.uint32;
+
+    printf("drive_motor(%d, %d, %d)\n", motor_index, speed, brake);
+
+    if (motor_index > 3) {
+        printf("Invalid motor index %d\n", motor_index);
+        pop_args(3);
+        return true;
     }
 
-    int ret = pwm_set_pulse_dt(&pwm1_spec, pwm1 * pwm1_spec.period);
-    if (ret) {
-        printf("Error %d: failed to set pulse width, pwm1 = %f\n", ret, pwm1);
-        return false;
+    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
+    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
+
+    drive_motor(pwm1_spec, pwm2_spec, speed / 10000.0f);
+
+    if (speed == 0 && brake == 1) {
+        drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
     }
 
-    ret = pwm_set_pulse_dt(&pwm2_spec, pwm2 * pwm2_spec.period);
-    if (ret) {
-        printf("Error %d: failed to set pulse width, pwm2 = %f\n", ret, pwm2);
-        return false;
-    }
+    pop_args(3);
     return true;
 }
 
-bool drive_motor(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, float speed) {
-    float pwm1 = 0;
-    float pwm2 = 0;
-    if (speed > 0) {
-        pwm1 = speed;
-    } else {
-        pwm2 = -speed;
-    }
-
-    return drive_pwm(pwm1_spec, pwm2_spec, pwm1, pwm2);
-}
-
-def_prim(motor_test, oneToNoneU32) {
+def_prim(drive_motor_ms, twoToNoneU32) {
     int32_t speed = (int32_t)arg0.uint32;
-    printf("motor_test(%d)\n", speed);
-    drive_motor(pwm_led0, pwm_led1, speed / 10000.0f);
-    pop_args(1);
-    return true;
-}
-
-def_prim(drive_motor_for_ms, twoToNoneU32) {
-    int32_t speed = (int32_t)arg0.uint32;
-    printf("drive_motor_for_ms(%d, %d)\n", speed, arg1.uint32);
+    printf("drive_motor_ms(%d, %d)\n", speed, arg1.uint32);
 
     drive_motor(pwm_led0, pwm_led1, speed / 10000.0f);
     k_msleep(arg1.uint32);
@@ -366,174 +352,13 @@ def_prim(drive_motor_for_ms, twoToNoneU32) {
     return true;
 }
 
-class MotorEncoder {
-    static void encoder_pin5_edge_rising(const struct device *dev,
-                                         struct gpio_callback *cb,
-                                         uint32_t pins) {
-        MotorEncoder *encoder =
-            CONTAINER_OF(cb, MotorEncoder, pin5_encoder_cb_data);
-        if (!encoder->expect_pin5_int) return;
-
-        if (!gpio_pin_get_raw(encoder->pin6_encoder_spec.port,
-                              encoder->pin6_encoder_spec.pin)) {
-            encoder->angle++;
-        } else {
-            encoder->angle--;
-        }
-        encoder->last_update = k_uptime_get();
-        // printk("Rising edge detected on encoder pin5, angle %d\n",
-        // encoder->angle); printk("%d\n",
-        // gpio_pin_get_raw(encoder->pin6_encoder_spec.port,
-        // encoder->pin6_encoder_spec.pin));
-        encoder->expect_pin5_int = false;
-        encoder->expect_pin6_int = true;
-    }
-
-    static void encoder_pin6_edge_rising(const struct device *dev,
-                                         struct gpio_callback *cb,
-                                         uint32_t pins) {
-        MotorEncoder *encoder =
-            CONTAINER_OF(cb, MotorEncoder, pin6_encoder_cb_data);
-        if (!encoder->expect_pin6_int) return;
-
-        if (gpio_pin_get_raw(encoder->pin5_encoder_spec.port,
-                             encoder->pin5_encoder_spec.pin)) {
-            encoder->angle++;
-        } else {
-            encoder->angle--;
-        }
-        // printk("Rising edge detected on encoder pin6, angle %d\n",
-        // encoder->angle); printk("%d\n",
-        // gpio_pin_get_raw(encoder->pin5_encoder_spec.port,
-        // encoder->pin5_encoder_spec.pin));
-        encoder->expect_pin6_int = false;
-        encoder->expect_pin5_int = true;
-    }
-
-   public:
-    MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_encoder_spec, const char *name)
-        : pin5_encoder_spec(pin5_encoder_spec),
-          pin6_encoder_spec(pin6_encoder_spec),
-          angle(0),
-          target_angle(0),
-          expect_pin5_int(true),
-          expect_pin6_int(true),
-          last_update(0) {
-        if (gpio_pin_configure_dt(&pin5_encoder_spec, GPIO_INPUT)) {
-            FATAL("Failed to configure GPIO encoder pin5\n");
-        }
-        if (gpio_pin_configure_dt(&pin6_encoder_spec, GPIO_INPUT)) {
-            FATAL("Failed to configure GPIO encoder pin6\n");
-        }
-
-        int result = gpio_pin_interrupt_configure_dt(&pin5_encoder_spec,
-                                                     GPIO_INT_EDGE_RISING);
-        if (result != 0) {
-            printf("Failed to configure interrupt on pin5 for %s, error code %d\n", name, result);
-        }
-        gpio_init_callback(&pin5_encoder_cb_data,
-                           MotorEncoder::encoder_pin5_edge_rising,
-                           BIT(pin5_encoder_spec.pin));
-        gpio_add_callback(pin5_encoder_spec.port, &pin5_encoder_cb_data);
-
-        result = gpio_pin_interrupt_configure_dt(&pin6_encoder_spec,
-                                                 GPIO_INT_EDGE_RISING);
-        if (result != 0) {
-            printf("Failed to configure interrupt on pin6 for %s, error code %d\n", name, result);
-        }
-        gpio_init_callback(&pin6_encoder_cb_data,
-                           MotorEncoder::encoder_pin6_edge_rising,
-                           BIT(pin6_encoder_spec.pin));
-        gpio_add_callback(pin6_encoder_spec.port, &pin6_encoder_cb_data);
-    }
-
-    ~MotorEncoder() {
-        gpio_remove_callback(pin5_encoder_spec.port, &pin5_encoder_cb_data);
-        gpio_remove_callback(pin6_encoder_spec.port, &pin6_encoder_cb_data);
-    }
-
-    int get_angle() { return angle; }
-
-    void reset_angle() { angle = 0; }
-
-    int get_target_angle() { return target_angle; }
-
-    void set_target_angle(int target_angle) {
-        this->target_angle = target_angle;
-    }
-
-    int64_t get_last_update() { return last_update; }
-
-   private:
-    gpio_dt_spec pin5_encoder_spec;
-    gpio_dt_spec pin6_encoder_spec;
-    struct gpio_callback pin5_encoder_cb_data;
-    struct gpio_callback pin6_encoder_cb_data;
-    volatile int angle;
-    int target_angle;
-    bool expect_pin5_int;
-    bool expect_pin6_int;
-
-   public:
-    volatile int64_t last_update;
-};
-
-// MotorEncoder encoder(specs[51], specs[50]);
-// MotorEncoder encoder(specs[57], specs[58]);
-// MotorEncoder encoder(specs[58], specs[57]);
-
 MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
                             new MotorEncoder(specs[57], specs[58], "Port B"),
                             //MotorEncoder(specs[17], specs[13], "Port C"), // TODO: Disable when using motor D, causes conflict with interrupts
                             nullptr,
                             new MotorEncoder(specs[27], specs[26], "Port D")};
-// MotorEncoder test_encoder = MotorEncoder(specs[57], specs[58]);
 
-void drive_motor_to_target(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, MotorEncoder *encoder, int32_t speed) {
-    printf("drift = %d\n",
-           abs(encoder->get_angle() - encoder->get_target_angle()));
-
-    int drift = encoder->get_angle() - encoder->get_target_angle();
-    // Reset stall timer, otherwise it will instantly think it's not moving.
-    encoder->last_update = k_uptime_get();
-    while (abs(drift) > 0) {
-        int speed_sign = std::signbit(drift) ? -1 : 1;
-        drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
-        while (speed_sign *
-                       (encoder->get_angle() - encoder->get_target_angle()) >
-                   0 &&
-               k_uptime_get() - encoder->get_last_update() < 150) {
-        }
-        bool not_moving = k_uptime_get() - encoder->get_last_update() >= 150;
-        if (not_moving) {
-            speed += 100;
-            printf("Not moving, increasing speed to %d, %llims since last movement\n", speed, k_uptime_get() - encoder->get_last_update());
-            drive_motor(pwm1_spec, pwm2_spec, speed_sign * speed / 10000.0f);
-
-            // Wait for 10ms or movement.
-            uint64_t start_time = k_uptime_get();
-            while (k_uptime_get() - start_time < 10 && k_uptime_get() - encoder->get_last_update() >= 150) {}
-            continue;
-        }
-        encoder->last_update = k_uptime_get();
-        printf("%lli\n", k_uptime_get() - encoder->get_last_update());
-        /*printf("PWM device %s\n", pwm1_spec.dev->name);
-        printf("PWM device %s\n", pwm2_spec.dev->name);*/
-        drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
-        k_msleep(50);
-        drift = encoder->get_angle() - encoder->get_target_angle();
-        printf("drift = %d, speed = %d\n", drift, speed);
-        // speed = std::max(775, speed - speed/3); // Reduce speed when going
-        // fast to do corrections speed = 775;
-        if (not_moving) {
-            speed += 100;
-        } else {
-            speed = 800;
-        }
-    }
-}
-
-bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t speed) {
+bool drive_motor_degrees_absolute(int32_t motor_index, int32_t degrees, int32_t speed) {
     printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
 
     if (motor_index > 3) {
@@ -544,9 +369,17 @@ bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t 
     pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
     MotorEncoder *encoder = encoders[motor_index];
 
-    encoder->set_target_angle(encoder->get_target_angle() + degrees);
+    encoder->set_target_angle(degrees);
 
     drive_motor_to_target(pwm1_spec, pwm2_spec, encoder, speed);
+    return true;
+}
+
+bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t speed) {
+    printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
+
+    MotorEncoder *encoder = encoders[motor_index];
+    drive_motor_degrees_absolute(motor_index, encoder->get_target_angle() + degrees, speed);
     return true;
 }
 
@@ -571,9 +404,7 @@ def_prim_reverse(drive_motor_degrees) {
             // primitives instead of after and just not restore io when
             // restoring the last snapshot and transfer overrides from a future
             // snapshot when doing forward execution.
-            invoke_primitive(m, "drive_motor_degrees_absolute",
-                             motor_index, (uint32_t)state.value,
-                             motor_index == 0 ? 10000 : 2000);
+            drive_motor_degrees_absolute(motor_index, (int32_t) state.value, motor_index == 0 ? 10000 : 2000);
         }
     }
 }
@@ -586,56 +417,6 @@ def_prim_serialize(drive_motor_degrees) {
         state->value = encoders[i]->get_target_angle();
         external_state.push_back(state);
     }
-}
-
-def_prim(drive_motor_degrees_absolute, threeToNoneU32) {
-    int32_t speed = (int32_t)arg0.uint32;
-    int32_t degrees = (int32_t)arg1.uint32;
-    int32_t motor_index = (int32_t)arg2.uint32;
-    printf("drive_motor_degrees_absolute(%d, %d, %d)\n", motor_index, degrees,
-           speed);
-
-    if (motor_index > 1) {
-        printf("Invalid motor index %d\n", motor_index);
-        pop_args(3);
-        return true;
-    }
-
-    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
-    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
-    MotorEncoder *encoder = encoders[motor_index];
-
-    encoder->set_target_angle(degrees);
-
-    drive_motor_to_target(pwm1_spec, pwm2_spec, encoder, speed);
-
-    pop_args(3);
-    return true;
-}
-
-def_prim(drive_motor, threeToNoneU32) {
-    int32_t brake = (int32_t)arg0.uint32;
-    int32_t speed = (int32_t)arg1.uint32;
-    int32_t motor_index = (int32_t)arg2.uint32;
-
-    printf("drive_motor(%d, %d, %d)\n", motor_index, speed, brake);
-
-    if (motor_index > 3) {
-        FATAL("Motor index out of bounds!");
-        return false;
-    }
-
-    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
-    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
-
-    drive_motor(pwm1_spec, pwm2_spec, speed / 10000.0f);
-
-    if (speed == 0 && brake == 1) {
-        drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
-    }
-
-    pop_args(3);
-    return true;
 }
 
 static const struct device *const uart_dev =
@@ -972,12 +753,10 @@ void install_primitives() {
     install_primitive_reverse(chip_digital_write);
     install_primitive(chip_digital_read);
     install_primitive(print_int);
-    install_primitive(motor_test);
-    install_primitive(drive_motor_for_ms);
+    install_primitive(drive_motor);
+    install_primitive(drive_motor_ms);
     install_primitive(drive_motor_degrees);
     install_primitive_reverse(drive_motor_degrees);
-    install_primitive(drive_motor_degrees_absolute);
-    install_primitive(drive_motor);
     install_primitive(colour_sensor);
     install_primitive(setup_uart_sensor);
 

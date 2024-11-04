@@ -19,6 +19,7 @@ target_sources(app PRIVATE
     ../../src/Interpreter/instructions.cpp
     ../../src/Interpreter/interpreter.cpp
     ../../src/Primitives/zephyr.cpp
+    ../../src/Primitives/Mindstorms/Motor.cpp
     ../../src/Memory/mem.cpp
     ../../src/Utils/util.cpp
     ../../src/Utils/util_arduino.cpp
