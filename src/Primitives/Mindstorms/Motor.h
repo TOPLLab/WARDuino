@@ -83,6 +83,20 @@ class MotorEncoder {
     volatile int64_t last_update;
 };
 
+class Motor {
+   public:
+    Motor(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, MotorEncoder *encoder);
+
+    pwm_dt_spec pwm1_spec;
+    pwm_dt_spec pwm2_spec;
+    MotorEncoder *encoder;
+
+    void halt();
+    bool set_speed(float speed);
+    void drive_to_target(int32_t speed);
+    void drive_to_angle(int32_t speed, int32_t degrees);
+};
+
 bool drive_pwm(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec, float pwm1,
                float pwm2);
 

@@ -26,6 +26,7 @@
 #include <cstdio>
 #include <cstring>
 #include <thread>
+#include <optional>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
@@ -315,10 +316,24 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
+MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
+                            new MotorEncoder(specs[57], specs[58], "Port B"),
+                            //MotorEncoder(specs[17], specs[13], "Port C"), // TODO: Disable when using motor D, causes conflict with interrupts
+                            nullptr,
+                            new MotorEncoder(specs[27], specs[26], "Port D")};
+
+std::optional<Motor> get_motor(int32_t motor_index) {
+    if (motor_index > 3) {
+        return {};
+    }
+
+    return std::make_optional<Motor>(pwm_specs[motor_index * 2], pwm_specs[motor_index * 2 + 1], encoders[motor_index]);
+}
+
 def_prim(drive_motor, threeToNoneU32) {
-    int32_t brake = (int32_t)arg0.uint32;
-    int32_t speed = (int32_t)arg1.uint32;
-    int32_t motor_index = (int32_t)arg2.uint32;
+    int32_t brake = arg0.int32;
+    int32_t speed = arg1.int32;
+    int32_t motor_index = arg2.int32;
 
     printf("drive_motor(%d, %d, %d)\n", motor_index, speed, brake);
 
@@ -328,13 +343,11 @@ def_prim(drive_motor, threeToNoneU32) {
         return true;
     }
 
-    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
-    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
-
-    drive_motor(pwm1_spec, pwm2_spec, speed / 10000.0f);
+    Motor motor = get_motor(motor_index).value();
+    motor.set_speed(speed / 10000.0f);
 
     if (speed == 0 && brake == 1) {
-        drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
+        motor.halt();
     }
 
     pop_args(3);
@@ -342,42 +355,27 @@ def_prim(drive_motor, threeToNoneU32) {
 }
 
 def_prim(drive_motor_ms, twoToNoneU32) {
+    int32_t motor_index = arg1.int32;
     int32_t speed = (int32_t)arg0.uint32;
-    printf("drive_motor_ms(%d, %d)\n", speed, arg1.uint32);
+    printf("drive_motor_ms(%d, %d)\n", motor_index, speed);
 
-    drive_motor(pwm_led0, pwm_led1, speed / 10000.0f);
+    Motor motor = get_motor(motor_index).value();
+    motor.set_speed(speed / 10000.0f);
     k_msleep(arg1.uint32);
-    drive_pwm(pwm_led0, pwm_led1, 1.0f, 1.0f);
+    motor.halt();
     pop_args(2);
     return true;
 }
 
-MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
-                            new MotorEncoder(specs[57], specs[58], "Port B"),
-                            //MotorEncoder(specs[17], specs[13], "Port C"), // TODO: Disable when using motor D, causes conflict with interrupts
-                            nullptr,
-                            new MotorEncoder(specs[27], specs[26], "Port D")};
-
 bool drive_motor_degrees_absolute(int32_t motor_index, int32_t degrees, int32_t speed) {
-    printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
-
-    if (motor_index > 3) {
-        return false;
+    if (auto motor = get_motor(motor_index)) {
+        motor->drive_to_angle(speed, degrees);
+        return true;
     }
-
-    pwm_dt_spec pwm1_spec = pwm_specs[motor_index * 2];
-    pwm_dt_spec pwm2_spec = pwm_specs[motor_index * 2 + 1];
-    MotorEncoder *encoder = encoders[motor_index];
-
-    encoder->set_target_angle(degrees);
-
-    drive_motor_to_target(pwm1_spec, pwm2_spec, encoder, speed);
-    return true;
+    return false;
 }
 
 bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t speed) {
-    printf("drive_motor_degrees(%d, %d, %d)\n", motor_index, degrees, speed);
-
     MotorEncoder *encoder = encoders[motor_index];
     drive_motor_degrees_absolute(motor_index, encoder->get_target_angle() + degrees, speed);
     return true;
@@ -753,10 +751,12 @@ void install_primitives() {
     install_primitive_reverse(chip_digital_write);
     install_primitive(chip_digital_read);
     install_primitive(print_int);
+
     install_primitive(drive_motor);
     install_primitive(drive_motor_ms);
     install_primitive(drive_motor_degrees);
     install_primitive_reverse(drive_motor_degrees);
+
     install_primitive(colour_sensor);
     install_primitive(setup_uart_sensor);
 
