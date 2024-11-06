@@ -35,7 +35,7 @@
 #include "primitives.h"
 #include "Mindstorms/Motor.h"
 
-#define ALL_PRIMITIVES 10
+#define ALL_PRIMITIVES 11
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -383,7 +383,7 @@ bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t 
 
 def_prim(drive_motor_degrees, threeToNoneU32) {
     int32_t speed = arg0.int32;
-    int32_t degrees = arg1.uint32;
+    int32_t degrees = arg1.int32;
     int32_t motor_index = arg2.uint32;
     pop_args(3);
     return drive_motor_degrees_relative(motor_index, degrees, speed);
@@ -415,6 +415,58 @@ def_prim_serialize(drive_motor_degrees) {
         state->value = encoders[i]->get_target_angle();
         external_state.push_back(state);
     }
+}
+
+def_prim(drive_motors_degrees, threeToNoneU32) {
+    int32_t speed = arg0.int32;
+    int32_t degrees = arg1.int32;
+    int32_t motor_index = arg2.uint32;
+    pop_args(3);
+
+    Motor motor_result1 = get_motor(motor_index).value();
+    Motor motor_result2 = get_motor(motor_index + 1).value();
+
+    int32_t diff = motor_result2.encoder->get_angle() - motor_result1.encoder->get_angle();
+    printf("%d\n", diff);
+    float current_speed = 0.08f;
+    motor_result1.set_speed(current_speed);
+    motor_result2.set_speed(current_speed);
+    int32_t current_angle = encoders[motor_index]->get_angle();
+    int32_t dest_angle = current_angle + degrees;
+    int32_t dir = -1 * (std::signbit(dest_angle - current_angle) * 2 - 1);
+    //while (abs(dest_angle - encoders[motor_index]->get_angle()) > 20) {
+    float integral = 0.0f;
+    float last_error = 0.0f;
+    while(true) {
+        int32_t diff = motor_result2.encoder->get_angle() - motor_result1.encoder->get_angle();
+        printf("%d\n", diff);
+        /*//current_speed += diff * 0.0000001;
+        float error = (diff/10.0f);
+        float error_d = last_error - error;
+        //current_speed += error * 0.0001 + integral * 0.00001f + error_d * 0.00001f;
+        current_speed += error * 0.0001 + error_d * 0.00005f;
+        integral = integral * 0.8f + error * 0.2f;
+        last_error = error;*/
+        //printf("%f %d %d %d\n", current_speed, dir, motor_result1.encoder->get_angle(), abs(dest_angle - encoders[motor_index]->get_angle()));
+
+        if (diff > 1) {
+            current_speed = 0.081f;
+        }
+        else if (diff < -1) {
+            current_speed = 0.079f;
+        }
+        else {
+            current_speed = 0.08f;
+        }
+
+        motor_result2.set_speed(current_speed);
+        //k_msleep(1);
+    }
+    k_msleep(1000);
+    motor_result1.halt();
+    motor_result2.halt();
+
+    return true;
 }
 
 static const struct device *const uart_dev =
@@ -756,6 +808,7 @@ void install_primitives() {
     install_primitive(drive_motor_ms);
     install_primitive(drive_motor_degrees);
     install_primitive_reverse(drive_motor_degrees);
+    install_primitive(drive_motors_degrees);
 
     install_primitive(colour_sensor);
     install_primitive(setup_uart_sensor);
