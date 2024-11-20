@@ -1250,12 +1250,27 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                           static_cast<void *>(m->bytes + start + total_bytes),
                           static_cast<void *>(mem_end));
                 }
-                memcpy(m->memory.bytes + start, program_state, total_bytes);
+
+                uint32_t byte_count = read_B32(&program_state);
+                printf("byte_count = %d\n", byte_count);
+                uint8_t *end = program_state + byte_count;
+                uint32_t current_pos = start;
+                while (program_state < end) {
+                    uint32_t count = read_LEB_32(&program_state);
+                    uint8_t byte = *program_state++;
+                    //printf("%d x %d\n", count, byte);
+                    // TODO: Maybe use memset?
+                    /*for (uint32_t i = 0; i < count; i++) {
+                        m->memory.bytes[current_pos++] = byte;
+                    }*/
+                    memset(m->memory.bytes + current_pos, byte, count);
+                    current_pos += count;
+                }
+
                 for (auto i = start; i < (start + total_bytes); i++) {
                     debug("GOT byte idx %" PRIu32 " =%" PRIu8 "\n", i,
                           m->memory.bytes[i]);
                 }
-                program_state += total_bytes;
                 break;
             }
             case branchingTableState: {
