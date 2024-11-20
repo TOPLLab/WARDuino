@@ -1577,7 +1577,9 @@ std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_
     if (opcode == 0x10) {  // call opcode
         uint8_t *pc_copy = pc_ptr + 1;
         uint32_t fidx = read_LEB_32(&pc_copy);
-        return fidx;
+        if (fidx < m->import_count) {
+            return fidx;
+        }
     }
     return {};
 }
