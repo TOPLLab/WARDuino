@@ -952,7 +952,7 @@ void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
     }
 }
 
-std::optional<uint32_t> getPrimitiveBeingCalled(uint8_t *pc_ptr) {
+std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
     if (!pc_ptr) {
         return {};
     }
@@ -962,7 +962,9 @@ std::optional<uint32_t> getPrimitiveBeingCalled(uint8_t *pc_ptr) {
     if (opcode == 0x10) {  // call opcode
         uint8_t *pc_copy = pc_ptr + 1;
         uint32_t fidx = read_LEB_32(&pc_copy);
-        return fidx;
+        if (fidx < m->import_count) {
+            return fidx;
+        }
     }
     return {};
 }
@@ -979,7 +981,7 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         instructions_executed++;
 
         // Store arguments of last primitive call.
-        if ((fidx_called = getPrimitiveBeingCalled(m->pc_ptr))) {
+        if ((fidx_called = getPrimitiveBeingCalled(m, m->pc_ptr))) {
             const Type *type = m->functions[*fidx_called].type;
             for (uint32_t i = 0; i < type->param_count; i++) {
                 prim_args[type->param_count - i - 1] =
