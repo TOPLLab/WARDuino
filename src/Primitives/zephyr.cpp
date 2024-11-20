@@ -33,7 +33,7 @@
 #include "../Utils/util.h"
 #include "primitives.h"
 
-#define ALL_PRIMITIVES 12
+#define ALL_PRIMITIVES 13
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -961,6 +961,11 @@ def_prim(colour_sensor, oneToOneU32) {
     return true;
 }
 
+def_prim(abort, NoneToNoneU32) {
+    debug("Abort\n");
+    return false;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -980,6 +985,7 @@ void install_primitives() {
     install_primitive(drive_motor);
     install_primitive(colour_sensor);
     install_primitive(setup_uart_sensor);
+    install_primitive(abort);
 
     k_timer_init(&heartbeat_timer, my_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(1000), K_MSEC(1000));
