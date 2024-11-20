@@ -579,12 +579,14 @@ def_prim_reverse(drive_motor_degrees) {
 }
 
 def_prim_serialize(drive_motor_degrees) {
-    for (int i = 0; i < 2; i++) {
-        IOStateElement *state = new IOStateElement();
-        state->output = true;
-        state->key = "e" + std::to_string(i);
-        state->value = encoders[i]->get_target_angle();
-        external_state.push_back(state);
+    for (int i = 0; i < 4; i++) {
+        if (encoders[i]) {
+            IOStateElement *state = new IOStateElement();
+            state->output = true;
+            state->key = "e" + std::to_string(i);
+            state->value = encoders[i]->get_target_angle();
+            external_state.push_back(state);
+        }
     }
 }
 
@@ -595,7 +597,7 @@ def_prim(drive_motor_degrees_absolute, threeToNoneU32) {
     printf("drive_motor_degrees_absolute(%d, %d, %d)\n", motor_index, degrees,
            speed);
 
-    if (motor_index > 1) {
+    if (motor_index > 3) {
         printf("Invalid motor index %d\n", motor_index);
         pop_args(3);
         return true;
