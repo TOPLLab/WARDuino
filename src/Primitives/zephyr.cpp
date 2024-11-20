@@ -911,7 +911,7 @@ def_prim(setup_uart_sensor, twoToNoneU32) {
 K_THREAD_DEFINE(uart_heartbeat_tid, UART_HEARTBEAT_STACK_SIZE, uartHeartbeat,
                 NULL, NULL, NULL, UART_HEARTBEAT_PRIORITY, 0, 0);*/
 
-def_prim(colour_sensor, oneToOneU32) {
+def_prim(color_sensor, oneToOneU32) {
     if (!device_is_ready(uart_dev)) {
         printk("Input port is not ready!\n");
         return 0;
@@ -985,7 +985,7 @@ void install_primitives() {
     install_primitive_reverse(drive_motor_degrees);
     install_primitive(drive_motor_degrees_absolute);
     install_primitive(drive_motor);
-    install_primitive(colour_sensor);
+    install_primitive(color_sensor);
     install_primitive(setup_uart_sensor);
     install_primitive(abort);
 

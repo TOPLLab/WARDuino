@@ -513,7 +513,7 @@ def_prim(setup_uart_sensor, oneToNoneU32) {
     return true;
 }
 
-def_prim(colour_sensor, oneToOneI32) {
+def_prim(color_sensor, oneToOneI32) {
     pop_args(1);
     std::random_device r;
     std::default_random_engine random_engine(r());
@@ -573,7 +573,7 @@ void install_primitives() {
     install_primitive(chip_ledc_set_duty);
 
     install_primitive(setup_uart_sensor);
-    install_primitive(colour_sensor);
+    install_primitive(color_sensor);
     install_primitive(drive_motor_degrees);
 }
 
