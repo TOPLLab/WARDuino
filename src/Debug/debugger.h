@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
+#include <optional>
 #include <queue>  // std::queue
 #include <set>
 #include <thread>
@@ -61,6 +62,7 @@ enum InterruptTypes {
     interruptSTEPOver = 0x05,
     interruptBPAdd = 0x06,
     interruptBPRem = 0x07,
+    interruptContinueFor = 0x08,
     interruptInspect = 0x09,
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
@@ -77,7 +79,7 @@ enum InterruptTypes {
 
     // Pull Debugging
     interruptSnapshot = 0x60,
-    interruptEnableSnapshots = 0x61,
+    interruptSetSnapshotPolicy = 0x61,
     interruptLoadSnapshot = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
@@ -100,6 +102,13 @@ enum InterruptTypes {
     interruptStored = 0xa1,
 };
 
+enum class SnapshotPolicy : int {
+    none,                // Don't automatically take snapshots.
+    atEveryInstruction,  // Take a snapshot after every instruction.
+    checkpointing,       // Take a snapshot every x instructions or at specific
+                         // points where primitives are used.
+};
+
 class Debugger {
    private:
     std::deque<uint8_t *> debugMessages = {};
@@ -119,10 +128,19 @@ class Debugger {
     bool connected_to_proxy = false;
     warduino::mutex *supervisor_mutex;
 
-    bool asyncSnapshots;
-
+    // Mocking
     std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
         overrides;
+
+    // Checkpointing
+    SnapshotPolicy snapshotPolicy;
+    uint32_t checkpointInterval;          // #instructions between checkpoints
+    uint32_t instructions_executed;       // #instructions since last checkpoint
+    std::optional<uint32_t> fidx_called;  // The primitive that was executed
+    uint32_t prim_args[8];                // The arguments of the executed prim
+
+    // Continue for
+    int32_t remaining_instructions;
 
     // Private methods
 
@@ -223,6 +241,9 @@ class Debugger {
 
     void pauseRuntime(const Module *m);  // pause runtime for given module
 
+    void notifyCompleteStep(
+        Module *m) const;  // notify the debugger frontend that a step was taken
+
     // Interrupts
 
     void addDebugMessage(size_t len, const uint8_t *buff);
@@ -245,9 +266,11 @@ class Debugger {
 
     void snapshot(Module *m) const;
 
-    void enableSnapshots(const uint8_t *interruptData);
+    void setSnapshotPolicy(Module *m, uint8_t *interruptData);
 
-    void sendAsyncSnapshots(Module *m) const;
+    void handleSnapshotPolicy(Module *m);
+
+    bool handleContinueFor(Module *m);
 
     void proxify();
 
@@ -288,4 +311,8 @@ class Debugger {
 
     void addOverride(Module *m, uint8_t *interruptData);
     void removeOverride(Module *m, uint8_t *interruptData);
+
+    // Checkpointing
+    void checkpoint(Module *m, bool force = false);
+    inline SnapshotPolicy getSnapshotPolicy() { return snapshotPolicy; }
 };

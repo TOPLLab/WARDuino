@@ -22,7 +22,11 @@ Debugger::Debugger(Channel *duplex) {
     this->channel = duplex;
     this->supervisor_mutex = new warduino::mutex();
     this->supervisor_mutex->lock();
-    this->asyncSnapshots = false;
+    this->snapshotPolicy = SnapshotPolicy::none;
+    this->checkpointInterval = 10;
+    this->instructions_executed = 0;
+    this->fidx_called = {};
+    this->remaining_instructions = -1;
 }
 
 // Public methods
@@ -190,6 +194,12 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             exit(0);
         case interruptPAUSE:
             this->pauseRuntime(m);
+            // Make a checkpoint so the debugger knows the current state and
+            // knows how many instructions were executed since the last
+            // checkpoint.
+            if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+                checkpoint(m, true);
+            }
             this->channel->write("PAUSE!\n");
             free(interruptData);
             break;
@@ -206,6 +216,15 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleInterruptBP(m, interruptData);
             free(interruptData);
             break;
+        case interruptContinueFor: {
+            uint8_t *data = interruptData + 1;
+            uint32_t amount = read_B32(&data);
+            debug("Continue for %" PRIu32 " instruction(s)\n", amount);
+            remaining_instructions = (int32_t)amount;
+            *program_state = WARDUINOrun;
+            free(interruptData);
+            break;
+        }
         case interruptDUMP:
             this->pauseRuntime(m);
             this->dump(m);
@@ -259,9 +278,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->pauseRuntime(m);
             free(interruptData);
             snapshot(m);
+            this->channel->write("\n");
             break;
-        case interruptEnableSnapshots:
-            enableSnapshots(interruptData + 1);
+        case interruptSetSnapshotPolicy:
+            setSnapshotPolicy(m, interruptData + 1);
             free(interruptData);
             break;
         case interruptInspect: {
@@ -269,6 +289,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             uint16_t numberBytes = read_B16(&data);
             uint8_t *state = interruptData + 3;
             inspect(m, numberBytes, state);
+            this->channel->write("\n");
             free(interruptData);
             break;
         }
@@ -429,7 +450,6 @@ void Debugger::handleInterruptRUN(const Module *m,
 }
 
 void Debugger::handleSTEP(const Module *m, RunningState *program_state) {
-    this->channel->write("STEP!\n");
     *program_state = WARDUINOstep;
     this->skipBreakpoint = m->pc_ptr;
 }
@@ -918,18 +938,82 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
             }
         }
     }
-    this->channel->write("}\n");
+    this->channel->write("}");
 }
 
-void Debugger::enableSnapshots(const uint8_t *interruptData) {
-    asyncSnapshots = *interruptData;
+void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
+    snapshotPolicy = SnapshotPolicy{*interruptData};
+
+    // Make a checkpoint when you first enable checkpointing
+    if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+        uint8_t *ptr = interruptData + 1;
+        checkpointInterval = read_B32(&ptr);
+        checkpoint(m, true);
+    }
 }
 
-void Debugger::sendAsyncSnapshots(Module *m) const {
-    if (asyncSnapshots) {
+std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
+    if (!pc_ptr) {
+        return {};
+    }
+
+    // TODO: Support call_indirect
+    uint8_t opcode = *pc_ptr;
+    if (opcode == 0x10) {  // call opcode
+        uint8_t *pc_copy = pc_ptr + 1;
+        uint32_t fidx = read_LEB_32(&pc_copy);
+        if (fidx < m->import_count) {
+            return fidx;
+        }
+    }
+    return {};
+}
+
+void Debugger::handleSnapshotPolicy(Module *m) {
+    if (snapshotPolicy == SnapshotPolicy::atEveryInstruction) {
         this->channel->write("SNAPSHOT ");
         snapshot(m);
+        this->channel->write("\n");
+    } else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+        if (instructions_executed >= checkpointInterval || fidx_called) {
+            checkpoint(m);
+        }
+        instructions_executed++;
+
+        // Store arguments of last primitive call.
+        if ((fidx_called = getPrimitiveBeingCalled(m, m->pc_ptr))) {
+            const Type *type = m->functions[*fidx_called].type;
+            for (uint32_t i = 0; i < type->param_count; i++) {
+                prim_args[type->param_count - i - 1] =
+                    m->stack[m->sp - i].value.uint32;
+            }
+        }
+    } else if (snapshotPolicy != SnapshotPolicy::none) {
+        this->channel->write("WARNING: Invalid snapshot policy.");
     }
+}
+
+void Debugger::checkpoint(Module *m, bool force) {
+    if (instructions_executed == 0 && !force) {
+        return;
+    }
+
+    this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, )",
+                         instructions_executed);
+    if (fidx_called) {
+        this->channel->write(R"("fidx_called": %d, "args": [)", *fidx_called);
+        const Block &func_block = m->functions[*fidx_called];
+        bool comma = false;
+        for (uint32_t i = 0; i < func_block.type->param_count; i++) {
+            channel->write("%s%d", comma ? ", " : "", prim_args[i]);
+            comma = true;
+        }
+        this->channel->write("], ");
+    }
+    this->channel->write(R"("snapshot": )", instructions_executed);
+    snapshot(m);
+    this->channel->write("}\n");
+    instructions_executed = 0;
 }
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {
@@ -1509,6 +1593,31 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     channel->write("Removing override %s(%d) = %d.\n", primitive_name.c_str(),
                    arg, overrides[fidx.value()][arg]);
     overrides[fidx.value()].erase(arg);
+}
+
+bool Debugger::handleContinueFor(Module *m) {
+    if (remaining_instructions < 0) return false;
+
+    if (remaining_instructions == 0) {
+        remaining_instructions = -1;
+        if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+            checkpoint(m);
+        }
+        this->channel->write("DONE!\n");
+        pauseRuntime(m);
+        return true;
+    }
+    remaining_instructions--;
+    return false;
+}
+
+void Debugger::notifyCompleteStep(Module *m) const {
+    // Upon completing a step in checkpointing mode, make a checkpoint.
+    if (m->warduino->debugger->getSnapshotPolicy() ==
+        SnapshotPolicy::checkpointing) {
+        m->warduino->debugger->checkpoint(m);
+    }
+    this->channel->write("STEP!\n");
 }
 
 Debugger::~Debugger() {

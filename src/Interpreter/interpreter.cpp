@@ -200,6 +200,7 @@ bool Interpreter::interpret(Module *m, bool waiting) {
 
     while ((!program_done && success) || waiting) {
         if (m->warduino->program_state == WARDUINOstep) {
+            m->warduino->debugger->notifyCompleteStep(m);
             m->warduino->debugger->pauseRuntime(m);
         }
 
@@ -239,8 +240,14 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         }
         m->warduino->debugger->skipBreakpoint = nullptr;
 
+        if (m->warduino->debugger->handleContinueFor(m)) {
+            continue;
+        }
+
         // Take snapshot before executing an instruction
-        m->warduino->debugger->sendAsyncSnapshots(m);
+        if (m->warduino->program_state != WARDUINOinit) {
+            m->warduino->debugger->handleSnapshotPolicy(m);
+        }
 
         opcode = *m->pc_ptr;
         block_ptr = m->pc_ptr;
