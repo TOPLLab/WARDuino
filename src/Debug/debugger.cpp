@@ -1254,9 +1254,9 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
 
                 uint32_t byte_count = read_B32(&program_state);
-                uint8_t *end = program_state + byte_count;
+                uint8_t *end_pos = program_state + byte_count;
                 uint32_t current_pos = start;
-                while (program_state < end) {
+                while (program_state < end_pos) {
                     uint32_t count = read_LEB_32(&program_state);
                     uint8_t byte = *program_state++;
                     memset(m->memory.bytes + current_pos, byte, count);
