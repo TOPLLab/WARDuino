@@ -880,15 +880,17 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                     for (uint32_t j = 1; j < total_elems; j++) {
                         if (m->memory.bytes[j] == data) {
                             count++;
-                        }
-                        else {
-                            this->channel->write("%s%" PRIu8 ",%d", arrayComma ? "," : "", data, count);
+                        } else {
+                            this->channel->write("%s%" PRIu8 ",%d",
+                                                 arrayComma ? "," : "", data,
+                                                 count);
                             arrayComma = true;
                             data = m->memory.bytes[j];
                             count = 1;
                         }
                     }
-                    this->channel->write("%s%" PRIu8 ",%d", arrayComma ? "," : "", data, count);
+                    this->channel->write("%s%" PRIu8 ",%d",
+                                         arrayComma ? "," : "", data, count);
                 }
                 this->channel->write("]}");  // closing memory
                 break;
