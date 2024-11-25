@@ -1254,7 +1254,6 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 }
 
                 uint32_t byte_count = read_B32(&program_state);
-                printf("byte_count = %d\n", byte_count);
                 uint8_t *end = program_state + byte_count;
                 uint32_t current_pos = start;
                 while (program_state < end) {
