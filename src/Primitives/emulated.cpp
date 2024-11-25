@@ -508,7 +508,10 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     return true;
 }
 
+uint32_t color_sensor_mode = 0;
+
 def_prim(setup_uart_sensor, twoToNoneU32) {
+    color_sensor_mode = arg0.uint32;
     pop_args(2);
     return true;
 }
@@ -517,8 +520,14 @@ def_prim(color_sensor, oneToOneI32) {
     pop_args(1);
     std::random_device r;
     std::default_random_engine random_engine(r());
-    std::uniform_int_distribution<int> uniform_dist(0, 100);
-    pushUInt32(uniform_dist(random_engine););
+    std::uniform_int_distribution<int> uniform_dist;
+    if (color_sensor_mode == 0) {
+        uniform_dist = std::uniform_int_distribution(0, 100);
+    }
+    else {
+        uniform_dist = std::uniform_int_distribution(0, 7);;
+    }
+    pushUInt32(uniform_dist(random_engine));
     return true;
 }
 
