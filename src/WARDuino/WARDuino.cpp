@@ -332,7 +332,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     this->program_state = WARDUINOrun;
 
     while (pos < bytes_end) {
-        
         uint32_t id = read_LEB(&pos, 7);
         uint32_t section_len = read_LEB_32(&pos);
         uint8_t *start_pos = pos;
