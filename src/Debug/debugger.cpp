@@ -1262,6 +1262,9 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     memset(m->memory.bytes + current_pos, byte, count);
                     current_pos += count;
                 }
+                if (current_pos != limit + 1) {
+                    FATAL("RLE did not restore the expected amount of bytes\n");
+                }
 
                 for (auto i = start; i < (start + total_bytes); i++) {
                     debug("GOT byte idx %" PRIu32 " =%" PRIu8 "\n", i,
