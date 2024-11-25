@@ -954,7 +954,7 @@ void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
 
 std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
     if (!pc_ptr) {
-        return {};
+        return std::nullopt;
     }
 
     // TODO: Support call_indirect
@@ -966,7 +966,7 @@ std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
             return fidx;
         }
     }
-    return {};
+    return std::nullopt;
 }
 
 void Debugger::handleSnapshotPolicy(Module *m) {
