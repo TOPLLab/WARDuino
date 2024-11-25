@@ -1258,11 +1258,6 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 while (program_state < end) {
                     uint32_t count = read_LEB_32(&program_state);
                     uint8_t byte = *program_state++;
-                    //printf("%d x %d\n", count, byte);
-                    // TODO: Maybe use memset?
-                    /*for (uint32_t i = 0; i < count; i++) {
-                        m->memory.bytes[current_pos++] = byte;
-                    }*/
                     memset(m->memory.bytes + current_pos, byte, count);
                     current_pos += count;
                 }
