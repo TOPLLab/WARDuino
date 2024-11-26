@@ -199,7 +199,7 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
 }
 
 void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
-    nlohmann::basic_json<> call_result = this->readReply();  // blocking
+    nlohmann::basic_json<> call_result = this->readReply(rfc);  // blocking
     rfc->success = *call_result.find("success");
 
     if (rfc->type->result_count == 0) {
