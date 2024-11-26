@@ -56,6 +56,55 @@ This will build the command-line tool (`emulator`), which has been tested on bot
 
 The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, and has been extensively tested on different ESP8266 and ESP32 microcontrollers.
 
+### Build for Zephyr
+
+First, install the [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#getting-started-guide), then follow these steps:
+
+1. Activate your Zephyr environment:
+```bash
+```bash
+source ~/zephyrproject/.venv/bin/activate
+source ~/zephyrproject/zephyr/zephyr-env.sh
+```
+
+2. Go to the Zephyr folder:
+
+```bash
+cd platforms/Zephyr
+```
+
+3. Build your WebAssembly binary; for example:
+
+```bash
+wat2wasm --no-canonicalize-leb128s --disable-bulk-memory --debug-names -v -o upload.wasm ../../tutorials/wat/main/blink.wat
+```
+
+5. (optional) When using Espressif boards you need to install additional blobs for Wi-Fi and Bluetooth support:
+```bash
+```bash
+west blobs fetch hal_espressif
+```
+
+4. Build for Zephyr:
+```bash
+west build -b esp_wrover_kit
+```
+> [!NOTE]
+> Overlay files for the supported boards can be found in the `platforms/Zephyr/boards` folder.
+
+Now you are ready to flash your software.
+
+```bash
+west flash
+```
+
+This command also rebuilds the virtual machine, so you only need to run the build command from the previous step once.
+After flashing, you can monitor the serial port, with the following command:
+
+```bash
+west espressif monitor
+```
+
 ### Build for ESP-IDF
 
 > [!WARNING]
