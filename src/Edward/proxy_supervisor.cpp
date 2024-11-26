@@ -53,7 +53,8 @@ Event *parseJSON(char *buff) {
     return new Event(*parsed.find("topic"), payload);
 }
 
-ProxySupervisor::ProxySupervisor(Channel *duplex, warduino::mutex *mutex) : Debugger(duplex) {
+ProxySupervisor::ProxySupervisor(Channel *duplex, warduino::mutex *mutex)
+    : Debugger(duplex) {
     debug("Starting supervisor.\n");
     this->mutex = mutex;
     this->thread = warduino::thread(runSupervisor, this);
@@ -112,7 +113,8 @@ bool ProxySupervisor::send(
 
 nlohmann::basic_json<> ProxySupervisor::readReply(RFC *rfc) {
     while (!this->hasReplied) {
-        WARDuino::instance()->debugger->checkDebugMessages(rfc->m, &WARDuino::instance()->program_state);
+        WARDuino::instance()->debugger->checkDebugMessages(
+            rfc->m, &WARDuino::instance()->program_state);
     }
     WARDuino::instance()->debugger->channel->write("read reply: succeeded\n");
     this->hasReplied = false;

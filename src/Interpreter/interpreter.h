@@ -56,6 +56,7 @@ class Interpreter {
     static void report_overflow(Module *m, uint8_t *maddr);
 
     virtual ~Interpreter();
+
    protected:
    private:
 };
