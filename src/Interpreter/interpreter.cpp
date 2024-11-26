@@ -470,3 +470,5 @@ void Interpreter::report_overflow([[maybe_unused]] Module *m,
              m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE, maddr);
     sprintf(exception, "out of bounds memory access");
 }
+
+Interpreter::~Interpreter() {}

@@ -84,7 +84,7 @@ uint32_t write_LEB_signed(uint8_t *dest, uint64_t val, uint64_t bits) {
         }
 
         if ((val == 0 && static_cast<int8_t>(byte) >= 0) ||
-            (val == -1 && static_cast<int8_t>(byte) < 0)) {
+            (val == static_cast<uint64_t>(-1) && static_cast<int8_t>(byte) < 0)) {
             break;
         }
         byte |= 0x80;
