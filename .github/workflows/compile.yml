@@ -13,9 +13,9 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - name: Run clang-format style check for C/C++ programs.
-              uses: jidicula/clang-format-action@v3.5.1
+              uses: jidicula/clang-format-action@v4.13.0
               with:
-                clang-format-version: '11'
+                clang-format-version: '18'
                 check-path: '.'
                 fallback-style: 'Google'
 
