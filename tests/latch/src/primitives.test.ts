@@ -19,8 +19,6 @@ const examples = `${__dirname}/../examples`;
 const framework = Framework.getImplementation();
 framework.style(OutputStyle.github);
 
-// TODO disclaimer: file is currently disabled until latch supports AS compilation
-
 const dummy: Suite = framework.suite('Integration tests: dummy primitives');
 
 dummy.testee('emulator [:8520]', new EmulatorSpecification(8520));
@@ -44,6 +42,8 @@ const dummyScenario: TestScenario = {
 };
 
 dummy.test(dummyScenario);
+
+// TODO disclaimer: rest of the file is currently disabled until latch supports AS compilation
 
 const basic: Suite = framework.suite('Integration tests: basic primitives');
 

@@ -18,7 +18,6 @@ import {
 
 export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
 
-
 const EXAMPLES: string = `${__dirname}/../examples/`;
 
 /**
@@ -312,7 +311,6 @@ const stepOverTest: TestScenario = {
 
 integration.test(stepOverTest);
 
-// EDWARD tests with mock proxy
 
 const dumpEventsTest: TestScenario = {
     title: 'Test DUMPEvents',
@@ -332,4 +330,57 @@ const dumpEventsTest: TestScenario = {
 
 integration.test(dumpEventsTest);
 
-framework.run([integration]);
+// EDWARD tests
+
+const oop = framework.suite('Test Out-of-place primitives');
+
+oop.testee('supervisor[:8100] - proxy[:8150]', new OutofPlaceSpecification(8100, 8150));
+
+oop.test({
+    title: `Test store primitive`,
+    program: 'test/dummy.wast',
+    dependencies: [],
+    steps: [
+        {
+            title: '[supervisor] CHECK: execution at start of main',
+            instruction: {kind: Kind.Request, value: dump},
+            expected: [{'pc': {kind: 'primitive', value: 129} as Expected<number>}]
+        },
+
+        {
+            title: '[proxy]      CHECK: execution at start of main',
+            instruction: {kind: Kind.Request, value: dump},
+            expected: [{'pc': {kind: 'primitive', value: 129} as Expected<number>}],
+            target: Target.proxy
+        },
+
+        new Invoker('load', [WASM.i32(32)], WASM.i32(0), Target.proxy),
+
+        {
+            title: '[supervisor] Send STEP command',
+            instruction: {kind: Kind.Request, value: step}
+        },
+
+        {
+            title: '[supervisor] Send STEP command',
+            instruction: {kind: Kind.Request, value: step}
+        },
+
+        {
+            title: '[supervisor] Send STEP command',
+            instruction: {kind: Kind.Request, value: step}
+        },
+
+        {
+            title: '[supervisor] CHECK: execution took three steps',
+            instruction: {kind: Kind.Request, value: dump},
+            expected: [{'pc': {kind: 'primitive', value: 136} as Expected<number>}]
+        },
+
+        new Invoker('load', [WASM.i32(32)], WASM.i32(42), Target.proxy),
+
+        new Invoker('load', [WASM.i32(32)], WASM.i32(42), Target.supervisor)
+    ]
+});
+
+framework.run([integration,oop]);
