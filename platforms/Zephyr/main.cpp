@@ -8,8 +8,8 @@
 #define DEBUGGER_STACK_SIZE 2048
 #define DEBUGGER_PRIORITY 0
 
-/*BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
-             "Console device is not ACM CDC UART device");*/
+/*BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console),
+   zephyr_cdc_acm_uart), "Console device is not ACM CDC UART device");*/
 
 static struct tty_serial console_serial;
 
@@ -72,15 +72,16 @@ void startDebuggerStd() {
     }
 }
 
-//K_THREAD_DEFINE(debugger_tid, DEBUGGER_STACK_SIZE, startDebuggerStd, NULL, NULL,
-//                NULL, DEBUGGER_PRIORITY, 0, 0);
+// K_THREAD_DEFINE(debugger_tid, DEBUGGER_STACK_SIZE, startDebuggerStd, NULL,
+// NULL,
+//                 NULL, DEBUGGER_PRIORITY, 0, 0);
 
 int main(void) {
-    //printf("Before\n");
+    // printf("Before\n");
     Module *m = wac->load_module(upload_wasm, upload_wasm_len, {});
-    //printf("after\n");
+    // printf("after\n");
     wac->run_module(m);
-    //printf("after run\n");
+    // printf("after run\n");
     wac->unload_module(m);
 
     return 0;
