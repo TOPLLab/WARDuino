@@ -156,7 +156,7 @@ For a feature request or bug report, create a [GitHub issue](https://github.com/
 ## Acknowledgments
 
 WARDuino by Robbert Gurdeep Singh, Tom Lauwaerts, Carlos Rojas Castillo, Maarten Steevens and Christophe Scholliers is licensed under a [MPL-2.0 License](./LICENSE).
-This is a derivative work of [kanaka/wac](https://github.com/kanaka/wac) by Joel Martin.
+An early version of this work was derived from [kanaka/wac](https://github.com/kanaka/wac) by Joel Martin.
 
 If you need to cite WARDuino in your research, use:
 
