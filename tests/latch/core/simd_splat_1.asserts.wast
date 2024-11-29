@@ -1,0 +1,5 @@
+(assert_return (invoke "as-v128_store-operand-1" (i32.const 1)) (v128.const i8x16 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1))
+(assert_return (invoke "as-v128_store-operand-2" (i32.const 256)) (v128.const i16x8 0x100 0x100 0x100 0x100 0x100 0x100 0x100 0x100))
+(assert_return (invoke "as-v128_store-operand-3" (i32.const 0xffffffff)) (v128.const i32x4 -1 -1 -1 -1))
+(assert_return (invoke "as-v128_store-operand-4" (i64.const 1)) (v128.const i64x2 1 1))
+(assert_return (invoke "as-v128_store-operand-5" (f64.const -0x1p+0)) (v128.const f64x2 -0x1p+0 -0x1p+0))

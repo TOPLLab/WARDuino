@@ -434,6 +434,11 @@ bool Interpreter::interpret(Module *m, bool waiting) {
             case 0xe0 ... 0xe3:
                 success &= i_instr_callback(m, opcode);
                 continue;
+
+            case 0xfd:
+                success &= interpret_simd(m);
+                continue;
+
             default:
                 sprintf(exception, "unrecognized opcode 0x%x", opcode);
                 if (m->options.return_exception) {
@@ -462,11 +467,282 @@ bool Interpreter::interpret(Module *m, bool waiting) {
     if (!success && m->options.return_exception) {
         m->exception = strdup(exception);
     } else if (!success) {
-        FATAL("%s\n", exception);
+        FATAL("%s (0x%x)\n", exception, opcode);
     }
 
     return success;
 }
+
+bool Interpreter::interpret_simd(Module *m) {
+    // this function should only be called from Interpreter::interpret
+    // and should only be called when the opcode is 0xfd
+    // -> at this point, the PC is pointing to the (first byte of) the actual
+    // opcode
+
+    // TODO: technically the 2nd byte (and onwards) of the multi-byte SIMD
+    //       opcodes are LEB-encoded u32's and could have multiple
+    //       representations. However, we only support the shortest possible
+    //       encodings; see https://webassembly.github.io/spec/core/appendix/index-instructions.html
+
+    constexpr static auto next_pc_0x01 = [](Module *m, const uint8_t opcode) -> bool {
+        const auto next = *m->pc_ptr;
+        m->pc_ptr++;
+        if(next != 0x01) {
+            sprintf(exception, "SIMD opcode 0x%02x%02x should be followed by 0x%02x, but got 0x%02x",
+                0x7d, opcode, 0x01, next);
+            return false;
+        }
+        return true;
+    };
+
+    // TODO: should be removed one day...
+    constexpr static auto not_implemented = [](const uint8_t opcode) -> bool {
+        sprintf(exception, "SIMD opcode 0x%02x%02x is not implemented (yet)",
+            0x7d, opcode);
+        return false;
+    };
+
+    const auto opcode = *m->pc_ptr;
+    m->pc_ptr++;
+
+    switch(opcode) {
+        case 0x00: return i_instr_simd_load(m);
+
+        case 0x0b: return i_instr_simd_store(m);
+        case 0x0c: return i_instr_simd_const(m);
+
+        case 0x0d: return not_implemented(opcode); // TODO: i8x16.shuffle
+        case 0x0e: return i_instr_simd_swizzle(m);
+
+        case 0x0f ... 0x14: return i_instr_simd_splat(m, opcode);
+
+        case 0x15: // interspersed with (dim).extract_lane
+        case 0x16:
+        case 0x18:
+        case 0x19:
+        case 0x1b:
+        case 0x1d:
+        case 0x1f:
+        case 0x21:
+            return i_instr_simd_extract(m, opcode);
+
+        case 0x17:
+        case 0x1a:
+        case 0x1c:
+        case 0x1e:
+        case 0x20:
+        case 0x22:
+            return i_instr_simd_replace(m, opcode);
+
+        case 0x23 ... 0x2c: // i8x16 relational operators
+        case 0x2d ... 0x36: // i16x8 relational operators
+        case 0x37 ... 0x40: // i32x4 relational operators
+        case 0x41 ... 0x46: // f32x4 relational operators
+        case 0x47 ... 0x4c: // f64x2 relational operators
+            return i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        case 0x4d: // v128.not
+            return i_instr_simd_v128_not(m);
+
+        case 0x4e ... 0x51: // v128 bit-wise operators
+            return i_instr_simd_bin_bit_op(m, opcode);
+
+        case 0x52: // TODO -> v128.bitselect
+            return not_implemented(opcode);
+
+        case 0x53: // TODO -> v128.any_true
+            return not_implemented(opcode);
+
+        case 0x54 ... 0x5d: // TODO -> v128.loadX_lane, v128.storeX_lane, v128.loadX_zero
+            return not_implemented(opcode);
+
+        case 0x5e ... 0x5f: // TODO -> demote/promote f32<->f64
+            return not_implemented(opcode);
+
+        case 0x60 ... 0x62: // TODO -> i8x16. ~ abs, neg, popcnt
+            return not_implemented(opcode);
+
+        case 0x63 ... 0x64: // TODO -> i8x16. ~ all_true, bitmask
+            return not_implemented(opcode);
+
+        case 0x65 ... 0x66: // TODO -> i8x16.narrow_i16x8_(s/u)
+            return not_implemented(opcode);
+
+        case 0x67 ... 0x6a: // TODO -> f32x4. ~ ceil, floor, trunc, nearest
+            return not_implemented(opcode);
+
+        case 0x6b ... 0x6d: // i8x16 shifts
+            return i_instr_simd_shift(m, opcode);
+
+        case 0x6e ... 0x73: // i8x16.(add/sub)
+            return i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        case 0x74 ... 0x75: // TODO -> f64x2. ~ ceil, floor
+            return not_implemented(opcode);
+
+        case 0x76 ... 0x79: // i8x16.(min/max)
+            return i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        case 0x7a: // TODO -> f64x2.trunc
+            return not_implemented(opcode);
+
+        case 0x7b: // TODO -> i8x16.avgr_u
+            return not_implemented(opcode);
+
+        case 0x7c ... 0x7f: // TODO -> (dim).extadd_pairwise_(dim2)
+            return i_instr_simd_ext_add_pairwise(m, opcode);
+
+        // --- From 0x80: 3-byte SIMD opcodes, so check next PC for 0x01 ---
+
+        case 0x80 ... 0x81: // TODO -> i16x8. ~ abs, neg
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0x82: // TODO -> i16x8.q15mulr_sat_s
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0x83 ... 0x84: // TODO -> i16x8. ~ all_true, bitmask
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0x85 ... 0x86: // TODO -> i16x8.narrow_i32x4_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0x87 ... 0x8a: // TODO -> i16x8.extend_(low/high)_i8x16_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0x8b ... 0x8d: // i16x8 shifts
+            return next_pc_0x01(m, opcode) && i_instr_simd_shift(m, opcode);
+
+        case 0x8e ... 0x93: // i16x8.(add/sub)
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        case 0x94: // TODO -> f64x2.nearest
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0x95: // i16x8.mul
+        case 0x96 ... 0x99: // i16x8.(min/max)
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        // case 0x9a: ! invalid opcode !
+
+        case 0x9b: // TODO -> i16x8.avgr_u
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0x9c ... 0x9f: // TODO -> i16x8.extmul_(low/high)_i8x16_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xa0 ... 0xa1: // TODO -> i32x4. ~ abs, neg
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        // case 0xa2: ! invalid opcode !
+
+        case 0xa3 ... 0xa4: // TODO -> i32x4. ~ all_true, bitmask
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        // case 0xa5 ... 0xa6: ! invalid opcode !
+
+        case 0xa7 ... 0xaa: // TODO -> i32x4.extend_(low/high)_i16x8_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xab ... 0xad: // i32x4 shifts
+            return next_pc_0x01(m, opcode) && i_instr_simd_shift(m, opcode);
+
+        case 0xae: // i32x4.add
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        // case 0xaf ... 0xb0: ! invalid opcode !
+
+        case 0xb1: // i32x4.sub
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        // case 0xb2 ... 0xb4: ! invalid opcode !
+
+        case 0xb5: // i32x4.mul
+        case 0xb6 ... 0xb9: // i32x4.(min/max)
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        case 0xba: // TODO -> i32x4.dot_i16x8_s
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        // case 0xbb: ! invalid opcode !
+
+        case 0xbc ... 0xbf: // TODO -> i32x4.extmul_(low/high)_i16x8_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xc0 ... 0xc1: // TODO -> i64x2. ~ abs, neg
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        // case 0xc2: ! invalid opcode !
+
+        case 0xc3 ... 0xc4: // TODO -> i64x2. ~ all_true, bitmask
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        // case 0xc5 ... 0xc6: ! invalid opcode !
+
+        case 0xc7 ... 0xca: // TODO -> i64x2.extend_(low/high)_i32x4_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xcb ... 0xcd: // i64x2 shifts
+            return next_pc_0x01(m, opcode) && i_instr_simd_shift(m, opcode);
+
+        case 0xce: // i64x2.add
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        // case 0xcf ... 0xd0: ! invalid opcode !
+
+        case 0xd1: // i64x2.sub
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        // case 0xd2 ... 0xd4: ! invalid opcode !
+
+        case 0xd5: // i64x2.mul
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        case 0xd6 ... 0xdb: // i64x2 relational operators
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        case 0xdc ... 0xdf: // TODO -> i64x2.extmul_(low/high)_i32x4_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xe0 ... 0xe1: // TODO -> f32x4. ~ abs, neg
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        // case 0xe2: ! invalid opcode !
+
+        case 0xe3: // TODO -> f32x4.sqrt
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xe4 ... 0xeb: // f32x4. ~ add, sub, mul, div, min, max, pmin, pmax
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        case 0xec ... 0xed: // TODO -> f64x2. ~ abs, neg
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        // case 0xee: ! invalid opcode !
+        case 0xef: // TODO -> f64x2.sqrt
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xf0 ... 0xf7: // f64x2. ~ add, sub, mul, div, min, max, pmin, pmax
+            return next_pc_0x01(m, opcode) && i_instr_simd_bin_v128_v128_op(m, opcode);
+
+        case 0xf8 ... 0xf9: // TODO -> i32x4.trunc_sat_f32x4_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xfa ... 0xfb: // TODO -> f32x4.convert_i32x4_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xfc ... 0xfd: // TODO -> i32x4.trunc_sat_f64x2_(s/u)_zero
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        case 0xfe ... 0xff: // TODO -> f64x2.convert_low_i32x4_(s/u)
+            return next_pc_0x01(m, opcode) && not_implemented(opcode);
+
+        default: {
+            sprintf(exception, "unrecognized SIMD opcode 0x%x (0x%x 0x%x)", opcode, 0xfd, opcode);
+            return false;
+        }
+    }
+}
+
 
 void Interpreter::report_overflow([[maybe_unused]] Module *m,
                                   [[maybe_unused]] uint8_t *maddr) {

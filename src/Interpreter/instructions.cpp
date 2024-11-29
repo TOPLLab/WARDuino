@@ -1277,3 +1277,737 @@ bool i_instr_callback([[maybe_unused]] Module *m,
     // TODO
     return true;
 }
+
+/**
+ * [0xfd] 0x0f...0x14 SIMD splat operations
+ */
+bool i_instr_simd_splat(Module* m, uint8_t opcode) {
+    auto &raw_top = m->stack[m->sp];
+    auto &top = raw_top.value;
+
+    switch(opcode) {
+        case 0x0f: { // i8x16.splat
+            const int8_t val = top.int32;
+            for(auto &i : top.simd.i8x16) i = val;
+            break;
+        }
+
+        case 0x10: { // i16x8.splat
+            const int16_t val = top.int32;
+            for(auto &i : top.simd.i16x8) i = val;
+            break;
+        }
+
+        case 0x11: { // i32x4.splat
+            const int32_t val = top.int32;
+            for(auto &i : top.simd.i32x4) i = val;
+            break;
+        }
+
+        case 0x12: { // i64x2.splat
+            const int64_t val = top.int64;
+            for(auto &i : top.simd.i64x2) i = val;
+            break;
+        }
+
+        case 0x13: { // f32x4.splat
+            const float val = top.f32;
+            for(auto &i : top.simd.f32x4) i = val;
+            break;
+        }
+
+        case 0x14: { // f64x2.splat
+            const double val = top.f64;
+            for(auto &i : top.simd.f64x2) i = val;
+            break;
+        }
+    }
+
+    raw_top.value_type = V128;
+    return true;
+}
+
+bool i_instr_simd_extract(Module* m, uint8_t opcode){
+    // inner helper to check if lane is within bounds, then execute the operation
+    auto &raw_top = m->stack[m->sp];
+    const uint8_t lane = *m->pc_ptr;
+    m->pc_ptr++;
+
+    // expect the compiler to inline the lambda - see
+    // https://stackoverflow.com/questions/13722426/why-can-lambdas-be-better-optimized-by-the-compiler-than-plain-functions/13722515#13722515
+    auto lane_handler = [&raw_top, lane]<typename I, typename O>(const int max, I *in, O &out, const uint8_t type) {
+        if(lane > max) {
+            sprintf(exception, "lane index out of bounds (%d > %d)", lane, max);
+            return false;
+        }
+
+        out = in[lane];
+        raw_top.value_type = type;
+
+        return true;
+    };
+
+    auto lane_handler_unsigned = [&raw_top, lane]<typename I, typename O>(const int max, I *in, O &out, const uint8_t type) {
+        if(lane > max) {
+            sprintf(exception, "lane index out of bounds (%d > %d)", lane, max);
+            return false;
+        }
+
+        // type switcher between uint8 and uint16 based on input type
+        using temp_t = std::conditional_t<std::is_same_v<I, int8_t>, uint8_t, uint16_t>;
+        temp_t x;
+        memcpy(&x, &in[lane], sizeof(temp_t));
+        out = x;
+        raw_top.value_type = type;
+
+        return true;
+    };
+
+    switch(opcode) {
+        case 0x15:  // i8x16.extract_lane_s
+            return lane_handler(15, raw_top.value.simd.i8x16, raw_top.value.int32, I32);
+        case 0x16: // i8x16.extract_lane_u
+            return lane_handler_unsigned(15, raw_top.value.simd.i8x16, raw_top.value.uint32, I32);
+
+        case 0x18:  // i16x8.extract_lane_s
+            return lane_handler(7, raw_top.value.simd.i16x8, raw_top.value.int32, I32);
+        case 0x19: // i16x8.extract_lane_u
+            return lane_handler_unsigned(7, raw_top.value.simd.i16x8, raw_top.value.uint32, I32);
+
+        case 0x1b: // i32x4.extract_lane
+            return lane_handler(3, raw_top.value.simd.i32x4, raw_top.value.uint32, I32);
+
+        case 0x1d: // i64x2.extract_lane
+            return lane_handler(1, raw_top.value.simd.i64x2, raw_top.value.uint64, I64);
+
+        case 0x1f: // f32x4.extract_lane
+            return lane_handler(3, raw_top.value.simd.f32x4, raw_top.value.f32, F32);
+
+        case 0x21: // f64x2.extract_lane
+            return lane_handler(1, raw_top.value.simd.f64x2, raw_top.value.f64, F64);
+    }
+
+    return false;
+}
+
+bool i_instr_simd_replace(Module *m, uint8_t opcode) {
+    auto &v128 = m->stack[m->sp - 1];
+    auto &update = m->stack[m->sp].value;
+    const uint8_t lane = *m->pc_ptr;
+    m->pc_ptr++;
+    m->sp -= 1;
+
+    auto lane_handler = [&v128, lane]<typename O>(const int max, O *out, O replace) {
+        if(lane > max) {
+            sprintf(exception, "lane index out of bounds (%d > %d)", lane, max);
+            return false;
+        }
+
+        out[lane] = replace;
+        return true;
+    };
+
+    switch(opcode) {
+        case 0x17: // i8x16.replace_lane
+            return lane_handler(15, v128.value.simd.i8x16, static_cast<int8_t>(update.uint32));
+        case 0x1a: // i16x8.replace_lane
+            return lane_handler(8, v128.value.simd.i16x8, static_cast<int16_t>(update.uint32));
+        case 0x1c: // i32x4.replace_lane
+            return lane_handler(4, v128.value.simd.i32x4, static_cast<int32_t>(update.uint32));
+        case 0x1e: // i64x2.replace_lane
+            return lane_handler(2, v128.value.simd.i64x2, static_cast<int64_t>(update.uint64));
+        case 0x20: // f32x4.replace_lane
+            return lane_handler(4, v128.value.simd.f32x4, update.f32);
+        case 0x22: // f64x2.replace_lane
+            return lane_handler(2, v128.value.simd.f64x2, update.f64);
+    }
+
+    return false;
+}
+
+inline bool verify_endian() {
+    static bool _ = [] {
+        int n = 1;
+        if(*reinterpret_cast<char *>(&n) == 1) {
+            // little endian
+            return true;
+        }
+
+        FATAL("v128.const only supported on little-endian systems");
+        return false;
+    }();
+    return _;
+}
+
+bool i_instr_simd_const(Module* m){
+    verify_endian();
+
+    const uint8_t *data = m->pc_ptr;
+    m->pc_ptr += 16; // skip immediate 16-byte data
+
+    m->sp++;
+    auto &v = m->stack[m->sp].value.simd;
+    std::memcpy(&v, data, 16);
+    m->stack[m->sp].value_type = V128;
+    return true;
+}
+
+bool i_instr_simd_store(Module* m){
+    auto &sv = m->stack[m->sp--];
+    StackValue sv2;
+    sv2.value_type = I64;
+    sv2.value.uint64 = sv.value.simd.i64x2[1];
+
+    const uint32_t flags = read_LEB_32(&m->pc_ptr);
+    const uint32_t offset = read_LEB_32(&m->pc_ptr);
+
+    uint32_t ptr = m->stack[m->sp--].value.uint32;
+
+    if(flags != 2 && TRACE) {
+        dbg_info(
+            "      - unaligned store - flags: 0x%x, offset: 0x%x, addr: 0x%x, val: %s\n",
+            flags, offset, ptr, value_repr(&sv)
+        );
+    }
+
+    if(offset + ptr < ptr && !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->memory.bytes + offset + ptr);
+    }
+
+    ptr += offset;
+
+    // store in 2 consecutive locations
+    return m->warduino->interpreter->store(m, I64, ptr, sv) &&
+        m->warduino->interpreter->store(m, I64, ptr + 8, sv2);
+}
+
+bool i_instr_simd_load(Module* m) {
+    const uint32_t flags = read_LEB_32(&m->pc_ptr);
+    const uint32_t offset = read_LEB_32(&m->pc_ptr);
+    uint32_t ptr = m->stack[m->sp--].value.uint32;
+    if(flags != 2 && TRACE) {
+        dbg_info(
+            "      - unaligned load - flags: 0x%x, offset: 0x%x, addr: 0x%x, val: %s\n",
+            flags, offset, ptr
+        );
+    }
+
+    if(offset + ptr < ptr && !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->memory.bytes + offset + ptr);
+    }
+
+    ptr += offset;
+
+    // load from 2 consecutive locations
+    bool success = m->warduino->interpreter->load(m, I64, ptr, offset);
+    const auto i64_0 = m->stack[m->sp].value.int64;
+    m->sp--; // make sure we overwrite the previous load
+    success &= m->warduino->interpreter->load(m, I64, ptr + 8, offset);
+    const auto i64_1 = m->stack[m->sp].value.int64;
+
+    // reconstruct v128
+    auto & [value_type, value] = m->stack[m->sp];
+    value_type = V128;
+    value.simd.i64x2[0] = i64_0;
+    value.simd.i64x2[1] = i64_1;
+
+    return success;
+}
+
+bool i_instr_simd_bin_bit_op(Module* m, uint8_t opcode){
+    auto v1 = m->stack[m->sp - 1].value.simd;
+    auto v2 = m->stack[m->sp].value.simd;
+    m->sp--;
+
+    const auto apply = [&v1, &v2, m]<typename F>(F &&op) {
+        m->stack[m->sp].value.simd.i64x2[0] = op(v1.i64x2[0], v2.i64x2[0]);
+        m->stack[m->sp].value.simd.i64x2[1] = op(v1.i64x2[1], v2.i64x2[1]);
+        return true;
+    };
+
+    switch(opcode) {
+        case 0x4e: // bit-and
+            return apply([](const uint64_t &a, const uint64_t &b) { return a & b; });
+        case 0x4f: // bit-and-not
+            return apply([](const uint64_t &a, const uint64_t &b) { return a & ~b; });
+        case 0x50: // bit-or
+            return apply([](const uint64_t &a, const uint64_t &b) { return a | b; });
+        case 0x51: // xor
+            return apply([](const uint64_t &a, const uint64_t &b) { return a ^ b; });
+    }
+
+    return false;
+}
+
+bool i_instr_simd_v128_not(Module* m){
+    m->stack[m->sp].value.simd.i64x2[0] = ~m->stack[m->sp].value.simd.i64x2[0];
+    m->stack[m->sp].value.simd.i64x2[1] = ~m->stack[m->sp].value.simd.i64x2[1];
+    return true;
+}
+
+
+// to implement the whole swathe of SIMD instructions, let's use some templates
+// so the compiler can generate the code...
+namespace {
+// anonymous namespace to hide implementation details/allow code folding
+// the SIMD vector type (for ease of coding)
+using simd_t = decltype(StackValue::value.simd);
+
+// use type-traits for all compile-time meta-data
+template <typename T> struct v128_traits;
+template <> struct v128_traits<int8_t> {
+    // we need to know the number of elements
+    constexpr static uint N = 16;
+    // we need to know the amount of bits
+    constexpr static uint bits = 8;
+    // the type of elements in the SIMD vector
+    using type = int8_t;
+    // the type to use when an operation returns a boolean
+    using bool_alt = int8_t;
+    // we need to know the signed version of this type
+    using signed_t = int8_t;
+    // we also need to know the unsigned version of this type
+    using unsigned_t = uint8_t;
+    // for the ext_add_pairwise, we need the extended type
+    using extended_t = int16_t;
+    // pointer-to-member to access the SIMD vector
+    constexpr static auto member = &simd_t::i8x16;
+};
+template <> struct v128_traits<uint8_t> {
+    constexpr static uint N = 16;
+    constexpr static uint bits = 8;
+    using type = uint8_t;
+    using bool_alt = int8_t;
+    using signed_t = int8_t;
+    using unsigned_t = uint8_t;
+    using extended_t = uint16_t;
+    constexpr static auto member = &simd_t::i8x16;
+};
+template <> struct v128_traits<int16_t> {
+    constexpr static uint N = 8;
+    constexpr static uint bits = 16;
+    using type = int16_t;
+    using bool_alt = int16_t;
+    using signed_t = int16_t;
+    using unsigned_t = uint16_t;
+    using extended_t = int32_t;
+    constexpr static auto member = &simd_t::i16x8;
+};
+template <> struct v128_traits<uint16_t> {
+    constexpr static uint N = 8;
+    constexpr static uint bits = 16;
+    using type = uint16_t;
+    using bool_alt = int16_t;
+    using signed_t = int16_t;
+    using unsigned_t = uint16_t;
+    using extended_t = uint32_t;
+    constexpr static auto member = &simd_t::i16x8;
+};
+template <> struct v128_traits<int32_t> {
+    constexpr static uint N = 4;
+    constexpr static uint bits = 32;
+    using type = int32_t;
+    using bool_alt = int32_t;
+    using signed_t = int32_t;
+    using unsigned_t = uint32_t;
+    constexpr static auto member = &simd_t::i32x4;
+};
+template <> struct v128_traits<uint32_t> {
+    constexpr static uint N = 4;
+    constexpr static uint bits = 32;
+    using type = uint32_t;
+    using bool_alt = int32_t;
+    using signed_t = int32_t;
+    using unsigned_t = uint32_t;
+    constexpr static auto member = &simd_t::i32x4;
+};
+template <> struct v128_traits<int64_t> {
+    constexpr static uint N = 2;
+    constexpr static uint bits = 64;
+    using type = int64_t;
+    using bool_alt = int64_t;
+    using signed_t = int64_t;
+    using unsigned_t = uint64_t;
+    constexpr static auto member = &simd_t::i64x2;
+};
+template <> struct v128_traits<uint64_t> {
+    constexpr static uint N = 2;
+    constexpr static uint bits = 64;
+    using type = uint64_t;
+    using bool_alt = int64_t;
+    using signed_t = int64_t;
+    using unsigned_t = uint64_t;
+    constexpr static auto member = &simd_t::i64x2;
+};
+template <> struct v128_traits<float> {
+    constexpr static uint N = 4;
+    using type = float;
+    using bool_alt = int32_t;
+    using signed_t = float;
+    constexpr static auto member = &simd_t::f32x4;
+};
+template <> struct v128_traits<double> {
+    constexpr static uint N = 2;
+    using type = double;
+    using bool_alt = int64_t;
+    using signed_t = double;
+    constexpr static auto member = &simd_t::f64x2;
+};
+
+// get a reference to a lane in a SIMD vector
+template <typename T>
+constexpr typename v128_traits<T>::signed_t &get_lane_ref(StackValue &sv, uint8_t lane) {
+    // v128_traits<T>::member is pointer-to-member
+    // (struct).*(ptr-to-member) gets struct.member
+    // so we get (simd-union).(correct type field)[lane]
+    return (sv.value.simd.*v128_traits<T>::member)[lane];
+}
+// get a const reference to a lane in a SIMD vector
+template <typename T>
+constexpr const typename v128_traits<T>::signed_t &get_lane_cref(const StackValue &sv, uint8_t lane) {
+    return (sv.value.simd.*v128_traits<T>::member)[lane];
+}
+// get a copy of a lane in a SIMD vector
+template <typename T>
+constexpr typename v128_traits<T>::signed_t get_lane_copy(StackValue &sv, uint8_t lane) {
+    return (sv.value.simd.*v128_traits<T>::member)[lane];
+}
+
+// apply binary operator lane-wise
+template <typename T, typename ExplicitCast = T, typename F>
+constexpr bool simd_bin_op(Module *m, const StackValue &sv1, const StackValue &sv2, F &&f) {
+    static_assert(std::is_invocable_v<F, ExplicitCast, ExplicitCast>, "Operation is not invocable on type T");
+    static_assert(sizeof(T) == sizeof(ExplicitCast), "ExplicitCast must have same size as T");
+
+    using result_t = std::conditional_t<
+        std::is_same_v<std::invoke_result_t<F, ExplicitCast, ExplicitCast>, bool>, // if the result is a boolean
+        typename v128_traits<T>::bool_alt, // then use the bool_alt type (to ensure lane count for floats)
+        typename v128_traits<T>::type // otherwise, use the normal type
+    >;
+    using result_traits = v128_traits<result_t>; // v128 traits for the result type
+
+    static_assert(v128_traits<T>::N == result_traits::N, "Result type must have same lane count as input type");
+
+    m->stack[m->sp].value_type = V128;
+    for(uint i = 0; i < v128_traits<T>::N; i++) {
+        ExplicitCast lane1, lane2;
+        if constexpr(std::is_same_v<T, ExplicitCast>) {
+            lane1 = get_lane_cref<T>(sv1, i);
+            lane2 = get_lane_cref<T>(sv2, i);
+        }
+        else {
+            memcpy(&lane1, &get_lane_cref<T>(sv1, i), sizeof(T));
+            memcpy(&lane2, &get_lane_cref<T>(sv2, i), sizeof(T));
+        }
+        get_lane_ref<result_t>(m->stack[m->sp], i) = f(lane1, lane2);
+    }
+    return true;
+}
+
+template <typename T, template <typename> typename FPre, typename ExplicitCast = T, typename F = FPre<ExplicitCast>>
+constexpr bool simd_bin_op(Module *m, const StackValue &sv1, const StackValue &sv2) {
+    return simd_bin_op<T, ExplicitCast, F>(m, sv1, sv2, F{});
+}
+
+template <typename T, template <typename> typename FPre, typename ExplicitCast = T, typename F = FPre<ExplicitCast>>
+constexpr bool simd_shift(Module *m, const StackValue &sv1, const StackValue &sv2) {
+    static_assert(std::is_invocable_v<F, ExplicitCast, int32_t>, "Operation is not invocable on type T");
+    static_assert(sizeof(T) == sizeof(ExplicitCast), "ExplicitCast must have same size as T");
+
+    using result_t = std::conditional_t<
+        std::is_same_v<std::invoke_result_t<F, ExplicitCast, int32_t>, bool>, // if the result is a boolean
+        typename v128_traits<T>::bool_alt, // then use the bool_alt type (to ensure lane count for floats)
+        typename v128_traits<T>::type // otherwise, use the normal type
+    >;
+    using result_traits = v128_traits<result_t>; // v128 traits for the result type
+
+    static_assert(v128_traits<T>::N == result_traits::N, "Result type must have same lane count as input type");
+
+    F f{};
+
+    m->stack[m->sp].value_type = V128;
+    for(uint i = 0; i < v128_traits<T>::N; i++) {
+        ExplicitCast lane1;
+        int32_t shift = sv2.value.int32;
+        if constexpr(std::is_same_v<T, ExplicitCast>) {
+            lane1 = get_lane_cref<T>(sv1, i);
+        }
+        else {
+            memcpy(&lane1, &get_lane_cref<T>(sv1, i), sizeof(T));
+        }
+        get_lane_ref<result_t>(m->stack[m->sp], i) = f(lane1, shift);
+    }
+    return true;
+}
+
+template <typename T>
+constexpr bool simd_ext_add(Module *m) {
+    using T_traits = v128_traits<T>;
+    using extend_t = typename T_traits::extended_t;
+    using extend_traits = v128_traits<extend_t>;
+
+    StackValue copy = m->stack[m->sp];
+    m->stack[m->sp].value_type = V128;
+    StackValue &res = m->stack[m->sp];
+
+    for(uint i = 0; i < extend_traits::N; i++) {
+        auto x1 = static_cast<extend_t>(get_lane_cref<T>(copy, 2 * i));
+        auto x2 = static_cast<extend_t>(get_lane_cref<T>(copy, 2 * i + 1));
+        get_lane_ref<extend_t>(res, i) = x1 + x2;
+    }
+
+    return true;
+}
+}
+
+// helper code for saturating arithmetic
+namespace {
+template <typename T>
+struct sat_add {
+    constexpr T operator()(const T t1, const T t2) const {
+        // from https://github.com/gcc-mirror/gcc/blob/master/libstdc%2B%2B-v3/include/bits/sat_arith.h#L49
+        T t3{};
+        if(!__builtin_add_overflow(t1, t2, &t3)) return t3;
+        if constexpr(std::is_unsigned_v<T>) return std::numeric_limits<T>::max();
+        else if(t1 < 0) return std::numeric_limits<T>::min();
+        else return std::numeric_limits<T>::max();
+    }
+};
+
+template <typename T>
+struct sat_sub {
+    constexpr T operator()(const T t1, const T t2) const {
+        // from https://github.com/gcc-mirror/gcc/blob/master/libstdc%2B%2B-v3/include/bits/sat_arith.h#L65
+        T t3{};
+        if(!__builtin_sub_overflow(t1, t2, &t3)) return t3;
+        if constexpr(std::is_unsigned_v<T>) return 0;
+        else if(t1 < 0) return std::numeric_limits<T>::min();
+        else return std::numeric_limits<T>::max();
+    }
+};
+
+template <typename T> struct min_struct { constexpr T operator()(const T t1, const T t2) const { return std::min(t1, t2); } };
+template <typename T> struct max_struct { constexpr T operator()(const T t1, const T t2) const { return std::max(t1, t2); } };
+// pseudo-min/max as defined in https://github.com/WebAssembly/simd/blob/main/proposals/simd/SIMD.md#pseudo-minimum
+template <typename T> struct p_min_struct { constexpr T operator()(const T t1, const T t2) const { return t2 < t1 ? t2 : t1; } };
+template <typename T> struct p_max_struct { constexpr T operator()(const T t1, const T t2) const { return t1 < t2 ? t2 : t1; } };
+
+template <typename T> struct shift_left {
+    constexpr T operator()(const T t1, const int32_t t2) const { return static_cast<T>(t1 << (t2 % v128_traits<T>::bits)); }
+};
+template <typename T> struct arith_shift_right {
+    // sign-preserving right shift ~> works only "correctly" on signed types
+    constexpr T operator()(const T t1, const int32_t t2) const {
+        using type = typename v128_traits<T>::signed_t;
+        type st1;
+
+        if constexpr(std::is_same_v<type, T>) st1 = t1;
+        else memcpy(&st1, &t1, sizeof(T));
+
+        st1 >>= (t2 % v128_traits<T>::bits);
+
+        T result;
+        if constexpr(std::is_same_v<type, T>) result = st1;
+        else memcpy(&result, &st1, sizeof(T));
+
+        return result;
+    }
+};
+template <typename T> struct logic_shift_right {
+    // zero fill right shift ~> works only "correctly" on unsigned types
+    constexpr T operator()(const T t1, const int32_t t2) const {
+        using type = typename v128_traits<T>::unsigned_t;
+        type ut1;
+
+        if constexpr(std::is_same_v<type, T>) ut1 = t1;
+        else memcpy(&ut1, &t1, sizeof(T));
+
+        ut1 >>= (t2 % v128_traits<T>::bits);
+
+        T result;
+        if constexpr(std::is_same_v<type, T>) result = ut1;
+        else memcpy(&result, &ut1, sizeof(T));
+
+        return result;
+    }
+};
+}
+
+bool i_instr_simd_bin_v128_v128_op(Module* m, uint8_t opcode){
+    // need to keep copies!
+    const auto v1 = m->stack[m->sp - 1];
+    const auto v2 = m->stack[m->sp];
+    m->sp--;
+
+    switch(opcode) {
+        // i8x16 -> ==, !=, <, <u, >, >u, <=, <=u, >=, >=u
+        case 0x23: return simd_bin_op<int8_t, std::equal_to>(m, v1, v2);
+        case 0x24: return simd_bin_op<int8_t, std::not_equal_to>(m, v1, v2);
+        case 0x25: return simd_bin_op<int8_t, std::less>(m, v1, v2);
+        case 0x26: return simd_bin_op<int8_t, std::less, uint8_t>(m, v1, v2);
+        case 0x27: return simd_bin_op<int8_t, std::greater>(m, v1, v2);
+        case 0x28: return simd_bin_op<int8_t, std::greater, uint8_t>(m, v1, v2);
+        case 0x29: return simd_bin_op<int8_t, std::less_equal>(m, v1, v2);
+        case 0x2a: return simd_bin_op<int8_t, std::less_equal, uint8_t>(m, v1, v2);
+        case 0x2b: return simd_bin_op<int8_t, std::greater_equal>(m, v1, v2);
+        case 0x2c: return simd_bin_op<int8_t, std::greater_equal, uint8_t>(m, v1, v2);
+        // i16x8 -> ==, !=, <, <u, >, >u, <=, <=u, >=, >=u
+        case 0x2d: return simd_bin_op<int16_t, std::equal_to>(m, v1, v2);
+        case 0x2e: return simd_bin_op<int16_t, std::not_equal_to>(m, v1, v2);
+        case 0x2f: return simd_bin_op<int16_t, std::less>(m, v1, v2);
+        case 0x30: return simd_bin_op<int16_t, std::less, uint16_t>(m, v1, v2);
+        case 0x31: return simd_bin_op<int16_t, std::greater>(m, v1, v2);
+        case 0x32: return simd_bin_op<int16_t, std::greater, uint16_t>(m, v1, v2);
+        case 0x33: return simd_bin_op<int16_t, std::less_equal>(m, v1, v2);
+        case 0x34: return simd_bin_op<int16_t, std::less_equal, uint16_t>(m, v1, v2);
+        case 0x35: return simd_bin_op<int16_t, std::greater_equal>(m, v1, v2);
+        case 0x36: return simd_bin_op<int16_t, std::greater_equal, uint16_t>(m, v1, v2);
+        // i32x4 -> ==, !=, <, <u, >, >u, <=, <=u, >=, >=u
+        case 0x37: return simd_bin_op<int32_t, std::equal_to>(m, v1, v2);
+        case 0x38: return simd_bin_op<int32_t, std::not_equal_to>(m, v1, v2);
+        case 0x39: return simd_bin_op<int32_t, std::less>(m, v1, v2);
+        case 0x3a: return simd_bin_op<int32_t, std::less, uint32_t>(m, v1, v2);
+        case 0x3b: return simd_bin_op<int32_t, std::greater>(m, v1, v2);
+        case 0x3c: return simd_bin_op<int32_t, std::greater, uint32_t>(m, v1, v2);
+        case 0x3d: return simd_bin_op<int32_t, std::less_equal>(m, v1, v2);
+        case 0x3e: return simd_bin_op<int32_t, std::less_equal, uint32_t>(m, v1, v2);
+        case 0x3f: return simd_bin_op<int32_t, std::greater_equal>(m, v1, v2);
+        case 0x40: return simd_bin_op<int32_t, std::greater_equal, uint32_t>(m, v1, v2);
+        // f32x4 -> ==, !=, <, >, <=, >=
+        case 0x41: return simd_bin_op<float, std::equal_to>(m, v1, v2);
+        case 0x42: return simd_bin_op<float, std::not_equal_to>(m, v1, v2);
+        case 0x43: return simd_bin_op<float, std::less>(m, v1, v2);
+        case 0x44: return simd_bin_op<float, std::greater>(m, v1, v2);
+        case 0x45: return simd_bin_op<float, std::less_equal>(m, v1, v2);
+        case 0x46: return simd_bin_op<float, std::greater_equal>(m, v1, v2);
+        // f64x2 -> ==, !=, <, >, <=, >=
+        case 0x47: return simd_bin_op<double, std::equal_to>(m, v1, v2);
+        case 0x48: return simd_bin_op<double, std::not_equal_to>(m, v1, v2);
+        case 0x49: return simd_bin_op<double, std::less>(m, v1, v2);
+        case 0x4a: return simd_bin_op<double, std::greater>(m, v1, v2);
+        case 0x4b: return simd_bin_op<double, std::less_equal>(m, v1, v2);
+        case 0x4c: return simd_bin_op<double, std::greater_equal>(m, v1, v2);
+        // i8x16 -> +, + sat s, + sat u, -, - sat s, - sat u
+        case 0x6e: return simd_bin_op<int8_t, std::plus>(m, v1, v2);
+        case 0x6f: return simd_bin_op<int8_t, sat_add>(m, v1, v2);
+        case 0x70: return simd_bin_op<int8_t, sat_add, uint8_t>(m, v1, v2);
+        case 0x71: return simd_bin_op<int8_t, std::minus>(m, v1, v2);
+        case 0x72: return simd_bin_op<int8_t, sat_sub>(m, v1, v2);
+        case 0x73: return simd_bin_op<int8_t, sat_sub, uint8_t>(m, v1, v2);
+        // i8x16 min s, min u, max s, max u (can't pass std::min/std::max as template argument, they are function-overload-sets)
+        case 0x76: return simd_bin_op<int8_t, min_struct>(m, v1, v2);
+        case 0x77: return simd_bin_op<int8_t, min_struct, uint8_t>(m, v1, v2);
+        case 0x78: return simd_bin_op<int8_t, max_struct>(m, v1, v2);
+        case 0x79: return simd_bin_op<int8_t, max_struct, uint8_t>(m, v1, v2);
+        // i16x8 -> +, + sat s, + sat u, -, - sat s, - sat u, *
+        case 0x8e: return simd_bin_op<int16_t, std::plus>(m, v1, v2);
+        case 0x8f: return simd_bin_op<int16_t, sat_add>(m, v1, v2);
+        case 0x90: return simd_bin_op<int16_t, sat_add, uint16_t>(m, v1, v2);
+        case 0x91: return simd_bin_op<int16_t, std::minus>(m, v1, v2);
+        case 0x92: return simd_bin_op<int16_t, sat_sub>(m, v1, v2);
+        case 0x93: return simd_bin_op<int16_t, sat_sub, uint16_t>(m, v1, v2);
+        case 0x95: return simd_bin_op<int16_t, std::multiplies>(m, v1, v2);
+        // i16x8 min s, min u, max s, max u
+        case 0x96: return simd_bin_op<int16_t, min_struct>(m, v1, v2);
+        case 0x97: return simd_bin_op<int16_t, min_struct, uint16_t>(m, v1, v2);
+        case 0x98: return simd_bin_op<int16_t, max_struct>(m, v1, v2);
+        case 0x99: return simd_bin_op<int16_t, max_struct, uint16_t>(m, v1, v2);
+        // i32x4 -> +, -, *
+        case 0xae: return simd_bin_op<int32_t, std::plus>(m, v1, v2);
+        case 0xb1: return simd_bin_op<int32_t, std::minus>(m, v1, v2);
+        case 0xb5: return simd_bin_op<int32_t, std::multiplies>(m, v1, v2);
+        // i32x4 min s, min u, max s, max u
+        case 0xb6: return simd_bin_op<int32_t, min_struct>(m, v1, v2);
+        case 0xb7: return simd_bin_op<int32_t, min_struct, uint32_t>(m, v1, v2);
+        case 0xb8: return simd_bin_op<int32_t, max_struct>(m, v1, v2);
+        case 0xb9: return simd_bin_op<int32_t, max_struct, uint32_t>(m, v1, v2);
+        // i64x2 -> +, -, *
+        case 0xce: return simd_bin_op<int64_t, std::plus>(m, v1, v2);
+        case 0xd1: return simd_bin_op<int64_t, std::minus>(m, v1, v2);
+        case 0xd5: return simd_bin_op<int64_t, std::multiplies>(m, v1, v2);
+        // i64x2 -> ==, !=, <, >, <=, >=
+        case 0xd6: return simd_bin_op<int64_t, std::equal_to>(m, v1, v2);
+        case 0xd7: return simd_bin_op<int64_t, std::not_equal_to>(m, v1, v2);
+        case 0xd8: return simd_bin_op<int64_t, std::less>(m, v1, v2);
+        case 0xd9: return simd_bin_op<int64_t, std::greater>(m, v1, v2);
+        case 0xda: return simd_bin_op<int64_t, std::less_equal>(m, v1, v2);
+        case 0xdb: return simd_bin_op<int64_t, std::greater_equal>(m, v1, v2);
+        // f32x4 -> +, -, *, /, min, max, pmin, pmax
+        case 0xe4: return simd_bin_op<float, std::plus>(m, v1, v2);
+        case 0xe5: return simd_bin_op<float, std::minus>(m, v1, v2);
+        case 0xe6: return simd_bin_op<float, std::multiplies>(m, v1, v2);
+        case 0xe7: return simd_bin_op<float, std::divides>(m, v1, v2);
+        case 0xe8: return simd_bin_op<float, min_struct>(m, v1, v2);
+        case 0xe9: return simd_bin_op<float, max_struct>(m, v1, v2);
+        case 0xea: return simd_bin_op<float, p_min_struct>(m, v1, v2);
+        case 0xeb: return simd_bin_op<float, p_max_struct>(m, v1, v2);
+        // f64x2 -> +, -, *, /, min, max
+        case 0xf0: return simd_bin_op<double, std::plus>(m, v1, v2);
+        case 0xf1: return simd_bin_op<double, std::minus>(m, v1, v2);
+        case 0xf2: return simd_bin_op<double, std::multiplies>(m, v1, v2);
+        case 0xf3: return simd_bin_op<double, std::divides>(m, v1, v2);
+        case 0xf4: return simd_bin_op<double, min_struct>(m, v1, v2);
+        case 0xf5: return simd_bin_op<double, max_struct>(m, v1, v2);
+        case 0xf6: return simd_bin_op<double, p_min_struct>(m, v1, v2);
+        case 0xf7: return simd_bin_op<double, p_max_struct>(m, v1, v2);
+
+        default:
+            return false;
+    }
+}
+
+bool i_instr_simd_shift(Module* m, uint8_t opcode){
+    // need to keep copies!
+    const auto v1 = m->stack[m->sp - 1];
+    const auto v2 = m->stack[m->sp];
+    m->sp--;
+
+    switch(opcode) {
+        // i8x16 <<, >>(s), >>(u)
+        case 0x6b: return simd_shift<int8_t, shift_left>(m, v1, v2);
+        case 0x6c: return simd_shift<int8_t, arith_shift_right>(m, v1, v2);
+        case 0x6d: return simd_shift<int8_t, logic_shift_right>(m, v1, v2);
+        // i16x8 <<, >>(s), >>(u)
+        case 0x8b: return simd_shift<int16_t, shift_left>(m, v1, v2);
+        case 0x8c: return simd_shift<int16_t, arith_shift_right>(m, v1, v2);
+        case 0x8d: return simd_shift<int16_t, logic_shift_right>(m, v1, v2);
+        // i32x4 <<, >>(s), >>(u)
+        case 0xab: return simd_shift<int32_t, shift_left>(m, v1, v2);
+        case 0xac: return simd_shift<int32_t, arith_shift_right>(m, v1, v2);
+        case 0xad: return simd_shift<int32_t, logic_shift_right>(m, v1, v2);
+        // i64x2 <<, >>(s), >>(u)
+        case 0xcb: return simd_shift<int64_t, shift_left>(m, v1, v2);
+        case 0xcc: return simd_shift<int64_t, arith_shift_right>(m, v1, v2);
+        case 0xcd: return simd_shift<int64_t, logic_shift_right>(m, v1, v2);
+
+        default:
+            return false;
+    }
+}
+
+bool i_instr_simd_ext_add_pairwise(Module* m, uint8_t opcode){
+    switch(opcode) {
+        case 0x7c: return simd_ext_add<int8_t>(m);
+        case 0x7d: return simd_ext_add<uint8_t>(m);
+        case 0x7e: return simd_ext_add<int16_t>(m);
+        case 0x7f: return simd_ext_add<uint16_t>(m);
+        default:
+            return false;
+    }
+}
+
+bool i_instr_simd_swizzle(Module* m){
+    const int8_t *current = m->stack[m->sp - 1].value.simd.i8x16;
+    uint8_t swizzle[16];
+    memcpy(swizzle, m->stack[m->sp].value.simd.i8x16, 16 * sizeof(int8_t));
+    int8_t lanes[16];
+
+    for(int i = 0; i < 16; i++) {
+        lanes[i] = swizzle[i] < 16 ? current[swizzle[i]] : static_cast<int8_t>(0);
+    }
+
+    m->sp--;
+    m->stack[m->sp].value_type = V128;
+    memcpy(m->stack[m->sp].value.simd.i8x16, lanes, 16 * sizeof(int8_t));
+    return true;
+}
