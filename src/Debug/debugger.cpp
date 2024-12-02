@@ -454,12 +454,12 @@ void Debugger::handleInterruptRUN(const Module *m,
     *program_state = WARDUINOrun;
 }
 
-void Debugger::handleSTEP(const Module *m, RunningState *program_state) {
+void Debugger::handleSTEP(Module *m, RunningState *program_state) {
     *program_state = WARDUINOstep;
     this->skipBreakpoint = m->pc_ptr;
 }
 
-void Debugger::handleSTEPOver(const Module *m, RunningState *program_state) {
+void Debugger::handleSTEPOver(Module *m, RunningState *program_state) {
     this->skipBreakpoint = m->pc_ptr;
     uint8_t const opcode = *m->pc_ptr;
     if (opcode == 0x10) {  // step over direct call
@@ -1458,8 +1458,8 @@ void Debugger::sendProxyCallResult(Module *m) const {
 
 bool Debugger::isProxy() const { return this->proxy != nullptr; }
 
-bool Debugger::isProxied(const uint32_t fidx) const {
-    return this->supervisor != nullptr && this->supervisor->isProxied(fidx);
+bool Debugger::isProxied(Module *m, const uint32_t fidx) const {
+    return this->supervisor != nullptr && fidx < m->import_count;
 }
 
 void Debugger::handleMonitorProxies(const Module *m,

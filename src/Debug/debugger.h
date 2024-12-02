@@ -98,7 +98,6 @@ enum InterruptTypes {
 
     // Operations
     interruptStore = 0xa0,
-    interruptStored = 0xa1,
 };
 
 enum class SnapshotPolicy : int {
@@ -160,9 +159,9 @@ class Debugger {
 
     void handleInterruptRUN(const Module *m, RunningState *program_state);
 
-    void handleSTEP(const Module *m, RunningState *program_state);
+    void handleSTEP(Module *m, RunningState *program_state);
 
-    void handleSTEPOver(const Module *m, RunningState *program_state);
+    void handleSTEPOver(Module *m, RunningState *program_state);
 
     void handleInterruptBP(Module *m, uint8_t *interruptData);
 
@@ -284,7 +283,7 @@ class Debugger {
 
     bool isProxy() const;
 
-    bool isProxied(uint32_t fidx) const;
+    bool isProxied(Module *m, uint32_t fidx) const;
 
     void startProxySupervisor(Channel *socket);
 
