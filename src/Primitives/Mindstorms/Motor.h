@@ -9,47 +9,38 @@
 #include <zephyr/kernel.h>
 
 class MotorEncoder {
-    static void encoder_pin5_edge_rising(const struct device *dev,
-                                         struct gpio_callback *cb,
-                                         uint32_t pins) {
-        MotorEncoder *encoder =
-            CONTAINER_OF(cb, MotorEncoder, pin5_encoder_cb_data);
-        if (!encoder->expect_pin5_int) return;
-
-        if (!gpio_pin_get_raw(encoder->pin6_encoder_spec.port,
-                              encoder->pin6_encoder_spec.pin)) {
-            encoder->angle++;
-        } else {
-            encoder->angle--;
-        }
-        encoder->last_update = k_uptime_get();
-        // printk("Rising edge detected on encoder pin5, angle %d\n",
-        // encoder->angle); printk("%d\n",
-        // gpio_pin_get_raw(encoder->pin6_encoder_spec.port,
-        // encoder->pin6_encoder_spec.pin));
-        encoder->expect_pin5_int = false;
-        encoder->expect_pin6_int = true;
-    }
-
     static void encoder_pin6_edge_rising(const struct device *dev,
                                          struct gpio_callback *cb,
                                          uint32_t pins) {
         MotorEncoder *encoder =
             CONTAINER_OF(cb, MotorEncoder, pin6_encoder_cb_data);
-        if (!encoder->expect_pin6_int) return;
 
-        if (gpio_pin_get_raw(encoder->pin5_encoder_spec.port,
-                             encoder->pin5_encoder_spec.pin)) {
-            encoder->angle++;
+        int rising = gpio_pin_get_raw(encoder->pin6_encoder_spec.port,
+                         encoder->pin6_encoder_spec.pin);
+        int pin5 = gpio_pin_get_raw(encoder->pin5_encoder_spec.port,
+                                      encoder->pin5_encoder_spec.pin);
+        printf("%d\n", rising);
+
+        if (rising) {
+            if (pin5) {
+                printf("++\n");
+                encoder->angle++;
+            }
+            else {
+                printf("--\n");
+                encoder->angle--;
+            }
         } else {
-            encoder->angle--;
+            if (pin5) {
+                printf("--\n");
+                encoder->angle--;
+            }
+            else {
+                printf("++\n");
+                encoder->angle++;
+            }
         }
-        // printk("Rising edge detected on encoder pin6, angle %d\n",
-        // encoder->angle); printk("%d\n",
-        // gpio_pin_get_raw(encoder->pin5_encoder_spec.port,
-        // encoder->pin5_encoder_spec.pin));
-        encoder->expect_pin6_int = false;
-        encoder->expect_pin5_int = true;
+        encoder->last_update = k_uptime_get();
     }
 
    public:
