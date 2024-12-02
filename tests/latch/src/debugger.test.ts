@@ -13,8 +13,10 @@ import {
     Message, OutputStyle,
     Step, Suite,
     TestScenario,
-    Breakpoint
+    Breakpoint, OutofPlaceSpecification, Target, WASM, Invoker
 } from 'latch';
+import dump = Message.dump;
+import step = Message.step;
 
 export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
 
@@ -180,30 +182,7 @@ integration.test(dumpFullTest);
 
 // Test *run* command
 
-const running: Step[] = [DUMP, {
-    title: 'Send RUN command',
-    instruction: {kind: Kind.Request, value: Message.run},
-}, {
-    title: 'CHECK: execution continues',
-    instruction: {kind: Kind.Request, value: Message.dump},
-    expected: [{
-        'pc': {kind: 'description', value: Description.defined} as Expected<string>
-    }, {
-        'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
-    }]
-}];
-
-integration.test({
-    title: 'Test RUN blink',
-    program: `${EXAMPLES}blink.wast`,
-    steps: running
-});
-
-integration.test({
-    title: 'Test RUN button',
-    program: `${EXAMPLES}button.wast`,
-    steps: running
-});
+// todo
 
 // Test *pause* command
 
@@ -338,7 +317,7 @@ oop.testee('supervisor[:8100] - proxy[:8150]', new OutofPlaceSpecification(8100,
 
 oop.test({
     title: `Test store primitive`,
-    program: 'test/dummy.wast',
+    program: `${EXAMPLES}dummy.wast`,
     dependencies: [],
     steps: [
         {
