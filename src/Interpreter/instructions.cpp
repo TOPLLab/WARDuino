@@ -282,7 +282,7 @@ bool i_instr_return(Module *m) {
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
 
-    if (m->warduino->debugger->isProxied(fidx)) {
+    if (m->warduino->debugger->isProxied(m, fidx)) {
         return proxy_call(m, fidx);
     }
 
