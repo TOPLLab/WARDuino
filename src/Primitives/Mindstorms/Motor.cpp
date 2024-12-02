@@ -16,18 +16,8 @@ MotorEncoder::MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_enc
         FATAL("Failed to configure GPIO encoder pin6\n");
     }
 
-    int result = gpio_pin_interrupt_configure_dt(&pin5_encoder_spec,
-                                                 GPIO_INT_EDGE_RISING);
-    if (result != 0) {
-        printf("Failed to configure interrupt on pin5 for %s, error code %d\n", name, result);
-    }
-    gpio_init_callback(&pin5_encoder_cb_data,
-                       MotorEncoder::encoder_pin5_edge_rising,
-                       BIT(pin5_encoder_spec.pin));
-    gpio_add_callback(pin5_encoder_spec.port, &pin5_encoder_cb_data);
-
-    result = gpio_pin_interrupt_configure_dt(&pin6_encoder_spec,
-                                             GPIO_INT_EDGE_RISING);
+    int result = gpio_pin_interrupt_configure_dt(&pin6_encoder_spec,
+                                             GPIO_INT_EDGE_RISING | GPIO_INT_EDGE_FALLING);
     if (result != 0) {
         printf("Failed to configure interrupt on pin6 for %s, error code %d\n", name, result);
     }

@@ -318,8 +318,7 @@ def_prim(print_int, oneToNoneU32) {
 
 MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
                             new MotorEncoder(specs[57], specs[58], "Port B"),
-                            //MotorEncoder(specs[17], specs[13], "Port C"), // TODO: Disable when using motor D, causes conflict with interrupts
-                            nullptr,
+                            new MotorEncoder(specs[17], specs[13], "Port C"),
                             new MotorEncoder(specs[27], specs[26], "Port D")};
 
 std::optional<Motor> get_motor(int32_t motor_index) {
