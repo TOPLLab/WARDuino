@@ -53,9 +53,9 @@ Event *parseJSON(char *buff) {
     return new Event(*parsed.find("topic"), payload);
 }
 
-ProxySupervisor::ProxySupervisor(Channel *duplex, warduino::mutex *mutex) {
+ProxySupervisor::ProxySupervisor(Channel *duplex, warduino::mutex *mutex)
+    : Debugger(duplex) {
     debug("Starting supervisor.\n");
-    this->channel = duplex;
     this->mutex = mutex;
     this->thread = warduino::thread(runSupervisor, this);
     this->proxyResult = nullptr;
@@ -70,39 +70,21 @@ bool isReply(nlohmann::basic_json<> parsed) {
 }
 
 void ProxySupervisor::listenToSocket() {
-    char _char;
-    uint32_t buf_idx = 0;
-    const uint32_t start_size = 1024;
-    uint32_t current_size = start_size;
-    char *buffer = (char *)malloc(start_size);
+    uint8_t message[1024] = {0};
     ssize_t readAmount;
 
     this->channel->open();
 
     dbg_info("Proxy supervisor listening to remote device...\n");
     while (continuing(this->mutex)) {
-        readAmount = this->channel->read(&_char, 1);
+        readAmount = this->channel->read(message, 1024);
         if (readAmount == -1) {
             printf("Proxy supervisor shutting down.\n");
             exit(-1);
         }
         if (readAmount > 0) {
-            // increase buffer size if needed
-            if (current_size <= (buf_idx + 1)) {
-                char *new_buff = (char *)malloc(current_size + start_size);
-                memcpy((void *)new_buff, (void *)buffer, current_size);
-                free(buffer);
-                buffer = new_buff;
-                current_size += start_size;
-                printf("increasing PushClient's buffer size to %" PRId32 "\n",
-                       current_size);
-            }
-            buffer[buf_idx++] = _char;
-            // manual null-termination is needed because parseJSON does not use
-            // first len argument
-            buffer[buf_idx] = '\0';
             try {
-                nlohmann::basic_json<> parsed = nlohmann::json::parse(buffer);
+                nlohmann::basic_json<> parsed = nlohmann::json::parse(message);
                 debug("parseJSON: %s\n", parsed.dump().c_str());
 
                 if (isEvent(parsed)) {
@@ -115,13 +97,9 @@ void ProxySupervisor::listenToSocket() {
                     this->hasReplied = true;
                     this->proxyResult = parsed;
                 }
-
-                buf_idx = 0;
             } catch (const nlohmann::detail::parse_error &e) {
-                if (_char == '\n') {
-                    // discard buffer
-                    buf_idx = 0;
-                }
+                printf("Non RFC call: %s", message);
+                WARDuino::instance()->handleInterrupt(readAmount, message);
             }
         }
     }
@@ -133,8 +111,11 @@ bool ProxySupervisor::send(
     return n == size;
 }
 
-nlohmann::basic_json<> ProxySupervisor::readReply() {
-    while (!this->hasReplied);
+nlohmann::basic_json<> ProxySupervisor::readReply(RFC *rfc) {
+    while (!this->hasReplied) {
+        WARDuino::instance()->debugger->checkDebugMessages(
+            rfc->m, &WARDuino::instance()->program_state);
+    }
     WARDuino::instance()->debugger->channel->write("read reply: succeeded\n");
     this->hasReplied = false;
     return this->proxyResult;
@@ -218,7 +199,7 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
 }
 
 void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
-    nlohmann::basic_json<> call_result = this->readReply();  // blocking
+    nlohmann::basic_json<> call_result = this->readReply(rfc);  // blocking
     rfc->success = *call_result.find("success");
 
     if (rfc->type->result_count == 0) {
@@ -276,7 +257,7 @@ bool ProxySupervisor::call(RFC *callee) {
     char cmdBuffer[10] = "";
     int cmdBufferLen = 0;
     sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
-    WARDuino::instance()->debugger->supervisor->send(cmdBuffer, cmdBufferLen);
+    this->send(cmdBuffer, cmdBufferLen);
     this->deserializeRFCResult(callee);
     return true;
 }

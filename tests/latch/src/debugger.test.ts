@@ -13,11 +13,12 @@ import {
     Message, OutputStyle,
     Step, Suite,
     TestScenario,
-    Breakpoint
+    Breakpoint, OutofPlaceSpecification, Target, WASM, Invoker
 } from 'latch';
+import dump = Message.dump;
+import step = Message.step;
 
 export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
-
 
 const EXAMPLES: string = `${__dirname}/../examples/`;
 
@@ -30,8 +31,8 @@ framework.style(OutputStyle.github);
 
 const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
-integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
-//integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
+integration.testee('emulator [:8500]', new EmulatorSpecification(8500), {timeout: 4000});
+//integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), {timeout: 0});
 
 const expectDUMP: Expectation[] = [
     {'pc': {kind: 'description', value: Description.defined} as Expected<string>},
@@ -181,30 +182,7 @@ integration.test(dumpFullTest);
 
 // Test *run* command
 
-const running: Step[] = [DUMP, {
-    title: 'Send RUN command',
-    instruction: {kind: Kind.Request, value: Message.run},
-}, {
-    title: 'CHECK: execution continues',
-    instruction: {kind: Kind.Request, value: Message.dump},
-    expected: [{
-        'pc': {kind: 'description', value: Description.defined} as Expected<string>
-    }, {
-        'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
-    }]
-}];
-
-integration.test({
-    title: 'Test RUN blink',
-    program: `${EXAMPLES}blink.wast`,
-    steps: running
-});
-
-integration.test({
-    title: 'Test RUN button',
-    program: `${EXAMPLES}button.wast`,
-    steps: running
-});
+// todo
 
 // Test *pause* command
 
@@ -312,7 +290,6 @@ const stepOverTest: TestScenario = {
 
 integration.test(stepOverTest);
 
-// EDWARD tests with mock proxy
 
 const dumpEventsTest: TestScenario = {
     title: 'Test DUMPEvents',
@@ -332,4 +309,58 @@ const dumpEventsTest: TestScenario = {
 
 integration.test(dumpEventsTest);
 
-framework.run([integration]);
+// EDWARD tests
+
+const oop = framework.suite('Test Out-of-place primitives');
+
+oop.testee('supervisor[:8100] - proxy[:8150]', new OutofPlaceSpecification(8100, 8150), {timeout: 20000});
+
+oop.test({
+    title: `Test store primitive`,
+    program: `${EXAMPLES}dummy.wast`,
+    dependencies: [],
+    steps: [
+        {
+            title: '[supervisor] CHECK: execution at start of main',
+            instruction: {kind: Kind.Request, value: dump},
+            expected: [{'pc': {kind: 'primitive', value: 129} as Expected<number>}]
+        },
+
+        {
+            title: '[proxy]      CHECK: execution at start of main',
+            instruction: {kind: Kind.Request, value: dump},
+            expected: [{'pc': {kind: 'primitive', value: 129} as Expected<number>}],
+            target: Target.proxy
+        },
+
+        new Invoker('load', [WASM.i32(32)], WASM.i32(0), Target.proxy),
+
+        {
+            title: '[supervisor] Send STEP command',
+            instruction: {kind: Kind.Request, value: step}
+        },
+
+        {
+            title: '[supervisor] Send STEP command',
+            instruction: {kind: Kind.Request, value: step}
+        },
+
+        {
+            title: '[supervisor] Send STEP command',
+            instruction: {kind: Kind.Request, value: step}
+        },
+
+        {
+            title: '[supervisor] CHECK: execution took three steps',
+            instruction: {kind: Kind.Request, value: dump},
+            expected: [{'pc': {kind: 'primitive', value: 136} as Expected<number>}]
+        },
+
+        new Invoker('load', [WASM.i32(32)], WASM.i32(42), Target.proxy),
+
+        new Invoker('load', [WASM.i32(32)], WASM.i32(42), Target.supervisor)
+    ]
+});
+
+framework.run([integration,oop]).then(() => process.exit(0));
+

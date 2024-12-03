@@ -17,6 +17,28 @@
  */
 StackValue *readArgs(Type function, uint8_t *data);
 
+uint64_t size_leb(uint64_t val);
+
+uint8_t *write_LEB(uint32_t value);
+
+/**
+ * Write a Little endian base value.
+ * see: https://en.wikipedia.org/wiki/LEB128
+ *
+ * @param value The value to write.
+ * @param buff The buffer to write to.
+ * @param size The size of the buffer.
+ * @param bits The size of the value type (I32, I64)
+ * @param sign Whether the value should be sign-extended.
+ * @return The number of bytes written.
+ */
+uint64_t write_LEB_(uint64_t value, uint8_t *buff, uint32_t size, uint32_t bits,
+                    bool sign);
+
+uint64_t write_LEB_32(uint32_t value, uint8_t *buff, uint32_t size);
+
+uint64_t write_LEB_32_signed(uint32_t value, uint8_t *buff, uint32_t size);
+
 /**
  * Read a Little endian base value of 32 bits
  * see: https://en.wikipedia.org/wiki/LEB128
