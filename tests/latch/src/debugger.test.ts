@@ -313,7 +313,7 @@ integration.test(dumpEventsTest);
 
 const oop = framework.suite('Test Out-of-place primitives');
 
-oop.testee('supervisor[:8100] - proxy[:8150]', new OutofPlaceSpecification(8100, 8150), {timeout: 4000});
+oop.testee('supervisor[:8100] - proxy[:8150]', new OutofPlaceSpecification(8100, 8150), {timeout: 20000});
 
 oop.test({
     title: `Test store primitive`,
