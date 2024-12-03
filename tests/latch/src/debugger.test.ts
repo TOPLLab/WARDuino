@@ -31,8 +31,8 @@ framework.style(OutputStyle.github);
 
 const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
-integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
-//integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
+integration.testee('emulator [:8500]', new EmulatorSpecification(8500), {timeout: 4000});
+//integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), {timeout: 0});
 
 const expectDUMP: Expectation[] = [
     {'pc': {kind: 'description', value: Description.defined} as Expected<string>},
@@ -313,7 +313,7 @@ integration.test(dumpEventsTest);
 
 const oop = framework.suite('Test Out-of-place primitives');
 
-oop.testee('supervisor[:8100] - proxy[:8150]', new OutofPlaceSpecification(8100, 8150));
+oop.testee('supervisor[:8100] - proxy[:8150]', new OutofPlaceSpecification(8100, 8150), {timeout: 4000});
 
 oop.test({
     title: `Test store primitive`,
@@ -362,4 +362,5 @@ oop.test({
     ]
 });
 
-framework.run([integration,oop]);
+framework.run([integration,oop]).then(() => process.exit(0));
+
