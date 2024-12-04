@@ -419,14 +419,16 @@ def_prim_serialize(drive_motor_degrees) {
 static const struct device *const uart_dev =
     DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
 
+// Variables used for setting up the sensor.
 int payload_bytes = 0;
 int payload_index = 0;
 unsigned int current_payload = 0;
 unsigned char checksum;
+bool data_byte = false;
+
+// Variables that are used during setup but also by the heartbeat function.
 int baudrate = -1;
 uint8_t mode = 0;
-
-bool data_byte = false;
 volatile int sensor_value = 0;
 
 enum ReceiveState {
@@ -524,8 +526,6 @@ void serial_cb(const struct device *dev, void *user_data) {
     }
 }
 
-extern void read_debug_messages();
-
 void set_sensor_mode(uint8_t new_mode) {
     uart_poll_out(uart_dev, 0x43);
     uart_poll_out(uart_dev, new_mode);
@@ -563,6 +563,8 @@ void uartHeartbeat() {
     }
 }
 
+extern void read_debug_messages();
+
 void debug_work_handler(struct k_work *work) {
     read_debug_messages();
 }
@@ -578,11 +580,11 @@ void heartbeat_timer_func(struct k_timer *timer_id) {
 def_prim(setup_uart_sensor, twoToNoneU32) {
     if (!device_is_ready(uart_dev)) {
         printk("Input port is not ready!\n");
-        return 0;
+        return false;
     }
 
     printk("Setting up uart\n");
-    int ret = uart_irq_callback_user_data_set(uart_dev, serial_cb, NULL);
+    int ret = uart_irq_callback_user_data_set(uart_dev, serial_cb, nullptr);
     if (ret < 0) {
         if (ret == -ENOTSUP) {
             printk("Interrupt-driven UART API support not enabled\n");
@@ -591,7 +593,7 @@ def_prim(setup_uart_sensor, twoToNoneU32) {
         } else {
             printk("Error setting UART callback: %d\n", ret);
         }
-        return 0;
+        return false;
     }
     uart_irq_rx_enable(uart_dev);
     uint8_t new_mode = arg0.uint32;
@@ -603,16 +605,10 @@ def_prim(setup_uart_sensor, twoToNoneU32) {
     return true;
 }
 
-/*#define UART_HEARTBEAT_STACK_SIZE 2048
-#define UART_HEARTBEAT_PRIORITY 0
-
-K_THREAD_DEFINE(uart_heartbeat_tid, UART_HEARTBEAT_STACK_SIZE, uartHeartbeat,
-                NULL, NULL, NULL, UART_HEARTBEAT_PRIORITY, 0, 0);*/
-
 def_prim(color_sensor, oneToOneU32) {
     if (!device_is_ready(uart_dev)) {
         printk("Input port is not ready!\n");
-        return 0;
+        return false;
     }
 
     pop_args(1);
