@@ -440,10 +440,7 @@ def_prim(color_sensor, oneToOneU32) {
     }
 
     pop_args(1);
-    int sensor_value = get_sensor_value();
-    if (sensor_value < 0) sensor_value = 0;
-    if (sensor_value > 7) sensor_value = 7;
-    pushUInt32(sensor_value);
+    pushUInt32(get_sensor_value());
     return true;
 }
 

@@ -38,10 +38,9 @@ void serial_cb([[maybe_unused]] const struct device *dev, [[maybe_unused]] void 
                 sensor_value = data;
                 data_byte = false;
             }
-
             // Check if it's a data message. This indicates the byte after this
             // will contain data.
-            if (0b11000000 & data) {
+            else if (data >> 6 == 0b11) {
                 // Next byte will be data
                 data_byte = true;
             }
@@ -110,6 +109,10 @@ void set_sensor_mode(uint8_t new_mode) {
     uart_poll_out(uart_dev, 0x43);
     uart_poll_out(uart_dev, new_mode);
     uart_poll_out(uart_dev, 0xff ^ 0x43 ^ new_mode);
+
+    // Invalidate current sensor values. This prevents the program reading values that it normally cannot read in a
+    // particular mode.
+    sensor_value = -1;
 }
 
 void uartHeartbeat() {
@@ -148,6 +151,9 @@ bool sensor_ready() {
 }
 
 int get_sensor_value() {
+    if (!baudrate_configured || sensor_value < 0) {
+        return 0;
+    }
     return sensor_value;
 }
 
