@@ -418,19 +418,26 @@ def_prim_serialize(drive_motor_degrees) {
 
 static const struct device *const uart_dev =
     DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
-volatile int payload_bytes = 0;
+
+int payload_bytes = 0;
 int payload_index = 0;
 unsigned int current_payload = 0;
-char checksum;
+unsigned char checksum;
 int baudrate = -1;
-int bytes_received = 0;
+uint8_t mode = 0;
 
-uint8_t mode = 2;
-int mode0_format_location = 0;
-
-volatile bool data_mode = false;
 bool data_byte = false;
 volatile int sensor_value = 0;
+
+enum ReceiveState {
+    advertise,
+    final_mode_format,
+    modes_complete,
+    data
+};
+
+volatile uint32_t receive_state = ReceiveState::advertise;
+bool baudrate_configured = false;
 
 void serial_cb(const struct device *dev, void *user_data) {
     uint8_t data;
@@ -443,199 +450,118 @@ void serial_cb(const struct device *dev, void *user_data) {
         return;
     }
 
-    /* read until FIFO empty */
     while (uart_fifo_read(uart_dev, &data, 1) == 1) {
-        bytes_received++;
-        /*printk("0x%02x '%c' ", data, (char) data);
-        printk("0b");
-        for (int i = 7; i >= 0; i--) {
-            printk("%d", (data & 1 << i) > 0);
-        }
-        printk("\n");*/
-
-        if (payload_bytes > 0) {
-            printk("payload = %d\n", data);
-            // Print in binary:
-            printk("0b");
-            for (int i = 7; i >= 0; i--) {
-                printk("%d", (data & 1 << i) > 0);
-            }
-            printk("\n");
-            payload_bytes--;
-
-            if (payload_bytes > 1) {
-                checksum ^= data;
-                printk("before current_payload = %d\n", current_payload);
-                current_payload = current_payload |
-                                  (((unsigned long)data) << payload_index * 8);
-                payload_index++;
-                printk("shift = %d, current_payload = %d\n", payload_index * 8,
-                       (int)current_payload);
-                // printk("checksum = %d\n", checksum);
-            } else if (checksum == data) {
-                printk("Checksum matches!\n");
-                printk("Baudrate = %d\n", current_payload);
-                baudrate = current_payload;  // TODO: Set actual baudrate here
-            }
-        }
-
-        // If data is ACK send an ACK back.
-        /*if (data == 0b00000100) {
-            printk("Bytes received = %d\n", bytes_received);
-            uart_poll_out(uart_dev, 0b00000100);
-            uart_poll_out(uart_dev, 0b00000010);
-            printk("Sent ACK\n");
-
-            // If we received a baudrate, change it after sending the ACK.
-            if (baudrate >= 0) {
-                printk("Changing baudrate to %d\n", baudrate);
-                uart_config cfg;
-                uart_config_get(uart_dev, &cfg);
-                cfg.baudrate = baudrate;
-
-                int config_err = uart_configure(uart_dev, &cfg);
-                printk("config_err = %d\n", config_err);
-                if (config_err) {
-                    printk("UART configure error %d", config_err);
-                }
-
-                uart_config_get(uart_dev, &cfg);
-                printk("current baudrate after config change = %d\n",
-        cfg.baudrate);
-            }
-        }*/
-
-        // When we receive an ACK message.
-        if (data == 0b00000100) {
-            // printk("%d\n", bytes_received - mode0_format_location);
-            if (bytes_received - mode0_format_location == 7 && baudrate >= 0) {
-                printk("SPECIAL_LINE\n");
-
-                uart_poll_out(uart_dev, 0b00000100);  // Send ACK
-                data_mode = true;
-
-                // Change baudrate:
-                /*printk("Changing baudrate to %d\n", baudrate);
-                uart_config cfg;
-                uart_config_get(uart_dev, &cfg);
-                cfg.baudrate = baudrate;
-
-                int config_err = uart_configure(uart_dev, &cfg);
-                printk("config_err = %d\n", config_err);
-                if (config_err) {
-                    printk("UART configure error %d", config_err);
-                }
-
-                config_err = uart_config_get(uart_dev, &cfg);
-                printk("current baudrate after config change = %d\n",
-                cfg.baudrate); printk("config_err = %d\n", config_err);*/
-
-                /*while (true) {
-                    k_msleep(100);
-                    printk("Send NACK\n");
-                    uart_poll_out(uart_dev, 0b00000010);
-                }*/
-            }
-        }
-
-        // HACK
-        if (data == 0b10010000 && baudrate >= 0) {
-            mode0_format_location = bytes_received;
-            // Receive last bits of data and ACK it:
-            /*k_msleep(50);
-            uart_poll_out(uart_dev, 0b00000100); // Send ACK
-
-            // Change baudrate:
-            printk("Changing baudrate to %d\n", baudrate);
-            uart_config cfg;
-            uart_config_get(uart_dev, &cfg);
-            cfg.baudrate = baudrate;
-
-            int config_err = uart_configure(uart_dev, &cfg);
-            printk("config_err = %d\n", config_err);
-            if (config_err) {
-                printk("UART configure error %d", config_err);
-            }
-
-            uart_config_get(uart_dev, &cfg);
-            printk("current baudrate after config change = %d\n",
-            cfg.baudrate);*/
-        }
-
-        if (data_mode) {
+        if (receive_state == ReceiveState::data) {
             if (data_byte) {
                 sensor_value = data;
                 data_byte = false;
             }
 
-            // Check if it' a data message.
+            // Check if it's a data message. This indicates the byte after this
+            // will contain data.
             if (0b11000000 & data) {
                 // Next byte will be data
                 data_byte = true;
             }
+            continue;
         }
 
+        if (payload_bytes > 0) {
+            payload_bytes--;
+
+            if (payload_bytes > 1) {
+                if (receive_state == ReceiveState::final_mode_format && payload_bytes == 5 && data != 0x80) {
+                    receive_state = ReceiveState::advertise;
+                    payload_bytes = 0;
+                }
+                checksum ^= data;
+                current_payload = current_payload |
+                                  (((unsigned long)data) << payload_index * 8);
+                payload_index++;
+            } else if (checksum == data) {
+                if (receive_state == ReceiveState::advertise) {
+                    printf("Baudrate = %d\n", current_payload);
+                    baudrate = current_payload;
+                }
+                else if (receive_state == ReceiveState::final_mode_format){
+                    receive_state = ReceiveState::modes_complete;
+                }
+            }
+        }
+
+        // Handle ACK message.
+        if (data == 0b00000100) {
+            // If we receive an ACK after the final format message and we
+            // know which speed to communicate at then we should send an ACK to
+            // switch to data mode.
+            if (receive_state == ReceiveState::modes_complete && baudrate > 0) {
+                printf("Completing pairing sequence\n");
+                uart_poll_out(uart_dev, 0b00000100);  // Send ACK back
+                receive_state = ReceiveState::data;
+            }
+        }
+
+        // Handle FORMAT commands.
+        if (data >> 3 == 0b10010) {
+            uint8_t sensor_mode = data & 0b111;
+            printf("FORMAT for mode %d\n", sensor_mode);
+            if (sensor_mode == 0) {
+                receive_state = ReceiveState::final_mode_format;
+                payload_bytes = 6;
+                payload_index = 0;
+                current_payload = 0;
+                checksum = 0xff ^ data;
+            }
+        }
+
+        // Handle speed command.
         if (data == 0b01010010) {
-            printk("Speed command\n");
             payload_bytes = 5;
             payload_index = 0;
             current_payload = 0;
             checksum = 0xff ^ 0b01010010;
-
-            // EV3 Colour sensor sent 57600 as it's baudrate
         }
     }
-    // uart_poll_out(uart_dev, 0b00000100);
-    // uart_poll_out(uart_dev, 0b00000010);
-    // printk("Sent ACK\n");
 }
-
-
-bool baudrate_configured = false;
 
 extern void read_debug_messages();
 
+void set_sensor_mode(uint8_t new_mode) {
+    uart_poll_out(uart_dev, 0x43);
+    uart_poll_out(uart_dev, new_mode);
+    uart_poll_out(uart_dev, 0xff ^ 0x43 ^ new_mode);
+}
+
 void uartHeartbeat() {
-    if (data_mode && !baudrate_configured) {
+    if (receive_state != ReceiveState::data) {
+        return;
+    }
+
+    if (!baudrate_configured) {
         printk("Changing baudrate to %d\n", baudrate);
         uart_config cfg;
         uart_config_get(uart_dev, &cfg);
         cfg.baudrate = baudrate;
 
         int config_err = uart_configure(uart_dev, &cfg);
-        printk("config_err = %d\n", config_err);
+        printf("config_err = %d\n", config_err);
         if (config_err) {
-            printk("UART configure error %d", config_err);
+            printf("UART configure error %d", config_err);
         }
 
         config_err = uart_config_get(uart_dev, &cfg);
         printk("current baudrate after config change = %d\n", cfg.baudrate);
-        printk("config_err = %d\n", config_err);
+        printf("config_err = %d\n", config_err);
         baudrate_configured = true;
 
-        // Change to mode 2
-        uart_poll_out(uart_dev, 0x43);
-        uart_poll_out(uart_dev, mode);
-        uart_poll_out(uart_dev, 0xff ^ 0x43 ^ mode);
+        // Change to the desired mode.
+        set_sensor_mode(mode);
     }
 
-    if (data_mode && baudrate_configured) {
-        //k_msleep(100);
-        // printk("Send NACK\n");
+    if (baudrate_configured) {
         uart_poll_out(uart_dev, 0b00000010);
-
-        // printk("sensor_value = %d\n", sensor_value);
-
-        // This timer can sometimes block other things so let's read in new debug messages:
-        //read_debug_messages();
     }
 }
-
-void my_work_handler(struct k_work *work) {
-    uartHeartbeat();
-}
-
-K_WORK_DEFINE(my_work, my_work_handler);
 
 void debug_work_handler(struct k_work *work) {
     read_debug_messages();
@@ -644,10 +570,8 @@ void debug_work_handler(struct k_work *work) {
 K_WORK_DEFINE(debug_work, debug_work_handler);
 
 struct k_timer heartbeat_timer;
-void my_timer_func(struct k_timer *timer_id) {
+void heartbeat_timer_func(struct k_timer *timer_id) {
     uartHeartbeat();
-    //printf("My timer func!\n");
-    //k_work_submit(&my_work);
     k_work_submit(&debug_work);
 }
 
@@ -671,10 +595,8 @@ def_prim(setup_uart_sensor, twoToNoneU32) {
     }
     uart_irq_rx_enable(uart_dev);
     uint8_t new_mode = arg0.uint32;
-    if (new_mode != mode && data_mode) {
-        uart_poll_out(uart_dev, 0x43);
-        uart_poll_out(uart_dev, new_mode);
-        uart_poll_out(uart_dev, 0xff ^ 0x43 ^ new_mode);
+    if (receive_state == ReceiveState::data && mode != new_mode) {
+        set_sensor_mode(new_mode);
     }
     mode = new_mode;
     pop_args(2);
@@ -692,47 +614,6 @@ def_prim(colour_sensor, oneToOneU32) {
         printk("Input port is not ready!\n");
         return 0;
     }
-
-    // uint16_t data;
-    // int res = uart_poll_in_u16(uart_dev, &data);
-    // printk("data = %d, res = %d\n", data, res);
-#if 0
-    unsigned char data;
-    int res = uart_poll_in(uart_dev, &data);
-    while (res == 0) {
-        printk("data = %d, res = %d\n", (int) data, res);
-        for (int i = 7; i >= 0; i--) {
-            printk("%d", (data & 1 << i) > 0);
-        }
-        printk("\n");
-        //res = uart_poll_in_u16(uart_dev, &data);
-        //k_msleep(100);
-        k_msleep(10);
-        res = uart_poll_in(uart_dev, &data);
-    }
-    printk("res = %d\n", res);
-    uart_poll_out(uart_dev, 0b00000010);
-#endif
-
-#if 0
-    printk("Setting up uart\n");
-    int ret = uart_irq_callback_user_data_set(uart_dev, serial_cb, NULL);
-    if (ret < 0) {
-		if (ret == -ENOTSUP) {
-			printk("Interrupt-driven UART API support not enabled\n");
-		} else if (ret == -ENOSYS) {
-			printk("UART device does not support interrupt-driven API\n");
-		} else {
-			printk("Error setting UART callback: %d\n", ret);
-		}
-		return 0;
-	}
-	uart_irq_rx_enable(uart_dev);
-#endif
-
-    // Send NACK
-    /*uart_poll_out(uart_dev, 0b00000010);
-    printk("Send NACK\n");*/
 
     pop_args(1);
     pushUInt32(sensor_value);
