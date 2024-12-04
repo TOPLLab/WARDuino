@@ -6,8 +6,6 @@ MotorEncoder::MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_enc
       pin6_encoder_spec(pin6_encoder_spec),
       angle(0),
       target_angle(0),
-      expect_pin5_int(true),
-      expect_pin6_int(true),
       last_update(0) {
     if (gpio_pin_configure_dt(&pin5_encoder_spec, GPIO_INPUT)) {
         FATAL("Failed to configure GPIO encoder pin5\n");
