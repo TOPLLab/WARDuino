@@ -417,7 +417,7 @@ def_prim_serialize(drive_motor_degrees) {
 }
 
 static const struct device *const uart_dev =
-    DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
+        DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
 
 // Variables used for setting up the sensor.
 int payload_bytes = 0;
@@ -577,7 +577,7 @@ void heartbeat_timer_func(struct k_timer *timer_id) {
     k_work_submit(&debug_work);
 }
 
-def_prim(setup_uart_sensor, twoToNoneU32) {
+bool configure_uart_sensor(uint8_t new_mode) {
     if (!device_is_ready(uart_dev)) {
         printk("Input port is not ready!\n");
         return false;
@@ -596,13 +596,17 @@ def_prim(setup_uart_sensor, twoToNoneU32) {
         return false;
     }
     uart_irq_rx_enable(uart_dev);
-    uint8_t new_mode = arg0.uint32;
     if (receive_state == ReceiveState::data && mode != new_mode) {
         set_sensor_mode(new_mode);
     }
     mode = new_mode;
-    pop_args(2);
     return true;
+}
+
+def_prim(setup_uart_sensor, twoToNoneU32) {
+    bool result = configure_uart_sensor(arg0.uint32);
+    pop_args(2);
+    return result;
 }
 
 def_prim(color_sensor, oneToOneU32) {
