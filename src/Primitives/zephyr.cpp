@@ -318,7 +318,7 @@ MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
                             new MotorEncoder(specs[17], specs[13], "Port C"),
                             new MotorEncoder(specs[27], specs[26], "Port D")};
 
-std::optional<Motor> get_motor(int32_t motor_index) {
+std::optional<Motor> get_motor(uint32_t motor_index) {
     if (motor_index > 3) {
         return {};
     }
@@ -329,7 +329,7 @@ std::optional<Motor> get_motor(int32_t motor_index) {
 def_prim(drive_motor, threeToNoneU32) {
     int32_t brake = arg0.int32;
     int32_t speed = arg1.int32;
-    int32_t motor_index = arg2.int32;
+    uint32_t motor_index = arg2.uint32;
 
     printf("drive_motor(%d, %d, %d)\n", motor_index, speed, brake);
 
@@ -352,7 +352,7 @@ def_prim(drive_motor, threeToNoneU32) {
 
 def_prim(drive_motor_ms, twoToNoneU32) {
     int32_t motor_index = arg1.int32;
-    int32_t speed = (int32_t)arg0.uint32;
+    int32_t speed = arg0.int32;
     printf("drive_motor_ms(%d, %d)\n", motor_index, speed);
 
     Motor motor = get_motor(motor_index).value();
@@ -363,7 +363,7 @@ def_prim(drive_motor_ms, twoToNoneU32) {
     return true;
 }
 
-bool drive_motor_degrees_absolute(int32_t motor_index, int32_t degrees, int32_t speed) {
+bool drive_motor_degrees_absolute(uint32_t motor_index, int32_t degrees, int32_t speed) {
     if (auto motor = get_motor(motor_index)) {
         motor->drive_to_angle(speed, degrees);
         return true;
@@ -371,7 +371,7 @@ bool drive_motor_degrees_absolute(int32_t motor_index, int32_t degrees, int32_t 
     return false;
 }
 
-bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t speed) {
+bool drive_motor_degrees_relative(uint32_t motor_index, int32_t degrees, int32_t speed) {
     MotorEncoder *encoder = encoders[motor_index];
     drive_motor_degrees_absolute(motor_index, encoder->get_target_angle() + degrees, speed);
     return true;
@@ -379,8 +379,8 @@ bool drive_motor_degrees_relative(int32_t motor_index, int32_t degrees, int32_t 
 
 def_prim(drive_motor_degrees, threeToNoneU32) {
     int32_t speed = arg0.int32;
-    int32_t degrees = arg1.uint32;
-    int32_t motor_index = arg2.uint32;
+    int32_t degrees = arg1.int32;
+    uint32_t motor_index = arg2.uint32;
     pop_args(3);
     return drive_motor_degrees_relative(motor_index, degrees, speed);
 }
