@@ -3,69 +3,52 @@
 #include <cstdio>
 #include <zephyr/drivers/uart.h>
 
-static const struct device *const uart_dev =
-        DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
-
-// Variables used for setting up the sensor.
-int payload_bytes = 0;
-int payload_index = 0;
-unsigned int current_payload = 0;
-unsigned char checksum;
-bool data_byte = false;
-
-// Variables that are used during setup but also by the heartbeat function.
-int baudrate = -1;
-uint8_t mode = 0;
-volatile int sensor_value = 0;
-
-volatile uint32_t receive_state = ReceiveState::advertise;
-bool baudrate_configured = false;
-
-void serial_cb([[maybe_unused]] const struct device *dev, [[maybe_unused]] void *user_data) {
+void serial_cb(const struct device *dev, void *user_data) {
+    auto *sensor = static_cast<UartSensor*>(user_data);
     uint8_t data;
 
-    if (!uart_irq_update(uart_dev)) {
+    if (!uart_irq_update(dev)) {
         return;
     }
 
-    if (!uart_irq_rx_ready(uart_dev)) {
+    if (!uart_irq_rx_ready(dev)) {
         return;
     }
 
-    while (uart_fifo_read(uart_dev, &data, 1) == 1) {
-        if (receive_state == ReceiveState::data) {
-            if (data_byte) {
-                sensor_value = data;
-                data_byte = false;
+    while (uart_fifo_read(dev, &data, 1) == 1) {
+        if (sensor->receive_state == ReceiveState::data) {
+            if (sensor->data_byte) {
+                sensor->sensor_value = data;
+                sensor->data_byte = false;
             }
             // Check if it's a data message. This indicates the byte after this
             // will contain data.
             else if (data >> 6 == 0b11) {
                 // Next byte will be data
-                data_byte = true;
+                sensor->data_byte = true;
             }
             continue;
         }
 
-        if (payload_bytes > 0) {
-            payload_bytes--;
+        if (sensor->payload_bytes > 0) {
+            sensor->payload_bytes--;
 
-            if (payload_bytes > 1) {
-                if (receive_state == ReceiveState::final_mode_format && payload_bytes == 5 && data != 0x80) {
-                    receive_state = ReceiveState::advertise;
-                    payload_bytes = 0;
+            if (sensor->payload_bytes > 1) {
+                if (sensor->receive_state == ReceiveState::final_mode_format && sensor->payload_bytes == 5 && data != 0x80) {
+                    sensor->receive_state = ReceiveState::advertise;
+                    sensor->payload_bytes = 0;
                 }
-                checksum ^= data;
-                current_payload = current_payload |
-                                  (((unsigned long)data) << payload_index * 8);
-                payload_index++;
-            } else if (checksum == data) {
-                if (receive_state == ReceiveState::advertise) {
-                    printf("Baudrate = %d\n", current_payload);
-                    baudrate = (int) current_payload;
+                sensor->checksum ^= data;
+                sensor->current_payload = sensor->current_payload |
+                                  (((unsigned long)data) << sensor->payload_index * 8);
+                sensor->payload_index++;
+            } else if (sensor->checksum == data) {
+                if (sensor->receive_state == ReceiveState::advertise) {
+                    printf("Baudrate = %d\n", sensor->current_payload);
+                    sensor->baudrate = (int) sensor->current_payload;
                 }
-                else if (receive_state == ReceiveState::final_mode_format){
-                    receive_state = ReceiveState::modes_complete;
+                else if (sensor->receive_state == ReceiveState::final_mode_format){
+                    sensor->receive_state = ReceiveState::modes_complete;
                 }
             }
         }
@@ -75,10 +58,10 @@ void serial_cb([[maybe_unused]] const struct device *dev, [[maybe_unused]] void 
             // If we receive an ACK after the final format message and we
             // know which speed to communicate at then we should send an ACK to
             // switch to data mode.
-            if (receive_state == ReceiveState::modes_complete && baudrate > 0) {
+            if (sensor->receive_state == ReceiveState::modes_complete && sensor->baudrate > 0) {
                 printf("Completing pairing sequence\n");
-                uart_poll_out(uart_dev, 0b00000100);  // Send ACK back
-                receive_state = ReceiveState::data;
+                uart_poll_out(dev, 0b00000100);  // Send ACK back
+                sensor->receive_state = ReceiveState::data;
             }
         }
 
@@ -87,84 +70,42 @@ void serial_cb([[maybe_unused]] const struct device *dev, [[maybe_unused]] void 
             uint8_t sensor_mode = data & 0b111;
             printf("FORMAT for mode %d\n", sensor_mode);
             if (sensor_mode == 0) {
-                receive_state = ReceiveState::final_mode_format;
-                payload_bytes = 6;
-                payload_index = 0;
-                current_payload = 0;
-                checksum = 0xff ^ data;
+                sensor->receive_state = ReceiveState::final_mode_format;
+                sensor->payload_bytes = 6;
+                sensor->payload_index = 0;
+                sensor->current_payload = 0;
+                sensor->checksum = 0xff ^ data;
             }
         }
 
         // Handle speed command.
         if (data == 0b01010010) {
-            payload_bytes = 5;
-            payload_index = 0;
-            current_payload = 0;
-            checksum = 0xff ^ 0b01010010;
+            sensor->payload_bytes = 5;
+            sensor->payload_index = 0;
+            sensor->current_payload = 0;
+            sensor->checksum = 0xff ^ 0b01010010;
         }
     }
 }
 
-void set_sensor_mode(uint8_t new_mode) {
-    uart_poll_out(uart_dev, 0x43);
-    uart_poll_out(uart_dev, new_mode);
-    uart_poll_out(uart_dev, 0xff ^ 0x43 ^ new_mode);
+void set_sensor_mode(UartSensor *sensor, uint8_t new_mode) {
+    uart_poll_out(sensor->dev, 0x43);
+    uart_poll_out(sensor->dev, new_mode);
+    uart_poll_out(sensor->dev, 0xff ^ 0x43 ^ new_mode);
 
     // Invalidate current sensor values. This prevents the program reading values that it normally cannot read in a
     // particular mode.
-    sensor_value = -1;
+    sensor->sensor_value = -1;
 }
 
-void uartHeartbeat() {
-    if (receive_state != ReceiveState::data) {
-        return;
-    }
-
-    if (!baudrate_configured) {
-        printf("Changing baudrate to %d\n", baudrate);
-        uart_config cfg{};
-        uart_config_get(uart_dev, &cfg);
-        cfg.baudrate = baudrate;
-
-        int config_err = uart_configure(uart_dev, &cfg);
-        printf("config_err = %d\n", config_err);
-        if (config_err) {
-            printf("UART configure error %d", config_err);
-        }
-
-        config_err = uart_config_get(uart_dev, &cfg);
-        printf("current baudrate after config change = %d\n", cfg.baudrate);
-        printf("config_err = %d\n", config_err);
-        baudrate_configured = true;
-
-        // Change to the desired mode.
-        set_sensor_mode(mode);
-    }
-
-    if (baudrate_configured) {
-        uart_poll_out(uart_dev, 0b00000010);
-    }
-}
-
-bool sensor_ready() {
-    return device_is_ready(uart_dev);
-}
-
-int get_sensor_value() {
-    if (!baudrate_configured || sensor_value < 0) {
-        return 0;
-    }
-    return sensor_value;
-}
-
-bool configure_uart_sensor(uint8_t new_mode) {
-    if (!sensor_ready()) {
+bool configure_uart_sensor(UartSensor *sensor, uint8_t new_mode) {
+    if (!sensor_ready(sensor)) {
         printf("Input port is not ready!\n");
         return false;
     }
 
     printf("Setting up uart\n");
-    int ret = uart_irq_callback_user_data_set(uart_dev, serial_cb, nullptr);
+    int ret = uart_irq_callback_user_data_set(sensor->dev, serial_cb, sensor);
     if (ret < 0) {
         if (ret == -ENOTSUP) {
             printf("Interrupt-driven UART API support not enabled\n");
@@ -175,10 +116,50 @@ bool configure_uart_sensor(uint8_t new_mode) {
         }
         return false;
     }
-    uart_irq_rx_enable(uart_dev);
-    if (receive_state == ReceiveState::data && mode != new_mode) {
-        set_sensor_mode(new_mode);
+    uart_irq_rx_enable(sensor->dev);
+    if (sensor->receive_state == ReceiveState::data && sensor->mode != new_mode) {
+        set_sensor_mode(sensor, new_mode);
     }
-    mode = new_mode;
+    sensor->mode = new_mode;
     return true;
+}
+
+void uartHeartbeat(UartSensor *sensor) {
+    if (sensor->receive_state != ReceiveState::data) {
+        return;
+    }
+
+    if (!sensor->baudrate_configured) {
+        printf("Changing baudrate to %d\n", sensor->baudrate);
+        uart_config cfg{};
+        uart_config_get(sensor->dev, &cfg);
+        cfg.baudrate = sensor->baudrate;
+
+        int config_err = uart_configure(sensor->dev, &cfg);
+        printf("config_err = %d\n", config_err);
+        if (config_err) {
+            printf("UART configure error %d", config_err);
+        }
+
+        config_err = uart_config_get(sensor->dev, &cfg);
+        printf("current baudrate after config change = %d\n", cfg.baudrate);
+        printf("config_err = %d\n", config_err);
+        sensor->baudrate_configured = true;
+
+        // Change to the desired mode.
+        set_sensor_mode(sensor, sensor->mode);
+    }
+
+    uart_poll_out(sensor->dev, 0b00000010);
+}
+
+bool sensor_ready(UartSensor *sensor) {
+    return device_is_ready(sensor->dev);
+}
+
+int get_sensor_value(UartSensor *sensor) {
+    if (!sensor->baudrate_configured || sensor->sensor_value < 0) {
+        return 0;
+    }
+    return sensor->sensor_value;
 }
