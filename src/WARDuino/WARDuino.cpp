@@ -1111,7 +1111,7 @@ std::vector<uint8_t *> Module::find_choice_points(bool after) const {
     std::set<std::string> symbolic_primitives = {
         "chip_digital_read",
         "chip_analog_read",
-        "colour_sensor",
+        "color_sensor",
     };
     return find_calls([symbolic_primitives](const std::string &field_name) {
         return symbolic_primitives.find(field_name) != symbolic_primitives.end();

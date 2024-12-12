@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <thread>
+#include <iostream>
 
 #include "../Interpreter/concolic_interpreter.h"
 #include "../Memory/mem.h"
@@ -303,7 +304,8 @@ def_prim(sym_int, NoneToOneU32) {
     return true;
 }
 
-def_prim(setup_uart_sensor, NoneToNoneU32) {
+def_prim(setup_uart_sensor, twoToNoneU32) {
+    pop_args(2);
     return true;
 }
 
@@ -430,11 +432,11 @@ def_prim(chip_analog_read, oneToOneI32) {
     return true;
 }
 
-def_prim(colour_sensor, oneToOneI32) {
+def_prim(color_sensor, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
     if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
-        push_symbolic_int(m, "colour_sensor", pin);
+        push_symbolic_int(m, "color_sensor", pin);
         return true;
     }
     pushInt32(sin(sensor_emu) * 100);
@@ -557,7 +559,7 @@ void install_primitives() {
 
     install_primitive(sym_int);
     install_primitive(setup_uart_sensor);
-    install_primitive(colour_sensor);
+    install_primitive(color_sensor);
     install_primitive(drive_motor_degrees);
 
     install_primitive(wifi_connect);
