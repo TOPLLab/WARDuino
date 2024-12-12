@@ -12,6 +12,7 @@
 #include <thread>
 #include <utility>
 #include <fstream>
+#include <iostream>
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Interpreter/concolic_interpreter.h"
