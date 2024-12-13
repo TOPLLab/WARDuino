@@ -31,8 +31,13 @@
         }                  \
     }
 
+void print_version() {
+    fprintf(stdout, "WARDuino WebAssembly Runtime - " PROJECT_VERSION "\n");
+}
+
 void print_help() {
-    fprintf(stdout, "WARDuino WebAssembly Runtime - " PROJECT_VERSION "\n\n");
+    print_version();
+    fprintf(stdout, "\n");
     fprintf(stdout, "Usage:\n");
     fprintf(stdout, "    wdcli <file> [options]\n");
     fprintf(stdout, "Options:\n");
@@ -62,6 +67,7 @@ void print_help() {
             "    --mode         The mode to run in: interpreter, proxy "
             "(default: interpreter)\n");
     fprintf(stdout, "    --invoke       Invoke a function from the module\n");
+    fprintf(stdout, "    --version      Get version information\n");
 }
 
 Module *load(WARDuino wac, const char *file_name, Options opt) {
@@ -284,7 +290,10 @@ int main(int argc, const char *argv[]) {
         }
 
         ARGV_SHIFT();
-        if (!strcmp("--help", arg)) {
+        if (!strcmp("--version", arg)) {
+            print_version();
+            return 0;
+        } else if (!strcmp("--help", arg)) {
             print_help();
             return 0;
         } else if (!strcmp("--loop", arg)) {
