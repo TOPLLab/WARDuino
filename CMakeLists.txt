@@ -29,7 +29,7 @@ if (BUILD_ESP)
     include($ENV{IDF_PATH}/tools/cmake/project.cmake "${PROJECT_BINARY_DIR}/../include")
 endif (BUILD_ESP)
 
-project(WARDuino VERSION 0.5.2)
+project(WARDuino VERSION 0.6.1)
 
 set(WARDUINO_VERSION_STRING "${PROJECT_VERSION}")
 configure_file(src/config.h.in include/warduino/config.h)
@@ -64,7 +64,7 @@ if (BUILD_EMULATOR)
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
-        add_compile_options(-g -v -Wall -Wextra -Wunused -O3)
+        add_compile_options(-g -v -Wall -Wextra -Werror -Wunused -O3)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
     # WARDuino CLI

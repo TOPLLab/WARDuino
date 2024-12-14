@@ -453,8 +453,8 @@ bool Interpreter::interpret(Module *m, bool waiting) {
     }
 
     // Resolve all unhandled callback events
-    while (CallbackHandler::resolving_event && CallbackHandler::resolve_event())
-        ;
+    while (CallbackHandler::resolving_event &&
+           CallbackHandler::resolve_event());
 
     dbg_trace("Interpretation ended %s with status %s\n",
               program_done ? "expectedly" : "unexpectedly",
