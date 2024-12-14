@@ -873,9 +873,24 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                     addComma ? "," : "", m->memory.pages, m->memory.maximum,
                     m->memory.initial);
                 addComma = true;
-                for (uint32_t j = 0; j < total_elems; j++) {
-                    this->channel->write("%" PRIu8 "%s", m->memory.bytes[j],
-                                         (j + 1) == total_elems ? "" : ",");
+                if (total_elems != 0) {
+                    uint8_t data = m->memory.bytes[0];
+                    uint32_t count = 1;
+                    bool arrayComma = false;
+                    for (uint32_t j = 1; j < total_elems; j++) {
+                        if (m->memory.bytes[j] == data) {
+                            count++;
+                        } else {
+                            this->channel->write("%s%" PRIu8 ",%d",
+                                                 arrayComma ? "," : "", data,
+                                                 count);
+                            arrayComma = true;
+                            data = m->memory.bytes[j];
+                            count = 1;
+                        }
+                    }
+                    this->channel->write("%s%" PRIu8 ",%d",
+                                         arrayComma ? "," : "", data, count);
                 }
                 this->channel->write("]}");  // closing memory
                 break;
@@ -1237,12 +1252,24 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                           static_cast<void *>(m->bytes + start + total_bytes),
                           static_cast<void *>(mem_end));
                 }
-                memcpy(m->memory.bytes + start, program_state, total_bytes);
+
+                uint32_t byte_count = read_B32(&program_state);
+                uint8_t *end_pos = program_state + byte_count;
+                uint32_t current_pos = start;
+                while (program_state < end_pos) {
+                    uint32_t count = read_LEB_32(&program_state);
+                    uint8_t byte = *program_state++;
+                    memset(m->memory.bytes + current_pos, byte, count);
+                    current_pos += count;
+                }
+                if (current_pos != limit + 1) {
+                    FATAL("RLE did not restore the expected amount of bytes\n");
+                }
+
                 for (auto i = start; i < (start + total_bytes); i++) {
                     debug("GOT byte idx %" PRIu32 " =%" PRIu8 "\n", i,
                           m->memory.bytes[i]);
                 }
-                program_state += total_bytes;
                 break;
             }
             case branchingTableState: {
