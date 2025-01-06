@@ -423,10 +423,10 @@ def_prim(chip_digital_read, oneToOneU32) {
 def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
+    /*if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
         push_symbolic_int(m, "chip_analog_read", pin);
         return true;
-    }
+    }*/
     pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
     return true;
@@ -435,10 +435,10 @@ def_prim(chip_analog_read, oneToOneI32) {
 def_prim(color_sensor, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
+    /*if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
         push_symbolic_int(m, "color_sensor", pin);
         return true;
-    }
+    }*/
     pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
     return true;
@@ -459,9 +459,9 @@ def_prim(chip_delay, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
     debug("EMU: chip_delay(%u) \n", arg0.uint32);
-    if (!dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
+    /*if (!dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
         sleep_for(milliseconds(arg0.uint32));
-    }
+    }*/
     debug("EMU: .. done\n");
     pop_args(1);
     return true;

@@ -5,6 +5,8 @@ option(BUILD_ESP "Build for esp" OFF)
 option(BUILD_EMULATOR "Build for emulator" OFF)
 option(BUILD_UNITTEST "Build for testing" OFF)
 
+include_directories(/usr/include/z3)
+
 if (ESP_PLATFORM)
     set(BUILD_ESP ON)
 endif ()
@@ -95,7 +97,8 @@ if (BUILD_UNITTEST)
             src/Debug/debugger.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
-            src/Edward/RFC.cpp)
+            src/Edward/RFC.cpp
+            src/Interpreter/interp_loop.h)
 
     # Use C++11
     set(CMAKE_CXX_STANDARD 11)

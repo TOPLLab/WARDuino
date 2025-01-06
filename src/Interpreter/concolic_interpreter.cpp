@@ -3,6 +3,7 @@
 
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "interp_loop.h"
 
 // TODO: Try reuse code from the concrete interpreter
 Block *ConcolicInterpreter::pop_block(Module *m) {
@@ -788,5 +789,9 @@ bool ConcolicInterpreter::i_instr_conversion(Module *m, uint8_t opcode) {
     }
 
     return true;
+}
+
+bool ConcolicInterpreter::interpret(Module *m, bool waiting) {
+    return interp<ConcolicInterpreter>(m , waiting);
 }
 #endif
