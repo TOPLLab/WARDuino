@@ -50,7 +50,7 @@ double sensor_emu = 0;
             p->f_reverse = nullptr;                                        \
             p->f_serialize_state = nullptr;                                \
         } else {                                                           \
-            FATAL("prim_index out of bounds");                              \
+            FATAL("prim_index out of bounds");                             \
         }                                                                  \
     }
 
@@ -394,7 +394,7 @@ def_prim(chip_pin_mode, twoToNoneU32) {
 }
 
 def_prim(chip_digital_write, twoToNoneU32) {
-    debug("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
+    printf("EMU: chip_digital_write(%u,%u) \n", arg1.uint32, arg0.uint32);
     pop_args(2);
     return true;
 }
@@ -462,7 +462,8 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
-    [[maybe_unused]] uint8_t mode = arg0.uint32; // Not used by emulator only printed
+    [[maybe_unused]] uint8_t mode =
+        arg0.uint32;  // Not used by emulator only printed
 
     debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, tidx, mode);
 
