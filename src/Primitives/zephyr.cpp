@@ -1,4 +1,3 @@
-#include <sys/_stdint.h>
 #ifndef ARDUINO
 
 /**
