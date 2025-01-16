@@ -50,7 +50,7 @@ double sensor_emu = 0;
             p->f_reverse = nullptr;                                        \
             p->f_serialize_state = nullptr;                                \
         } else {                                                           \
-            FATAL("pim_index out of bounds");                              \
+            FATAL("prim_index out of bounds");                              \
         }                                                                  \
     }
 
