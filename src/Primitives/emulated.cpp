@@ -462,7 +462,7 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
-    // uint8_t mode = arg0.uint32; // never used in emulator
+    [[maybe_unused]] uint8_t mode = arg0.uint32; // never used in emulator
 
     debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, tidx, mode);
 
