@@ -27,6 +27,19 @@
 
 // NEOPIXEL
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_ILI9341.h>
+
+#define TFT_CS 22
+#define TFT_DC 21
+#define TFT_MOSI 23
+#define TFT_CLK 19
+#define TFT_RST 18
+#define TFT_MISO 25
+#define WROVER_BL 5
+
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
+
+
 #define PIN 33
 #define NUMPIXELS 64
 Adafruit_NeoPixel pixels =
@@ -132,7 +145,7 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 38
+#define NUM_PRIMITIVES_ARDUINO 39
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -861,6 +874,25 @@ def_prim(mqtt_loop, NoneToOneU32) {
     return true;
 }
 
+
+//------------------------------------------------------
+// Display
+//------------------------------------------------------
+
+def_prim(init_display, NoneToNoneU32) {
+				pinMode(WROVER_BL, OUTPUT);
+				digitalWrite(WROVER_BL, HIGH);
+				tft.begin();
+    digitalWrite(WROVER_BL, LOW);
+
+				tft.fillScreen(ILI9341_BLACK);
+				unsigned long start = micros();
+				tft.setCursor(0, 0);
+				tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+				tft.println("Your trip through the Forest of Demise was uneventful. The chittering of forest animals and chirping of birds that serenaded you through the forest suddenly ends, as if the creatures of the natural world shun and fear this place. In the distance, you see a tower sticking out of the ground like an evil, twisted tree reaching up to the sky. As you approach the tower, the crunching of the dead leaves under your feet seems almost deafening in the otherwise silent clearing. When you get within 20 feet of the tower, you realize the place is surrounded by a nearly invisible noxious vapor. As you breathe it in, its stench burns your lungs and makes your eyes water. The hairs on your arms bristle with terror and your heart pounds as an anguished shriek cuts through the silence from within the tower. The palpable presence of evil is stunning. On the door of the tower you see four glowing runes.");
+				return true;
+}
+
 //------------------------------------------------------
 // Util functions
 //------------------------------------------------------
@@ -1032,6 +1064,8 @@ void install_primitives() {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_attach);
     install_primitive(chip_ledc_set_duty);
+
+				install_primitive(init_display);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();
