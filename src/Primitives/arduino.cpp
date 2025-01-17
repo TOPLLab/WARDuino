@@ -26,8 +26,8 @@
 #include "primitives.h"
 
 // NEOPIXEL
-#include <Adafruit_NeoPixel.h>
 #include <Adafruit_ILI9341.h>
+#include <Adafruit_NeoPixel.h>
 
 #define TFT_CS 22
 #define TFT_DC 21
@@ -37,8 +37,8 @@
 #define TFT_MISO 25
 #define WROVER_BL 5
 
-Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
-
+Adafruit_ILI9341 tft =
+    Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 
 #define PIN 33
 #define NUMPIXELS 64
@@ -217,7 +217,7 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
-uint32_t param_I32_arr_len5[5] = {I32, I32, I32, I32,I32};
+uint32_t param_I32_arr_len5[5] = {I32, I32, I32, I32, I32};
 uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                     I32, I32, I32, I32, I32};
 
@@ -313,8 +313,6 @@ Type fiveToNoneU32 = {
     .results = param_I32_arr_len1,
     .mask = 0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
-
-
 
 Type tenToOneU32 = {
     .form = FUNC,
@@ -886,51 +884,48 @@ def_prim(mqtt_loop, NoneToOneU32) {
     return true;
 }
 
-
 //------------------------------------------------------
 // Display
 //------------------------------------------------------
 
 def_prim(init_display, NoneToNoneU32) {
-				pinMode(WROVER_BL, OUTPUT);
-				digitalWrite(WROVER_BL, HIGH);
-				tft.begin();
+    pinMode(WROVER_BL, OUTPUT);
+    digitalWrite(WROVER_BL, HIGH);
+    tft.begin();
     digitalWrite(WROVER_BL, LOW);
-				tft.setRotation(1);
+    tft.setRotation(1);
 
-				tft.fillScreen(ILI9341_BLACK);
-				unsigned long start = micros();
-				tft.setCursor(0, 0);
-				return true;
+    tft.fillScreen(ILI9341_BLACK);
+    unsigned long start = micros();
+    tft.setCursor(0, 0);
+    return true;
 }
-
 
 def_prim(print_display, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
-				tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+    tft.setTextColor(ILI9341_WHITE);
+    tft.setTextSize(1);
     String str = parse_utf8_string(m->memory.bytes, size, addr).c_str();
-				tft.println(str);
-				return true;
+    tft.println(str);
+    return true;
 }
 
-
-def_prim(draw_rect,fiveToNoneU32 ) {
+def_prim(draw_rect, fiveToNoneU32) {
     uint32_t frame_x = arg4.uint32;
     uint32_t frame_y = arg3.uint32;
     uint32_t frame_w = arg2.uint32;
     uint32_t frame_h = arg1.uint32;
     uint32_t color = arg0.uint32;
-				tft.drawRect(frame_x,frame_y,frame_w,frame_h,color);
-				return true;
+    tft.drawRect(frame_x, frame_y, frame_w, frame_h, color);
+    return true;
 }
-
 
 def_prim(set_cursor, twoToNoneU32) {
     uint32_t x = arg1.uint32;
     uint32_t y = arg0.uint32;
-				tft.setCursor(x, y);
-				return true;	
+    tft.setCursor(x, y);
+    return true;
 }
 
 //------------------------------------------------------
@@ -1105,10 +1100,10 @@ void install_primitives() {
     install_primitive(chip_ledc_attach);
     install_primitive(chip_ledc_set_duty);
 
-				install_primitive(init_display);
-				install_primitive(print_display);
-				install_primitive(draw_rect);
-				install_primitive(set_cursor);
+    install_primitive(init_display);
+    install_primitive(print_display);
+    install_primitive(draw_rect);
+    install_primitive(set_cursor);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();
