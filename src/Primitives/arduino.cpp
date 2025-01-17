@@ -145,7 +145,7 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 39
+#define NUM_PRIMITIVES_ARDUINO 42
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -217,6 +217,7 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
+uint32_t param_I32_arr_len5[5] = {I32, I32, I32, I32,I32};
 uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                     I32, I32, I32, I32, I32};
 
@@ -303,6 +304,17 @@ Type fourToOneU32 = {
     .results = param_I32_arr_len1,
     .mask = 0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
+
+Type fiveToNoneU32 = {
+    .form = FUNC,
+    .param_count = 5,
+    .params = param_I32_arr_len5,
+    .result_count = 0,
+    .results = param_I32_arr_len1,
+    .mask = 0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
+};
+
+
 
 Type tenToOneU32 = {
     .form = FUNC,
@@ -884,13 +896,41 @@ def_prim(init_display, NoneToNoneU32) {
 				digitalWrite(WROVER_BL, HIGH);
 				tft.begin();
     digitalWrite(WROVER_BL, LOW);
+				tft.setRotation(1);
 
 				tft.fillScreen(ILI9341_BLACK);
 				unsigned long start = micros();
 				tft.setCursor(0, 0);
-				tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
-				tft.println("Your trip through the Forest of Demise was uneventful. The chittering of forest animals and chirping of birds that serenaded you through the forest suddenly ends, as if the creatures of the natural world shun and fear this place. In the distance, you see a tower sticking out of the ground like an evil, twisted tree reaching up to the sky. As you approach the tower, the crunching of the dead leaves under your feet seems almost deafening in the otherwise silent clearing. When you get within 20 feet of the tower, you realize the place is surrounded by a nearly invisible noxious vapor. As you breathe it in, its stench burns your lungs and makes your eyes water. The hairs on your arms bristle with terror and your heart pounds as an anguished shriek cuts through the silence from within the tower. The palpable presence of evil is stunning. On the door of the tower you see four glowing runes.");
 				return true;
+}
+
+
+def_prim(print_display, twoToNoneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t size = arg0.uint32;
+				tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+    String str = parse_utf8_string(m->memory.bytes, size, addr).c_str();
+				tft.println(str);
+				return true;
+}
+
+
+def_prim(draw_rect,fiveToNoneU32 ) {
+    uint32_t frame_x = arg4.uint32;
+    uint32_t frame_y = arg3.uint32;
+    uint32_t frame_w = arg2.uint32;
+    uint32_t frame_h = arg1.uint32;
+    uint32_t color = arg0.uint32;
+				tft.drawRect(frame_x,frame_y,frame_w,frame_h,color);
+				return true;
+}
+
+
+def_prim(set_cursor, twoToNoneU32) {
+    uint32_t x = arg1.uint32;
+    uint32_t y = arg0.uint32;
+				tft.setCursor(x, y);
+				return true;	
 }
 
 //------------------------------------------------------
@@ -1066,6 +1106,9 @@ void install_primitives() {
     install_primitive(chip_ledc_set_duty);
 
 				install_primitive(init_display);
+				install_primitive(print_display);
+				install_primitive(draw_rect);
+				install_primitive(set_cursor);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();
