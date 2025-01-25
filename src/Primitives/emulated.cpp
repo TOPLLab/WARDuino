@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "../Interpreter/instructions.h"
 #ifndef ARDUINO
 
@@ -20,6 +21,8 @@
 #include <cstring>
 #include <thread>
 
+#include <SDL2/SDL.h>
+
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
@@ -27,7 +30,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES_ARDUINO 33
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -102,6 +105,7 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
+uint32_t param_I32_arr_len5[5] = {I32, I32, I32, I32, I32};
 uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                     I32, I32, I32, I32, I32};
 
@@ -142,6 +146,16 @@ Type fourToNoneU32 = {
     .results = nullptr,
     .mask =
         0x8001111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
+};
+
+Type fiveToNoneU32 = {
+    .form = FUNC,
+    .param_count = 5,
+    .params = param_I32_arr_len5,
+    .result_count = 0,
+    .results = nullptr,
+    .mask =
+        0x80011111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
 };
 
 Type oneToOneU32 = {
@@ -448,13 +462,53 @@ def_prim_serialize(chip_digital_write) {
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
-    uint8_t pin = arg0.uint32;
+    uint32_t pin = arg0.uint32;
     pop_args(1);
-    if (pin < NUM_DIGITAL_PINS) {
+
+    /*if (pin < NUM_DIGITAL_PINS) {
         pushUInt32(PINS[pin]);
         return true;
     }
-    return false;
+    return false;*/
+
+    // Input provided by SDL button presses:
+    SDL_Event event;
+    while( SDL_PollEvent( &event ) ){
+        switch( event.type ){
+            case SDL_WINDOWEVENT:
+                if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
+                    //SDL_DestroyWindow(window);
+                    SDL_Quit();
+                    exit(0);
+                }
+            break;
+        }
+    }
+    
+    const uint8_t* keystate = SDL_GetKeyboardState(nullptr);
+
+    //continuous-response keys
+    /*if(keystate[SDL_SCANCODE_LEFT] && pin == 1024) {
+        pushUInt32(1);
+    }
+    else if(keystate[SDL_SCANCODE_RIGHT] && pin == 1025) {
+        pushUInt32(1);
+    }
+    else if(keystate[SDL_SCANCODE_UP] && pin == 1026) {
+        pushUInt32(1);
+    }
+    else if(keystate[SDL_SCANCODE_DOWN] && pin == 1027) {
+        pushUInt32(1);
+    }*/
+    if(pin < 128 && keystate[pin]) {
+        //printf("%d pressed\n", pin);
+        pushUInt32(1);
+    }
+    else {
+        pushUInt32(0);
+    }   
+    
+    return true;
 }
 
 def_prim(chip_analog_read, oneToOneI32) {
@@ -559,6 +613,86 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     pop_args(2);
     return true;
 }
+
+SDL_Renderer *renderer;
+SDL_Window* window = NULL;
+SDL_Surface* screenSurface = NULL;
+
+SDL_Surface *texSurface = nullptr;
+SDL_Texture *texture;
+
+def_prim(init_display, NoneToNoneU32) {
+    printf("init_display \n");
+    
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        fprintf(stderr, "Could not initialize sdl2: %s\n", SDL_GetError());
+        return false;
+    }
+    window = SDL_CreateWindow(
+                    "WARDuino emulated display",
+                    SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                    640, 480,
+                    SDL_WINDOW_SHOWN
+                    );
+    if (window == NULL) {
+        fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
+        return false;
+    }
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);             
+    if (!renderer) {                                                                               
+        fprintf(stderr, "Could not create renderer: %s\n", SDL_GetError());                            
+        return false;                                                                                  
+    }
+    
+    texSurface = SDL_LoadBMP("/home/maarten/Documents/School/Phd/WARDuinoBuilds/WARDuino-platformer/sprites.bmp");
+    texture = SDL_CreateTextureFromSurface(renderer, texSurface);
+    
+    return true;
+}
+
+def_prim(dispose_display, NoneToNoneU32) {
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return true;
+}
+
+def_prim(draw_rect, fiveToNoneU32) {
+    uint32_t r = (arg0.uint32 >> 16)  & 0xff;
+    uint32_t g = (arg0.uint32 >> 8) & 0xff;
+    uint32_t b = arg0.uint32 & 0xff;
+    //printf("(%d, %d) (%d, %d)\n", arg4.int32, arg3.int32, arg2.int32, arg1.int32);
+    
+    SDL_Rect rect = {arg4.int32, arg3.int32, arg2.int32, arg1.int32}; 
+    SDL_SetRenderDrawColor(renderer, r, g, b, 255);                                       
+    //SDL_RenderDrawRect(renderer, &rect);   
+    SDL_RenderFillRect(renderer, &rect);
+    
+    //SDL_Surface *texSurface = SDL_LoadBMP("/home/maarten/Documents/School/Phd/WARDuinoBuilds/rock.bmp");
+    /*char bytes[2 * 2] = {0,1,1,0};
+    SDL_Surface *texSurface = SDL_CreateRGBSurface*/
+    /*SDL_Surface *texSurface = {
+        0,
+        50,
+        50,
+        bytes
+    }*/
+    
+    int w = 32;
+    int h = 32;
+    int x = (arg0.uint32 % 16) * w;
+    int y = (arg0.uint32 / 16) * h;
+    SDL_Rect src_rect = {x, y, w, h};
+    SDL_RenderCopy(renderer, texture, &src_rect, &rect);
+    
+    pop_args(5);
+    return true;
+}
+
+def_prim(present_display_buffer, NoneToNoneU32) {
+    SDL_RenderPresent(renderer);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -604,6 +738,11 @@ void install_primitives() {
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
     install_primitive(chip_ledc_set_duty);
+
+    install_primitive(init_display);
+    install_primitive(dispose_display); 
+    install_primitive(present_display_buffer);
+    install_primitive(draw_rect);
 }
 
 //------------------------------------------------------
