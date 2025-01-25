@@ -159,7 +159,7 @@ void skip_immediates(uint8_t **pos) {
         case 0x11:  // call_indirect
             // encoding: 0x11 x 0x00
             read_LEB_32(pos);  // read x
-            read_LEB(pos, 7);  // 0x00 byte
+            read_LEB_32(pos);  // 0x00 byte
             break;
             // varint64
         case 0x42:  // i64.const
