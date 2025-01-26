@@ -98,6 +98,12 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
     // Push function locals
     for (uint32_t lidx = 0; lidx < func->local_count; lidx++) {
         m->sp += 1;
+#if DEBUG || TRACE || WARN || INFO
+        if (m->sp >= STACK_SIZE) {
+            FATAL("Stack overflow m->sp = %d, STACK_SIZE = %d\n", m->sp,
+                  STACK_SIZE);
+        }
+#endif
         m->stack[m->sp].value_type = func->local_value_type[lidx];
         m->stack[m->sp].value = {0};  // Initialize whole union to 0
     }
