@@ -5,9 +5,9 @@ set(SOURCE_FILES
         ../../src/Interpreter/proxied.cpp
         ../../src/Memory/mem.cpp
         ../../src/Primitives/idf.cpp
-        ../../src/Edward/proxy.cpp
-        ../../src/Edward/proxy_supervisor.cpp
-        ../../src/Edward/RFC.cpp
+        ../../src/Oop/proxy.cpp
+        ../../src/Oop/proxy_supervisor.cpp
+        ../../src/Oop/RFC.cpp
         ../../src/Utils/macros.cpp
         ../../src/Utils/sockets.cpp
         ../../src/Utils/util.cpp

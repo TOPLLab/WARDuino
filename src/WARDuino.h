@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "Debug/debugger.h"
-#include "Edward/proxy_supervisor.h"
+#include "Oop/proxy_supervisor.h"
 #include "Interpreter/interpreter.h"
 #include "WARDuino/internals.h"
 

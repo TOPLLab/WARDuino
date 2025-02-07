@@ -25,9 +25,9 @@ target_sources(app PRIVATE
     ../../src/Utils/macros.cpp
     ../../src/Utils/sockets.cpp
     ../../src/Debug/debugger.cpp
-    ../../src/Edward/proxy.cpp
-    ../../src/Edward/proxy_supervisor.cpp
-    ../../src/Edward/RFC.cpp
+        ../../src/Oop/proxy.cpp
+        ../../src/Oop/proxy_supervisor.cpp
+        ../../src/Oop/RFC.cpp
     upload.h
 )
 
