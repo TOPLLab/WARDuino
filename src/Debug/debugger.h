@@ -76,6 +76,9 @@ enum InterruptTypes {
     // Remote REPL
     interruptINVOKE = 0x40,
 
+    // Stateful out-of-place
+    interruptTransfer = 0x52,
+
     // Pull Debugging
     interruptSnapshot = 0x60,
     interruptSetSnapshotPolicy = 0x61,
@@ -207,6 +210,8 @@ class Debugger {
     static uint8_t *findOpcode(Module *m, const Block *block);
 
     bool saveState(Module *m, uint8_t *interruptData);
+
+    void transfer(Module *m, uint8_t *interruptData);
 
     static uintptr_t readPointer(uint8_t **data);
 

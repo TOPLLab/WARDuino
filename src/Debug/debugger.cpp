@@ -312,6 +312,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 this->channel->write("%s!\n", receivingData ? "ack" : "done");
             }
             break;
+        case interruptTransfer:
+            this->transfer(m, interruptData);
+            free(interruptData);
+            this->channel->write("Transferred!\n");
+            break;
         case interruptProxyCall: {
             this->handleProxyCall(m, program_state, interruptData + 1);
             free(interruptData);
@@ -1118,6 +1123,31 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
         }
     }
     debug("done with first msg\n");
+}
+
+void load(uint8_t *bytes, Module* m) {
+    auto start = read_B32(&bytes);
+    auto limit = read_B32(&bytes);
+    auto total_bytes = limit - start + 1;
+    memcpy(m->memory.bytes + start, bytes, total_bytes);
+}
+
+void Debugger::transfer(Module *m, uint8_t *interruptData) {
+    uint8_t *cursor = nullptr;
+    uint8_t *end = nullptr;
+    cursor = interruptData + 1;  // skip interruptLoadSnapshot
+    uint32_t len = read_B32(&cursor);
+    end = cursor + len;
+
+    while (cursor < end) {
+        switch (*cursor++) {
+            case memoryState:
+                load(cursor, m);
+            default: {
+                debug("do nothing\n");
+            }
+        }
+    }
 }
 
 bool Debugger::saveState(Module *m, uint8_t *interruptData) {
