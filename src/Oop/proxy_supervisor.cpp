@@ -12,6 +12,7 @@
 #include "../../lib/json/single_include/nlohmann/json.hpp"
 #endif
 
+#include "../Primitives/primitives.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../WARDuino/CallbackHandler.h"
@@ -195,7 +196,13 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
     auto *ser = new SerializeData;
     ser->size = hexa_size + 1;
     ser->raw = hexa;
-    return ser;
+
+    auto *transfer = get_transfer(callee->m, callee->fidx);
+    auto *message = merge(*transfer, *ser);
+
+    delete ser;
+    free(transfer);
+    return message;
 }
 
 void ProxySupervisor::deserializeRFCResult(RFC *rfc) {

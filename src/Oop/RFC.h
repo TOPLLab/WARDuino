@@ -7,9 +7,11 @@ struct StackValue;
 struct Type;
 
 struct SerializeData {
-    const unsigned char *raw;
+    unsigned char *raw;
     uint32_t size;
 };
+
+SerializeData *merge(SerializeData a, SerializeData b);
 
 class RFC {
    public:

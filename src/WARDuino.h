@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "Debug/debugger.h"
-#include "Oop/proxy_supervisor.h"
 #include "Interpreter/interpreter.h"
+#include "Oop/proxy_supervisor.h"
 #include "WARDuino/internals.h"
 
 // Constants
@@ -71,9 +71,11 @@ struct IOStateElement {
 
 typedef struct PrimitiveEntry {
     const char *name;
+    uint32_t index;
     Primitive f;
     void (*f_reverse)(Module *m, std::vector<IOStateElement>);
     void (*f_serialize_state)(std::vector<IOStateElement *> &);
+    SerializeData *(*f_transfer)(Module *m);
     Type t;
 } PrimitiveEntry;
 

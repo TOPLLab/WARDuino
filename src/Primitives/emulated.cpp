@@ -21,6 +21,7 @@
 #include <thread>
 
 #include "../Memory/mem.h"
+#include "../Oop/stateful.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../WARDuino/CallbackHandler.h"
@@ -46,6 +47,7 @@ double sensor_emu = 0;
         if (prim_index < ALL_PRIMITIVES) {                                 \
             PrimitiveEntry *p = &primitives[prim_index++];                 \
             p->name = #prim_name;                                          \
+            p->index = prim_index - 1;                                     \
             p->f = &(prim_name);                                           \
             p->f_reverse = nullptr;                                        \
             p->f_serialize_state = nullptr;                                \
@@ -72,6 +74,9 @@ double sensor_emu = 0;
 #define def_prim_serialize(function_name) \
     void function_name##_serialize(       \
         std::vector<IOStateElement *> &external_state)
+
+#define def_prim_transfer(function_name) \
+    SerializeData &function_name##_transfer([[maybe_unused]] Module *m)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
@@ -256,8 +261,14 @@ def_prim(dummy, twoToOneU32) {
     return true;
 }
 
+def_prim_transfer(dummy) {
+    uint32_t start = arg1.uint32;
+    uint32_t end = arg0.uint32;
+    return sync_memory(m, start, end);
+}
+
 def_prim(millis, NoneToOneU64) {
-    struct timeval tv {};
+    struct timeval tv{};
     gettimeofday(&tv, nullptr);
     unsigned long millis = 1000 * tv.tv_sec + tv.tv_usec;
     pushUInt64(millis);
@@ -265,7 +276,7 @@ def_prim(millis, NoneToOneU64) {
 }
 
 def_prim(micros, NoneToOneU64) {
-    struct timeval tv {};
+    struct timeval tv{};
     gettimeofday(&tv, nullptr);
     unsigned long micros = 1000000 * tv.tv_sec + tv.tv_usec;
     pushUInt64(micros);
@@ -644,6 +655,22 @@ std::vector<IOStateElement *> get_io_state(Module *) {
         }
     }
     return ioState;
+}
+
+SerializeData *get_transfer(Module *m, uint32_t index) {
+    SerializeData *nil = new SerializeData;
+    nil->raw = nullptr;
+    nil->size = 0;
+    for (auto &primitive : primitives) {
+        if (index == primitive.index) {
+            if (primitive.f_transfer) {
+                return primitive.f_transfer(m);
+            } else {
+                return nil;
+            }
+        }
+    }
+    return nil;
 }
 
 #endif  // ARDUINO

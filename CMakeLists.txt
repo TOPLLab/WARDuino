@@ -56,6 +56,7 @@ if (BUILD_EMULATOR)
             src/Oop/proxy.cpp
             src/Oop/proxy_supervisor.cpp
             src/Oop/RFC.cpp
+            src/Oop/stateful.cpp
     )
 
     add_definitions(-DINFO=0)
@@ -98,6 +99,7 @@ if (BUILD_UNITTEST)
             src/Oop/proxy.cpp
             src/Oop/proxy_supervisor.cpp
             src/Oop/RFC.cpp
+            src/Oop/stateful.cpp
     )
 
     # Set default compile flags for GCC
