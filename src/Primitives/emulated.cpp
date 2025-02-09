@@ -1,4 +1,6 @@
+#include <complex>
 #include <cstdint>
+
 #include "../Interpreter/instructions.h"
 #ifndef ARDUINO
 
@@ -30,7 +32,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 34
+#define NUM_PRIMITIVES_ARDUINO 36
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -61,20 +63,20 @@ double sensor_emu = 0;
 #define install_primitive_reverse(prim_name)             \
     {                                                    \
         PrimitiveEntry *p = &primitives[prim_index - 1]; \
-        p->f_reverse = &(prim_name##_reverse);           \
-        p->f_serialize_state = &(prim_name##_serialize); \
+        p->f_reverse = &(prim_name## _reverse);           \
+        p->f_serialize_state = &(prim_name## _serialize); \
     }
 
 #define def_prim(function_name, type) \
-    Type function_name##_type = type; \
+    Type function_name## _type = type; \
     bool function_name([[maybe_unused]] Module *m)
 
 #define def_prim_reverse(function_name)     \
-    void function_name##_reverse(Module *m, \
+    void function_name## _reverse(Module *m, \
                                  std::vector<IOStateElement> external_state)
 
 #define def_prim_serialize(function_name) \
-    void function_name##_serialize(       \
+    void function_name## _serialize(       \
         std::vector<IOStateElement *> &external_state)
 
 // TODO: use fp
@@ -633,10 +635,12 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
 }
 
 SDL_Renderer *renderer;
-SDL_Window* window = NULL;
-SDL_Surface* screenSurface = NULL;
+SDL_Window* window = nullptr;
+SDL_Surface* screenSurface = nullptr;
 
-SDL_Texture *texture;
+SDL_Texture *texture = nullptr;
+uint32_t tile_size = 32;
+uint32_t tile_count = 16;
 
 const int w = 16 * 32;
 const int h = 16 * 32;
@@ -666,20 +670,6 @@ def_prim(init_display, NoneToNoneU32) {
         return false;                                                                                  
     }
     
-    SDL_Surface *texSurface = SDL_LoadBMP("/home/maarten/Documents/School/Phd/WARDuinoBuilds/WARDuino-platformer/sprites.bmp");
-    texture = SDL_CreateTextureFromSurface(renderer, texSurface);
-    
-    // Make texture from raw bytes:
-    
-    /*SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
-        pixels,                        // Pointer to the pixel data
-        w, h,     // Width and height of the image
-        8 * 4,                            // Bits per pixel (RGBA = 32)
-        w * 4,               // Pitch (width * 4 bytes per pixel)
-        0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000  // Masks for RGBA
-    );
-    texture = SDL_CreateTextureFromSurface(renderer, surface);*/
-    
     return true;
 }
 
@@ -696,18 +686,47 @@ def_prim(draw_rect, fiveToNoneU32) {
     //printf("(%d, %d) (%d, %d)\n", arg4.int32, arg3.int32, arg2.int32, arg1.int32);
     
     SDL_Rect rect = {arg4.int32, arg3.int32, arg2.int32, arg1.int32}; 
-    SDL_SetRenderDrawColor(renderer, r, g, b, 255);                                       
-    //SDL_RenderDrawRect(renderer, &rect);   
+    SDL_SetRenderDrawColor(renderer, r, g, b, 255);
     SDL_RenderFillRect(renderer, &rect);
     
-    int w = 32;
-    int h = 32;
-    int x = (arg0.uint32 % 16) * w;
-    int y = (arg0.uint32 / 16) * h;
+    pop_args(5);
+    return true;
+}
+
+def_prim(draw_sprite, fiveToNoneU32) {
+    SDL_Rect rect = {arg4.int32, arg3.int32, arg2.int32, arg1.int32};
+    SDL_RenderFillRect(renderer, &rect);
+    uint32_t sprite_id = arg0.uint32;
+    pop_args(5);
+
+    const int w = tile_size;
+    const int h = tile_size;
+    const int x = (sprite_id % tile_count) * w;
+    const int y = (sprite_id / tile_count) * h;
     SDL_Rect src_rect = {x, y, w, h};
     SDL_RenderCopy(renderer, texture, &src_rect, &rect);
-    
-    pop_args(5);
+
+    return true;
+}
+
+def_prim(load_sprite, fourToNoneU32) {
+    const uint32_t addr = arg3.uint32;
+    const uint32_t size = arg2.uint32;
+    tile_size = arg1.uint32;
+    tile_count = arg0.uint32;
+    const std::string filename = parse_utf8_string(m->memory.bytes, size, addr);
+    printf("Loading sprite sheet \"%s\" (tilesize %d, grid of %d x %d tiles)\n", filename.c_str(), tile_size, tile_count, tile_count);
+    pop_args(2);
+
+    SDL_Surface *texSurface = SDL_LoadBMP(filename.c_str());
+    if (!texSurface) {
+        char buffer[100];
+        snprintf(buffer, 100, "Failed to load sprite sheet \"%s\"", filename.c_str());
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to load sprite", buffer, window);
+        FATAL("Failed to load sprite sheet \"%s\"", filename.c_str());
+    }
+    texture = SDL_CreateTextureFromSurface(renderer, texSurface);
+
     return true;
 }
 
@@ -830,6 +849,8 @@ void install_primitives() {
     install_primitive(dispose_display); 
     install_primitive(present_display_buffer);
     install_primitive(draw_rect);
+    install_primitive(draw_sprite);
+    install_primitive(load_sprite);
     install_primitive(draw_raw);
 }
 
