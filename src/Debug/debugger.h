@@ -211,6 +211,8 @@ class Debugger {
 
     bool saveState(Module *m, uint8_t *interruptData);
 
+    void load(uint8_t *bytes, Module* m);
+
     void transfer(Module *m, uint8_t *interruptData);
 
     static uintptr_t readPointer(uint8_t **data);

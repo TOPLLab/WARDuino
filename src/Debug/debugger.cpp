@@ -1125,18 +1125,18 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
     debug("done with first msg\n");
 }
 
-void load(uint8_t *bytes, Module* m) {
-    auto start = read_B32(&bytes);
-    auto limit = read_B32(&bytes);
+void Debugger::load(uint8_t *bytes, Module* m) {
+    auto start = read_B8(&bytes);
+    auto limit = read_B8(&bytes);
     auto total_bytes = limit - start + 1;
+    this->channel->write("loading into %u - %u \n", start, limit);
     memcpy(m->memory.bytes + start, bytes, total_bytes);
 }
 
 void Debugger::transfer(Module *m, uint8_t *interruptData) {
-    uint8_t *cursor = nullptr;
+    uint8_t *cursor = interruptData;
     uint8_t *end = nullptr;
-    cursor = interruptData + 1;  // skip interruptLoadSnapshot
-    uint32_t len = read_B32(&cursor);
+    uint16_t len = read_B16(&cursor);
     end = cursor + len;
 
     while (cursor < end) {

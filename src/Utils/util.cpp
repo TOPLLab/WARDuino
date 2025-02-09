@@ -347,6 +347,13 @@ uint16_t read_B16(uint8_t **bytes) {
     return n;
 }
 
+uint8_t read_B8(uint8_t **bytes) {
+    uint8_t *b = *bytes;
+    uint8_t n = b[0];
+    *bytes += 1;
+    return n;
+}
+
 int read_B32_signed(uint8_t **bytes) {
     uint8_t *b = *bytes;
     int n = (b[0] << 24) + (b[1] << 16) + (b[2] << 8) + b[3];
