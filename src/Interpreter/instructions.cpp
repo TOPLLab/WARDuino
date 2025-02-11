@@ -317,7 +317,7 @@ bool i_instr_call(Module *m) {
 bool i_instr_call_indirect(Module *m) {
     uint32_t tidx = read_LEB_32(&m->pc_ptr);  // TODO: use tidx?
     (void)tidx;
-    read_LEB(&m->pc_ptr, 1);  // reserved immediate
+    read_LEB_32(&m->pc_ptr);  // reserved immediate
     uint32_t val = m->stack[m->sp--].value.uint32;
     if (m->options.mangle_table_index) {
         // val is the table address + the index (not sized for the
