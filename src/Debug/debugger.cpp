@@ -458,11 +458,16 @@ void Debugger::handleSTEPOver(const Module *m, RunningState *program_state) {
     this->skipBreakpoint = m->pc_ptr;
     uint8_t const opcode = *m->pc_ptr;
     if (opcode == 0x10) {  // step over direct call
-        this->mark = m->pc_ptr + 2;
+        uint8_t *ptr_cpy = m->pc_ptr + 1;
+        read_LEB_32(&ptr_cpy);
+        this->mark = m->pc_ptr + (ptr_cpy - m->pc_ptr);
         *program_state = WARDUINOrun;
         // warning: ack will be BP hit
     } else if (opcode == 0x11) {  // step over indirect call
-        this->mark = m->pc_ptr + 3;
+        uint8_t *ptr_cpy = m->pc_ptr + 1;
+        read_LEB_32(&ptr_cpy);
+        read_LEB_32(&ptr_cpy);
+        this->mark = m->pc_ptr + (ptr_cpy - m->pc_ptr);
         *program_state = WARDUINOrun;
     } else {
         // normal step
