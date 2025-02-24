@@ -17,9 +17,9 @@ bool proxy_call(Module *m, uint32_t fidx) {
     if (type->param_count > 0) {
         m->sp -= type->param_count;
         StackValue *args = &m->stack[m->sp + 1];
-        rfc = new RFC(fidx, type, args);
+        rfc = new RFC(m, fidx, type, args);
     } else {
-        rfc = new RFC(fidx, type);
+        rfc = new RFC(m, fidx, type);
     }
 
     if (!supervisor->call(rfc)) {
@@ -282,7 +282,7 @@ bool i_instr_return(Module *m) {
 bool i_instr_call(Module *m) {
     uint32_t fidx = read_LEB_32(&m->pc_ptr);
 
-    if (m->warduino->debugger->isProxied(fidx)) {
+    if (m->warduino->debugger->isProxied(m, fidx)) {
         return proxy_call(m, fidx);
     }
 

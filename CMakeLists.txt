@@ -46,15 +46,16 @@ if (BUILD_EMULATOR)
             src/Primitives/emulated.cpp
             src/Interpreter/instructions.cpp
             src/Interpreter/interpreter.cpp
+            src/Interpreter/proxied.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
             src/Utils/util_arduino.cpp
             src/Utils/macros.cpp
             src/Utils/sockets.cpp
             src/Debug/debugger.cpp
-            src/Edward/proxy.cpp
-            src/Edward/proxy_supervisor.cpp
-            src/Edward/RFC.cpp
+            src/Oop/proxy.cpp
+            src/Oop/proxy_supervisor.cpp
+            src/Oop/RFC.cpp
     )
 
     add_definitions(-DINFO=0)
@@ -87,15 +88,16 @@ if (BUILD_UNITTEST)
             src/Primitives/emulated.cpp
             src/Interpreter/instructions.cpp
             src/Interpreter/interpreter.cpp
+            src/Interpreter/proxied.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
             src/Utils/util_arduino.cpp
             src/Utils/macros.cpp
             src/Utils/sockets.cpp
             src/Debug/debugger.cpp
-            src/Edward/proxy.cpp
-            src/Edward/proxy_supervisor.cpp
-            src/Edward/RFC.cpp
+            src/Oop/proxy.cpp
+            src/Oop/proxy_supervisor.cpp
+            src/Oop/RFC.cpp
     )
 
     # Set default compile flags for GCC

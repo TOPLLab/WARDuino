@@ -10,6 +10,7 @@
 #include "../../lib/json/single_include/nlohmann/json.hpp"
 #endif
 
+#include "../Interpreter/proxied.h"
 #include "../Memory/mem.h"
 #include "../Primitives/primitives.h"
 #include "../Utils//util.h"
@@ -311,6 +312,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 this->channel->write("%s!\n", receivingData ? "ack" : "done");
             }
             break;
+        case interruptTransfer:
+            this->transfer(m, interruptData);
+            free(interruptData);
+            this->channel->write("Transferred!\n");
+            break;
         case interruptProxyCall: {
             this->handleProxyCall(m, program_state, interruptData + 1);
             free(interruptData);
@@ -360,6 +366,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptUnsetOverridePinValue:
             this->removeOverride(m, interruptData + 1);
+            free(interruptData);
+            break;
+        case interruptStore:
+            this->receiveStore(m, interruptData + 1);
             free(interruptData);
             break;
         default:
@@ -449,12 +459,12 @@ void Debugger::handleInterruptRUN(const Module *m,
     *program_state = WARDUINOrun;
 }
 
-void Debugger::handleSTEP(const Module *m, RunningState *program_state) {
+void Debugger::handleSTEP(Module *m, RunningState *program_state) {
     *program_state = WARDUINOstep;
     this->skipBreakpoint = m->pc_ptr;
 }
 
-void Debugger::handleSTEPOver(const Module *m, RunningState *program_state) {
+void Debugger::handleSTEPOver(Module *m, RunningState *program_state) {
     this->skipBreakpoint = m->pc_ptr;
     uint8_t const opcode = *m->pc_ptr;
     if (opcode == 0x10) {  // step over direct call
@@ -1115,6 +1125,31 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
     debug("done with first msg\n");
 }
 
+void load(uint8_t *bytes, Module* m) {
+    auto start = read_B32(&bytes);
+    auto limit = read_B32(&bytes);
+    auto total_bytes = limit - start + 1;
+    memcpy(m->memory.bytes + start, bytes, total_bytes);
+}
+
+void Debugger::transfer(Module *m, uint8_t *interruptData) {
+    uint8_t *cursor = nullptr;
+    uint8_t *end = nullptr;
+    cursor = interruptData + 1;  // skip interruptLoadSnapshot
+    uint32_t len = read_B32(&cursor);
+    end = cursor + len;
+
+    while (cursor < end) {
+        switch (*cursor++) {
+            case memoryState:
+                load(cursor, m);
+            default: {
+                debug("do nothing\n");
+            }
+        }
+    }
+}
+
 bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     uint8_t *program_state = nullptr;
     uint8_t *end_state = nullptr;
@@ -1413,6 +1448,8 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
 
 void Debugger::proxify() {
     WARDuino::instance()->program_state = PROXYhalt;
+    delete WARDuino::instance()->interpreter;
+    WARDuino::instance()->interpreter = new Proxied();
     this->proxy = new Proxy();  // TODO delete
 }
 
@@ -1431,7 +1468,7 @@ void Debugger::handleProxyCall(Module *m, RunningState *,
     StackValue *args = Proxy::readRFCArgs(func, data);
     dbg_trace("Enqueuing callee %" PRIu32 "\n", func->fidx);
 
-    auto *rfc = new RFC(fidx, func->type, args);
+    auto *rfc = new RFC(m, fidx, func->type, args);
     this->proxy->pushRFC(m, rfc);
 }
 
@@ -1451,8 +1488,8 @@ void Debugger::sendProxyCallResult(Module *m) const {
 
 bool Debugger::isProxy() const { return this->proxy != nullptr; }
 
-bool Debugger::isProxied(const uint32_t fidx) const {
-    return this->supervisor != nullptr && this->supervisor->isProxied(fidx);
+bool Debugger::isProxied(Module *m, const uint32_t fidx) const {
+    return this->supervisor != nullptr && fidx < m->import_count;
 }
 
 void Debugger::handleMonitorProxies(const Module *m,
@@ -1498,6 +1535,15 @@ void Debugger::updateCallbackmapping(Module *m, const char *interruptData) {
                 Callback(m, callback.key(), functions.value()));
         }
     }
+}
+
+void Debugger::receiveStore(Module *m, uint8_t *interruptData) {
+    uint8_t *pos = interruptData;
+    uint32_t addr = read_LEB_32(&pos);
+    auto *sval = (StackValue *)malloc(sizeof(struct StackValue));
+    deserialiseStackValue(pos, true, sval);
+    m->warduino->interpreter->store(m, sval->value_type, addr, *sval);
+    free(sval);
 }
 
 // Stop the debugger

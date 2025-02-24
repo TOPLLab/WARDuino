@@ -11,8 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../Edward/proxy.h"
-#include "../Edward/proxy_supervisor.h"
+#include "../Oop/proxy.h"
 #include "../Threading/warduino-thread.h"
 #include "../Utils/sockets.h"
 
@@ -77,6 +76,9 @@ enum InterruptTypes {
     // Remote REPL
     interruptINVOKE = 0x40,
 
+    // Stateful out-of-place
+    interruptTransfer = 0x52,
+
     // Pull Debugging
     interruptSnapshot = 0x60,
     interruptSetSnapshotPolicy = 0x61,
@@ -99,7 +101,6 @@ enum InterruptTypes {
 
     // Operations
     interruptStore = 0xa0,
-    interruptStored = 0xa1,
 };
 
 enum class SnapshotPolicy : int {
@@ -108,6 +109,8 @@ enum class SnapshotPolicy : int {
     checkpointing,       // Take a snapshot every x instructions or at specific
                          // points where primitives are used.
 };
+
+class ProxySupervisor;
 
 class Debugger {
    private:
@@ -159,9 +162,9 @@ class Debugger {
 
     void handleInterruptRUN(const Module *m, RunningState *program_state);
 
-    void handleSTEP(const Module *m, RunningState *program_state);
+    void handleSTEP(Module *m, RunningState *program_state);
 
-    void handleSTEPOver(const Module *m, RunningState *program_state);
+    void handleSTEPOver(Module *m, RunningState *program_state);
 
     void handleInterruptBP(Module *m, uint8_t *interruptData);
 
@@ -208,11 +211,13 @@ class Debugger {
 
     bool saveState(Module *m, uint8_t *interruptData);
 
+    void transfer(Module *m, uint8_t *interruptData);
+
     static uintptr_t readPointer(uint8_t **data);
 
     static void updateCallbackmapping(Module *m, const char *interruptData);
 
-    bool operation(Module *m, operation op);
+    void receiveStore(Module *m, uint8_t *interruptData);
 
    public:
     // Public fields
@@ -283,7 +288,7 @@ class Debugger {
 
     bool isProxy() const;
 
-    bool isProxied(uint32_t fidx) const;
+    bool isProxied(Module *m, uint32_t fidx) const;
 
     void startProxySupervisor(Channel *socket);
 
