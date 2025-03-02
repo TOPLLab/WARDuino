@@ -9,5 +9,6 @@ char *sync_memory(Module *m, uint32_t start, uint32_t end) {
     sprintf(buffer, "%02" PRIx8 "%02" PRIx8 "%02" PRIx8, memoryState, start, end);
     slebf(buffer + 6, m->bytes + start, len, "\n");
 
+    printf("syncing memory\n");
     return buffer;
 }

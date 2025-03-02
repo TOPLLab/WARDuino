@@ -199,8 +199,9 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
     message->size = hexa_size + 1;
     message->raw = hexa;
 
-    auto transfer = get_transfer(callee->m, callee->fidx);
+    auto transfer = get_backward(callee->m, callee->fidx);
     this->channel->write(transfer.c_str());
+
     return message;
 }
 
@@ -262,10 +263,10 @@ bool ProxySupervisor::call(RFC *callee) {
     }
     // Fetch new callback mapping
     // convert message to hex TODO: move to proxyserver
-    char cmdBuffer[10] = "";
-    int cmdBufferLen = 0;
-    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
-    this->send(cmdBuffer, cmdBufferLen);
+//    char cmdBuffer[10] = "";
+//    int cmdBufferLen = 0;
+//    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
+//    this->send(cmdBuffer, cmdBufferLen);
     this->deserializeRFCResult(callee);
     printf("end of supervisor::call(rfc)\n");
     return true;

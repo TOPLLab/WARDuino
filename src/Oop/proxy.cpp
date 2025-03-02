@@ -7,6 +7,7 @@
 #include <map>
 
 #include "../Interpreter/instructions.h"
+#include "../Primitives/primitives.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 
@@ -50,6 +51,13 @@ RFC *Proxy::topRFC() { return this->calls->top(); }
 
 void Proxy::returnResult(Module *m) {
     RFC *rfc = this->calls->top();
+
+    // first transfer state
+    auto transfer = get_forward(m, rfc->fidx);
+    WARDuino::instance()->debugger->channel->write(transfer.c_str());
+    printf("send transfer\n");
+
+    // return result
 
     // remove call from lifo queue
     this->calls->pop();

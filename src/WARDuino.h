@@ -75,7 +75,8 @@ typedef struct PrimitiveEntry {
     Primitive f;
     void (*f_reverse)(Module *m, std::vector<IOStateElement>);
     void (*f_serialize_state)(std::vector<IOStateElement *> &);
-    char *(*f_transfer)(Module *m);
+    char *(*f_forward)(Module *m);
+    char *(*f_backward)(Module *m);
     Type *t;
 } PrimitiveEntry;
 
