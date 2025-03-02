@@ -11,7 +11,7 @@ SerializeData *merge(SerializeData a, SerializeData b, bool divide) {
     auto padding = divide ? 2 : 1;
     data->size = a.size + b.size + padding;
 //    size_t lengte = a.size + b.size + padding;
-    data->raw = new unsigned char[data->size]; //(unsigned char *)calloc(data->size, sizeof(char));
+    data->raw = new char[data->size]; //(unsigned char *)calloc(data->size, sizeof(char));
     if (divide) {
         *(data->raw + a.size) = '\n';
         *(data->raw + a.size + b.size + 1) = '\n';
@@ -34,7 +34,7 @@ struct SerializeData* mergeSerializeData(struct SerializeData data1, struct Seri
 
     uint32_t extra = divide ? 1 : 0;
     result->size = data1.size + data2.size + extra;
-    result->raw = static_cast<unsigned char *>(malloc(result->size));
+    result->raw = static_cast<char *>(malloc(result->size));
     if (result->raw == NULL) {
         free(result);
         return NULL; // Memory allocation failure

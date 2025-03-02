@@ -1137,7 +1137,7 @@ void Debugger::load(uint8_t *bytes, Module *m) {
 void Debugger::transfer(Module *m, uint8_t *interruptData) {
     uint8_t *cursor = interruptData;
     uint8_t *end = nullptr;
-    uint16_t len = read_B16(&cursor);
+    uint16_t len = read_B16(&(++cursor));
     end = cursor + len;
 
     while (cursor < end) {

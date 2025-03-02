@@ -84,7 +84,7 @@ double sensor_emu = 0;
         std::vector<IOStateElement *> &external_state)
 
 #define def_prim_transfer(function_name) \
-    SerializeData &function_name##_transfer([[maybe_unused]] Module *m)
+    char *function_name##_transfer([[maybe_unused]] Module *m)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
@@ -666,23 +666,25 @@ std::vector<IOStateElement *> get_io_state(Module *) {
     return ioState;
 }
 
-SerializeData *get_transfer(Module *m, uint32_t index) {
-    SerializeData *nil = new SerializeData;
-    SerializeData header = {.raw = (unsigned char *)"52", .size = 2};
-    nil->raw = nullptr;
-    nil->size = 0;
+std::string get_transfer(Module *m, uint32_t index) {
+    std::stringstream transfer;
+    auto *buffer = new char[6];
+    sprintf(buffer, "%02" PRIx8 "00%02" PRIx8, interruptTransfer, 1);
+    transfer << std::string(buffer);
+    delete[] buffer;
+
     if (index < ALL_PRIMITIVES) {
         auto &primitive = primitives[index];
         printf("transfering for %s", primitive.name);
         if (primitive.f_transfer) {
             m->sp += primitive.t->param_count;
-            SerializeData &payload = primitive.f_transfer(m);
+            auto data = primitive.f_transfer(m);
+            transfer << std::string(data);
+            free(data);
             m->sp -= primitive.t->param_count;
-            nil = merge(header, payload, false);
         }
-        return nil;
     }
-    return nil;
+    return transfer.str();
 }
 
 #endif  // ARDUINO

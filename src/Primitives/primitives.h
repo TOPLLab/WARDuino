@@ -81,6 +81,6 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     primitive(m);
 }
 
-SerializeData *get_transfer(Module *m, uint32_t index);
+std::string get_transfer(Module *m, uint32_t index);
 
 #endif

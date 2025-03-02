@@ -7,7 +7,7 @@ struct StackValue;
 struct Type;
 
 struct SerializeData {
-    unsigned char *raw;
+    char *raw;
     uint32_t size;
 };
 

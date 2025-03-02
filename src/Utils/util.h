@@ -21,6 +21,10 @@ uint64_t size_leb(uint64_t val);
 
 uint8_t *write_LEB(uint32_t value);
 
+int slebf(char *dest, uint8_t *source, const int size, const char *end = "");
+
+uint32_t write_LEB_(uint8_t *dest, uint64_t val);
+
 /**
  * Write a Little endian base value.
  * see: https://en.wikipedia.org/wiki/LEB128
@@ -32,7 +36,7 @@ uint8_t *write_LEB(uint32_t value);
  * @param sign Whether the value should be sign-extended.
  * @return The number of bytes written.
  */
-uint64_t write_LEB_(uint64_t value, uint8_t *buff, uint32_t size, uint32_t bits,
+uint64_t write_LEB_s(uint64_t value, uint8_t *buff, uint32_t size, uint32_t bits,
                     bool sign);
 
 uint64_t write_LEB_32(uint32_t value, uint8_t *buff, uint32_t size);
@@ -124,8 +128,7 @@ uint16_t read_B16(uint8_t **bytes);
 uint8_t read_B8(uint8_t **bytes);
 int read_B32_signed(uint8_t **bytes);
 uint32_t read_L32(uint8_t **bytes);
-void chars_as_hexa(unsigned char *dest, unsigned char *source,
-                   uint32_t len_source);
+void chars_as_hexa(char *dest, unsigned char *source, uint32_t len_source);
 
 unsigned short int sizeof_valuetype(uint32_t);
 

@@ -2,4 +2,4 @@
 
 #include "../WARDuino.h"
 
-SerializeData &sync_memory(Module *m, uint32_t start, uint32_t end);
+char *sync_memory(Module *m, uint32_t start, uint32_t end);

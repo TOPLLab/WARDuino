@@ -189,7 +189,7 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
     // array as hexa
     const uint32_t hexa_size = serializationSize * 2;
     auto *hexa =
-        new unsigned char[hexa_size + 2];  //+2 for '\n' and '0' termination
+        new char[hexa_size + 2];  //+2 for '\n' and '0' termination
     chars_as_hexa(hexa, buffer, serializationSize);
     hexa[hexa_size] = '\n';
     hexa[hexa_size + 1] = '\0';  // TODO remove zero termination and +2 above
@@ -199,10 +199,8 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
     message->size = hexa_size + 1;
     message->raw = hexa;
 
-    auto *transfer = get_transfer(callee->m, callee->fidx);
-    this->send(transfer->raw, transfer->size);
-
-    free(transfer);
+    auto transfer = get_transfer(callee->m, callee->fidx);
+    this->channel->write(transfer.c_str());
     return message;
 }
 
