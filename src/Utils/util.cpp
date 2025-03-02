@@ -125,7 +125,7 @@ uint64_t read_LEB_(uint8_t **pos, uint32_t maxbits, bool sign) {
     uint64_t byte;
 
     while (true) {
-        byte = (uint64_t) * *pos;
+        byte = (uint64_t)**pos;
         *pos += 1;
         result |= ((byte & 0x7fu) << shift);
         shift += 7;

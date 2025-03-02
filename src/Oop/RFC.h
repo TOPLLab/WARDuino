@@ -11,9 +11,11 @@ struct SerializeData {
     uint32_t size;
 };
 
-SerializeData *merge(SerializeData a, SerializeData b);
+SerializeData *merge(SerializeData a, SerializeData b, bool divide=true);
 
-class RFC {
+struct SerializeData *mergeSerializeData(struct SerializeData data1, struct SerializeData data2, bool divide=true);
+
+    class RFC {
    public:
     Module *m;
     const uint32_t fidx;

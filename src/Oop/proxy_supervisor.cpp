@@ -86,7 +86,7 @@ void ProxySupervisor::listenToSocket() {
         if (readAmount > 0) {
             try {
                 nlohmann::basic_json<> parsed = nlohmann::json::parse(message);
-                debug("parseJSON: %s\n", parsed.dump().c_str());
+                printf("parseJSON: %s\n", parsed.dump().c_str());
 
                 if (isEvent(parsed)) {
                     CallbackHandler::push_event(new Event(
@@ -100,6 +100,7 @@ void ProxySupervisor::listenToSocket() {
                 }
             } catch (const nlohmann::detail::parse_error &e) {
                 printf("Non RFC call: %s", message);
+                printf("error: %s", e.what());
                 WARDuino::instance()->handleInterrupt(readAmount, message);
             }
         }
@@ -118,6 +119,7 @@ nlohmann::basic_json<> ProxySupervisor::readReply(RFC *rfc) {
             rfc->m, &WARDuino::instance()->program_state);
     }
     WARDuino::instance()->debugger->channel->write("read reply: succeeded\n");
+    printf("read reply: succeeded\n");
     this->hasReplied = false;
     return this->proxyResult;
 }
@@ -193,14 +195,13 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
     hexa[hexa_size + 1] = '\0';  // TODO remove zero termination and +2 above
 
     delete[] buffer;
-    auto *ser = new SerializeData;
-    ser->size = hexa_size + 1;
-    ser->raw = hexa;
+    auto *message = new SerializeData;
+    message->size = hexa_size + 1;
+    message->raw = hexa;
 
     auto *transfer = get_transfer(callee->m, callee->fidx);
-    auto *message = merge(*transfer, *ser);
+    this->send(transfer->raw, transfer->size);
 
-    delete ser;
     free(transfer);
     return message;
 }
@@ -248,8 +249,10 @@ void ProxySupervisor::deserializeRFCResult(RFC *rfc) {
 }
 
 bool ProxySupervisor::call(RFC *callee) {
+    printf("serializing RFC\n");
     struct SerializeData *rfc_request = this->serializeRFC(callee);
 
+    printf("sending to proxy: %s ...", static_cast<const char *>((void *)rfc_request->raw));
     bool sent = this->send((void *)rfc_request->raw, rfc_request->size);
     if (!sent) {
         callee->success = false;
@@ -266,6 +269,7 @@ bool ProxySupervisor::call(RFC *callee) {
     sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
     this->send(cmdBuffer, cmdBufferLen);
     this->deserializeRFCResult(callee);
+    printf("end of supervisor::call(rfc)\n");
     return true;
 }
 

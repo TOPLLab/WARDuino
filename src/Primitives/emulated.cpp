@@ -40,20 +40,22 @@ double sensor_emu = 0;
 /*
    Private macros to install a primitive
 */
-#define install_primitive(prim_name)                                       \
-    {                                                                      \
+#define install_primitive(prim_name)                                     \
+    {                                                                    \
         dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-                 prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
-        if (prim_index < ALL_PRIMITIVES) {                                 \
-            PrimitiveEntry *p = &primitives[prim_index++];                 \
-            p->name = #prim_name;                                          \
-            p->index = prim_index - 1;                                     \
-            p->f = &(prim_name);                                           \
-            p->f_reverse = nullptr;                                        \
-            p->f_serialize_state = nullptr;                                \
-        } else {                                                           \
-            FATAL("prim_index out of bounds");                             \
-        }                                                                  \
+               prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
+        if (prim_index < ALL_PRIMITIVES) {                               \
+            PrimitiveEntry *p = &primitives[prim_index++];               \
+            p->name = #prim_name;                                        \
+            p->t = &(prim_name##_type);                                  \
+            p->index = prim_index - 1;                                   \
+            p->f = &(prim_name);                                         \
+            p->f_reverse = nullptr;                                      \
+            p->f_serialize_state = nullptr;                              \
+            p->f_transfer = nullptr;                                     \
+        } else {                                                         \
+            FATAL("prim_index out of bounds");                           \
+        }                                                                \
     }
 
 #define install_primitive_reverse(prim_name)             \
@@ -61,6 +63,12 @@ double sensor_emu = 0;
         PrimitiveEntry *p = &primitives[prim_index - 1]; \
         p->f_reverse = &(prim_name##_reverse);           \
         p->f_serialize_state = &(prim_name##_serialize); \
+    }
+
+#define install_primitive_transfer(prim_name)                                \
+    {                                                                        \
+        PrimitiveEntry *p = &primitives[prim_index - 1];                     \
+        p->f_transfer = &(prim_name##_transfer);                             \
     }
 
 #define def_prim(function_name, type) \
@@ -538,6 +546,7 @@ void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(dummy);
+    install_primitive_transfer(dummy);
 
     install_primitive(abort);
     install_primitive(millis);
@@ -659,16 +668,19 @@ std::vector<IOStateElement *> get_io_state(Module *) {
 
 SerializeData *get_transfer(Module *m, uint32_t index) {
     SerializeData *nil = new SerializeData;
+    SerializeData header = {.raw = (unsigned char *)"52", .size = 2};
     nil->raw = nullptr;
     nil->size = 0;
-    for (auto &primitive : primitives) {
-        if (index == primitive.index) {
-            if (primitive.f_transfer) {
-                return primitive.f_transfer(m);
-            } else {
-                return nil;
-            }
+    if (index < ALL_PRIMITIVES) {
+        auto &primitive = primitives[index];
+        printf("transfering for %s", primitive.name);
+        if (primitive.f_transfer) {
+            m->sp += primitive.t->param_count;
+            SerializeData &payload = primitive.f_transfer(m);
+            m->sp -= primitive.t->param_count;
+            nil = merge(header, payload, false);
         }
+        return nil;
     }
     return nil;
 }

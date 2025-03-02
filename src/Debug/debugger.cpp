@@ -180,6 +180,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
     debug("received interrupt %x\n", *interruptData);
     fflush(stdout);
 
+    printf("Interrupt: %x\n", *interruptData);
     this->channel->write("Interrupt: %x\n", *interruptData);
 
     long start = 0, size = 0;
@@ -1125,7 +1126,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
     debug("done with first msg\n");
 }
 
-void Debugger::load(uint8_t *bytes, Module* m) {
+void Debugger::load(uint8_t *bytes, Module *m) {
     auto start = read_B8(&bytes);
     auto limit = read_B8(&bytes);
     auto total_bytes = limit - start + 1;
@@ -1451,6 +1452,7 @@ void Debugger::proxify() {
     delete WARDuino::instance()->interpreter;
     WARDuino::instance()->interpreter = new Proxied();
     this->proxy = new Proxy();  // TODO delete
+    this->channel->write("PROXIED!\n");
 }
 
 void Debugger::handleProxyCall(Module *m, RunningState *,
@@ -1691,6 +1693,7 @@ void Debugger::notifyCompleteStep(Module *m) const {
         m->warduino->debugger->checkpoint(m);
     }
     this->channel->write("STEP!\n");
+    printf("STEP!\n");
 }
 
 Debugger::~Debugger() {
