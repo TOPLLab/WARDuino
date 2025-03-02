@@ -52,7 +52,8 @@ double sensor_emu = 0;
             p->f = &(prim_name);                                         \
             p->f_reverse = nullptr;                                      \
             p->f_serialize_state = nullptr;                              \
-            p->f_transfer = nullptr;                                     \
+            p->f_backward = nullptr;                                     \
+            p->f_forward = nullptr;                                     \
         } else {                                                         \
             FATAL("prim_index out of bounds");                           \
         }                                                                \
@@ -65,10 +66,16 @@ double sensor_emu = 0;
         p->f_serialize_state = &(prim_name##_serialize); \
     }
 
-#define install_primitive_transfer(prim_name)                                \
+#define install_primitive_backward(prim_name)                                \
     {                                                                        \
         PrimitiveEntry *p = &primitives[prim_index - 1];                     \
-        p->f_transfer = &(prim_name##_transfer);                             \
+        p->f_backward = &(prim_name##_backward);                             \
+    }
+
+#define install_primitive_forward(prim_name)                                \
+    {                                                                        \
+        PrimitiveEntry *p = &primitives[prim_index - 1];                     \
+        p->f_forward = &(prim_name##_forward);                             \
     }
 
 #define def_prim(function_name, type) \
@@ -83,8 +90,11 @@ double sensor_emu = 0;
     void function_name##_serialize(       \
         std::vector<IOStateElement *> &external_state)
 
-#define def_prim_transfer(function_name) \
-    char *function_name##_transfer([[maybe_unused]] Module *m)
+#define def_prim_backward(function_name) \
+    char *function_name##_backward([[maybe_unused]] Module *m)
+
+#define def_prim_forward(function_name) \
+    char *function_name##_forward([[maybe_unused]] Module *m)
 
 // TODO: use fp
 #define pop_args(n) m->sp -= n
@@ -258,6 +268,7 @@ def_prim(abort, NoneToNoneU32) {
 }
 
 def_prim(dummy, twoToOneU32) {
+    printf("dummy \n");
     uint32_t a = arg1.uint32;
     uint32_t b = arg0.uint32;
     StackValue val = {I32, {42}};
@@ -269,7 +280,8 @@ def_prim(dummy, twoToOneU32) {
     return true;
 }
 
-def_prim_transfer(dummy) {
+def_prim_forward(dummy) {
+    printf("giving transfer \n");
     uint32_t start = arg1.uint32;
     uint32_t end = arg0.uint32;
     return sync_memory(m, start, end);
@@ -546,7 +558,7 @@ void install_primitives() {
     dbg_info("INSTALLING PRIMITIVES\n");
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(dummy);
-    install_primitive_transfer(dummy);
+    install_primitive_forward(dummy);
 
     install_primitive(abort);
     install_primitive(millis);
@@ -666,7 +678,7 @@ std::vector<IOStateElement *> get_io_state(Module *) {
     return ioState;
 }
 
-std::string get_transfer(Module *m, uint32_t index) {
+std::string get_backward(Module *m, uint32_t index) {
     std::stringstream transfer;
     auto *buffer = new char[6];
     sprintf(buffer, "%02" PRIx8 "00%02" PRIx8, interruptTransfer, 1);
@@ -676,14 +688,40 @@ std::string get_transfer(Module *m, uint32_t index) {
     if (index < ALL_PRIMITIVES) {
         auto &primitive = primitives[index];
         printf("transfering for %s", primitive.name);
-        if (primitive.f_transfer) {
+        if (primitive.f_backward) {
             m->sp += primitive.t->param_count;
-            auto data = primitive.f_transfer(m);
+            auto data = primitive.f_backward(m);
             transfer << std::string(data);
             free(data);
             m->sp -= primitive.t->param_count;
         }
     }
+    return transfer.str();
+}
+
+// todo eliminate duplicate code
+//      fix length at start of 52 message
+//      send nothing if length is 0
+
+std::string get_forward(Module *m, uint32_t index) {
+    std::stringstream transfer;
+    auto *buffer = new char[6];
+    sprintf(buffer, "%02" PRIx8 "00%02" PRIx8, interruptTransfer, 1);
+    transfer << std::string(buffer);
+    delete[] buffer;
+
+    if (index < ALL_PRIMITIVES) {
+        auto &primitive = primitives[index];
+        printf("transfering for %s", primitive.name);
+        if (primitive.f_forward) {
+            m->sp++;
+            auto data = primitive.f_forward(m);
+            transfer << std::string(data);
+            free(data);
+            m->sp--;
+        }
+    }
+    printf("transfer built\n");
     return transfer.str();
 }
 
