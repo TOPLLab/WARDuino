@@ -281,10 +281,20 @@ def_prim(dummy, twoToOneU32) {
 }
 
 def_prim_forward(dummy) {
-    printf("giving transfer \n");
-    uint32_t start = arg1.uint32;
-    uint32_t end = arg0.uint32;
-    return sync_memory(m, start, end);
+    printf("dummy \n");
+    uint32_t a = arg1.uint32;
+    uint32_t b = arg0.uint32;
+    StackValue val = {I32, {42}};
+    for (int i = 0; a + i < b; i += 4) {
+        m->warduino->interpreter->store(m, I32, a + i, val);
+    }
+
+    printf("transfering state changes\n");
+    auto transfer = sync_memory(m, a, b);
+
+    pop_args(2);
+    pushUInt32(b - a);
+    return transfer;
 }
 
 def_prim(millis, NoneToOneU64) {
@@ -703,26 +713,21 @@ std::string get_backward(Module *m, uint32_t index) {
 //      fix length at start of 52 message
 //      send nothing if length is 0
 
-std::string get_forward(Module *m, uint32_t index) {
-    std::stringstream transfer;
-    auto *buffer = new char[6];
-    sprintf(buffer, "%02" PRIx8 "00%02" PRIx8, interruptTransfer, 1);
-    transfer << std::string(buffer);
-    delete[] buffer;
-
+bool do_forward(Module *m, uint32_t index) {
     if (index < ALL_PRIMITIVES) {
         auto &primitive = primitives[index];
         printf("transfering for %s", primitive.name);
         if (primitive.f_forward) {
-            m->sp++;
             auto data = primitive.f_forward(m);
-            transfer << std::string(data);
+            printf("transfer built\n");
+            WARDuino::instance()->debugger->channel->write("%02" PRIx8 "00%02" PRIx8 "%s", interruptTransfer, 1, data);
             free(data);
-            m->sp--;
         }
+    } else {
+        return false;
     }
-    printf("transfer built\n");
-    return transfer.str();
+
+    return true;
 }
 
 #endif  // ARDUINO

@@ -31,8 +31,12 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
     this->setupCalleeArgs(m, rfc);
 
     if (rfc->fidx < m->import_count) {
-        // execute primitives directly
-        ((Primitive)m->functions[rfc->fidx].func_ptr)(m);
+        // try with forward state transfer
+        if (!do_forward(m, rfc->fidx)) {
+            // on fail: execute primitives directly
+            ((Primitive)m->functions[rfc->fidx].func_ptr)(m);
+        }
+
         // send result directly
         m->warduino->program_state = PROXYhalt;
         m->warduino->debugger->sendProxyCallResult(m);
@@ -51,11 +55,6 @@ RFC *Proxy::topRFC() { return this->calls->top(); }
 
 void Proxy::returnResult(Module *m) {
     RFC *rfc = this->calls->top();
-
-    // first transfer state
-    auto transfer = get_forward(m, rfc->fidx);
-    WARDuino::instance()->debugger->channel->write(transfer.c_str());
-    printf("send transfer\n");
 
     // return result
 

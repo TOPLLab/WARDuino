@@ -1452,7 +1452,9 @@ void Debugger::proxify() {
     delete WARDuino::instance()->interpreter;
     WARDuino::instance()->interpreter = new Proxied();
     this->proxy = new Proxy();  // TODO delete
-    this->channel->write("PROXIED!\n");
+    if (this->channel) {
+        this->channel->write("PROXIED!\n");
+    }
 }
 
 void Debugger::handleProxyCall(Module *m, RunningState *,
