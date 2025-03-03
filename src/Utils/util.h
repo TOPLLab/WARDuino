@@ -36,8 +36,8 @@ uint32_t write_LEB_(uint8_t *dest, uint64_t val);
  * @param sign Whether the value should be sign-extended.
  * @return The number of bytes written.
  */
-uint64_t write_LEB_s(uint64_t value, uint8_t *buff, uint32_t size, uint32_t bits,
-                    bool sign);
+uint64_t write_LEB_s(uint64_t value, uint8_t *buff, uint32_t size,
+                     uint32_t bits, bool sign);
 
 uint64_t write_LEB_32(uint32_t value, uint8_t *buff, uint32_t size);
 

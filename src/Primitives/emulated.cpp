@@ -40,23 +40,23 @@ double sensor_emu = 0;
 /*
    Private macros to install a primitive
 */
-#define install_primitive(prim_name)                                     \
-    {                                                                    \
+#define install_primitive(prim_name)                                       \
+    {                                                                      \
         dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-               prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
-        if (prim_index < ALL_PRIMITIVES) {                               \
-            PrimitiveEntry *p = &primitives[prim_index++];               \
-            p->name = #prim_name;                                        \
-            p->t = &(prim_name##_type);                                  \
-            p->index = prim_index - 1;                                   \
-            p->f = &(prim_name);                                         \
-            p->f_reverse = nullptr;                                      \
-            p->f_serialize_state = nullptr;                              \
-            p->f_backward = nullptr;                                     \
-            p->f_forward = nullptr;                                     \
-        } else {                                                         \
-            FATAL("prim_index out of bounds");                           \
-        }                                                                \
+                 prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
+        if (prim_index < ALL_PRIMITIVES) {                                 \
+            PrimitiveEntry *p = &primitives[prim_index++];                 \
+            p->name = #prim_name;                                          \
+            p->t = &(prim_name##_type);                                    \
+            p->index = prim_index - 1;                                     \
+            p->f = &(prim_name);                                           \
+            p->f_reverse = nullptr;                                        \
+            p->f_serialize_state = nullptr;                                \
+            p->f_backward = nullptr;                                       \
+            p->f_forward = nullptr;                                        \
+        } else {                                                           \
+            FATAL("prim_index out of bounds");                             \
+        }                                                                  \
     }
 
 #define install_primitive_reverse(prim_name)             \
@@ -66,16 +66,16 @@ double sensor_emu = 0;
         p->f_serialize_state = &(prim_name##_serialize); \
     }
 
-#define install_primitive_backward(prim_name)                                \
-    {                                                                        \
-        PrimitiveEntry *p = &primitives[prim_index - 1];                     \
-        p->f_backward = &(prim_name##_backward);                             \
+#define install_primitive_backward(prim_name)            \
+    {                                                    \
+        PrimitiveEntry *p = &primitives[prim_index - 1]; \
+        p->f_backward = &(prim_name##_backward);         \
     }
 
-#define install_primitive_forward(prim_name)                                \
-    {                                                                        \
-        PrimitiveEntry *p = &primitives[prim_index - 1];                     \
-        p->f_forward = &(prim_name##_forward);                             \
+#define install_primitive_forward(prim_name)             \
+    {                                                    \
+        PrimitiveEntry *p = &primitives[prim_index - 1]; \
+        p->f_forward = &(prim_name##_forward);           \
     }
 
 #define def_prim(function_name, type) \
@@ -720,7 +720,8 @@ bool do_forward(Module *m, uint32_t index) {
         if (primitive.f_forward) {
             auto data = primitive.f_forward(m);
             printf("transfer built\n");
-            WARDuino::instance()->debugger->channel->write("%02" PRIx8 "00%02" PRIx8 "%s", interruptTransfer, 1, data);
+            WARDuino::instance()->debugger->channel->write(
+                "%02" PRIx8 "00%02" PRIx8 "%s", interruptTransfer, 1, data);
             free(data);
         }
     } else {

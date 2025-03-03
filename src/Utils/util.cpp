@@ -96,8 +96,8 @@ uint32_t write_LEB_signed(uint8_t *dest, uint64_t val, uint64_t bits) {
     return count;
 }
 
-uint64_t write_LEB_s(uint64_t value, uint8_t *buff, uint32_t size, uint32_t bits,
-                    bool sign) {
+uint64_t write_LEB_s(uint64_t value, uint8_t *buff, uint32_t size,
+                     uint32_t bits, bool sign) {
     if (size_leb(value) > size) {
         return 0;
     }
@@ -369,7 +369,7 @@ uint32_t read_L32(uint8_t **bytes) {
     return n;
 }  // TODO replace with read_LEB_32? If keep Big endian use memcpy?
 
-int     slebf(char *dest, uint8_t *source, const int size, const char *end) {
+int slebf(char *dest, uint8_t *source, const int size, const char *end) {
     char *cursor = dest;
     for (int i = 0; i < size; i++) {
         sprintf(cursor, "%02" PRIx8, source[i]);
@@ -379,8 +379,7 @@ int     slebf(char *dest, uint8_t *source, const int size, const char *end) {
     return size;
 }
 
-void chars_as_hexa(char *dest, unsigned char *source,
-                   uint32_t len_source) {
+void chars_as_hexa(char *dest, unsigned char *source, uint32_t len_source) {
     for (uint32_t i = 0; i < len_source; i++) {
         unsigned c = source[i] >> 4;
         unsigned c2 = source[i] & 0xF;

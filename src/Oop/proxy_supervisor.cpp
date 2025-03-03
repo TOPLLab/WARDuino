@@ -188,8 +188,7 @@ struct SerializeData *ProxySupervisor::serializeRFC(RFC *callee) {
 
     // array as hexa
     const uint32_t hexa_size = serializationSize * 2;
-    auto *hexa =
-        new char[hexa_size + 2];  //+2 for '\n' and '0' termination
+    auto *hexa = new char[hexa_size + 2];  //+2 for '\n' and '0' termination
     chars_as_hexa(hexa, buffer, serializationSize);
     hexa[hexa_size] = '\n';
     hexa[hexa_size + 1] = '\0';  // TODO remove zero termination and +2 above
@@ -251,7 +250,6 @@ bool ProxySupervisor::call(RFC *callee) {
     printf("serializing RFC\n");
     struct SerializeData *rfc_request = this->serializeRFC(callee);
 
-    printf("sending to proxy: %s ...", static_cast<const char *>((void *)rfc_request->raw));
     bool sent = this->send((void *)rfc_request->raw, rfc_request->size);
     if (!sent) {
         callee->success = false;
@@ -263,10 +261,10 @@ bool ProxySupervisor::call(RFC *callee) {
     }
     // Fetch new callback mapping
     // convert message to hex TODO: move to proxyserver
-//    char cmdBuffer[10] = "";
-//    int cmdBufferLen = 0;
-//    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping, &cmdBufferLen);
-//    this->send(cmdBuffer, cmdBufferLen);
+    //    char cmdBuffer[10] = "";
+    //    int cmdBufferLen = 0;
+    //    sprintf(cmdBuffer, "%x\n%n", interruptDUMPCallbackmapping,
+    //    &cmdBufferLen); this->send(cmdBuffer, cmdBufferLen);
     this->deserializeRFCResult(callee);
     printf("end of supervisor::call(rfc)\n");
     return true;

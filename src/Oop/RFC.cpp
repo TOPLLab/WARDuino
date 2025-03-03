@@ -10,8 +10,9 @@ SerializeData *merge(SerializeData a, SerializeData b, bool divide) {
     auto *data = new SerializeData;
     auto padding = divide ? 2 : 1;
     data->size = a.size + b.size + padding;
-//    size_t lengte = a.size + b.size + padding;
-    data->raw = new char[data->size]; //(unsigned char *)calloc(data->size, sizeof(char));
+    //    size_t lengte = a.size + b.size + padding;
+    data->raw = new char[data->size];  //(unsigned char *)calloc(data->size,
+                                       //sizeof(char));
     if (divide) {
         *(data->raw + a.size) = '\n';
         *(data->raw + a.size + b.size + 1) = '\n';
@@ -24,12 +25,14 @@ SerializeData *merge(SerializeData a, SerializeData b, bool divide) {
     return data;
 }
 
-struct SerializeData* mergeSerializeData(struct SerializeData data1, struct SerializeData data2, bool divide) {
+struct SerializeData *mergeSerializeData(struct SerializeData data1,
+                                         struct SerializeData data2,
+                                         bool divide) {
     // Allocate memory for the result struct
     struct SerializeData *result =
         static_cast<SerializeData *>(malloc(sizeof(struct SerializeData)));
     if (result == NULL) {
-        return NULL; // Memory allocation failure
+        return NULL;  // Memory allocation failure
     }
 
     uint32_t extra = divide ? 1 : 0;
@@ -37,7 +40,7 @@ struct SerializeData* mergeSerializeData(struct SerializeData data1, struct Seri
     result->raw = static_cast<char *>(malloc(result->size));
     if (result->raw == NULL) {
         free(result);
-        return NULL; // Memory allocation failure
+        return NULL;  // Memory allocation failure
     }
 
     // Copy the first data block
