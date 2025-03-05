@@ -692,7 +692,6 @@ std::string get_backward(Module *m, uint32_t fidx) {
     std::stringstream transfer;
     auto *buffer = new char[6];
     sprintf(buffer, "%02" PRIx8 "00%02" PRIx8, interruptTransfer, 1);
-    delete[] buffer;
 
     // TODO: map fidx into primitive index
     if (fidx < ALL_PRIMITIVES) {
@@ -707,6 +706,7 @@ std::string get_backward(Module *m, uint32_t fidx) {
             m->sp -= primitive.t->param_count;
         }
     }
+    delete[] buffer;
     return transfer.str();
 }
 
