@@ -84,24 +84,32 @@ void ProxySupervisor::listenToSocket() {
             exit(-1);
         }
         if (readAmount > 0) {
-            try {
-                nlohmann::basic_json<> parsed = nlohmann::json::parse(message);
-                printf("parseJSON: %s\n", parsed.dump().c_str());
+            std::string msg_str = std::string(reinterpret_cast<char *>(message));
+            printf("msg_str = \"%s\"\n", (char*) message);
+            while (!msg_str.empty()) {
+                auto first_msg = msg_str.substr(0, msg_str.find('\n'));
+                msg_str = msg_str.substr(msg_str.find('\n') + 1);
+                printf("first_msg = \"%s\"\n", first_msg.c_str());
 
-                if (isEvent(parsed)) {
-                    CallbackHandler::push_event(new Event(
-                        *parsed.find("topic"), *parsed.find("payload")));
-                    WARDuino::instance()->debugger->notifyPushedEvent();
-                }
+                try {
+                    nlohmann::basic_json<> parsed = nlohmann::json::parse(first_msg);
+                    printf("parseJSON: %s\n", parsed.dump().c_str());
 
-                if (isReply(parsed)) {
-                    this->hasReplied = true;
-                    this->proxyResult = parsed;
+                    if (isEvent(parsed)) {
+                        CallbackHandler::push_event(new Event(
+                            *parsed.find("topic"), *parsed.find("payload")));
+                        WARDuino::instance()->debugger->notifyPushedEvent();
+                    }
+
+                    if (isReply(parsed)) {
+                        this->hasReplied = true;
+                        this->proxyResult = parsed;
+                    }
+                } catch (const nlohmann::detail::parse_error &e) {
+                    //printf("Non RFC call: %s\n", first_msg.c_str());
+                    //printf("error: %s\n", e.what());
+                    WARDuino::instance()->handleInterrupt(readAmount, (uint8_t*) first_msg.c_str());
                 }
-            } catch (const nlohmann::detail::parse_error &e) {
-                printf("Non RFC call: %s", message);
-                printf("error: %s", e.what());
-                WARDuino::instance()->handleInterrupt(readAmount, message);
             }
         }
     }
