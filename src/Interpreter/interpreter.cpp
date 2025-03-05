@@ -452,6 +452,12 @@ bool Interpreter::interpret(Module *m, bool waiting) {
     while (CallbackHandler::resolving_event &&
            CallbackHandler::resolve_event());
 
+    if (success) {
+        printf("Finished\n");
+        m->warduino->debugger->snapshot(m);
+        m->warduino->debugger->supervisor->send((void *) "02\n", 3);
+        exit(0);
+    }
     dbg_trace("Interpretation ended %s with status %s\n",
               program_done ? "expectedly" : "unexpectedly",
               success ? "ok" : "error");
