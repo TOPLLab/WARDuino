@@ -81,8 +81,8 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     primitive(m);
 }
 
-bool do_forward(Module *m, uint32_t index);
+bool do_forward(Module *m, uint32_t fidx);
 
-std::string get_backward(Module *m, uint32_t index);
+std::string get_backward(Module *m, uint32_t fidx);
 
 #endif

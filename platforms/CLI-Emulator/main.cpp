@@ -394,6 +394,8 @@ int main(int argc, const char *argv[]) {
 
             // Start supervising proxy device (new thread)
             wac->debugger->startProxySupervisor(connection);
+            std::this_thread::sleep_for (std::chrono::seconds(1));
+
         }
 
         // Start debugger (new thread)

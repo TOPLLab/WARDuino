@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <thread>
 
 #ifndef __ZEPHYR__
 // Socket Debugger Interface
@@ -35,8 +36,8 @@ int createSocketFileDescriptor() {
     return socket_fd;
 }
 
-void bindSocketToAddress(int socket_fd, struct sockaddr_in address) {
-    if (bind(socket_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+void bindSocketToAddress(int socket_fd, sockaddr_in address) {
+    if (bind(socket_fd, (sockaddr*) &address, sizeof(address)) < 0) {
         perror("Binding socket to address failed");
         exit(EXIT_FAILURE);
     }
@@ -136,13 +137,19 @@ void WebSocket::open() {
 }
 
 void ClientSocket::open() {
+    //std::this_thread::sleep_for (std::chrono::seconds(1));
     // bind socket to address
     this->fileDescriptor = createSocketFileDescriptor();
-    struct sockaddr_in address = createAddress(this->port);  // server port
-    if (connect(this->fileDescriptor, (struct sockaddr *)&address,
+    sockaddr_in address = createAddress(this->port);  // server port
+    int i = 0;
+    while (connect(this->fileDescriptor, (sockaddr*) &address,
                 sizeof(address)) < 0) {
-        perror("Failed to connect to socket");
-        exit(EXIT_FAILURE);
+        perror("Failed to connect to socket, retrying...\n");
+        std::this_thread::sleep_for (std::chrono::seconds(1));
+        i++;
+        if (i >= 5) {
+            exit(EXIT_FAILURE);
+        }
     }
 
     this->socket = this->fileDescriptor;

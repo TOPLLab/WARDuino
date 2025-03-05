@@ -125,7 +125,7 @@ class Debugger {
     std::queue<uint8_t *> parsedInterrupts{};
     long interruptSize{};
     bool receivingData = false;
-
+public:
     Proxy *proxy = nullptr;  // proxy module for debugger
 
     bool connected_to_proxy = false;

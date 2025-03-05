@@ -85,15 +85,15 @@ void ProxySupervisor::listenToSocket() {
         }
         if (readAmount > 0) {
             std::string msg_str = std::string(reinterpret_cast<char *>(message));
-            printf("msg_str = \"%s\"\n", (char*) message);
+            //printf("msg_str = \"%s\"\n", (char*) message);
             while (!msg_str.empty()) {
                 auto first_msg = msg_str.substr(0, msg_str.find('\n'));
                 msg_str = msg_str.substr(msg_str.find('\n') + 1);
-                printf("first_msg = \"%s\"\n", first_msg.c_str());
+                //printf("first_msg = \"%s\"\n", first_msg.c_str());
 
                 try {
                     nlohmann::basic_json<> parsed = nlohmann::json::parse(first_msg);
-                    printf("parseJSON: %s\n", parsed.dump().c_str());
+                    //printf("parseJSON: %s\n", parsed.dump().c_str());
 
                     if (isEvent(parsed)) {
                         CallbackHandler::push_event(new Event(

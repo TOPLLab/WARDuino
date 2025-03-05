@@ -688,15 +688,16 @@ std::vector<IOStateElement *> get_io_state(Module *) {
     return ioState;
 }
 
-std::string get_backward(Module *m, uint32_t index) {
+std::string get_backward(Module *m, uint32_t fidx) {
     std::stringstream transfer;
     auto *buffer = new char[6];
     sprintf(buffer, "%02" PRIx8 "00%02" PRIx8, interruptTransfer, 1);
     delete[] buffer;
 
-    if (index < ALL_PRIMITIVES) {
-        auto &primitive = primitives[index];
-        printf("transfering for %s", primitive.name);
+    // TODO: map fidx into primitive index
+    if (fidx < ALL_PRIMITIVES) {
+        auto &primitive = primitives[fidx];
+        printf("transfering for %s\n", primitive.name);
         if (primitive.f_backward) {
             m->sp += primitive.t->param_count;
             auto data = primitive.f_backward(m);
@@ -713,16 +714,17 @@ std::string get_backward(Module *m, uint32_t index) {
 //      fix length at start of 52 message
 //      send nothing if length is 0
 
-bool do_forward(Module *m, uint32_t index) {
-    if (index < ALL_PRIMITIVES) {
-        auto &primitive = primitives[index];
-        printf("transfering for %s", primitive.name);
+bool do_forward(Module *m, uint32_t fidx) {
+    if (fidx < ALL_PRIMITIVES) {
+        auto &primitive = primitives[fidx];
         if (primitive.f_forward) {
+            printf("transfering for %s\n", primitive.name);
             auto data = primitive.f_forward(m);
             printf("transfer built\n");
             WARDuino::instance()->debugger->channel->write(
                 "%02" PRIx8 "00%02" PRIx8 "%s", interruptTransfer, 1, data);
             free(data);
+            //exit(0);
         }
     } else {
         return false;

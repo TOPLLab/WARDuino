@@ -181,7 +181,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
     fflush(stdout);
 
     printf("Interrupt: %x\n", *interruptData);
-    this->channel->write("Interrupt: %x\n", *interruptData);
+    //this->channel->write("Interrupt: %x\n", *interruptData);
 
     long start = 0, size = 0;
     switch (*interruptData) {
@@ -317,6 +317,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->transfer(m, interruptData);
             free(interruptData);
             this->channel->write("Transferred!\n");
+            //this->snapshot(m);
+            //exit(0);
             break;
         case interruptProxyCall: {
             this->handleProxyCall(m, program_state, interruptData + 1);
@@ -785,7 +787,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                        const uint8_t *state) const {
     debug("asked for inspect\n");
     uint16_t idx = 0;
-    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
+    auto toVA = [m](uint8_t *addr) { return 0; };
     bool addComma = false;
 
     this->channel->write("{");
@@ -1130,7 +1132,7 @@ void Debugger::load(uint8_t *bytes, Module *m) {
     auto start = read_B8(&bytes);
     auto limit = read_B8(&bytes);
     auto total_bytes = limit - start + 1;
-    this->channel->write("loading into %u - %u \n", start, limit);
+    printf("loading into %u - %u \n", start, limit);
     memcpy(m->memory.bytes + start, bytes, total_bytes);
 }
 
@@ -1493,6 +1495,9 @@ void Debugger::sendProxyCallResult(Module *m) const {
 bool Debugger::isProxy() const { return this->proxy != nullptr; }
 
 bool Debugger::isProxied(Module *m, const uint32_t fidx) const {
+    if (this->supervisor == nullptr) {
+        printf("Has no supervisor!\n");
+    }
     return this->supervisor != nullptr && fidx < m->import_count;
 }
 
@@ -1695,7 +1700,7 @@ void Debugger::notifyCompleteStep(Module *m) const {
         m->warduino->debugger->checkpoint(m);
     }
     this->channel->write("STEP!\n");
-    printf("STEP!\n");
+    //printf("STEP!\n");
 }
 
 Debugger::~Debugger() {
