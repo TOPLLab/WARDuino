@@ -32,7 +32,7 @@
 #include "../Utils/util.h"
 #include "primitives.h"
 
-#define ALL_PRIMITIVES 5
+#define ALL_PRIMITIVES 9
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -262,6 +262,100 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
+#include <zephyr/drivers/led_strip.h>
+#define RGB(_r, _g, _b) { .r = (_r), .g = (_g), .b = (_b) }
+static const struct device *const strip = DEVICE_DT_GET(DT_ALIAS(led_strip));
+const size_t strip_length = 64;//led_strip_length(device);
+struct led_rgb pixels[strip_length] = {0};
+
+void fun() {
+    size_t color = 0;
+    int rc;
+
+    if (device_is_ready(strip)) {
+        printf("Found LED strip device %s\n", strip->name);
+    } else {
+        printf("LED strip device %s is not ready\n", strip->name);
+        return;
+    }
+
+    printf("Displaying pattern on strip\n");
+    const struct led_rgb colors[] = {
+        RGB(16, 0x00, 0x00), // red
+        RGB(0x00, 16, 0x00), // green
+        RGB(0x00, 0x00, 16), // blue
+    };
+    size_t width = 3;
+    while (1) {
+        for (size_t cursor = 0; cursor < ARRAY_SIZE(pixels) - width + 1; cursor++) {
+            memset(&pixels, 0x00, sizeof(pixels));
+            for (size_t i = 0; i < width; i++) {
+                memcpy(&pixels[cursor + i], &colors[color], sizeof(struct led_rgb));
+                color = (color + 1) % ARRAY_SIZE(colors);
+            }
+
+            printf("Update strip!\n");
+            rc = led_strip_update_rgb(strip, pixels, strip_length);
+            if (rc) {
+                printf("couldn't update strip: %d", rc);
+            }
+
+            k_sleep(K_MSEC(100));
+        }
+    }
+}
+
+def_prim(led_fun, NoneToNoneU32) {
+    fun();
+    return true;
+}
+
+def_prim(show_pixels, NoneToNoneU32) {
+    int rc = led_strip_update_rgb(strip, pixels, strip_length);
+    if (rc) {
+        printf("couldn't update strip: %d", rc);
+    }
+    return true;
+}
+
+def_prim(set_pixel_color, fourToOneU32) {
+    uint8_t blue = arg0.uint32;
+    uint8_t green = arg1.uint32;
+    uint8_t red = arg2.uint32;
+    uint8_t index = arg3.uint32;
+
+    led_rgb color = {.r = red, .g = green, .b= blue};
+    memcpy(&pixels[index], &color, sizeof(struct led_rgb));
+    pop_args(4);
+    return true;
+}
+
+def_prim_serialize(set_pixel_color) {
+    for (int i = 0; i < strip_length; i++) {
+        auto *state = new IOStateElement();
+        state->key = "n" + std::to_string(i);
+        state->output = true;
+        state->value = pixels[i].r << 16 | pixels[i].g << 8 | pixels[i].b;
+        external_state.push_back(state);
+    }
+}
+
+def_prim_reverse(set_pixel_color) {
+    for (IOStateElement state : external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'n') {
+            int index = stoi(state.key.substr(1));
+            pixels[index].r = ((uint32_t) state.value >> 16) & 0xff;
+            pixels[index].g = ((uint32_t) state.value >> 8) & 0xff;
+            pixels[index].b = state.value & 0xff;
+            invoke_primitive(m, "show_pixels");
+        }
+    }
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -272,6 +366,10 @@ void install_primitives() {
     install_primitive(chip_digital_write);
     install_primitive(chip_digital_read);
     install_primitive(print_int);
+    install_primitive(led_fun);
+    install_primitive(set_pixel_color);
+    install_primitive_reverse(set_pixel_color);
+    install_primitive(show_pixels);
 }
 
 //------------------------------------------------------
@@ -322,22 +420,23 @@ void restore_external_state(Module *m,
     // instructions such as call_indirect
     //  maybe there should just be a function that checks if a certain function
     //  is being called that handles all these cases?
-    if (opcode == 0x10) {  // call opcode
+    /*if (opcode == 0x10) {  // call opcode
         uint8_t *pc_copy = m->pc_ptr + 1;
         uint32_t fidx = read_LEB_32(&pc_copy);
-        if (fidx < m->import_count) {
-            for (auto &primitive : primitives) {
-                if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
+        if (fidx < m->import_count) {*/
+            for (int i = 0; i < ALL_PRIMITIVES; i++) {
+                auto primitive = primitives[i];
+                printf("%s\n", primitive.name);
+                //if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
                     if (primitive.f_reverse) {
                         debug("Reversing action for primitive %s\n",
                               primitive.name);
                         primitive.f_reverse(m, external_state);
                     }
-                    return;
-                }
+                //}
             }
-        }
-    }
+        /*}
+    }*/
 }
 
 std::vector<IOStateElement *> get_io_state(Module *m) {
