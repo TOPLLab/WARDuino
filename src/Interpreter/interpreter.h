@@ -20,7 +20,7 @@ class Interpreter {
      * @return block that was on top of the stack (the one that we just returned
      * to)
      */
-    Block *pop_block(Module *m);
+    virtual Block *pop_block(Module *m);
 
     /**
      * Setup a function
@@ -31,7 +31,7 @@ class Interpreter {
      * @param m module to work on
      * @param fidx function id (index in m->functions)
      */
-    void setup_call(Module *m, uint32_t fidx);
+    virtual void setup_call(Module *m, uint32_t fidx);
 
     /**
      * Start interpretation of the module that has a call set up for it.
@@ -42,9 +42,9 @@ class Interpreter {
      */
     virtual bool interpret(Module *m, bool waiting = false);
 
-    void load(Module *m, uint32_t offset, uint32_t addr, int size,
+    virtual void load(Module *m, uint32_t offset, uint32_t addr, int size,
                       uint8_t value_type, bool sign_extend);
-    void store(Module *m, uint32_t offset, uint32_t addr, int value_sp,
+    virtual void store(Module *m, uint32_t offset, uint32_t addr, int value_sp,
                        int size);
 
     bool i_instr_block(Module *m, uint8_t *block_ptr);

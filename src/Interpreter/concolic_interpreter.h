@@ -3,15 +3,15 @@
 
 class ConcolicInterpreter : public Interpreter {
    public:
-    Block *pop_block(Module *m);
-    void setup_call(Module *m, uint32_t fidx);
+    Block *pop_block(Module *m) override;
+    void setup_call(Module *m, uint32_t fidx) override;
 
     static z3::expr encode_as_symbolic(Module *m, StackValue *stack_value);
 
     void load(Module *m, uint32_t offset, uint32_t addr, int size,
-              uint8_t value_type, bool sign_extend);
+              uint8_t value_type, bool sign_extend) override;
     void store(Module *m, uint32_t offset, uint32_t addr, int value_sp,
-               int size);
+               int size) override;
 
     bool i_instr_if(Module *m, uint8_t *block_ptr);
     bool i_instr_br_if(Module *m);

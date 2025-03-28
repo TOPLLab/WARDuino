@@ -110,7 +110,7 @@ z3::expr ConcolicInterpreter::encode_as_symbolic(Module *m,
         case F64:
             return m->ctx.fpa_val(stack_value->value.f64);
         default:
-            FATAL("Invalid value_type!");
+            FATAL("Invalid value_type %d!", stack_value->value_type);
     }
 }
 
