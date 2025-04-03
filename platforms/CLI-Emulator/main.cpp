@@ -445,6 +445,17 @@ struct Model {
         return str;
     }
 
+    int count_leaf_nodes() {
+        if (subpaths.empty()) {
+            return 1;
+        }
+        int count = 0;
+        for (Model path : subpaths) {
+            count += path.count_leaf_nodes();
+        }
+        return count;
+    }
+
     nlohmann::json to_json() {
         nlohmann::json graph;
         graph["paths"] = to_json(0);
@@ -604,6 +615,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     std::cout << "Models found:" << std::endl;
     std::cout << graph.to_string(0) << std::endl;
     std::cout << graph.to_json() << std::endl;
+    std::cout << "Found " << graph.count_leaf_nodes() << " uniqe paths!" << std::endl;
     /*for (size_t i = 0; i < x0_models.size(); i++) {
         std::cout << "- Model #" << i << ":" << std::endl;
         //z3_pretty_println(x0_models[i].path_condition);
