@@ -478,7 +478,7 @@ struct Model {
     }
 };
 
-void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1) {
+void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1, int max_iterations = -1) {
     wac->interpreter = new ConcolicInterpreter();
     // Has a big impact on performance, for example if you have a simple program
     // with a loop that contains an if statement and, you run the loop 30 times
@@ -494,7 +494,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     int iteration_index = 0;
     std::vector<std::unordered_map<std::string, SymbolicValueMapping>> models;
     Model graph = Model({}, m->ctx.bool_val(true));
-    while (true) {
+    while (max_iterations < 0 || iteration_index < max_iterations) {
         std::cout << std::endl
                   << "=== CONCOLIC ITERATION " << iteration_index
                   << " ===" << std::endl;
@@ -662,6 +662,7 @@ int main(int argc, const char *argv[]) {
     const char *mode = "interpreter";
     const char *max_instructions_str = "50";
     const char *max_symbolic_variables_str = "-1";
+    const char *max_iterations_str = "-1";
     bool dump_info = false;
 
     const char *fname = nullptr;
@@ -753,6 +754,8 @@ int main(int argc, const char *argv[]) {
             ARGV_GET(max_instructions_str);
         } else if (!strcmp("--max-symbolic-variables", arg)) {
             ARGV_GET(max_symbolic_variables_str);
+        } else if (!strcmp("--max-iterations", arg)) {
+            ARGV_GET(max_iterations_str);
         } else if (!strcmp("--dump-info", arg)) {
             dump_info = true;
         }
@@ -863,7 +866,7 @@ int main(int argc, const char *argv[]) {
 
         // Run Wasm module
         if (strcmp(mode, "concolic") == 0) {
-            run_concolic(snapshot_messages, std::stoi(max_instructions_str), std::stoi(max_symbolic_variables_str));
+            run_concolic(snapshot_messages, std::stoi(max_instructions_str), std::stoi(max_symbolic_variables_str), std::stoi(max_iterations_str));
         }
         else {
             // TODO: Add option to calculate the choice points and add them as breakpoints from the remote debugger once
