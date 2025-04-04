@@ -510,6 +510,13 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
             m->create_symbolic_state();
             success = wac->interpreter->interpret(m);
         } else {
+            //wac->instantiate_module(m);
+            //wac->instantiate_module(m, m->bytes, m->byte_count);
+            // TODO: Introduce a reset module function
+            auto wasm = (uint8_t *)malloc(sizeof(uint8_t) * m->byte_count);
+            memcpy(wasm, m->bytes, m->byte_count);
+            m->warduino->update_module(m, wasm, m->byte_count);
+            m->warduino->program_state = WARDUINOrun;
             success = wac->run_module(m);
         }
 
