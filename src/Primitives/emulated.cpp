@@ -282,12 +282,10 @@ void push_symbolic_int(Module *m, std::string primitive_origin, uint32_t arg) {
         m->symbolic_concrete_values.end()) {
         concrete_value = m->symbolic_concrete_values[var_name].concrete_value.value.int32;
 
-        std::cout << "Existing symbolic value " << var_name
-                  << ", value = " << concrete_value << std::endl;
+        dbg_trace("Existing symbolic value %s, value = %d\n", var_name.c_str(), concrete_value);
     }
     else {
-        std::cout << "New symbolic value " << var_name
-                  << ", start value = " << concrete_value << std::endl;
+        dbg_trace("New symbolic value %s, start value = %d\n", var_name.c_str(), concrete_value);
     }
     pushInt32(concrete_value);
     m->symbolic_stack[m->sp] = m->ctx.bv_const(var_name.c_str(), 32);

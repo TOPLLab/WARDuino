@@ -399,11 +399,11 @@ struct Model {
             return;
 
         z3::expr x_only_path_condition = em.x_only_path_condition(depth);
-        std::cout << x_only_path_condition << std::endl;
+        dbg_trace("x_only_path_condition = %s\n", x_only_path_condition.to_string().c_str());
         std::string sym_var_name = "x_" + std::to_string(depth);
         auto already_exists = std::find_if(
             subpaths.begin(), subpaths.end(), [x_only_path_condition, this, sym_var_name, depth](Model otherModel) {
-                std::cout << "Compare with " << otherModel.x_only_path_condition(depth) << std::endl;
+                dbg_trace("Compare with %s", otherModel.x_only_path_condition(depth).to_string().c_str());
                 z3::solver s(m->ctx);
                 s.add(z3::forall(m->ctx.bv_const(sym_var_name.c_str(), 32),
                                  otherModel.x_only_path_condition(depth) ==
@@ -412,14 +412,15 @@ struct Model {
             });
         // Doesn't exist!
         if (already_exists == subpaths.end()) {
-            std::cout << sym_var_name << std::endl;
-            std::cout << "New:" << std::endl;
-            std::cout << em.values[sym_var_name].concrete_value.value.uint64 << std::endl;
-            std::cout << "Existing:" << std::endl;
-            for (Model otherModel : subpaths) {
-                std::cout << otherModel.values[sym_var_name].concrete_value.value.uint64 << std::endl;
+#if TRACE
+            dbg_trace("New branch value for %s, %llu\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint64);
+            if (!subpaths.empty()) {
+                dbg_trace("Existing values:\n");
+                for (Model otherModel : subpaths) {
+                    dbg_trace("- %llu\n", otherModel.values[sym_var_name].concrete_value.value.uint64);
+                }
             }
-            std::cout << "New subpath!" << std::endl;
+#endif
             em.add_partial_match(em, depth + 1);
             subpaths.push_back(em);
         }
@@ -561,14 +562,16 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
             z3::solver s(m->ctx);
             s.add(m->path_condition && preconditions());
             auto result = s.check();
+            if (result != z3::sat) {
+                std::cout << m->path_condition.to_string() << std::endl;
+            }
             assert(result == z3::sat);
-            std::cout << "Iteration 0, fixing default values" << std::endl;
-            std::cout << "Model:" << std::endl;
+            dbg_trace("Iteration 0, fixing default values\n");
+            dbg_trace("Model:\n");
             z3::model model = s.get_model();
             for (int i = 0; i < (int)model.size(); i++) {
                 z3::func_decl func = model[i];
-                std::cout << func.name() << " = "
-                          << model.get_const_interp(func) << std::endl;
+                dbg_trace("- %s = %s\n", func.name().str().c_str(), model.get_const_interp(func).to_string().c_str());
                 m->symbolic_concrete_values[func.name().str()]
                     .concrete_value.value.uint64 =
                     model.get_const_interp(func).get_numeral_uint64();
