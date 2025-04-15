@@ -478,6 +478,33 @@ struct Model {
     }
 };
 
+std::string uint128_to_string(__uint128_t value) {
+    if (value == 0) return "0";
+
+    std::string result;
+    while (value > 0) {
+        result = char('0' + value % 10) + result;
+        value /= 10;
+    }
+    return result;
+}
+
+z3::expr preconditions() {
+    z3::expr primitive_bounds = m->ctx.bool_val(true);
+    for (const auto& entry : m->symbolic_concrete_values) {
+        int32_t upper = 4096;
+        int32_t lower = 0;
+        if (entry.second.primitive_origin == "chip_digital_read") {
+            upper = 2; // Upper bound is excluded.
+        }
+        if (entry.second.primitive_origin == "color_sensor") {
+            upper = 101; // Upper bound is excluded.
+        }
+        primitive_bounds = primitive_bounds && m->ctx.bv_const(entry.first.c_str(), 32) < upper && m->ctx.bv_const(entry.first.c_str(), 32) >= lower;
+    }
+    return primitive_bounds;
+}
+
 void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1, int max_iterations = -1) {
     wac->interpreter = new ConcolicInterpreter();
     // Has a big impact on performance, for example if you have a simple program
@@ -532,7 +559,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
 
         if (iteration_index == 0) {
             z3::solver s(m->ctx);
-            s.add(m->path_condition);
+            s.add(m->path_condition && preconditions());
             auto result = s.check();
             assert(result == z3::sat);
             std::cout << "Iteration 0, fixing default values" << std::endl;
@@ -579,7 +606,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         std::cout << std::endl;
         std::cout << global_condition << std::endl;*/
         total_instructions_executed += m->instructions_executed;
-        s.add(global_condition);
+        s.add(global_condition && preconditions());
         if (s.check() == z3::unsat) {
             std::cout << "Explored all paths!" << std::endl;
             break;
