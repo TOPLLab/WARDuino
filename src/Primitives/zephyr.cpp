@@ -31,7 +31,7 @@
 #include "Mindstorms/Motor.h"
 #include "Mindstorms/uart_sensor.h"
 
-#define ALL_PRIMITIVES 11
+#define ALL_PRIMITIVES 12
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -326,40 +326,46 @@ std::optional<Motor> get_motor(uint32_t motor_index) {
     return std::make_optional<Motor>(pwm_specs[motor_index * 2 + 1], pwm_specs[motor_index * 2], encoders[motor_index]);
 }
 
-def_prim(drive_motor, threeToNoneU32) {
-    int32_t brake = arg0.int32;
-    int32_t speed = arg1.int32;
-    uint32_t motor_index = arg2.uint32;
+def_prim(drive_motor, twoToNoneU32) {
+    int32_t speed = arg0.int32;
+    uint32_t motor_index = arg1.uint32;
+    pop_args(2);
 
-    printf("drive_motor(%d, %d, %d)\n", motor_index, speed, brake);
+    printf("drive_motor(%d, %d)\n", motor_index, speed);
 
     if (motor_index > 3) {
         printf("Invalid motor index %d\n", motor_index);
-        pop_args(3);
         return true;
     }
 
     Motor motor = get_motor(motor_index).value();
     motor.set_speed(speed / 10000.0f);
-
-    if (speed == 0 && brake == 1) {
-        motor.halt();
-    }
-
-    pop_args(3);
     return true;
 }
 
-def_prim(drive_motor_ms, twoToNoneU32) {
-    int32_t motor_index = arg1.int32;
-    int32_t speed = arg0.int32;
-    printf("drive_motor_ms(%d, %d)\n", motor_index, speed);
+def_prim(stop_motor, oneToNoneU32) {
+    uint32_t motor_index = arg0.uint32;
+    pop_args(1);
+    if (motor_index > 3) {
+        printf("Invalid motor index %d\n", motor_index);
+        return true;
+    }
+
+    Motor motor = get_motor(motor_index).value();
+    motor.halt();
+    return true;
+}
+
+def_prim(drive_motor_ms, threeToNoneU32) {
+    int32_t speed = arg1.int32;
+    int32_t motor_index = arg2.int32;
+    printf("drive_motor_ms(%d, %d, %d)\n", motor_index, speed, arg0.uint32);
 
     Motor motor = get_motor(motor_index).value();
     motor.set_speed(speed / 10000.0f);
-    k_msleep(arg1.uint32);
+    k_msleep(arg0.uint32);
     motor.halt();
-    pop_args(2);
+    pop_args(3);
     return true;
 }
 
@@ -378,8 +384,8 @@ bool drive_motor_degrees_relative(uint32_t motor_index, int32_t degrees, int32_t
 }
 
 def_prim(drive_motor_degrees, threeToNoneU32) {
-    int32_t speed = arg0.int32;
-    int32_t degrees = arg1.int32;
+    int32_t degrees = arg0.int32;
+    int32_t speed = arg1.int32;
     uint32_t motor_index = arg2.uint32;
     pop_args(3);
     return drive_motor_degrees_relative(motor_index, degrees, speed);
@@ -468,6 +474,7 @@ void install_primitives() {
     install_primitive(print_int);
 
     install_primitive(drive_motor);
+    install_primitive(stop_motor);
     install_primitive(drive_motor_ms);
     install_primitive(drive_motor_degrees);
     install_primitive_reverse(drive_motor_degrees);
