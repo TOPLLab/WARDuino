@@ -1,3 +1,4 @@
+#ifndef ARDUINO
 #include "Motor.h"
 
 #include "../../Utils/macros.h"
@@ -118,3 +119,5 @@ void Motor::drive_to_angle(int32_t speed, int32_t degrees) {
     encoder->set_target_angle(degrees);
     drive_to_target(speed);
 }
+
+#endif

@@ -1,3 +1,4 @@
+#ifndef ARDUINO
 #include "uart_sensor.h"
 
 #include <zephyr/drivers/uart.h>
@@ -168,3 +169,4 @@ int get_sensor_value(UartSensor *sensor) {
     }
     return sensor->sensor_value;
 }
+#endif
