@@ -31,7 +31,11 @@
 #include "Mindstorms/Motor.h"
 #include "Mindstorms/uart_sensor.h"
 
-#define ALL_PRIMITIVES 12
+#define OBB_PRIMITIVES 0
+#ifdef CONFIG_BOARD_STM32L496G_DISCO
+    #define OBB_PRIMITIVES 6
+#endif
+#define ALL_PRIMITIVES OBB_PRIMITIVES + 6
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -231,31 +235,6 @@ def_prim(chip_delay, oneToNoneU32) {
 struct gpio_dt_spec specs[] = {DT_FOREACH_PROP_ELEM_SEP(
     DT_PATH(zephyr_user), warduino_gpios, GPIO_DT_SPEC_GET_BY_IDX, (, ))};
 
-/*static const struct pwm_dt_spec pwm_led0 =
-PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0); static const struct pwm_dt_spec
-pwm_led1 = PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1);*/
-static const struct pwm_dt_spec pwm_led0 =
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 2);
-static const struct pwm_dt_spec pwm_led1 =
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 3);
-
-// TODO: Use Zephyr FOREACH macro here
-const struct pwm_dt_spec pwm_specs[] = {
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 2),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 3),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 4),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 5),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 6),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 7),
-};
-
-/*struct gpio_dt_spec pwm_specs[] = {
-        DT_FOREACH_PROP_ELEM_SEP(DT_PATH(zephyr_user), pmws,
-                                 PWM_DT_SPEC_GET_BY_IDX, (,))
-};*/
-
 def_prim(chip_pin_mode, twoToNoneU32) {
     gpio_dt_spec pin_spec = specs[arg1.uint32];
     gpio_pin_configure(pin_spec.port, pin_spec.pin,
@@ -312,6 +291,29 @@ def_prim(print_int, oneToNoneU32) {
     pop_args(1);
     return true;
 }
+
+def_prim(abort, NoneToNoneU32) {
+    printf("abort\n");
+    return false;
+}
+
+#ifdef CONFIG_BOARD_STM32L496G_DISCO
+// TODO: Use Zephyr FOREACH macro here
+const struct pwm_dt_spec pwm_specs[] = {
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 2),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 3),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 4),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 5),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 6),
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 7),
+};
+
+/*struct gpio_dt_spec pwm_specs[] = {
+        DT_FOREACH_PROP_ELEM_SEP(DT_PATH(zephyr_user), pmws,
+                                 PWM_DT_SPEC_GET_BY_IDX, (,))
+};*/
 
 MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
                             new MotorEncoder(specs[57], specs[58], "Port B"),
@@ -424,20 +426,6 @@ static const struct device *const uart_dev =
 
 UartSensor sensor(uart_dev);
 
-extern void read_debug_messages();
-
-void debug_work_handler(struct k_work *work) {
-    read_debug_messages();
-}
-
-K_WORK_DEFINE(debug_work, debug_work_handler);
-
-struct k_timer heartbeat_timer;
-void heartbeat_timer_func(struct k_timer *timer_id) {
-    uartHeartbeat(&sensor);
-    k_work_submit(&debug_work);
-}
-
 def_prim(setup_uart_sensor, twoToNoneU32) {
     bool result = configure_uart_sensor(&sensor, arg0.uint32);
     pop_args(2);
@@ -455,10 +443,22 @@ def_prim(color_sensor, oneToOneU32) {
     pushUInt32(value);
     return true;
 }
+#endif
 
-def_prim(abort, NoneToNoneU32) {
-    printf("abort\n");
-    return false;
+extern void read_debug_messages();
+
+void debug_work_handler(struct k_work *work) {
+    read_debug_messages();
+}
+
+K_WORK_DEFINE(debug_work, debug_work_handler);
+
+struct k_timer heartbeat_timer;
+void heartbeat_timer_func(struct k_timer *timer_id) {
+#ifdef CONFIG_BOARD_STM32L496G_DISCO
+    uartHeartbeat(&sensor);
+#endif
+    k_work_submit(&debug_work);
 }
 
 //------------------------------------------------------
@@ -472,7 +472,9 @@ void install_primitives() {
     install_primitive_reverse(chip_digital_write);
     install_primitive(chip_digital_read);
     install_primitive(print_int);
+    install_primitive(abort);
 
+#ifdef CONFIG_BOARD_STM32L496G_DISCO
     install_primitive(drive_motor);
     install_primitive(stop_motor);
     install_primitive(drive_motor_ms);
@@ -481,8 +483,7 @@ void install_primitives() {
 
     install_primitive(color_sensor);
     install_primitive(setup_uart_sensor);
-
-    install_primitive(abort);
+#endif
 
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(990), K_MSEC(990));
