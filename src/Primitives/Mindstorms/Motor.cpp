@@ -73,16 +73,16 @@ bool Motor::set_speed(float speed) {
 
 void Motor::drive_to_target(int32_t speed) {
     printf("drift = %d\n",
-           abs(encoder->get_angle() - encoder->get_target_angle()));
+           abs(get_drift()));
 
-    int drift = encoder->get_angle() - encoder->get_target_angle();
+    int drift = get_drift();
     // Reset stall timer, otherwise it will instantly think it's not moving.
     encoder->last_update = k_uptime_get();
     while (abs(drift) > 0) {
         int speed_sign = std::signbit(drift) ? -1 : 1;
         set_speed(speed_sign * speed / 10000.0f);
         while (speed_sign *
-                       (encoder->get_angle() - encoder->get_target_angle()) >
+                       (get_drift()) >
                    0 &&
                k_uptime_get() - encoder->get_last_update() < 150) {
         }
@@ -98,13 +98,17 @@ void Motor::drive_to_target(int32_t speed) {
             continue;
         }
         encoder->last_update = k_uptime_get();
-        printf("%lli\n", k_uptime_get() - encoder->get_last_update());
+        printf("elapsed = %lli\n", k_uptime_get() - encoder->get_last_update());
         halt();
         k_msleep(50);
-        drift = encoder->get_angle() - encoder->get_target_angle();
+        drift = get_drift();
         printf("drift = %d, speed = %d\n", drift, speed);
         speed = 800;
     }
+}
+
+int Motor::get_drift() {
+    return encoder->get_target_angle() - encoder->get_angle();
 }
 
 void Motor::drive_to_angle(int32_t speed, int32_t degrees) {

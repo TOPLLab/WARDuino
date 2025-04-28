@@ -323,7 +323,7 @@ std::optional<Motor> get_motor(uint32_t motor_index) {
         return {};
     }
 
-    return std::make_optional<Motor>(pwm_specs[motor_index * 2], pwm_specs[motor_index * 2 + 1], encoders[motor_index]);
+    return std::make_optional<Motor>(pwm_specs[motor_index * 2 + 1], pwm_specs[motor_index * 2], encoders[motor_index]);
 }
 
 def_prim(drive_motor, threeToNoneU32) {

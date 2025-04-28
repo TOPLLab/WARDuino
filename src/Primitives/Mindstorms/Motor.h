@@ -77,6 +77,7 @@ public:
     bool set_speed(float speed);
 
     void drive_to_target(int32_t speed);
+    int get_drift();
 
     void drive_to_angle(int32_t speed, int32_t degrees);
 };
