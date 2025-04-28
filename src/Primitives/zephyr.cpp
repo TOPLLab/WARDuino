@@ -298,27 +298,17 @@ def_prim(abort, NoneToNoneU32) {
 }
 
 #ifdef CONFIG_BOARD_STM32L496G_DISCO
-// TODO: Use Zephyr FOREACH macro here
-const struct pwm_dt_spec pwm_specs[] = {
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 2),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 3),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 4),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 5),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 6),
-    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 7),
-};
-
-/*struct gpio_dt_spec pwm_specs[] = {
-        DT_FOREACH_PROP_ELEM_SEP(DT_PATH(zephyr_user), pmws,
-                                 PWM_DT_SPEC_GET_BY_IDX, (,))
-};*/
 
 MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
                             new MotorEncoder(specs[57], specs[58], "Port B"),
                             new MotorEncoder(specs[17], specs[13], "Port C"),
                             new MotorEncoder(specs[27], specs[26], "Port D")};
+
+#define PWM_SPEC_GETTER(node_id, prop, idx) PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), idx)
+struct pwm_dt_spec pwm_specs[] = {
+    DT_FOREACH_PROP_ELEM_SEP(DT_PATH(zephyr_user), pwms,
+                             PWM_SPEC_GETTER, (,))
+};
 
 std::optional<Motor> get_motor(uint32_t motor_index) {
     if (motor_index > 3) {
