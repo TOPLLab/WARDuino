@@ -27,13 +27,13 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
-#include "primitives.h"
 #include "Mindstorms/Motor.h"
 #include "Mindstorms/uart_sensor.h"
+#include "primitives.h"
 
 #define OBB_PRIMITIVES 0
 #ifdef CONFIG_BOARD_STM32L496G_DISCO
-    #define OBB_PRIMITIVES 6
+#define OBB_PRIMITIVES 6
 #endif
 #define ALL_PRIMITIVES OBB_PRIMITIVES + 6
 
@@ -304,18 +304,19 @@ MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
                             new MotorEncoder(specs[17], specs[13], "Port C"),
                             new MotorEncoder(specs[27], specs[26], "Port D")};
 
-#define PWM_SPEC_GETTER(node_id, prop, idx) PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), idx)
-struct pwm_dt_spec pwm_specs[] = {
-    DT_FOREACH_PROP_ELEM_SEP(DT_PATH(zephyr_user), pwms,
-                             PWM_SPEC_GETTER, (,))
-};
+#define PWM_SPEC_GETTER(node_id, prop, idx) \
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), idx)
+struct pwm_dt_spec pwm_specs[] = {DT_FOREACH_PROP_ELEM_SEP(
+    DT_PATH(zephyr_user), pwms, PWM_SPEC_GETTER, (, ))};
 
 std::optional<Motor> get_motor(uint32_t motor_index) {
-    if (motor_index > sizeof(encoders)/sizeof(*encoders)) {
+    if (motor_index > sizeof(encoders) / sizeof(*encoders)) {
         return {};
     }
 
-    return std::make_optional<Motor>(pwm_specs[motor_index * 2 + 1], pwm_specs[motor_index * 2], encoders[motor_index]);
+    return std::make_optional<Motor>(pwm_specs[motor_index * 2 + 1],
+                                     pwm_specs[motor_index * 2],
+                                     encoders[motor_index]);
 }
 
 def_prim(drive_motor, twoToNoneU32) {
@@ -364,7 +365,8 @@ def_prim(drive_motor_ms, threeToNoneU32) {
     return false;
 }
 
-bool drive_motor_degrees_absolute(uint32_t motor_index, int32_t degrees, int32_t speed) {
+bool drive_motor_degrees_absolute(uint32_t motor_index, int32_t degrees,
+                                  int32_t speed) {
     if (auto motor = get_motor(motor_index)) {
         motor->drive_to_angle(speed, degrees);
         return true;
@@ -372,9 +374,11 @@ bool drive_motor_degrees_absolute(uint32_t motor_index, int32_t degrees, int32_t
     return false;
 }
 
-bool drive_motor_degrees_relative(uint32_t motor_index, int32_t degrees, int32_t speed) {
+bool drive_motor_degrees_relative(uint32_t motor_index, int32_t degrees,
+                                  int32_t speed) {
     MotorEncoder *encoder = encoders[motor_index];
-    return drive_motor_degrees_absolute(motor_index, encoder->get_target_angle() + degrees, speed);
+    return drive_motor_degrees_absolute(
+        motor_index, encoder->get_target_angle() + degrees, speed);
 }
 
 def_prim(drive_motor_degrees, threeToNoneU32) {
@@ -398,7 +402,8 @@ def_prim_reverse(drive_motor_degrees) {
             // primitives instead of after and just not restore io when
             // restoring the last snapshot and transfer overrides from a future
             // snapshot when doing forward execution.
-            drive_motor_degrees_absolute(motor_index, (int32_t) state.value, motor_index == 0 ? 10000 : 2000);
+            drive_motor_degrees_absolute(motor_index, (int32_t)state.value,
+                                         motor_index == 0 ? 10000 : 2000);
         }
     }
 }
@@ -414,7 +419,7 @@ def_prim_serialize(drive_motor_degrees) {
 }
 
 static const struct device *const uart_dev =
-        DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
+    DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
 
 UartSensor sensor(uart_dev);
 
@@ -439,9 +444,7 @@ def_prim(color_sensor, oneToOneU32) {
 
 extern void read_debug_messages();
 
-void debug_work_handler(struct k_work *work) {
-    read_debug_messages();
-}
+void debug_work_handler(struct k_work *work) { read_debug_messages(); }
 
 K_WORK_DEFINE(debug_work, debug_work_handler);
 

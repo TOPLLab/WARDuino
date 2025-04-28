@@ -1,13 +1,9 @@
 #pragma once
-#include <cstdint>
 #include <zephyr/device.h>
 
-enum ReceiveState {
-    advertise,
-    final_mode_format,
-    modes_complete,
-    data
-};
+#include <cstdint>
+
+enum ReceiveState { advertise, final_mode_format, modes_complete, data };
 
 struct UartSensor {
     // Variables used for setting up the sensor.

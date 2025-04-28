@@ -1,7 +1,9 @@
 #include "Motor.h"
+
 #include "../../Utils/macros.h"
 
-MotorEncoder::MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_encoder_spec, const char *name)
+MotorEncoder::MotorEncoder(gpio_dt_spec pin5_encoder_spec,
+                           gpio_dt_spec pin6_encoder_spec, const char *name)
     : pin5_encoder_spec(pin5_encoder_spec),
       pin6_encoder_spec(pin6_encoder_spec),
       angle(0),
@@ -14,10 +16,11 @@ MotorEncoder::MotorEncoder(gpio_dt_spec pin5_encoder_spec, gpio_dt_spec pin6_enc
         FATAL("Failed to configure GPIO encoder pin6\n");
     }
 
-    int result = gpio_pin_interrupt_configure_dt(&pin6_encoder_spec,
-                                             GPIO_INT_EDGE_RISING | GPIO_INT_EDGE_FALLING);
+    int result = gpio_pin_interrupt_configure_dt(
+        &pin6_encoder_spec, GPIO_INT_EDGE_RISING | GPIO_INT_EDGE_FALLING);
     if (result != 0) {
-        printf("Failed to configure interrupt on pin6 for %s, error code %d\n", name, result);
+        printf("Failed to configure interrupt on pin6 for %s, error code %d\n",
+               name, result);
     }
     gpio_init_callback(&pin6_encoder_cb_data,
                        MotorEncoder::encoder_pin6_edge_rising,
@@ -55,9 +58,7 @@ Motor::Motor(pwm_dt_spec pwm1_spec, pwm_dt_spec pwm2_spec,
              MotorEncoder *encoder)
     : pwm1_spec(pwm1_spec), pwm2_spec(pwm2_spec), encoder(encoder) {}
 
-void Motor::halt() {
-    drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f);
-}
+void Motor::halt() { drive_pwm(pwm1_spec, pwm2_spec, 1.0f, 1.0f); }
 
 bool Motor::set_speed(float speed) {
     float pwm1 = 0;
@@ -72,8 +73,7 @@ bool Motor::set_speed(float speed) {
 }
 
 void Motor::drive_to_target(int32_t speed) {
-    printf("drift = %d\n",
-           abs(get_drift()));
+    printf("drift = %d\n", abs(get_drift()));
 
     int drift = get_drift();
     // Reset stall timer, otherwise it will instantly think it's not moving.
@@ -81,20 +81,23 @@ void Motor::drive_to_target(int32_t speed) {
     while (abs(drift) > 0) {
         int speed_sign = std::signbit(drift) ? -1 : 1;
         set_speed(speed_sign * speed / 10000.0f);
-        while (speed_sign *
-                       (get_drift()) >
-                   0 &&
+        while (speed_sign * (get_drift()) > 0 &&
                k_uptime_get() - encoder->get_last_update() < 150) {
         }
         bool not_moving = k_uptime_get() - encoder->get_last_update() >= 150;
         if (not_moving) {
             speed += 100;
-            printf("Not moving, increasing speed to %d, %llims since last movement\n", speed, k_uptime_get() - encoder->get_last_update());
+            printf(
+                "Not moving, increasing speed to %d, %llims since last "
+                "movement\n",
+                speed, k_uptime_get() - encoder->get_last_update());
             set_speed(speed_sign * speed / 10000.0f);
 
             // Wait for 10ms or movement.
             uint64_t start_time = k_uptime_get();
-            while (k_uptime_get() - start_time < 10 && k_uptime_get() - encoder->get_last_update() >= 150) {}
+            while (k_uptime_get() - start_time < 10 &&
+                   k_uptime_get() - encoder->get_last_update() >= 150) {
+            }
             continue;
         }
         encoder->last_update = k_uptime_get();
