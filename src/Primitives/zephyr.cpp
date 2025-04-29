@@ -440,21 +440,12 @@ def_prim(color_sensor, oneToOneU32) {
     pushUInt32(value);
     return true;
 }
-#endif
-
-extern void read_debug_messages();
-
-void debug_work_handler(struct k_work *work) { read_debug_messages(); }
-
-K_WORK_DEFINE(debug_work, debug_work_handler);
 
 struct k_timer heartbeat_timer;
 void heartbeat_timer_func(struct k_timer *timer_id) {
-#ifdef CONFIG_BOARD_STM32L496G_DISCO
     uartHeartbeat(&sensor);
-#endif
-    k_work_submit(&debug_work);
 }
+#endif
 
 //------------------------------------------------------
 // Installing all the primitives
@@ -478,10 +469,10 @@ void install_primitives() {
 
     install_primitive(color_sensor);
     install_primitive(setup_uart_sensor);
-#endif
 
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(990), K_MSEC(990));
+#endif
 }
 
 //------------------------------------------------------
