@@ -442,9 +442,7 @@ def_prim(color_sensor, oneToOneU32) {
 }
 
 struct k_timer heartbeat_timer;
-void heartbeat_timer_func(struct k_timer *timer_id) {
-    uartHeartbeat(&sensor);
-}
+void heartbeat_timer_func(struct k_timer *timer_id) { uartHeartbeat(&sensor); }
 #endif
 
 //------------------------------------------------------
