@@ -122,6 +122,15 @@ Type oneToNoneU32 = {
     .mask = 0x8001 /* 0x800 = no return ; 1 = I32*/
 };
 
+Type oneToNoneI32 = {
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x8001 /* 0x800 = no return ; 1 = I32*/
+};
+
 Type twoToNoneU32 = {
     .form = FUNC,
     .param_count = 2,
@@ -286,8 +295,8 @@ def_prim(chip_digital_read, oneToOneU32) {
     return true;
 }
 
-def_prim(print_int, oneToNoneU32) {
-    printf("%u\n", arg0.uint32);
+def_prim(print_int, oneToNoneI32) {
+    printf("%d\n", arg0.int32);
     pop_args(1);
     return true;
 }
