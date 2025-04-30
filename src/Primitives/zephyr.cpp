@@ -438,15 +438,15 @@ def_prim(setup_uart_sensor, twoToNoneU32) {
     return result;
 }
 
-def_prim(color_sensor, oneToOneU32) {
+def_prim(color_sensor, oneToOneI32) {
     if (!sensor_ready(&sensor)) {
         printk("Input port is not ready!\n");
         return false;
     }
 
     pop_args(1);
-    int value = get_sensor_value(&sensor);
-    pushUInt32(value);
+    int32_t value = get_sensor_value(&sensor);
+    pushInt32(value);
     return true;
 }
 
