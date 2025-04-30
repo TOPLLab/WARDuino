@@ -11,12 +11,13 @@ struct UartSensor {
     int payload_index = 0;
     unsigned int current_payload = 0;
     unsigned char checksum = 0;
-    bool data_byte = false;
+    int data_byte = 0;
 
     // Variables that are used during setup but also by the heartbeat function.
     int baudrate = -1;
     uint8_t mode = 0;
-    volatile int sensor_value = 0;
+    volatile int32_t sensor_value = 0;
+    volatile int16_t new_sensor_value = 0;
     volatile uint32_t receive_state = ReceiveState::advertise;
     bool baudrate_configured = false;
 
@@ -32,6 +33,6 @@ void uartHeartbeat(UartSensor *sensor);
 
 bool sensor_ready(UartSensor *sensor);
 
-int get_sensor_value(UartSensor *sensor);
+int32_t get_sensor_value(UartSensor *sensor);
 
 bool configure_uart_sensor(UartSensor *sensor, uint8_t new_mode);
