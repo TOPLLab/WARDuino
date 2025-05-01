@@ -20,6 +20,7 @@
 #include <zephyr/drivers/uart.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/led_strip.h>
 
 #include <chrono>
 #include <cmath>
@@ -32,7 +33,7 @@
 #include "../Utils/util.h"
 #include "primitives.h"
 
-#define ALL_PRIMITIVES 5
+#define ALL_PRIMITIVES 7
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -262,6 +263,86 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
+static const device *const strip = DEVICE_DT_GET(DT_ALIAS(led_strip));
+const size_t strip_length = 64;//led_strip_length(device);
+led_rgb pixels[strip_length] = {0};
+led_rgb pixels_shown[strip_length] = {0};
+
+def_prim(show_pixels, NoneToNoneU32) {
+    memcpy(pixels_shown, pixels, strip_length * sizeof(led_rgb));
+    int rc = led_strip_update_rgb(strip, pixels_shown, strip_length);
+    if (rc) {
+        printf("couldn't update strip: %d", rc);
+    }
+    return true;
+}
+
+def_prim_serialize(show_pixels) {
+    for (int i = 0; i < strip_length; i++) {
+        auto *state = new IOStateElement();
+        state->key = "n" + std::to_string(i);
+        state->output = true;
+        state->value = pixels_shown[i].r << 16 | pixels_shown[i].g << 8 | pixels_shown[i].b;
+        external_state.push_back(state);
+    }
+}
+
+def_prim_reverse(show_pixels) {
+    for (IOStateElement state : external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'n') {
+            int index = stoi(state.key.substr(1));
+            pixels_shown[index].r = ((uint32_t) state.value >> 16) & 0xff;
+            pixels_shown[index].g = ((uint32_t) state.value >> 8) & 0xff;
+            pixels_shown[index].b = state.value & 0xff;
+            int rc = led_strip_update_rgb(strip, pixels_shown, strip_length);
+    		if (rc) {
+        		printf("couldn't update strip: %d", rc);
+    		}
+        }
+    }
+}
+
+def_prim(set_pixel_color, fourToOneU32) {
+    uint8_t blue = arg0.uint32;
+    uint8_t green = arg1.uint32;
+    uint8_t red = arg2.uint32;
+    uint8_t index = arg3.uint32;
+
+    led_rgb color = {.r = red, .g = green, .b= blue};
+    memcpy(&pixels[index], &color, sizeof(struct led_rgb));
+    pop_args(4);
+    return true;
+}
+
+def_prim_serialize(set_pixel_color) {
+    for (int i = 0; i < strip_length; i++) {
+        auto *state = new IOStateElement();
+        state->key = "b" + std::to_string(i);
+        state->output = true;
+        state->value = pixels[i].r << 16 | pixels[i].g << 8 | pixels[i].b;
+        external_state.push_back(state);
+    }
+}
+
+def_prim_reverse(set_pixel_color) {
+    for (IOStateElement state : external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'b') {
+            int index = stoi(state.key.substr(1));
+            pixels[index].r = ((uint32_t) state.value >> 16) & 0xff;
+            pixels[index].g = ((uint32_t) state.value >> 8) & 0xff;
+            pixels[index].b = state.value & 0xff;
+        }
+    }
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -272,6 +353,10 @@ void install_primitives() {
     install_primitive(chip_digital_write);
     install_primitive(chip_digital_read);
     install_primitive(print_int);
+    install_primitive(set_pixel_color);
+    install_primitive_reverse(set_pixel_color);
+    install_primitive(show_pixels);
+    install_primitive_reverse(show_pixels);
 }
 
 //------------------------------------------------------
@@ -317,25 +402,12 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 //------------------------------------------------------
 void restore_external_state(Module *m,
                             const std::vector<IOStateElement> &external_state) {
-    uint8_t opcode = *m->pc_ptr;
-    // TODO: Maybe primitives can also be called using the other call
-    // instructions such as call_indirect
-    //  maybe there should just be a function that checks if a certain function
-    //  is being called that handles all these cases?
-    if (opcode == 0x10) {  // call opcode
-        uint8_t *pc_copy = m->pc_ptr + 1;
-        uint32_t fidx = read_LEB_32(&pc_copy);
-        if (fidx < m->import_count) {
-            for (auto &primitive : primitives) {
-                if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
-                    if (primitive.f_reverse) {
-                        debug("Reversing action for primitive %s\n",
-                              primitive.name);
-                        primitive.f_reverse(m, external_state);
-                    }
-                    return;
-                }
-            }
+    for (int i = 0; i < ALL_PRIMITIVES; i++) {
+        auto primitive = primitives[i];
+        if (primitive.f_reverse) {
+            debug("Reversing action for primitive %s\n",
+                  primitive.name);
+            primitive.f_reverse(m, external_state);
         }
     }
 }
