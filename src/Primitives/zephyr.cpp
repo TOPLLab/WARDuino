@@ -427,31 +427,50 @@ def_prim_serialize(drive_motor_degrees) {
     }
 }
 
-static const struct device *const uart_dev =
-    DEVICE_DT_GET(DT_PROP(DT_PATH(zephyr_user), warduino_uarts));
+const device *const uart_specs[] = {
+    DEVICE_DT_GET(DT_NODELABEL(usart3)),
+    DEVICE_DT_GET(DT_NODELABEL(uart4)),
+    DEVICE_DT_GET(DT_NODELABEL(usart2)),
+    DEVICE_DT_GET(DT_NODELABEL(usart1)),
+};
 
-UartSensor sensor(uart_dev);
+UartSensor sensors[] = {
+    UartSensor(uart_specs[0]),
+    UartSensor(uart_specs[1]),
+    UartSensor(uart_specs[2]),
+    UartSensor(uart_specs[3])
+};
 
 def_prim(setup_uart_sensor, twoToNoneU32) {
-    bool result = configure_uart_sensor(&sensor, arg0.uint32);
+    printf("get sensor %d\n", arg1.uint32);
+    UartSensor *sensor = &sensors[arg1.uint32];
+    //UartSensor *sensor = &sensors[0];
+    bool result = configure_uart_sensor(sensor, arg0.uint32);
     pop_args(2);
     return result;
 }
 
 def_prim(color_sensor, oneToOneI32) {
-    if (!sensor_ready(&sensor)) {
+    printf("color_sensor(%d)\n", arg0.uint32);
+    UartSensor *sensor = &sensors[arg0.uint32];
+    //UartSensor *sensor = &sensors[0];
+    if (!sensor_ready(sensor)) {
         printk("Input port is not ready!\n");
         return false;
     }
 
     pop_args(1);
-    int32_t value = get_sensor_value(&sensor);
+    int32_t value = get_sensor_value(sensor);
     pushInt32(value);
     return true;
 }
 
 struct k_timer heartbeat_timer;
-void heartbeat_timer_func(struct k_timer *timer_id) { uartHeartbeat(&sensor); }
+void heartbeat_timer_func(struct k_timer *timer_id) {
+    for (int i = 0; i < 4; i++) {
+        uartHeartbeat(&sensors[i]);
+    }
+}
 #endif
 
 //------------------------------------------------------
@@ -478,7 +497,7 @@ void install_primitives() {
     install_primitive(setup_uart_sensor);
 
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
-    k_timer_start(&heartbeat_timer, K_MSEC(990), K_MSEC(990));
+    k_timer_start(&heartbeat_timer, K_MSEC(500), K_MSEC(500));
 #endif
 }
 

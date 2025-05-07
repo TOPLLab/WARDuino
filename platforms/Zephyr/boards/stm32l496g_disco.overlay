@@ -116,6 +116,9 @@
 				<&pwm1 2 10000 PWM_POLARITY_NORMAL>;
 
 		warduino-uarts =
+				<&usart3>,
+				<&uart4>,
+				<&usart2>,
 				<&usart1>;
 	};
 };
