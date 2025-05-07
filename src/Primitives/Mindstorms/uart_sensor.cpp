@@ -22,14 +22,12 @@ void serial_cb(const struct device *dev, void *user_data) {
 
         if (sensor->receive_state == ReceiveState::data) {
             if (sensor->data_byte > 0) {
-                //printf("data_byte = %d, data = %d, offset = %d\n", sensor->data_byte, data, 8 * (2 - sensor->data_byte));
-                //sensor->sensor_value = data;
-                sensor->new_sensor_value |= static_cast<uint32_t>(data) << 8 * (2 - sensor->data_byte);
+                sensor->new_sensor_value |=
+                    static_cast<uint32_t>(data)
+                    << 8 * (sensor->data_len - sensor->data_byte);
                 sensor->data_byte--;
                 if (sensor->data_byte == 0) {
-                    //printf("Writing sensor value %d\n", sensor->new_sensor_value);
                     sensor->sensor_value = sensor->new_sensor_value;
-                    //printf("Sensor value = %d\n", sensor->sensor_value);
                     sensor->new_sensor_value = 0;
                 }
             }
@@ -37,12 +35,13 @@ void serial_cb(const struct device *dev, void *user_data) {
             // will contain data.
             else if (data >> 6 == 0b11) {
                 uint32_t len = (data >> 3) & 0b111;
-                // We only support length 2^1 currently.
-                if (len != 1) {
+                // We only support length 2^[0-1] currently.
+                if (len > 1) {
                     continue;
                 }
+                sensor->data_len = 1 << len;
                 // Next byte will be data
-                sensor->data_byte = 2;
+                sensor->data_byte = sensor->data_len;
             }
             continue;
         }

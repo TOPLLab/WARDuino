@@ -12,6 +12,7 @@ struct UartSensor {
     unsigned int current_payload = 0;
     unsigned char checksum = 0;
     int data_byte = 0;
+    int data_len = 1;
 
     // Variables that are used during setup but also by the heartbeat function.
     int baudrate = -1;
