@@ -146,3 +146,22 @@
 	pinctrl-0 = <&usart1_tx_pg9 &usart1_rx_pg10>;
 	current-speed = <2400>;
 };
+
+&usart2 {
+	pinctrl-0 = <&usart2_tx_pd5 &usart2_rx_pd6>;
+	current-speed = <2400>;
+};
+
+&uart4 {
+	pinctrl-0 = <&uart4_tx_pc10 &uart4_rx_pc11>;
+	current-speed = <2400>;
+	status = "okay";
+	pinctrl-names = "default";
+};
+
+&usart3 {
+	pinctrl-0 = <&usart3_tx_pb10 &usart3_rx_pb11>;
+	current-speed = <2400>;
+	status = "okay";
+	pinctrl-names = "default";
+};
