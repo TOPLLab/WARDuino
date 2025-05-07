@@ -450,8 +450,8 @@ def_prim(setup_uart_sensor, twoToNoneU32) {
     return result;
 }
 
-def_prim(color_sensor, oneToOneI32) {
-    printf("color_sensor(%d)\n", arg0.uint32);
+def_prim(read_uart_sensor, oneToOneI32) {
+    printf("read_uart_sensor(%d)\n", arg0.uint32);
     UartSensor *sensor = &sensors[arg0.uint32];
     //UartSensor *sensor = &sensors[0];
     if (!sensor_ready(sensor)) {
@@ -493,7 +493,7 @@ void install_primitives() {
     install_primitive(drive_motor_degrees);
     install_primitive_reverse(drive_motor_degrees);
 
-    install_primitive(color_sensor);
+    install_primitive(read_uart_sensor);
     install_primitive(setup_uart_sensor);
 
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
