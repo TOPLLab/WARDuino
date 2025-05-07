@@ -434,17 +434,12 @@ const device *const uart_specs[] = {
     DEVICE_DT_GET(DT_NODELABEL(usart1)),
 };
 
-UartSensor sensors[] = {
-    UartSensor(uart_specs[0]),
-    UartSensor(uart_specs[1]),
-    UartSensor(uart_specs[2]),
-    UartSensor(uart_specs[3])
-};
+UartSensor sensors[] = {UartSensor(uart_specs[0]), UartSensor(uart_specs[1]),
+                        UartSensor(uart_specs[2]), UartSensor(uart_specs[3])};
 
 def_prim(setup_uart_sensor, twoToNoneU32) {
     printf("get sensor %d\n", arg1.uint32);
     UartSensor *sensor = &sensors[arg1.uint32];
-    //UartSensor *sensor = &sensors[0];
     bool result = configure_uart_sensor(sensor, arg0.uint32);
     pop_args(2);
     return result;
@@ -453,7 +448,6 @@ def_prim(setup_uart_sensor, twoToNoneU32) {
 def_prim(read_uart_sensor, oneToOneI32) {
     printf("read_uart_sensor(%d)\n", arg0.uint32);
     UartSensor *sensor = &sensors[arg0.uint32];
-    //UartSensor *sensor = &sensors[0];
     if (!sensor_ready(sensor)) {
         printk("Input port is not ready!\n");
         return false;
