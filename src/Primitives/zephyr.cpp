@@ -428,20 +428,13 @@ def_prim_serialize(drive_motor_degrees) {
     }
 }
 
-/*const struct device *const uart_specs[] = {
-    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, 0)),
-    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, 1)),
-    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, 2)),
-    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, 3)),
-};*/
+#define UART_ENTRY(idx, _) \
+    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, idx))
+const device *const uart_devs[] = {LISTIFY(
+    DT_PROP_LEN(DT_PATH(zephyr_user), warduino_uarts), UART_ENTRY, (, ))};
 
-#define UART_ENTRY(idx, _) DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, idx))
-const device *const uart_specs[] = {
-    LISTIFY(DT_PROP_LEN(DT_PATH(zephyr_user), warduino_uarts), UART_ENTRY, (,))
-};
-
-UartSensor sensors[] = {UartSensor(uart_specs[0]), UartSensor(uart_specs[1]),
-                        UartSensor(uart_specs[2]), UartSensor(uart_specs[3])};
+UartSensor sensors[] = {UartSensor(uart_devs[0]), UartSensor(uart_devs[1]),
+                        UartSensor(uart_devs[2]), UartSensor(uart_devs[3])};
 
 def_prim(setup_uart_sensor, twoToNoneU32) {
     printf("get sensor %d\n", arg1.uint32);
