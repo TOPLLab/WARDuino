@@ -17,6 +17,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/util_macro.h>
 
 #include <chrono>
 #include <cmath>
@@ -427,11 +428,16 @@ def_prim_serialize(drive_motor_degrees) {
     }
 }
 
+/*const struct device *const uart_specs[] = {
+    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, 0)),
+    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, 1)),
+    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, 2)),
+    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, 3)),
+};*/
+
+#define UART_ENTRY(idx, _) DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, idx))
 const device *const uart_specs[] = {
-    DEVICE_DT_GET(DT_NODELABEL(usart3)),
-    DEVICE_DT_GET(DT_NODELABEL(uart4)),
-    DEVICE_DT_GET(DT_NODELABEL(usart2)),
-    DEVICE_DT_GET(DT_NODELABEL(usart1)),
+    LISTIFY(DT_PROP_LEN(DT_PATH(zephyr_user), warduino_uarts), UART_ENTRY, (,))
 };
 
 UartSensor sensors[] = {UartSensor(uart_specs[0]), UartSensor(uart_specs[1]),
