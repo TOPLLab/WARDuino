@@ -29,7 +29,7 @@
 #define NUM_GLOBALS 0
 #define ALL_GLOBALS NUM_GLOBALS
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 34
+#define NUM_PRIMITIVES_ARDUINO 35
 
 int global_index = 0;
 
@@ -478,6 +478,15 @@ def_prim(add_debug_callback, twoToNoneU32) {
     return true;
 }
 
+def_prim(add_debug_message, twoToNoneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    std::string text = parse_utf8_string(m->memory.bytes, size, addr) + "\n";
+    m->warduino->debugger->addDebugMessage(text.length(), reinterpret_cast<const uint8_t *>(text.c_str()));
+    pop_args(2);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -534,6 +543,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(ev3_touch_sensor);
 
     install_primitive(add_debug_callback);
+    install_primitive(add_debug_message);
 }
 
 Memory external_mem{};
