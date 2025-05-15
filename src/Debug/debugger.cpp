@@ -366,9 +366,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         default:
-            // handle later
-            this->channel->write("COULD not parse interrupt data!\n");
-            free(interruptData);
+            // If it is not an existing debug operation it could be implemented reflectively, if not the VM will print an error.
+            if (callbacks.find(*interruptData) == callbacks.end()) {
+                this->channel->write("COULD not parse interrupt data!\n");
+                free(interruptData);
+            }
             break;
     }
     fflush(stdout);
@@ -1707,7 +1709,9 @@ void Debugger::handleCallbacks(Module *m, uint8_t interrupt) {
             m->callstack = &m->callstack[m->csp + 1];
             m->csp = -1;
             m->warduino->interpreter->setup_call(m, fidx);
-            handleInterruptRUN(m, &m->warduino->program_state); // Maybe not ideal since this also prints GO and such...
+            //handleInterruptRUN(m, &m->warduino->program_state); // Maybe not ideal since this also prints GO and such...
+            // In this mode the debugger does not process messages, but this also means we can't debug the callbacks anymore.
+            m->warduino->program_state = WARDUINOinit;
             bool success = m->warduino->interpreter->interpret(m);
             ASSERT(success, "Failed to run callback.");
 
