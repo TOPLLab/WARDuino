@@ -1698,16 +1698,23 @@ void Debugger::handleCallbacks(Module *m, uint8_t interrupt) {
         for (uint32_t tidx : callBackFidxs) {
             // Run primitive
             printf("Invoke debugger callback %d\n", tidx);
-            //invoke_primitive(m, "drive_motor", 0, 0, 1);
-            //invoke_primitive(m, "drive_motor", 1, 0, 1);
-
             uint32_t fidx = m->table.entries[tidx];
-            uint8_t *pc = m->pc_ptr;
-            //addBreakpoint(pc);
-            mark = pc;
 
+            const int old_csp = m->csp;
+            //Frame* old_callstack = m->callstack;
+            RunningState old_rs = m->warduino->program_state;
+
+            m->callstack = &m->callstack[m->csp + 1];
+            m->csp = -1;
             m->warduino->interpreter->setup_call(m, fidx);
-            handleInterruptRUN(m, &m->warduino->program_state);
+            handleInterruptRUN(m, &m->warduino->program_state); // Maybe not ideal since this also prints GO and such...
+            bool success = m->warduino->interpreter->interpret(m);
+            ASSERT(success, "Failed to run callback.");
+
+            m->csp = old_csp;
+            m->callstack = &m->callstack[-(old_csp + 1)];
+            //assert(m->callstack == old_callstack);
+            m->warduino->program_state = old_rs;
         }
     }
 }
