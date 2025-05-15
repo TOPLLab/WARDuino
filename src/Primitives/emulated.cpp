@@ -519,8 +519,8 @@ def_prim(drive_motor, threeToNoneU32) {
 def_prim(add_debug_callback, twoToNoneU32) {
     uint8_t tidx = arg0.uint32;
 
-        if (tidx < 0 || m->table.size < tidx) {
-        printf("subscribe_interrupt: out of range table index %i\n", tidx);
+    if (tidx < 0 || m->table.size < tidx) {
+        printf("add_debug_callback: out of range table index %i\n", tidx);
         return false;
     }
 
