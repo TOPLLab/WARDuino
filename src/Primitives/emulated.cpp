@@ -29,7 +29,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 34
+#define NUM_PRIMITIVES_ARDUINO 35
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -530,6 +530,15 @@ def_prim(add_debug_callback, twoToNoneU32) {
     return true;
 }
 
+def_prim(add_debug_message, twoToNoneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    std::string text = parse_utf8_string(m->memory.bytes, size, addr) + "\n";
+    m->warduino->debugger->addDebugMessage(text.length(), reinterpret_cast<const uint8_t *>(text.c_str()));
+    pop_args(2);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -581,6 +590,7 @@ void install_primitives() {
     install_primitive(drive_motor);
 
     install_primitive(add_debug_callback);
+    install_primitive(add_debug_message);
 }
 
 //------------------------------------------------------
