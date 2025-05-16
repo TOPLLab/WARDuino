@@ -247,6 +247,7 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         // Take snapshot before executing an instruction
         if (m->warduino->program_state != WARDUINOinit) {
             m->warduino->debugger->handleSnapshotPolicy(m);
+            m->warduino->debugger->handleCallbacks(m, 0);
         }
 
         opcode = *m->pc_ptr;
