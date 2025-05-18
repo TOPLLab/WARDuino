@@ -33,7 +33,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 41
+#define NUM_PRIMITIVES_ARDUINO 42
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -594,7 +594,7 @@ const int h = 16 * 32;
 uint32_t pixels1[w * h] = {};
 uint32_t pixels2[w * h] = {};
 
-TTF_Font *font;
+TTF_Font *font = nullptr;
 
 def_prim(init_display, NoneToNoneU32) {
     printf("init_display \n");
@@ -622,9 +622,6 @@ def_prim(init_display, NoneToNoneU32) {
         fprintf(stderr, "Failed to init SDL TTF: %s\n", SDL_GetError());
         return false;
     }
-
-    const char* fontFile = "/Users/maarten/Downloads/Inter-4.1/extras/ttf/Inter-Regular.ttf";
-    font = TTF_OpenFont(fontFile, 32);
     
     return true;
 }
@@ -682,6 +679,24 @@ def_prim(load_sprite, fourToNoneU32) {
         FATAL("Failed to load sprite sheet \"%s\"", filename.c_str());
     }
     texture = SDL_CreateTextureFromSurface(renderer, texSurface);
+
+    return true;
+}
+
+def_prim(load_font, threeToNoneU32) {
+    const uint32_t addr = arg2.uint32;
+    const uint32_t size = arg1.uint32;
+    const uint32_t ptsize = arg0.uint32;
+    const std::string filename = parse_utf8_string(m->memory.bytes, size, addr);
+    pop_args(3);
+
+    font = TTF_OpenFont(filename.c_str(), ptsize);
+    if (!font) {
+        char buffer[100];
+        snprintf(buffer, 100, "Failed to load font \"%s\"", filename.c_str());
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to load font", buffer, window);
+        FATAL("Failed to load font \"%s\"", filename.c_str());
+    }
 
     return true;
 }
@@ -750,16 +765,20 @@ def_prim(draw_raw, fiveToNoneU32) {
     return true;
 }
 
-def_prim(draw_text, fourToNoneU32) {
+def_prim(draw_text, fiveToNoneU32) {
     const uint32_t addr = arg1.uint32;
     const uint32_t size = arg0.uint32;
     const std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    const uint8_t r = (arg2.uint32 >> 16) & 0xff;
+    const uint8_t g = (arg2.uint32 >> 8) & 0xff;
+    const uint8_t b = arg2.uint32 & 0xff;
+    const SDL_Color color = (SDL_Color) {r, g, b, 0};
     SDL_Surface* surface = TTF_RenderUTF8_Blended(font,
-        text.c_str(), { 0xFF, 0xFF, 0xFF, 0 });
+        text.c_str(), color);
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-    const SDL_Rect rect = {arg3.int32, arg2.int32, surface->w, surface->h};
+    const SDL_Rect rect = {arg4.int32, arg3.int32, surface->w, surface->h};
     SDL_RenderCopy(renderer, texture, nullptr, &rect);
-    pop_args(4);
+    pop_args(5);
     return true;
 }
 
@@ -862,6 +881,7 @@ void install_primitives() {
     install_primitive(load_sprite);
     install_primitive(draw_raw);
     install_primitive(draw_text);
+    install_primitive(load_font);
 
     // Mouse primitives
     install_primitive(get_mouse_x);
