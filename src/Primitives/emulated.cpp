@@ -661,7 +661,7 @@ def_prim(init_display, NoneToNoneU32) {
                     "WARDuino emulated display",
                     SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                     640, 480,
-                    SDL_WINDOW_SHOWN
+                    SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI
                     );
     if (window == NULL) {
         fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
@@ -823,16 +823,28 @@ def_prim(present_display_buffer, NoneToNoneU32) {
 }
 
 def_prim(get_mouse_x, NoneToOneU32) {
+    int dw, dh;
+    SDL_GL_GetDrawableSize(window, &dw, &dh);
+    int ww, wh;
+    SDL_GetWindowSize(window, &ww, &wh);
+    float scaleFactorX =  static_cast<float>(dw) / static_cast<float>(ww);
+    float scaleFactorY =  static_cast<float>(dh) / static_cast<float>(wh);
     int x, y;
     SDL_GetMouseState(&x, &y);
-    pushInt32(x);
+    pushInt32(x * scaleFactorX);
     return true;
 }
 
 def_prim(get_mouse_y, NoneToOneU32) {
+    int dw, dh;
+    SDL_GL_GetDrawableSize(window, &dw, &dh);
+    int ww, wh;
+    SDL_GetWindowSize(window, &ww, &wh);
+    float scaleFactorX =  static_cast<float>(dw) / static_cast<float>(ww);
+    float scaleFactorY =  static_cast<float>(dh) / static_cast<float>(wh);
     int x, y;
     SDL_GetMouseState(&x, &y);
-    pushInt32(y);
+    pushInt32(y * scaleFactorY);
     return true;
 }
 
@@ -904,6 +916,7 @@ void install_primitives() {
     install_primitive(draw_sprite);
     install_primitive(load_sprite);
     install_primitive(draw_raw);
+    install_primitive(draw_text);
 
     // Mouse primitives
     install_primitive(get_mouse_x);
