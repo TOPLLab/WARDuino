@@ -24,6 +24,7 @@
 #include <thread>
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
@@ -32,7 +33,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 40
+#define NUM_PRIMITIVES_ARDUINO 41
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -647,6 +648,8 @@ const int h = 16 * 32;
 uint32_t pixels1[w * h] = {};
 uint32_t pixels2[w * h] = {};
 
+TTF_Font *font;
+
 def_prim(init_display, NoneToNoneU32) {
     printf("init_display \n");
     
@@ -669,6 +672,13 @@ def_prim(init_display, NoneToNoneU32) {
         fprintf(stderr, "Could not create renderer: %s\n", SDL_GetError());                            
         return false;                                                                                  
     }
+    if (TTF_Init()) {
+        fprintf(stderr, "Failed to init SDL TTF: %s\n", SDL_GetError());
+        return false;
+    }
+
+    const char* fontFile = "/Users/maarten/Downloads/Inter-4.1/extras/ttf/Inter-Regular.ttf";
+    font = TTF_OpenFont(fontFile, 32);
     
     return true;
 }
@@ -791,6 +801,19 @@ def_prim(draw_raw, fiveToNoneU32) {
     SDL_RenderCopy(renderer, texture, &src_rect, &rect);*/
     
     pop_args(5);
+    return true;
+}
+
+def_prim(draw_text, fourToNoneU32) {
+    const uint32_t addr = arg1.uint32;
+    const uint32_t size = arg0.uint32;
+    const std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    SDL_Surface* surface = TTF_RenderUTF8_Blended(font,
+        text.c_str(), { 0xFF, 0xFF, 0xFF, 0 });
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    const SDL_Rect rect = {arg3.int32, arg2.int32, surface->w, surface->h};
+    SDL_RenderCopy(renderer, texture, nullptr, &rect);
+    pop_args(4);
     return true;
 }
 
