@@ -728,6 +728,15 @@ def_prim(draw_text, fiveToNoneU32) {
     return true;
 }
 
+def_prim(text_width, twoToOneU32) {
+    const std::string text = parse_utf8_string(m->memory.bytes, arg0.uint32, arg1.uint32);
+    pop_args(2);
+    int w;
+    TTF_SizeText(font, text.c_str(), &w, nullptr);
+    pushUInt32(w);
+    return true;
+}
+
 def_prim(present_display_buffer, NoneToNoneU32) {
     SDL_RenderPresent(renderer);
     return true;
@@ -828,6 +837,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(draw_raw);
     install_primitive(draw_text);
     install_primitive(load_font);
+    install_primitive(text_width);
 
     // Mouse primitives
     install_primitive(get_mouse_x);
