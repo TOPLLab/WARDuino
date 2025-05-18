@@ -111,7 +111,7 @@ typedef struct Module {
     uint32_t import_count = 0;    // number of leading imports in functions
     uint32_t function_count = 0;  // number of function (including imports)
     Block *functions = nullptr;   // imported and locally defined functions
-    std::map<uint8_t *, Block *>
+    std::unordered_map<uint8_t *, Block *>
         block_lookup;  // map of module byte position to Blocks
     // same length as byte_count
     uint32_t start_function = -1;  // function to run on module load

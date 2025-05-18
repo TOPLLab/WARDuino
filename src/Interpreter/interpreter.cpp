@@ -208,7 +208,6 @@ bool Interpreter::interpret(Module *m, bool waiting) {
                m->warduino->debugger->checkDebugMessages(
                    m, &m->warduino->program_state)) {
         }
-        fflush(stdout);
         //        esp_task_wdt_reset();
 
         // Resolve 1 callback event if queue is not empty and VM not paused, and

@@ -9,6 +9,7 @@
 #include <set>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "../Edward/proxy.h"
@@ -223,7 +224,7 @@ private:
     Channel *channel;
     ProxySupervisor *supervisor = nullptr;
 
-    std::set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
+    std::unordered_set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
     uint8_t *mark = 0;  // a unique temporary breakpoint that gets removed
                         // whenever a breakpoint is hit
     uint8_t *skipBreakpoint =
