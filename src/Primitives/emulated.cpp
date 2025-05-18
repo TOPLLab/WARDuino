@@ -32,7 +32,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 36
+#define NUM_PRIMITIVES_ARDUINO 40
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -716,7 +716,7 @@ def_prim(load_sprite, fourToNoneU32) {
     tile_count = arg0.uint32;
     const std::string filename = parse_utf8_string(m->memory.bytes, size, addr);
     printf("Loading sprite sheet \"%s\" (tilesize %d, grid of %d x %d tiles)\n", filename.c_str(), tile_size, tile_count, tile_count);
-    pop_args(2);
+    pop_args(4);
 
     SDL_Surface *texSurface = SDL_LoadBMP(filename.c_str());
     if (!texSurface) {
@@ -799,6 +799,35 @@ def_prim(present_display_buffer, NoneToNoneU32) {
     return true;
 }
 
+def_prim(get_mouse_x, NoneToOneU32) {
+    int x, y;
+    SDL_GetMouseState(&x, &y);
+    pushInt32(x);
+    return true;
+}
+
+def_prim(get_mouse_y, NoneToOneU32) {
+    int x, y;
+    SDL_GetMouseState(&x, &y);
+    pushInt32(y);
+    return true;
+}
+
+def_prim(get_mouse_pressed, NoneToOneU32) {
+    pushInt32(SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON(SDL_BUTTON_LEFT));
+    return true;
+}
+
+def_prim(set_window_title, twoToNoneU32) {
+    const uint32_t addr = arg1.uint32;
+    const uint32_t size = arg0.uint32;
+    const std::string window_name = parse_utf8_string(m->memory.bytes, size, addr);
+    pop_args(2);
+
+    SDL_SetWindowTitle(window, window_name.c_str());
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -852,6 +881,13 @@ void install_primitives() {
     install_primitive(draw_sprite);
     install_primitive(load_sprite);
     install_primitive(draw_raw);
+
+    // Mouse primitives
+    install_primitive(get_mouse_x);
+    install_primitive(get_mouse_y);
+    install_primitive(get_mouse_pressed);
+
+    install_primitive(set_window_title);
 }
 
 //------------------------------------------------------
