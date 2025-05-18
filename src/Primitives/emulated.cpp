@@ -246,9 +246,9 @@ def_prim(abort, NoneToNoneU32) {
 }
 
 def_prim(millis, NoneToOneU64) {
-    struct timeval tv{};
+    timeval tv {};
     gettimeofday(&tv, nullptr);
-    unsigned long millis = 1000 * tv.tv_sec + tv.tv_usec;
+    const uint64_t millis = 1000 * tv.tv_sec + tv.tv_usec/1000;
     pushUInt64(millis);
     return true;
 }
