@@ -73,7 +73,7 @@ void print_help() {
     fprintf(stdout, "    --version      Get version information\n");
 }
 
-Module *load(WARDuino wac, const char *file_name, Options opt) {
+Module *load(WARDuino *wac, const char *file_name, Options opt) {
     uint8_t *wasm;
     unsigned int file_size;
 
@@ -105,7 +105,7 @@ Module *load(WARDuino wac, const char *file_name, Options opt) {
     fclose(file);
     file = nullptr;
 
-    return wac.load_module(wasm, file_size, opt);
+    return wac->load_module(wasm, file_size, opt);
 
 error:
     fclose(file);
@@ -279,7 +279,7 @@ int main(int argc, const char *argv[]) {
         ARGV_GET(file_name);
 
         dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
-        m = load(*wac, file_name,
+        m = load(wac, file_name,
                  {.disable_memory_bounds = false,
                   .mangle_table_index = false,
                   .dlsym_trim_underscore = false,
