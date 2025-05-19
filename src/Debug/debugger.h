@@ -324,5 +324,5 @@ class Debugger {
 
     // Debugger callbacks
     void addCallback(uint8_t interrupt, uint32_t fidx);
-    void handleCallbacks(Module *m, uint8_t interrupt);
+    void handleCallbacks(Module *m, uint8_t interrupt, uint8_t *data);
 };

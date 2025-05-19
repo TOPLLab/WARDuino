@@ -29,7 +29,7 @@
 #define NUM_GLOBALS 0
 #define ALL_GLOBALS NUM_GLOBALS
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 37
+#define NUM_PRIMITIVES_ARDUINO 38
 
 int global_index = 0;
 
@@ -504,6 +504,13 @@ def_prim(debug_get_opcode, oneToOneU32) {
     return true;
 }
 
+def_prim(debug_read, oneToOneU32) {
+    const uint8_t data = *reinterpret_cast<uint8_t*>(arg0.uint64);
+    pop_args(1);
+    pushUInt32(data);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -563,6 +570,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(add_debug_message);
     install_primitive(debug_get_pc);
     install_primitive(debug_get_opcode);
+    install_primitive(debug_read);
 }
 
 Memory external_mem{};
