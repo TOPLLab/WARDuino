@@ -1699,26 +1699,71 @@ void Debugger::handleCallbacks(Module *m, uint8_t interrupt) {
         std::set<uint32_t > &callBackFidxs = result->second;
         for (uint32_t tidx : callBackFidxs) {
             // Run primitive
-            printf("Invoke debugger callback %d\n", tidx);
+            //printf("Invoke debugger callback %d\n", tidx);
             uint32_t fidx = m->table.entries[tidx];
 
-            const int old_csp = m->csp;
-            //Frame* old_callstack = m->callstack;
             RunningState old_rs = m->warduino->program_state;
+
+            // Current
+            /*const int old_csp = m->csp;
 
             m->callstack = &m->callstack[m->csp + 1];
             m->csp = -1;
             m->warduino->interpreter->setup_call(m, fidx);
+            printf("m->pc_ptr = %p\n", m->pc_ptr);
             //handleInterruptRUN(m, &m->warduino->program_state); // Maybe not ideal since this also prints GO and such...
             // In this mode the debugger does not process messages, but this also means we can't debug the callbacks anymore.
             m->warduino->program_state = WARDUINOinit;
             bool success = m->warduino->interpreter->interpret(m);
             ASSERT(success, "Failed to run callback.");
 
+            //printf("Restoring callstack\n");
             m->csp = old_csp;
             m->callstack = &m->callstack[-(old_csp + 1)];
-            //assert(m->callstack == old_callstack);
+            m->warduino->program_state = old_rs;*/
+
+            // Attempt
+            Module callbackModule;
+            callbackModule.warduino = m->warduino;
+            callbackModule.path = m->path;
+            callbackModule.options = m->options;
+            callbackModule.byte_count = m->byte_count;
+            callbackModule.bytes = m->bytes;
+            callbackModule.type_count = m->type_count;
+            callbackModule.types = m->types;
+            callbackModule.import_count = m->import_count;
+            callbackModule.function_count = m->function_count;
+            callbackModule.functions = m->functions;
+            callbackModule.block_lookup = m->block_lookup;
+            callbackModule.start_function = m->start_function;
+            callbackModule.table = m->table;
+            callbackModule.memory = m->memory;
+            callbackModule.global_count = m->global_count;
+            callbackModule.globals = m->globals;
+            // Runtime state (Partially)
+            callbackModule.sp = m->sp;
+            callbackModule.fp = m->fp;
+            callbackModule.stack = m->stack;
+            callbackModule.csp = -1;
+            callbackModule.callstack = static_cast<Frame*>(
+                calloc(CALLSTACK_SIZE, sizeof(Frame)));
+            callbackModule.br_table = static_cast<uint32_t *>(
+                calloc(BR_TABLE_SIZE, sizeof(uint32_t)));
+            callbackModule.exception = nullptr;
+            callbackModule.pc_ptr = nullptr;
+
+            m->warduino->program_state = WARDUINOinit;
+            m->warduino->interpreter->setup_call(&callbackModule, fidx);
+            //printf("m->pc_ptr = %p\n", callbackModule.pc_ptr);
+            bool success = m->warduino->interpreter->interpret(&callbackModule);
+            ASSERT(success, "Failed to run callback.");
+            free(callbackModule.callstack);
+            free(callbackModule.br_table);
             m->warduino->program_state = old_rs;
+
+            // Memory can grow in the callback, since the old pointer is still in module m,
+            // that one gets used after freeing it. As such we should update the pointer.
+            m->memory = callbackModule.memory;
         }
     }
 }

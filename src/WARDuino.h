@@ -71,4 +71,8 @@ class WARDuino {
     void instantiate_module(Module *m, uint8_t *bytes, uint32_t byte_count);
 
     void free_module_state(Module *m);
+
+    [[nodiscard]] Module *get_module(const uint32_t m_idx) const {
+        return modules[m_idx];
+    }
 };
