@@ -29,7 +29,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 37
+#define NUM_PRIMITIVES_ARDUINO 38
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -575,6 +575,13 @@ def_prim(debug_get_opcode, oneToOneU32) {
     return true;
 }
 
+def_prim(debug_read, oneToOneU32) {
+    const uint8_t data = *reinterpret_cast<uint8_t*>(arg0.uint64);
+    pop_args(1);
+    pushUInt32(data);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -629,6 +636,7 @@ void install_primitives() {
     install_primitive(add_debug_message);
     install_primitive(debug_get_pc);
     install_primitive(debug_get_opcode);
+    install_primitive(debug_read);
 }
 
 //------------------------------------------------------

@@ -371,7 +371,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
     }
     fflush(stdout);
 
-    handleCallbacks(m, interrupt);
+    handleCallbacks(m, interrupt, interruptData);
 
     return true;
 }
@@ -1623,7 +1623,7 @@ void Debugger::addCallback(uint8_t interrupt, uint32_t fidx) {
     callbacksFidxs.insert(fidx);
 }
 
-void Debugger::handleCallbacks(Module *m, uint8_t interrupt) {
+void Debugger::handleCallbacks(Module *m, uint8_t interrupt, uint8_t *data) {
     auto result = callbacks.find(interrupt);
     if (result != callbacks.end()) {
         std::set<uint32_t > &callBackFidxs = result->second;
@@ -1683,6 +1683,9 @@ void Debugger::handleCallbacks(Module *m, uint8_t interrupt) {
             callbackModule.pc_ptr = nullptr;
 
             m->warduino->program_state = WARDUINOinit;
+            callbackModule.stack[++callbackModule.sp].value_type = I64;
+            // This works but is not ideal since it allows direct memory access into the interpreter, perhaps a separate memory segment could be used.
+            callbackModule.stack[callbackModule.sp].value.uint64 = reinterpret_cast<uint64_t>(data);
             m->warduino->interpreter->setup_call(&callbackModule, fidx);
             //printf("m->pc_ptr = %p\n", callbackModule.pc_ptr);
             bool success = m->warduino->interpreter->interpret(&callbackModule);
