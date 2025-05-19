@@ -832,6 +832,8 @@ def_prim(draw_text, fiveToNoneU32) {
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
     const SDL_Rect rect = {arg4.int32, arg3.int32, surface->w, surface->h};
     SDL_RenderCopy(renderer, texture, nullptr, &rect);
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(surface);
     pop_args(5);
     return true;
 }
