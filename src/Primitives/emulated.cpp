@@ -29,7 +29,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 38
+#define NUM_PRIMITIVES_ARDUINO 39
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -582,6 +582,68 @@ def_prim(debug_read, oneToOneU32) {
     return true;
 }
 
+void run_func(Module *m, uint32_t fidx) {
+    RunningState old_rs = m->warduino->program_state;
+    const int old_csp = m->csp;
+
+    m->callstack = &m->callstack[m->csp + 1];
+    m->csp = -1;
+    m->warduino->interpreter->setup_call(m, fidx);
+    m->warduino->program_state = WARDUINOinit;
+    bool success = m->warduino->interpreter->interpret(m);
+    ASSERT(success, "Failed to run function.");
+
+    m->csp = old_csp;
+    m->callstack = &m->callstack[-(old_csp + 1)];
+    m->warduino->program_state = old_rs;
+}
+
+uint32_t wasm_alloc(Module *m, uint32_t size) {
+    Block *alloc_func = nullptr;
+    uint32_t i = 0;
+    while (alloc_func == nullptr && i < m->function_count) {
+        if (m->functions[i].export_name && !strcmp(m->functions[i].export_name, "ward_alloc")) {
+            alloc_func = &m->functions[i];
+        }
+        i++;
+    }
+    if (!alloc_func) {
+        FATAL("Alloc function not found! Make sure the module exports a ward_alloc function");
+    }
+
+    m->stack[++m->sp].value_type = I32;
+    m->stack[m->sp].value.uint32 = size;
+    run_func(m, alloc_func->fidx);
+    return m->stack[m->sp--].value.uint32;
+}
+
+def_prim(get_stack, oneToOneU32) {
+    const uint32_t m_idx = arg0.uint32;
+    const Module *module = m->warduino->get_module(m_idx);
+    const uint32_t elem_size = 8;
+    const uint32_t size = m->sp * elem_size;
+    const uint32_t addr = wasm_alloc(m, size);
+    for (uint32_t i = 0; i < m->sp; i++) {
+        printf("%d", module->stack[i].value.uint32);
+        switch (module->stack[i].value_type) {
+            case I32: printf(": i32 "); break;
+            case I64: printf(": i64 "); break;
+            case F32: printf(": f32 "); break;
+            case F64: printf(": f64 "); break;
+        }
+        m->memory.bytes[addr + i * elem_size] = module->stack[i].value_type;
+        m->warduino->interpreter->store(m, I32, 4 + addr + i * elem_size, module->stack[i]);
+    }
+    printf("\n");
+    /*for (int i = 0; i < 16; i++) {
+        m->memory.bytes[addr + i] = 5;
+        //m->warduino->interpreter->store(m, I32, addr + i, module->stack[i]);
+    }*/
+    pop_args(1);
+    pushUInt32(addr);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -637,6 +699,7 @@ void install_primitives() {
     install_primitive(debug_get_pc);
     install_primitive(debug_get_opcode);
     install_primitive(debug_read);
+    install_primitive(get_stack);
 }
 
 //------------------------------------------------------
