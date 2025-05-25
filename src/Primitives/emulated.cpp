@@ -624,17 +624,17 @@ def_prim(get_stack, oneToOneU32) {
     const uint32_t size = m->sp * elem_size;
     const uint32_t addr = wasm_alloc(m, size);
     for (uint32_t i = 0; i < m->sp; i++) {
-        printf("%d", module->stack[i].value.uint32);
+        /*printf("%d", module->stack[i].value.uint32);
         switch (module->stack[i].value_type) {
             case I32: printf(": i32 "); break;
             case I64: printf(": i64 "); break;
             case F32: printf(": f32 "); break;
             case F64: printf(": f64 "); break;
-        }
+        }*/
         m->memory.bytes[addr + i * elem_size] = module->stack[i].value_type;
         m->warduino->interpreter->store(m, I32, 4 + addr + i * elem_size, module->stack[i]);
     }
-    printf("\n");
+    //printf("\n");
     /*for (int i = 0; i < 16; i++) {
         m->memory.bytes[addr + i] = 5;
         //m->warduino->interpreter->store(m, I32, addr + i, module->stack[i]);
@@ -668,7 +668,7 @@ def_prim(get_callstack, oneToOneU32) {
     constexpr uint32_t struct_size = 4 * 6;
     const uint32_t size = (module->csp + 1) * struct_size;
     const uint32_t addr = wasm_alloc(m, size);
-    printf("callstack size = %d\n", module->csp + 1);
+    //printf("callstack size = %d\n", module->csp + 1);
     for (int i = 0; i <= module->csp; i++) {
         const Frame *f = &module->callstack[i];
         const uint8_t bt = f->block->block_type;
@@ -691,9 +691,9 @@ def_prim(get_callstack, oneToOneU32) {
         v.value.uint32 = ra;
         m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 5, v);
 
-        printf("frame[%d] bt = %d fidx = %d sp = %d fp = %d block_key = %d ra = %d\n", i, bt, fidx, f->sp, f->fp, block_key, ra);
+        //printf("frame[%d] bt = %d fidx = %d sp = %d fp = %d block_key = %d ra = %d\n", i, bt, fidx, f->sp, f->fp, block_key, ra);
     }
-    printf("---\n");
+    //printf("---\n");
     pop_args(1);
     pushUInt32(addr);
     return true;
