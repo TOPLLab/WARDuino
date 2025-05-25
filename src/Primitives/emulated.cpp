@@ -29,7 +29,7 @@
 #define NUM_GLOBALS 0
 #define ALL_GLOBALS NUM_GLOBALS
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 39
+#define NUM_PRIMITIVES_ARDUINO 40
 
 int global_index = 0;
 
@@ -573,6 +573,61 @@ def_prim(get_stack, oneToOneU32) {
     return true;
 }
 
+// TODO: Move this function or make it accessible because this is just a copy from the debugger.
+uint8_t *findOpcode(const Module *m, Block *block) {
+    auto find =
+        std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
+                     [&](const std::pair<uint8_t *, Block *> &pair) {
+                         return pair.second == block;
+                     });
+    uint8_t *opcode = nullptr;
+    if (find != std::end(m->block_lookup)) {
+        opcode = find->first;
+    } else {
+        // FIXME FATAL?
+        debug("find_opcode: not found\n");
+        exit(33);
+    }
+    return opcode;
+}
+
+def_prim(get_callstack, oneToOneU32) {
+    const uint32_t m_idx = arg0.uint32;
+    const Module *module = m->warduino->get_module(m_idx);
+    constexpr uint32_t struct_size = 4 * 6;
+    const uint32_t size = (module->csp + 1) * struct_size;
+    const uint32_t addr = wasm_alloc(m, size);
+    printf("callstack size = %d\n", module->csp + 1);
+    for (int i = 0; i <= module->csp; i++) {
+        const Frame *f = &module->callstack[i];
+        const uint8_t bt = f->block->block_type;
+        const uint32_t block_key = (bt == 0 || bt == 0xff || bt == 0xfe) ? 0 : toVirtualAddress(findOpcode(module, f->block), module);
+        const uint32_t fidx = bt == 0 ? f->block->fidx : 0;
+        const uint32_t ra = f->ra_ptr == nullptr ? 0 : toVirtualAddress(f->ra_ptr, module); // Zero points to the wasm magic number, and so we can use it to indicate invalid values
+        // Write to memory: bt, fidx, f->sp, f->fp, block_key, ra
+        // Struct with 6 elements.
+        StackValue v;
+        v.value.int32 = bt;
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size, v);
+        v.value.uint32 = fidx;
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4, v);
+        v.value.int32 = f->sp;
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 2, v);
+        v.value.int32 = f->fp;
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 3, v);
+        v.value.uint32 = block_key;
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 4, v);
+        v.value.uint32 = ra;
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 5, v);
+
+        printf("frame[%d] bt = %d fidx = %d sp = %d fp = %d block_key = %d ra = %d\n", i, bt, fidx, f->sp, f->fp, block_key, ra);
+    }
+    printf("---\n");
+    pop_args(1);
+    pushUInt32(addr);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -634,6 +689,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(debug_get_opcode);
     install_primitive(debug_read);
     install_primitive(get_stack);
+    install_primitive(get_callstack);
 }
 
 Memory external_mem{};
