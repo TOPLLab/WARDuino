@@ -309,7 +309,7 @@ unsigned short int sizeof_valuetype(uint32_t vt) {
     }
 }
 
-uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
+uint32_t toVirtualAddress(uint8_t *physicalAddr, const Module *m) {
     if (physicalAddr - m->bytes < 0 ||
         physicalAddr > m->bytes + m->byte_count) {
         FATAL(
@@ -322,7 +322,7 @@ uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m) {
     return physicalAddr - m->bytes;
 }
 
-uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m) {
+uint8_t *toPhysicalAddress(uint32_t virtualAddr, const Module *m) {
     if (virtualAddr >= m->byte_count) {
         FATAL(
             "INVALID toPhysicalAddress conversion: "
