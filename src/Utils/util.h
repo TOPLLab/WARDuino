@@ -114,7 +114,7 @@ unsigned short int sizeof_valuetype(uint32_t);
  * @param *m pointer to module for which conversation needs to occur
  * @return virtual address
  */
-uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m);
+uint32_t toVirtualAddress(uint8_t *physicalAddr, const Module *m);
 
 /**
  * The reverse process of toVirtualAddress. Throws FATAL if conversion is not
@@ -123,7 +123,7 @@ uint32_t toVirtualAddress(uint8_t *physicalAddr, Module *m);
  * @param *m pointer to module for which conversation needs to occur
  * @return physical address
  */
-uint8_t *toPhysicalAddress(uint32_t virtualAddr, Module *m);
+uint8_t *toPhysicalAddress(uint32_t virtualAddr, const Module *m);
 
 /**
  * Predicate that determines whether the conversion of a virtualAddress to a
