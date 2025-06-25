@@ -15,6 +15,7 @@
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
 #include "../../src/Utils/util.h"
+#include "binary-info.h"
 #include "warduino/config.h"
 
 // Constants
@@ -359,19 +360,19 @@ int main(int argc, const char *argv[]) {
     if (m) {
         if (dump_info) {
             auto choicepoints = std::vector<uint32_t>();
-            for (uint8_t *choice_point : m->find_choice_points()) {
+            for (uint8_t *choice_point : find_choice_points(m)) {
                 choicepoints.push_back(toVirtualAddress(choice_point, m));
             }
             auto after_choicepoints = std::vector<uint32_t>();
-            for (uint8_t *choice_point : m->find_choice_points(true)) {
+            for (uint8_t *choice_point : find_choice_points(m, true)) {
                 after_choicepoints.push_back(toVirtualAddress(choice_point, m));
             }
             auto primitive_calls = std::vector<uint32_t>();
-            for (uint8_t *call_site : m->find_pc_before_primitive_calls()) {
+            for (uint8_t *call_site : find_pc_before_primitive_calls(m)) {
                 primitive_calls.push_back(toVirtualAddress(call_site, m));
             }
             auto after_primitive_calls = std::vector<uint32_t>();
-            for (uint8_t *call_site : m->find_pc_after_primitive_calls()) {
+            for (uint8_t *call_site : find_pc_after_primitive_calls(m)) {
                 after_primitive_calls.push_back(toVirtualAddress(call_site, m));
             }
             nlohmann::json json;

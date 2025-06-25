@@ -61,6 +61,8 @@
 
 extern char exception[512];
 
+void skip_immediates(uint8_t **pos);
+
 typedef bool (*Primitive)(Module *);
 
 struct IOStateElement {
