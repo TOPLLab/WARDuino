@@ -47,6 +47,7 @@ double sensor_emu = 0;
         if (prim_index < ALL_PRIMITIVES) {                                 \
             PrimitiveEntry *p = &primitives[prim_index++];                 \
             p->name = #prim_name;                                          \
+            p->t = &(prim_name##_type);                                    \
             p->f = &(prim_name);                                           \
             p->f_reverse = nullptr;                                        \
             p->f_serialize_state = nullptr;                                \
