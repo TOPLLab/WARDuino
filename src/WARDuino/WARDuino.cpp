@@ -1111,9 +1111,11 @@ std::vector<uint8_t *> Module::find_choice_points(bool after) const {
 }
 
 std::vector<uint8_t *> Module::find_pc_before_primitive_calls() const {
-    return find_calls([](const std::string &x) { return true; });
+    return find_calls(
+        []([[maybe_unused]] const std::string &x) { return true; });
 }
 
 std::vector<uint8_t *> Module::find_pc_after_primitive_calls() const {
-    return find_calls([](const std::string &x) { return true; }, true);
+    return find_calls(
+        []([[maybe_unused]] const std::string &x) { return true; }, true);
 }
