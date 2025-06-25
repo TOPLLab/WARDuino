@@ -3,6 +3,8 @@
 #include <algorithm>  // std::find
 #include <cmath>
 #include <cstring>
+#include <functional>
+#include <string>
 #include <vector>
 
 #include "../Interpreter/interpreter.h"
