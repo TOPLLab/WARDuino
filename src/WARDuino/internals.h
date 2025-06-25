@@ -134,5 +134,5 @@ typedef struct Module {
     std::vector<uint8_t *> find_pc_before_primitive_calls() const;
     std::vector<uint8_t *> find_pc_after_primitive_calls() const;
     std::vector<uint8_t *> find_calls(
-        const std::function<bool(std::string)>& cond, bool after = false) const;
+        const std::function<bool(std::string)> &cond, bool after = false) const;
 } Module;

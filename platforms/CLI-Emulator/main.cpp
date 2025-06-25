@@ -8,9 +8,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <stdexcept>
 #include <thread>
-#include <iostream>
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Utils/macros.h"
