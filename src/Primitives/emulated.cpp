@@ -246,7 +246,7 @@ def_prim(abort, NoneToNoneU32) {
 }
 
 def_prim(millis, NoneToOneU64) {
-    struct timeval tv {};
+    struct timeval tv{};
     gettimeofday(&tv, nullptr);
     unsigned long millis = 1000 * tv.tv_sec + tv.tv_usec;
     pushUInt64(millis);
@@ -254,7 +254,7 @@ def_prim(millis, NoneToOneU64) {
 }
 
 def_prim(micros, NoneToOneU64) {
-    struct timeval tv {};
+    struct timeval tv{};
     gettimeofday(&tv, nullptr);
     unsigned long micros = 1000000 * tv.tv_sec + tv.tv_usec;
     pushUInt64(micros);

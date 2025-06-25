@@ -81,8 +81,10 @@ void end();
 #endif
 
 #if INFO
-#define dbg_info(...) \
-    { printf(__VA_ARGS__); }
+#define dbg_info(...)        \
+    {                        \
+        printf(__VA_ARGS__); \
+    }
 #else
 #define dbg_info(...) ;
 #endif
@@ -98,8 +100,10 @@ void end();
 #endif
 
 #if WARN
-#define dbg_warn(...) \
-    { printf(__VA_ARGS__); }
+#define dbg_warn(...)        \
+    {                        \
+        printf(__VA_ARGS__); \
+    }
 #else
 #define dbg_warn(...) ;
 #endif

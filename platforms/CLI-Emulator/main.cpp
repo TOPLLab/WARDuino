@@ -183,7 +183,7 @@ const std::map<std::string, speed_t> &baudrateMap() {
 }
 
 bool configureSerialPort(int serialPort, const char *argument) {
-    struct termios tty {};
+    struct termios tty{};
     if (tcgetattr(serialPort, &tty) != 0) {
         fprintf(stderr, "wdcli: error configuring serial port (errno %i): %s\n",
                 errno, strerror(errno));

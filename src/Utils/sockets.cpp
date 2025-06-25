@@ -43,7 +43,7 @@ void bindSocketToAddress(int socket_fd, struct sockaddr_in address) {
 }
 
 struct sockaddr_in createAddress(int port) {
-    struct sockaddr_in address {};
+    struct sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
@@ -167,7 +167,7 @@ ssize_t WebSocket::read(void *out, size_t size) {
 }
 
 void sendAlarm() {
-    struct sigaction sact {};
+    struct sigaction sact{};
     sigemptyset(&sact.sa_mask);
     sact.sa_flags = 0;
     sigaction(SIGALRM, &sact, nullptr);
