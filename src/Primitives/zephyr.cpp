@@ -11,28 +11,32 @@
  *  4) Extend the install_primitives function
  *
  */
-#include <sys/time.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/devicetree/gpio.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
-#include <zephyr/drivers/uart.h>
-#include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/util_macro.h>
 
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <thread>
+#include <optional>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "Mindstorms/Motor.h"
+#include "Mindstorms/uart_sensor.h"
 #include "primitives.h"
 
-#define ALL_PRIMITIVES 5
+#define OBB_PRIMITIVES 0
+#ifdef CONFIG_BOARD_STM32L496G_DISCO
+#define OBB_PRIMITIVES 6
+#endif
+#define ALL_PRIMITIVES OBB_PRIMITIVES + 6
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -111,6 +115,15 @@ uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
 uint32_t param_I64_arr_len1[1] = {I64};
 
 Type oneToNoneU32 = {
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x8001 /* 0x800 = no return ; 1 = I32*/
+};
+
+Type oneToNoneI32 = {
     .form = FUNC,
     .param_count = 1,
     .params = param_I32_arr_len1,
@@ -223,6 +236,7 @@ Type NoneToOneU64 = {.form = FUNC,
                      .mask = 0x82000};
 
 def_prim(chip_delay, oneToNoneU32) {
+    k_yield();
     k_msleep(arg0.uint32);
     pop_args(1);
     return true;
@@ -239,12 +253,38 @@ def_prim(chip_pin_mode, twoToNoneU32) {
     return true;
 }
 
+std::unordered_map<uint32_t, uint32_t> io_map;
+
 def_prim(chip_digital_write, twoToNoneU32) {
     printf("chip_digital_write(%u,%u)\n", arg1.uint32, arg0.uint32);
     gpio_dt_spec pin_spec = specs[arg1.uint32];
     gpio_pin_set_raw(pin_spec.port, pin_spec.pin, arg0.uint32);
+    io_map[arg1.uint32] = arg0.uint32;
     pop_args(2);
     return true;
+}
+
+def_prim_serialize(chip_digital_write) {
+    for (auto pair : io_map) {
+        IOStateElement *state = new IOStateElement();
+        state->output = true;
+        state->key = "p" + std::to_string(pair.first);
+        state->value = pair.second;
+        external_state.push_back(state);
+    }
+}
+
+def_prim_reverse(chip_digital_write) {
+    for (IOStateElement state : external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'p') {
+            invoke_primitive(m, "chip_digital_write", stoi(state.key.substr(1)),
+                             (uint32_t)state.value);
+        }
+    }
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
@@ -256,11 +296,175 @@ def_prim(chip_digital_read, oneToOneU32) {
     return true;
 }
 
-def_prim(print_int, oneToNoneU32) {
-    printf("%u\n", arg0.uint32);
+def_prim(print_int, oneToNoneI32) {
+    printf("%d\n", arg0.int32);
     pop_args(1);
     return true;
 }
+
+def_prim(abort, NoneToNoneU32) {
+    printf("abort\n");
+    return false;
+}
+
+#ifdef CONFIG_BOARD_STM32L496G_DISCO
+
+MotorEncoder *encoders[] = {new MotorEncoder(specs[51], specs[50], "Port A"),
+                            new MotorEncoder(specs[57], specs[58], "Port B"),
+                            new MotorEncoder(specs[17], specs[13], "Port C"),
+                            new MotorEncoder(specs[27], specs[26], "Port D")};
+
+#define PWM_SPEC_GETTER(node_id, prop, idx) \
+    PWM_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), idx)
+struct pwm_dt_spec pwm_specs[] = {DT_FOREACH_PROP_ELEM_SEP(
+    DT_PATH(zephyr_user), pwms, PWM_SPEC_GETTER, (, ))};
+
+std::optional<Motor> get_motor(uint32_t motor_index) {
+    if (motor_index > sizeof(encoders) / sizeof(*encoders)) {
+        return {};
+    }
+
+    return std::make_optional<Motor>(pwm_specs[motor_index * 2 + 1],
+                                     pwm_specs[motor_index * 2],
+                                     encoders[motor_index]);
+}
+
+def_prim(drive_motor, twoToNoneU32) {
+    int32_t speed = arg0.int32;
+    uint32_t motor_index = arg1.uint32;
+    printf("drive_motor(%d, %d)\n", motor_index, speed);
+    pop_args(2);
+
+    if (auto motor = get_motor(motor_index)) {
+        motor.value().set_speed(speed / 10000.0f);
+        return true;
+    }
+
+    printf("Invalid motor index %d\n", motor_index);
+    return false;
+}
+
+def_prim(stop_motor, oneToNoneU32) {
+    uint32_t motor_index = arg0.uint32;
+    pop_args(1);
+
+    if (auto motor = get_motor(motor_index)) {
+        motor.value().halt();
+        return true;
+    }
+
+    printf("Invalid motor index %d\n", motor_index);
+    return false;
+}
+
+def_prim(drive_motor_ms, threeToNoneU32) {
+    int32_t time = arg0.uint32;
+    int32_t speed = arg1.int32;
+    int32_t motor_index = arg2.int32;
+    printf("drive_motor_ms(%d, %d, %d)\n", motor_index, speed, time);
+    pop_args(3);
+
+    if (auto motor = get_motor(motor_index)) {
+        motor.value().set_speed(speed / 10000.0f);
+        k_msleep(time);
+        motor.value().halt();
+        return true;
+    }
+
+    printf("Invalid motor index %d\n", motor_index);
+    return false;
+}
+
+bool drive_motor_degrees_absolute(uint32_t motor_index, int32_t degrees,
+                                  int32_t speed) {
+    if (auto motor = get_motor(motor_index)) {
+        motor->drive_to_angle(speed, degrees);
+        return true;
+    }
+    return false;
+}
+
+bool drive_motor_degrees_relative(uint32_t motor_index, int32_t degrees,
+                                  int32_t speed) {
+    MotorEncoder *encoder = encoders[motor_index];
+    return drive_motor_degrees_absolute(
+        motor_index, encoder->get_target_angle() + degrees, speed);
+}
+
+def_prim(drive_motor_degrees, threeToNoneU32) {
+    int32_t degrees = arg0.int32;
+    int32_t speed = arg1.int32;
+    uint32_t motor_index = arg2.uint32;
+    pop_args(3);
+    return drive_motor_degrees_relative(motor_index, degrees, speed);
+}
+
+def_prim_reverse(drive_motor_degrees) {
+    for (IOStateElement state : external_state) {
+        if (!state.output) {
+            continue;
+        }
+
+        if (state.key[0] == 'e') {
+            printf("Motor target location %d\n", state.value);
+            int motor_index = stoi(state.key.substr(1));
+            // TODO: This is a hack, we should take snapshots before calling
+            // primitives instead of after and just not restore io when
+            // restoring the last snapshot and transfer overrides from a future
+            // snapshot when doing forward execution.
+            drive_motor_degrees_absolute(motor_index, (int32_t)state.value,
+                                         motor_index == 0 ? 10000 : 2000);
+        }
+    }
+}
+
+def_prim_serialize(drive_motor_degrees) {
+    for (int i = 0; i < 2; i++) {
+        IOStateElement *state = new IOStateElement();
+        state->output = true;
+        state->key = "e" + std::to_string(i);
+        state->value = encoders[i]->get_target_angle();
+        external_state.push_back(state);
+    }
+}
+
+#define UART_ENTRY(idx, _) \
+    DEVICE_DT_GET(DT_PHANDLE_BY_IDX(DT_PATH(zephyr_user), warduino_uarts, idx))
+const device *const uart_devs[] = {LISTIFY(
+    DT_PROP_LEN(DT_PATH(zephyr_user), warduino_uarts), UART_ENTRY, (, ))};
+
+UartSensor sensors[] = {UartSensor(uart_devs[0]), UartSensor(uart_devs[1]),
+                        UartSensor(uart_devs[2]), UartSensor(uart_devs[3])};
+
+def_prim(setup_uart_sensor, twoToNoneU32) {
+    printf("get sensor %d\n", arg1.uint32);
+    UartSensor *sensor = &sensors[arg1.uint32];
+    bool result = configure_uart_sensor(sensor, arg0.uint32);
+    pop_args(2);
+    return result;
+}
+
+def_prim(read_uart_sensor, oneToOneI32) {
+    printf("read_uart_sensor(%d)\n", arg0.uint32);
+    UartSensor *sensor = &sensors[arg0.uint32];
+    if (!sensor_ready(sensor)) {
+        printk("Input port is not ready!\n");
+        return false;
+    }
+
+    pop_args(1);
+    int32_t value = get_sensor_value(sensor);
+    pushInt32(value);
+    return true;
+}
+
+struct k_timer heartbeat_timer;
+void heartbeat_timer_func(struct k_timer *timer_id) {
+    for (int i = 0; i < 4; i++) {
+        uartHeartbeat(&sensors[i]);
+    }
+}
+#endif
 
 //------------------------------------------------------
 // Installing all the primitives
@@ -270,8 +474,24 @@ void install_primitives() {
     install_primitive(chip_delay);
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
+    install_primitive_reverse(chip_digital_write);
     install_primitive(chip_digital_read);
     install_primitive(print_int);
+    install_primitive(abort);
+
+#ifdef CONFIG_BOARD_STM32L496G_DISCO
+    install_primitive(drive_motor);
+    install_primitive(stop_motor);
+    install_primitive(drive_motor_ms);
+    install_primitive(drive_motor_degrees);
+    install_primitive_reverse(drive_motor_degrees);
+
+    install_primitive(read_uart_sensor);
+    install_primitive(setup_uart_sensor);
+
+    k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
+    k_timer_start(&heartbeat_timer, K_MSEC(500), K_MSEC(500));
+#endif
 }
 
 //------------------------------------------------------
@@ -317,24 +537,17 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 //------------------------------------------------------
 void restore_external_state(Module *m,
                             const std::vector<IOStateElement> &external_state) {
-    uint8_t opcode = *m->pc_ptr;
-    // TODO: Maybe primitives can also be called using the other call
-    // instructions such as call_indirect
-    //  maybe there should just be a function that checks if a certain function
-    //  is being called that handles all these cases?
-    if (opcode == 0x10) {  // call opcode
-        uint8_t *pc_copy = m->pc_ptr + 1;
-        uint32_t fidx = read_LEB_32(&pc_copy);
-        if (fidx < m->import_count) {
-            for (auto &primitive : primitives) {
-                if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
-                    if (primitive.f_reverse) {
-                        debug("Reversing action for primitive %s\n",
-                              primitive.name);
-                        primitive.f_reverse(m, external_state);
-                    }
-                    return;
-                }
+    std::set<std::string> prim_names;
+    for (uint32_t i = 0; i < m->import_count; i++) {
+        prim_names.emplace(m->functions[i].import_field);
+    }
+
+    for (PrimitiveEntry &p : primitives) {
+        if (prim_names.find(p.name) != prim_names.end()) {
+            printf("%s\n", p.name);
+            if (p.f_reverse) {
+                printf("Reversing action for primitive %s\n", p.name);
+                p.f_reverse(m, external_state);
             }
         }
     }

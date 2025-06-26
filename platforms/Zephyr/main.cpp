@@ -64,7 +64,7 @@ void startDebuggerStd() {
     int valread;
     uint8_t buffer[1024] = {0};
     while (true) {
-        k_msleep(1000);
+        k_msleep(500);
 
         while ((valread = war_console_read(NULL, buffer, 1024)) > 0) {
             wac->handleInterrupt(valread, buffer);
