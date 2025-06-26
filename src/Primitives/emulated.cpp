@@ -443,8 +443,9 @@ def_prim(chip_digital_read, oneToOneU32) {
     pop_args(1);
     if (pin < NUM_DIGITAL_PINS) {
         pushUInt32(PINS[pin]);
+        return true;
     }
-    return pin < NUM_DIGITAL_PINS;
+    return false;
 }
 
 def_prim(chip_analog_read, oneToOneI32) {
