@@ -144,6 +144,9 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
 }
 
 void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) {
+    if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+        checkpoint(m);
+    }
     this->mark = nullptr;
     const uint32_t bp = toVirtualAddress(pc_ptr, m);
     this->channel->write("AT %" PRIu32 "!\n", bp);
