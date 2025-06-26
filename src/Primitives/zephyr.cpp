@@ -553,7 +553,7 @@ void restore_external_state(Module *m,
     }
 }
 
-std::vector<IOStateElement *> get_io_state(Module *m) {
+std::vector<IOStateElement *> get_io_state(Module *) {
     std::vector<IOStateElement *> ioState;
     for (auto &primitive : primitives) {
         if (primitive.f_serialize_state) {
