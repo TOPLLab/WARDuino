@@ -411,6 +411,15 @@ def_prim(chip_digital_write, twoToNoneU32) {
     if (writable) {
         PINS[pin] = val;
     }
+    printf("EMU: ");
+    for (int i = 0; i < NUM_DIGITAL_PINS / 2; i++) {
+        printf("%d ", PINS[i]);
+    }
+    printf("\nEMU: ");
+    for (int i = NUM_DIGITAL_PINS / 2; i < NUM_DIGITAL_PINS; i++) {
+        printf("%d ", PINS[i]);
+    }
+    printf("\n");
     pop_args(2);
     return writable;
 }
