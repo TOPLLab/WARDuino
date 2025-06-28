@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 316.79 232.45">
+  <defs>
+    <style>
+          :root {
+  --catppuccin-overlay-0: 110, 115, 141;
+  --catppuccin-surface-0: 54, 58, 79;
+  --catppuccin-base: 36, 39, 58;
+  --catppuccin-mantle: 30, 32, 48;
+  --catppuccin-crust: 24, 25, 38;
+
+  --catppuccin-text: 202, 211, 245;
+
+  --catppuccin-blue: 138, 173, 244;
+  --catppuccin-red: 237, 135, 150;
+  --catppuccin-maroon: 238, 153, 160;
+  --catppuccin-yellow: 238, 212, 159;
+      }
+
+      .cls-1 {
+        fill: rgb(var(--catppuccin-surface-0));
+      }
+
+      .cls-1, .cls-2, .cls-3, .cls-4, .cls-5 {
+        stroke: rgb(var(--catppuccin-text));
+        stroke-miterlimit: 10;
+      }
+
+      .cls-2 {
+        fill: rgb(var(--catppuccin-maroon));
+      }
+
+      .cls-3 {
+        fill: none;
+      }
+
+      .cls-6 {
+        fill: rgb(var(--catppuccin-text));
+        font-family: Roboto-BoldItalic, Roboto, sans-serif;
+        font-size: 10px;
+        font-style: italic;
+        font-weight: 700;
+      }
+
+      .cls-4 {
+        fill: rgb(var(--catppuccin-mantle));
+      }
+
+      .cls-7 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-5 {
+        fill: rgb(var(--catppuccin-overlay-0));
+      }
+
+      .cls-8 {
+        letter-spacing: 0em;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <g>
+        <rect class="cls-1" x=".5" y="10.95" width="118.5" height="221" rx="22.37" ry="22.37"/>
+        <rect class="cls-4" x="17.5" y="24.95" width="84.44" height="87.47" rx="21.52" ry="21.52"/>
+        <rect class="cls-4" x="35.86" y="202.1" width="47.23" height="22.82" rx="7.33" ry="7.33"/>
+        <g>
+          <rect class="cls-4" x="2.82" y="193.38" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="2.82" y="173.23" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="2.82" y="153.08" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="2.82" y="132.93" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="2.82" y="112.78" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="2.82" y="92.63" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="2.82" y="72.47" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="2.82" y="52.32" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="2.82" y="32.17" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+        </g>
+        <g>
+          <rect class="cls-4" x="110.54" y="193.38" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="110.54" y="173.23" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="110.54" y="153.08" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="110.54" y="132.93" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="110.54" y="112.78" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="110.54" y="92.63" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="110.54" y="72.47" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="110.54" y="52.32" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+          <rect class="cls-4" x="110.54" y="32.17" width="6.66" height="7.71" rx="2.85" ry="2.85"/>
+        </g>
+        <g>
+          <g>
+            <rect class="cls-4" x="23.84" y="162.29" width="22.42" height="12.15" rx="3.92" ry="3.92" transform="translate(70.1 336.72) rotate(-180)"/>
+            <rect class="cls-5" x="27.44" y="162.14" width="28.38" height="13.14" rx="5.57" ry="5.57" transform="translate(-127.08 210.35) rotate(-90)"/>
+          </g>
+          <rect class="cls-4" x="43.94" y="176.17" width="7.73" height="3.3" rx=".67" ry=".67" transform="translate(95.61 355.63) rotate(-180)"/>
+          <rect class="cls-4" x="43.94" y="167.49" width="7.73" height="3.3" rx=".67" ry=".67" transform="translate(95.61 338.28) rotate(-180)"/>
+          <rect class="cls-4" x="43.94" y="158.82" width="7.73" height="3.3" rx=".67" ry=".67" transform="translate(95.61 320.93) rotate(-180)"/>
+        </g>
+        <rect class="cls-5" x="60.64" y="152.07" width="38" height="33.83" rx="12.67" ry="12.67" transform="translate(-89.35 248.63) rotate(-90)"/>
+        <rect class="cls-5" x="26.92" y="115.59" width="24.04" height="33.83" rx="7.42" ry="7.42" transform="translate(-93.57 171.44) rotate(-90)"/>
+      </g>
+      <g>
+        <rect class="cls-4" x="233.33" y="101.33" width="31.5" height="31.5" rx="10.73" ry="10.73"/>
+        <circle class="cls-2" cx="249.08" cy="117.08" r="12.5"/>
+      </g>
+      <g>
+        <path class="cls-3" d="m119,56h55.93l2.32-5,4.64,10,4.64-10,4.64,10,4.64-10,4.64,10,4.64-10,4.64,10,2.32-5h28.97v-30.93s0-5.66,8.6-5.66,8.6,5.66,8.6,5.66v21.43h-17.2" pointer-events="all"/>
+        <path class="cls-3" d="m236.49,41.46V9.06s0-8.56,13-8.56,13,8.56,13,8.56v32.4h-26"/>
+      </g>
+      <path class="cls-3" d="m119,117h55.93l2.32-5,4.64,10,4.64-10,4.64,10,4.64-10,4.64,10,4.64-10,4.64,10,2.32-5h21.17" pointer-events="all"/>
+      <polyline class="cls-3" points="119 197.24 316.29 197.24 316.26 56.03 258.21 56 258.21 46.5"/>
+      <text class="cls-6" transform="translate(120.72 114.55)"><tspan x="0" y="0">5 V</tspan></text>
+      <text class="cls-6" transform="translate(179.08 71.76)"><tspan x="0" y="0">220 Ω</tspan></text>
+      <text class="cls-6" transform="translate(179.08 132.76)"><tspan x="0" y="0">10 kΩ</tspan></text>
+      <text class="cls-6" transform="translate(121.63 194.32) scale(.7)"><tspan x="0" y="0">GND</tspan></text>
+      <text class="cls-6" transform="translate(121.05 154.52) scale(.7)"><tspan x="0" y="0">GPIO</tspan></text>
+      <text class="cls-6" transform="translate(121.28 53.36) scale(.7)"><tspan x="0" y="0">GPIO</tspan></text>
+      <text class="cls-6" transform="translate(264.83 36.02)"><tspan x="0" y="0">LED</tspan></text>
+      <text class="cls-6" transform="translate(267.72 111.35)"><tspan x="0" y="0">BU</tspan><tspan class="cls-8" x="12.68" y="0">T</tspan><tspan class="cls-7" x="18.8" y="0">T</tspan><tspan x="24.72" y="0">ON</tspan></text>
+      <polyline class="cls-3" points="264.83 117 289.48 117 289.48 156.93 119 156.93"/>
+    </g>
+  </g>
+</svg>
