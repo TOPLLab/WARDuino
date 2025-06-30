@@ -1,0 +1,50 @@
+@article{lauwaerts24,
+    title = {Latch: {{Enabling}} Large-Scale Automated Testing on Constrained
+             Systems},
+    author = {Lauwaerts, Tom and Marr, Stefan and Scholliers, Christophe},
+    year = {2024},
+    journal = {Science of Computer Programming},
+    volume = {238},
+    pages = {103157},
+    issn = {0167-6423},
+    doi = {10.1016/j.scico.2024.103157},
+    abstract = {Testing is an essential part of the software development cycle.
+                Unfortunately, testing on constrained devices is currently very
+                challenging. First, the limited memory of constrained devices
+                severely restricts the size of test suites. Second, the limited
+                processing power causes test suites to execute slowly, preventing
+                a fast feedback loop. Third, when the constrained device becomes
+                unresponsive, it is impossible to distinguish between the test
+                failing or taking very long, forcing the developer to work with
+                timeouts. Unfortunately, timeouts can cause tests to be flaky,
+                i.e., have unpredictable outcomes independent of code changes.
+                Given these problems, most IoT developers rely on laborious
+                manual testing. In this paper, we propose the novel testing
+                framework Latch (Large-scale Automated Testing on Constrained
+                Hardware) to overcome the three main challenges of running large
+                test suites on constrained hardware, as well as automate manual
+                testing scenarios through a novel testing methodology based on
+                debugger-like operations---we call this new testing approach
+                managed testing. The core idea of Latch is to enable testing on
+                constrained devices without those devices maintaining the whole
+                test suite in memory. Therefore, programmers script and run tests
+                on a workstation which then step-wise instructs the constrained
+                device to execute each test, thereby overcoming the memory
+                constraints. Our testing framework further allows developers to
+                mark tests as depending on other tests. This way, Latch can skip
+                tests that depend on previously failing tests resulting in a
+                faster feedback loop. Finally, Latch addresses the issue of
+                timeouts and flaky tests by including an analysis mode that
+                provides feedback on timeouts and the flakiness of tests. To
+                illustrate the expressiveness of Latch, we present testing
+                scenarios representing unit testing, integration testing, and
+                end-to-end testing. We evaluate the performance of Latch by
+                testing a virtual machine against the WebAssembly specification,
+                with a large test suite consisting of 10,213 tests running on an
+                ESP32 microcontroller. Our experience shows that the testing
+                framework is expressive, reliable and reasonably fast, making it
+                suitable to run large test suites on constrained devices.
+                Furthermore, the debugger-like operations enable to closely mimic
+                manual testing.},
+    keywords = {Automated testing,Embedded devices,Flaky tests},
+}
