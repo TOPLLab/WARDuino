@@ -1,7 +1,6 @@
 #pragma once
 
-#include "concolic_interpreter.h"
-#include "interpreter.h"
+#include <iostream>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
@@ -73,6 +72,7 @@ bool interp(Module *m, bool waiting) {
                       ? "module"
                       : "patch");
 
+        m->path_condition = m->path_condition.simplify();
         /*std::string symbolic_stack_str = "sym stack    : [ ";
         std::string stack_str = "stack        : [ ";
         //for (int i = std::max(0, m->sp - 5); i <= m->sp; i++) {
@@ -89,7 +89,7 @@ bool interp(Module *m, bool waiting) {
             }
             else {
                 // None means that there is no symbolic value for the current
-        thing on the stack, we didn't implement something yet in that case.
+        //thing on the stack, we didn't implement something yet in that case.
                 //assert(false);
                 symbolic_stack_str += "none";
             }
@@ -101,25 +101,47 @@ bool interp(Module *m, bool waiting) {
         symbolic_stack_str += " ]";
         stack_str += " ]";
         std::cout << symbolic_stack_str << std::endl;
-        std::cout << stack_str << std::endl;*/
+        std::cout << stack_str << std::endl;
+
+        z3::solver s(m->ctx);
+        s.add(m->path_condition);
+        auto result = s.check();
+        std::cout << "Path condition: " << m->path_condition.to_string() << std::endl;
+        assert(result == z3::sat);
+
+        std::cout << "Globals: [";
+        for (int i = 0; i < m->symbolic_globals.size(); i++) {
+            std::cout << m->symbolic_globals[i].to_string() << ", ";
+        }
+        std::cout << std::endl;*/
+
         /*std::cout << "running instr: " << OPERATOR_INFO[opcode]; // <<
         std::endl; uint8_t *pc_ptr_tmp = m->pc_ptr; std::cout << " " <<
         read_LEB_32(&pc_ptr_tmp) << std::endl;*/
-        m->instructions_executed++;
-        if (m->warduino->max_instructions > 0 &&
-            m->instructions_executed >= m->warduino->max_instructions) {
-            debug("Max instructions executed\n");
-            return true;
+        if (m->warduino->program_state == WARDUINOrun) {
+            m->instructions_executed++;
+            if (m->warduino->max_instructions > 0 &&
+                m->instructions_executed >= m->warduino->max_instructions) {
+                debug("Max instructions executed\n");
+                return true;
+            }
+
+            if (m->warduino->stop_at_pc >= 0) {
+                if (m->pc_ptr == toPhysicalAddress(m->warduino->stop_at_pc, m)) {
+                    debug("Stop pc reached\n");
+                    return true;
+                }
+            }
         }
-        if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count >= m->warduino->max_symbolic_variables) {
+        if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count > m->warduino->max_symbolic_variables) {
             return true;
         }
         T interpreter;
-        if (std::is_same<T, Interpreter>()) {
+        /*if (std::is_same<T, Interpreter>()) {
             printf("Concrete\n");
         } else if (std::is_same<T, ConcolicInterpreter>()) {
             printf("Concolic\n");
-        }
+        }*/
         switch (opcode) {
             //
             // Control flow operators

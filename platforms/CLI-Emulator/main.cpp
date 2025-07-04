@@ -19,6 +19,7 @@
 #include "../../src/Utils/macros.h"
 #include "../../src/Utils/util.h"
 #include "warduino/config.h"
+#include "bigint.h"
 
 // Constants
 #define MAX_MODULE_SIZE (64 * 1024 * 1024)
@@ -457,6 +458,85 @@ struct Model {
         return count;
     }
 
+    size_t max_fanout() {
+        size_t max = 0;
+        if (subpaths.size() > max) {
+            max = subpaths.size();
+        }
+        for (Model path : subpaths) {
+            max = std::max(path.max_fanout(), max);
+        }
+        return max;
+    }
+
+    int min_fanout() {
+        int min = -1;
+        if (!subpaths.empty() && (min < 0 || subpaths.size() < min)) {
+            min = subpaths.size();
+        }
+
+        for (Model path : subpaths) {
+            int val = path.min_fanout();
+            if (val > 0) {
+                min = std::min(val, min);
+            }
+        }
+        return min;
+    }
+
+    BigInt::bigint prim_states(const std::string& prim) {
+        if (prim == "chip_analog_read") {
+            return 4096;
+        }
+        if (prim == "chip_digital_read") {
+            return 2;
+        }
+    }
+
+    BigInt::bigint max_states() {
+        BigInt::bigint max = 0;
+        for (auto model : subpaths) {
+            BigInt::bigint value = model.max_states(0);
+            if (value > max) {
+                max = value;
+            }
+        }
+        return max;
+    }
+
+    BigInt::bigint max_states(size_t depth) {
+        // TODO: Maybe, maybe not, knock lock for example
+        /*if (subpaths.empty()) {
+            return 1;
+        }*/
+
+        BigInt::bigint v = prim_states(values["x_" + std::to_string(depth)].primitive_origin);
+        BigInt::bigint max = v;
+        for (int i = 0; i < subpaths.size(); i++) {
+            BigInt::bigint value = v * subpaths[i].max_states(depth + 1); // Might overflow (Gesture-robot)
+            if (value > max) {
+                max = value;
+            }
+        }
+        return max;
+    }
+
+    void fanouts(std::vector<size_t> &fanout) {
+        if (subpaths.empty()) {
+            return;
+        }
+        fanout.emplace_back(subpaths.size());
+        for (Model path : subpaths) {
+            path.fanouts(fanout);
+        }
+    }
+
+    float avg_fanout() {
+        std::vector<size_t> f;
+        fanouts(f);
+        return static_cast<float>(std::reduce(f.begin(), f.end())) / static_cast<float>(f.size());
+    }
+
     nlohmann::json to_json() {
         nlohmann::json graph;
         graph["paths"] = to_json(0);
@@ -506,7 +586,8 @@ z3::expr preconditions() {
     return primitive_bounds;
 }
 
-void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1, int max_iterations = -1) {
+void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1, int max_iterations = -1, int stop_at_pc = -1) {
+    const auto start{std::chrono::steady_clock::now()};
     wac->interpreter = new ConcolicInterpreter();
     // Has a big impact on performance, for example if you have a simple program
     // with a loop that contains an if statement and, you run the loop 30 times
@@ -516,6 +597,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     //wac->max_instructions = 900;
     wac->max_instructions = max_instructions;
     wac->max_symbolic_variables = max_sym_vars;
+    wac->stop_at_pc = stop_at_pc;
     int total_instructions_executed = 0;
 
     z3::expr global_condition = m->ctx.bool_val(true);
@@ -638,6 +720,8 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         z3_pretty_println(m->path_condition);*/
     }
 
+    const auto finish{std::chrono::steady_clock::now()};
+    const std::chrono::duration<double> elapsed_seconds{finish - start};
     std::cout << std::endl << "=== FINISHED ===" << std::endl;
     /*std::cout << "Models found:" << std::endl;
     for (size_t i = 0; i < models.size(); i++) {
@@ -652,7 +736,14 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     std::cout << "Models found:" << std::endl;
     std::cout << graph.to_string(0) << std::endl;
     std::cout << graph.to_json() << std::endl;
-    std::cout << "Found " << graph.count_leaf_nodes() << " uniqe paths!" << std::endl;
+    //std::cout << uint128_to_string(graph.max_states()) << " & " << graph.count_leaf_nodes() << " & " << " & " << graph.max_fanout() << " & " << elapsed_seconds.count() << " \\\\" << std::endl;
+    std::cout << graph.max_states() << " & " << graph.count_leaf_nodes() << " & " << graph.max_fanout() << " & " <<
+        (max_instructions < 0 ? "$\\infty$" : std::to_string(max_instructions)) << " & " <<
+        (max_sym_vars < 0 ? "$\\infty$" : std::to_string(max_sym_vars)) << " & " <<
+        (max_iterations < 0 ? "$\\infty$" : std::to_string(max_iterations)) << " & " <<
+        std::fixed << std::setprecision(3) << elapsed_seconds.count() << " \\\\" << std::endl;
+    //std::cout << uint128_to_string(graph.max_states()) << " & " << graph.count_leaf_nodes() << " & " << graph.min_fanout() << " & " << graph.max_fanout() << " & " << graph.avg_fanout() << " \\\\" << std::endl;
+
     /*for (size_t i = 0; i < x0_models.size(); i++) {
         std::cout << "- Model #" << i << ":" << std::endl;
         //z3_pretty_println(x0_models[i].path_condition);
@@ -693,6 +784,7 @@ int main(int argc, const char *argv[]) {
     const char *max_instructions_str = "50";
     const char *max_symbolic_variables_str = "-1";
     const char *max_iterations_str = "-1";
+    const char *stop_at_pc_str = "-1";
     bool dump_info = false;
 
     const char *fname = nullptr;
@@ -786,6 +878,8 @@ int main(int argc, const char *argv[]) {
             ARGV_GET(max_symbolic_variables_str);
         } else if (!strcmp("--max-iterations", arg)) {
             ARGV_GET(max_iterations_str);
+        } else if (!strcmp("--stop-at-pc", arg)) {
+            ARGV_GET(stop_at_pc_str);
         } else if (!strcmp("--dump-info", arg)) {
             dump_info = true;
         }
@@ -896,7 +990,7 @@ int main(int argc, const char *argv[]) {
 
         // Run Wasm module
         if (strcmp(mode, "concolic") == 0) {
-            run_concolic(snapshot_messages, std::stoi(max_instructions_str), std::stoi(max_symbolic_variables_str), std::stoi(max_iterations_str));
+            run_concolic(snapshot_messages, std::stoi(max_instructions_str), std::stoi(max_symbolic_variables_str), std::stoi(max_iterations_str), std::stoi(stop_at_pc_str));
         }
         else {
             // TODO: Add option to calculate the choice points and add them as breakpoints from the remote debugger once

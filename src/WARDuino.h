@@ -251,6 +251,7 @@ class WARDuino {
     Interpreter *interpreter;
     int max_instructions = -1;
     int max_symbolic_variables = -1;
+    int stop_at_pc = -1;
 
     static WARDuino *instance();
 
