@@ -649,10 +649,11 @@ uint32_t pixels1[w * h] = {};
 uint32_t pixels2[w * h] = {};
 
 TTF_Font *font = nullptr;
+uint32_t font_size = 0;
 
 def_prim(init_display, NoneToNoneU32) {
     printf("init_display \n");
-    
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         fprintf(stderr, "Could not initialize sdl2: %s\n", SDL_GetError());
         return false;
@@ -680,6 +681,15 @@ def_prim(init_display, NoneToNoneU32) {
     return true;
 }
 
+void get_scale_factor(float *scaleFactorX, float *scaleFactorY) {
+    int dw, dh;
+    SDL_GL_GetDrawableSize(window, &dw, &dh);
+    int ww, wh;
+    SDL_GetWindowSize(window, &ww, &wh);
+    *scaleFactorX =  static_cast<float>(dw) / static_cast<float>(ww);
+    *scaleFactorY =  static_cast<float>(dh) / static_cast<float>(wh);
+}
+
 def_prim(dispose_display, NoneToNoneU32) {
     SDL_DestroyWindow(window);
     SDL_Quit();
@@ -691,8 +701,17 @@ def_prim(draw_rect, fiveToNoneU32) {
     uint32_t g = (arg0.uint32 >> 8) & 0xff;
     uint32_t b = arg0.uint32 & 0xff;
     //printf("(%d, %d) (%d, %d)\n", arg4.int32, arg3.int32, arg2.int32, arg1.int32);
+
+    float scaleFactorX;
+    float scaleFactorY;
+    get_scale_factor(&scaleFactorX, &scaleFactorY);
     
-    SDL_Rect rect = {arg4.int32, arg3.int32, arg2.int32, arg1.int32}; 
+    SDL_Rect rect = {
+        static_cast<int32_t>(arg4.int32 * scaleFactorX),
+        static_cast<int32_t>(arg3.int32 * scaleFactorY),
+        static_cast<int32_t>(arg2.int32 * scaleFactorX),
+        static_cast<int32_t>(arg1.int32 * scaleFactorY)
+    };
     SDL_SetRenderDrawColor(renderer, r, g, b, 255);
     SDL_RenderFillRect(renderer, &rect);
     
@@ -744,7 +763,11 @@ def_prim(load_font, threeToNoneU32) {
     const std::string filename = parse_utf8_string(m->memory.bytes, size, addr);
     pop_args(3);
 
-    font = TTF_OpenFont(filename.c_str(), ptsize);
+    float scaleFactorX, scaleFactorY;
+    get_scale_factor(&scaleFactorX, &scaleFactorY);
+
+    font = TTF_OpenFont(filename.c_str(), ptsize * scaleFactorX);
+    font_size = ptsize;
     if (!font) {
         char buffer[100];
         snprintf(buffer, 100, "Failed to load font \"%s\"", filename.c_str());
@@ -827,10 +850,20 @@ def_prim(draw_text, fiveToNoneU32) {
     const uint8_t g = (arg2.uint32 >> 8) & 0xff;
     const uint8_t b = arg2.uint32 & 0xff;
     const SDL_Color color = (SDL_Color) {r, g, b, 0};
+
+    float scaleFactorX, scaleFactorY;
+    get_scale_factor(&scaleFactorX, &scaleFactorY);
+    // TODO: TTF_SetFontSize resets the font cache, so this is an expensive operation.
+    TTF_SetFontSize(font, font_size * scaleFactorX);
     SDL_Surface* surface = TTF_RenderUTF8_Blended(font,
         text.c_str(), color);
+    //assert(surface != nullptr);
+    if (surface == nullptr) {
+        pop_args(5);
+        return true;
+    }
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-    const SDL_Rect rect = {arg4.int32, arg3.int32, surface->w, surface->h};
+    const SDL_Rect rect = {static_cast<int32_t>(arg4.int32 * scaleFactorX), static_cast<int32_t>(arg3.int32 * scaleFactorY), surface->w, surface->h};
     SDL_RenderCopy(renderer, texture, nullptr, &rect);
     SDL_DestroyTexture(texture);
     SDL_FreeSurface(surface);
@@ -843,7 +876,9 @@ def_prim(text_width, twoToOneU32) {
     pop_args(2);
     int w;
     TTF_SizeText(font, text.c_str(), &w, nullptr);
-    pushUInt32(w);
+    float scaleFactorX, scaleFactorY;
+    get_scale_factor(&scaleFactorX, &scaleFactorY);
+    pushUInt32(w / scaleFactorX);
     return true;
 }
 
@@ -853,28 +888,16 @@ def_prim(present_display_buffer, NoneToNoneU32) {
 }
 
 def_prim(get_mouse_x, NoneToOneU32) {
-    int dw, dh;
-    SDL_GL_GetDrawableSize(window, &dw, &dh);
-    int ww, wh;
-    SDL_GetWindowSize(window, &ww, &wh);
-    float scaleFactorX =  static_cast<float>(dw) / static_cast<float>(ww);
-    float scaleFactorY =  static_cast<float>(dh) / static_cast<float>(wh);
     int x, y;
     SDL_GetMouseState(&x, &y);
-    pushInt32(x * scaleFactorX);
+    pushInt32(x);
     return true;
 }
 
 def_prim(get_mouse_y, NoneToOneU32) {
-    int dw, dh;
-    SDL_GL_GetDrawableSize(window, &dw, &dh);
-    int ww, wh;
-    SDL_GetWindowSize(window, &ww, &wh);
-    float scaleFactorX =  static_cast<float>(dw) / static_cast<float>(ww);
-    float scaleFactorY =  static_cast<float>(dh) / static_cast<float>(wh);
     int x, y;
     SDL_GetMouseState(&x, &y);
-    pushInt32(y * scaleFactorY);
+    pushInt32(y);
     return true;
 }
 
