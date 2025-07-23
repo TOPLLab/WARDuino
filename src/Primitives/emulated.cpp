@@ -720,7 +720,16 @@ def_prim(draw_rect, fiveToNoneU32) {
 }
 
 def_prim(draw_sprite, fiveToNoneU32) {
-    SDL_Rect rect = {arg4.int32, arg3.int32, arg2.int32, arg1.int32};
+    float scaleFactorX;
+    float scaleFactorY;
+    get_scale_factor(&scaleFactorX, &scaleFactorY);
+
+    SDL_Rect rect = {
+        static_cast<int32_t>(arg4.int32 * scaleFactorX),
+        static_cast<int32_t>(arg3.int32 * scaleFactorY),
+        static_cast<int32_t>(arg2.int32 * scaleFactorX),
+        static_cast<int32_t>(arg1.int32 * scaleFactorY)
+    };
     SDL_RenderFillRect(renderer, &rect);
     uint32_t sprite_id = arg0.uint32;
     pop_args(5);
