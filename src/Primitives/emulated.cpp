@@ -651,7 +651,7 @@ uint32_t pixels2[w * h] = {};
 TTF_Font *font = nullptr;
 uint32_t font_size = 0;
 
-def_prim(init_display, NoneToNoneU32) {
+def_prim(init_display, twoToNoneU32) {
     printf("init_display \n");
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -661,7 +661,7 @@ def_prim(init_display, NoneToNoneU32) {
     window = SDL_CreateWindow(
                     "WARDuino emulated display",
                     SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                    640, 480,
+                    arg1.uint32, arg0.uint32,
                     SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI
                     );
     if (window == NULL) {
