@@ -34,7 +34,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 46
+#define NUM_PRIMITIVES_ARDUINO 47
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -800,8 +800,10 @@ def_prim(load_wav, twoToOneU32) {
     const std::string filename = parse_utf8_string(m->memory.bytes, size, addr);
     Mix_Chunk *sound = Mix_LoadWAV(filename.c_str());
     if (!sound) {
-        printf("Failed to load sound! Error: %s\n", Mix_GetError());
-        return false;
+        char buffer[100];
+        snprintf(buffer, 100, "Failed to load sound \"%s\"", filename.c_str());
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to load sound", buffer, window);
+        FATAL("Failed to load sound \"%s\"", filename.c_str());
     }
 
     // Play the sound on the first available channel (-1), once (0)
@@ -820,6 +822,13 @@ def_prim(resume_channel, oneToNoneU32) {
     const uint32_t channel = arg0.uint32;
     pop_args(1);
     Mix_Resume(channel);
+    return true;
+}
+
+def_prim(is_playing_channel, oneToOneU32) {
+    const uint32_t channel = arg0.uint32;
+    pop_args(1);
+    pushInt32(Mix_Playing(channel));
     return true;
 }
 
@@ -1022,6 +1031,7 @@ void install_primitives() {
     install_primitive(load_wav);
     install_primitive(pause_channel);
     install_primitive(resume_channel);
+    install_primitive(is_playing_channel);
 
     // Mouse primitives
     install_primitive(get_mouse_x);
