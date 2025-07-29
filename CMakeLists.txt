@@ -72,6 +72,7 @@ if (BUILD_EMULATOR)
     target_link_libraries(wdcli PRIVATE Threads::Threads)
     target_link_libraries(wdcli PRIVATE SDL2)
     target_link_libraries(wdcli PRIVATE SDL2_ttf)
+    target_link_libraries(wdcli PRIVATE SDL2_mixer)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
 endif (BUILD_EMULATOR)
 

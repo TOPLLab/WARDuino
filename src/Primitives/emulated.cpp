@@ -25,6 +25,7 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
@@ -33,7 +34,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 43
+#define NUM_PRIMITIVES_ARDUINO 46
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -654,7 +655,7 @@ uint32_t font_size = 0;
 def_prim(init_display, twoToNoneU32) {
     printf("init_display \n");
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
         fprintf(stderr, "Could not initialize sdl2: %s\n", SDL_GetError());
         return false;
     }
@@ -675,6 +676,11 @@ def_prim(init_display, twoToNoneU32) {
     }
     if (TTF_Init()) {
         fprintf(stderr, "Failed to init SDL TTF: %s\n", SDL_GetError());
+        return false;
+    }
+
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        printf("SDL_mixer could not initialize! Error: %s\n", Mix_GetError());
         return false;
     }
     
@@ -784,6 +790,36 @@ def_prim(load_font, threeToNoneU32) {
         FATAL("Failed to load font \"%s\"", filename.c_str());
     }
 
+    return true;
+}
+
+def_prim(load_wav, twoToOneU32) {
+    const uint32_t addr = arg1.uint32;
+    const uint32_t size = arg0.uint32;
+    pop_args(2);
+    const std::string filename = parse_utf8_string(m->memory.bytes, size, addr);
+    Mix_Chunk *sound = Mix_LoadWAV(filename.c_str());
+    if (!sound) {
+        printf("Failed to load sound! Error: %s\n", Mix_GetError());
+        return false;
+    }
+
+    // Play the sound on the first available channel (-1), once (0)
+    pushInt32(Mix_PlayChannel(-1, sound, 0));
+    return true;
+}
+
+def_prim(pause_channel, oneToNoneU32) {
+    const uint32_t channel = arg0.uint32;
+    pop_args(1);
+    Mix_Pause(channel);
+    return true;
+}
+
+def_prim(resume_channel, oneToNoneU32) {
+    const uint32_t channel = arg0.uint32;
+    pop_args(1);
+    Mix_Resume(channel);
     return true;
 }
 
@@ -981,6 +1017,11 @@ void install_primitives() {
     install_primitive(draw_text);
     install_primitive(load_font);
     install_primitive(text_width);
+
+    // Sound primitives
+    install_primitive(load_wav);
+    install_primitive(pause_channel);
+    install_primitive(resume_channel);
 
     // Mouse primitives
     install_primitive(get_mouse_x);
