@@ -34,7 +34,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 47
+#define NUM_PRIMITIVES_ARDUINO 48
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -725,6 +725,120 @@ def_prim(draw_rect, fiveToNoneU32) {
     return true;
 }
 
+def_prim(draw_circle, fourToNoneU32) {
+    uint32_t r = (arg0.uint32 >> 16)  & 0xff;
+    uint32_t g = (arg0.uint32 >> 8) & 0xff;
+    uint32_t b = arg0.uint32 & 0xff;
+    SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+
+    float scaleFactorX;
+    float scaleFactorY;
+    get_scale_factor(&scaleFactorX, &scaleFactorY);
+    int radius = arg1.int32;
+
+    int p = 1;
+    int r2 = 1;
+    for (int i = 0; i < radius - 1; i++) {
+        p += 2;
+        r2 += p;
+    }
+    int x = 1;
+    int v = r2;
+    int xpos=radius, ypos=0;
+    // horizontal line
+    SDL_Rect rect = {
+        static_cast<int32_t>((arg3.int32 - radius) * scaleFactorX),
+        static_cast<int32_t>((arg2.int32 - 1) * scaleFactorY),
+        static_cast<int32_t>(radius * 2 * scaleFactorX),
+        static_cast<int32_t>(2 * scaleFactorY)
+    };
+    SDL_RenderFillRect(renderer, &rect);
+    rect = {
+        static_cast<int32_t>((arg3.int32 - 1) * scaleFactorX),
+        static_cast<int32_t>((arg2.int32 - radius) * scaleFactorY),
+        static_cast<int32_t>(2 * scaleFactorX),
+        static_cast<int32_t>(radius * 2 * scaleFactorY)
+    };
+    SDL_RenderFillRect(renderer, &rect);
+    while (xpos >= ypos) {
+        ypos += 1;
+        v += x;
+        x += 2;
+        if (v > r2) {
+            v -= p;
+            p -= 2;
+            xpos -= 1;
+        }
+        // bottom right
+        rect = {
+            static_cast<int32_t>(arg3.int32 * scaleFactorX),
+            static_cast<int32_t>((arg2.int32 + ypos) * scaleFactorY),
+            static_cast<int32_t>(xpos * scaleFactorX),
+            static_cast<int32_t>(1 * scaleFactorY)
+        };
+        SDL_RenderFillRect(renderer, &rect);
+        rect = {
+            static_cast<int32_t>((arg3.int32 + ypos) * scaleFactorX),
+            static_cast<int32_t>(arg2.int32 * scaleFactorY),
+            static_cast<int32_t>(1 * scaleFactorX),
+            static_cast<int32_t>(xpos * scaleFactorY)
+        };
+        SDL_RenderFillRect(renderer, &rect);
+
+        // bottom left
+        rect = {
+            static_cast<int32_t>((arg3.int32 - xpos) * scaleFactorX),
+            static_cast<int32_t>((arg2.int32 + ypos) * scaleFactorY),
+            static_cast<int32_t>(xpos * scaleFactorX),
+            static_cast<int32_t>(1 * scaleFactorY)
+        };
+        SDL_RenderFillRect(renderer, &rect);
+        rect = {
+            static_cast<int32_t>((arg3.int32 - ypos) * scaleFactorX),
+            static_cast<int32_t>(arg2.int32 * scaleFactorY),
+            static_cast<int32_t>(1 * scaleFactorX),
+            static_cast<int32_t>(xpos * scaleFactorY)
+        };
+        SDL_RenderFillRect(renderer, &rect);
+
+        // top part of the circle
+        // top right
+        rect = {
+            static_cast<int32_t>(arg3.int32 * scaleFactorX),
+            static_cast<int32_t>((arg2.int32 - ypos) * scaleFactorY),
+            static_cast<int32_t>(xpos * scaleFactorX),
+            static_cast<int32_t>(1 * scaleFactorY)
+        };
+        SDL_RenderFillRect(renderer, &rect);
+        rect = {
+            static_cast<int32_t>((arg3.int32 + ypos) * scaleFactorX),
+            static_cast<int32_t>((arg2.int32 - xpos) * scaleFactorY),
+            static_cast<int32_t>(1 * scaleFactorX),
+            static_cast<int32_t>(xpos * scaleFactorY)
+        };
+        SDL_RenderFillRect(renderer, &rect);
+
+        // top left
+        rect = {
+            static_cast<int32_t>((arg3.int32 - xpos) * scaleFactorX),
+            static_cast<int32_t>((arg2.int32 - ypos) * scaleFactorY),
+            static_cast<int32_t>(xpos * scaleFactorX),
+            static_cast<int32_t>(1 * scaleFactorY)
+        };
+        SDL_RenderFillRect(renderer, &rect);
+        rect = {
+            static_cast<int32_t>((arg3.int32 - ypos) * scaleFactorX),
+            static_cast<int32_t>((arg2.int32 - xpos) * scaleFactorY),
+            static_cast<int32_t>(1 * scaleFactorX),
+            static_cast<int32_t>(xpos * scaleFactorY)
+        };
+        SDL_RenderFillRect(renderer, &rect);
+    }
+
+    pop_args(4);
+    return true;
+}
+
 def_prim(draw_sprite, fiveToNoneU32) {
     float scaleFactorX;
     float scaleFactorY;
@@ -1020,6 +1134,7 @@ void install_primitives() {
     install_primitive(dispose_display); 
     install_primitive(present_display_buffer);
     install_primitive(draw_rect);
+    install_primitive(draw_circle);
     install_primitive(draw_sprite);
     install_primitive(load_sprite);
     install_primitive(draw_raw);
