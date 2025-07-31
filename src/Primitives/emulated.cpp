@@ -736,69 +736,69 @@ def_prim(draw_rect, fiveToNoneU32) {
     return true;
 }
 
-void draw_circle_segment(float scaleFactorX, float scaleFactorY, int offsetX, int offsetY, int xpos, int ypos, int x, int y) {
+void draw_circle_segment(float scaleFactorX, float scaleFactorY, int offsetX, int offsetY, int xpos, int ypos, int cx, int cy) {
     // bottom right
     SDL_Rect rect = {
-        static_cast<int32_t>((x + offsetX) * scaleFactorX),
-        static_cast<int32_t>((y + ypos + offsetY) * scaleFactorY),
-        static_cast<int32_t>(xpos * scaleFactorX),
-        static_cast<int32_t>(1 * scaleFactorY)
+        static_cast<int32_t>((cx + offsetX) * scaleFactorX),
+        static_cast<int32_t>((cy + offsetY) * scaleFactorY + ypos),
+        xpos,
+        1
     };
     SDL_RenderFillRect(renderer, &rect);
     rect = {
-        static_cast<int32_t>((x + ypos + offsetX) * scaleFactorX),
-        static_cast<int32_t>((y + offsetY) * scaleFactorY),
-        static_cast<int32_t>(1 * scaleFactorX),
-        static_cast<int32_t>(xpos * scaleFactorY)
+        static_cast<int32_t>((cx + offsetX) * scaleFactorX + ypos),
+        static_cast<int32_t>((cy + offsetY) * scaleFactorY),
+        1,
+        xpos
     };
     SDL_RenderFillRect(renderer, &rect);
 
     // bottom left
     rect = {
-        static_cast<int32_t>((x - xpos) * scaleFactorX),
-        static_cast<int32_t>((y + ypos + offsetY) * scaleFactorY),
-        static_cast<int32_t>(xpos * scaleFactorX),
-        static_cast<int32_t>(1 * scaleFactorY)
+        static_cast<int32_t>(cx * scaleFactorX - xpos),
+        static_cast<int32_t>((cy + offsetY) * scaleFactorY + ypos),
+        xpos,
+        1
     };
     SDL_RenderFillRect(renderer, &rect);
     rect = {
-        static_cast<int32_t>((x - ypos) * scaleFactorX),
-        static_cast<int32_t>((y + offsetY) * scaleFactorY),
-        static_cast<int32_t>(1 * scaleFactorX),
-        static_cast<int32_t>(xpos * scaleFactorY)
+        static_cast<int32_t>(cx * scaleFactorX - ypos),
+        static_cast<int32_t>((cy + offsetY) * scaleFactorY),
+        1,
+        xpos
     };
     SDL_RenderFillRect(renderer, &rect);
 
     // top part of the circle
     // top right
     rect = {
-        static_cast<int32_t>((x + offsetX) * scaleFactorX),
-        static_cast<int32_t>((y - ypos) * scaleFactorY),
-        static_cast<int32_t>(xpos * scaleFactorX),
-        static_cast<int32_t>(1 * scaleFactorY)
+        static_cast<int32_t>((cx + offsetX) * scaleFactorX),
+        static_cast<int32_t>(cy * scaleFactorY - ypos),
+        xpos,
+        1
     };
     SDL_RenderFillRect(renderer, &rect);
     rect = {
-        static_cast<int32_t>((x + ypos + offsetX) * scaleFactorX),
-        static_cast<int32_t>((y - xpos) * scaleFactorY),
-        static_cast<int32_t>(1 * scaleFactorX),
-        static_cast<int32_t>(xpos * scaleFactorY)
+        static_cast<int32_t>((cx + offsetX) * scaleFactorX + ypos),
+        static_cast<int32_t>(cy * scaleFactorY - xpos),
+        1,
+        xpos
     };
     SDL_RenderFillRect(renderer, &rect);
 
     // top left
     rect = {
-        static_cast<int32_t>((x - xpos) * scaleFactorX),
-        static_cast<int32_t>((y - ypos) * scaleFactorY),
-        static_cast<int32_t>(xpos * scaleFactorX),
-        static_cast<int32_t>(1 * scaleFactorY)
+        static_cast<int32_t>(cx * scaleFactorX - xpos),
+        static_cast<int32_t>(cy * scaleFactorY - ypos),
+        xpos,
+        1
     };
     SDL_RenderFillRect(renderer, &rect);
     rect = {
-        static_cast<int32_t>((x - ypos) * scaleFactorX),
-        static_cast<int32_t>((y - xpos) * scaleFactorY),
-        static_cast<int32_t>(1 * scaleFactorX),
-        static_cast<int32_t>(xpos * scaleFactorY)
+        static_cast<int32_t>(cx * scaleFactorX - ypos),
+        static_cast<int32_t>(cy * scaleFactorY - xpos),
+        1,
+        xpos
     };
     SDL_RenderFillRect(renderer, &rect);
 }
@@ -812,6 +812,8 @@ void draw_circle(int32_t cx, int32_t cy, int32_t radius, int32_t color, int32_t 
     float scaleFactorX;
     float scaleFactorY;
     get_scale_factor(&scaleFactorX, &scaleFactorY);
+
+    radius = radius * scaleFactorX;
 
     int p = 1;
     int r2 = 1;
