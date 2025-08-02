@@ -651,9 +651,14 @@ SDL_Renderer *renderer;
 SDL_Window* window = nullptr;
 SDL_Surface* screenSurface = nullptr;
 
-SDL_Texture *texture = nullptr;
-uint32_t tile_size = 32;
-uint32_t tile_count = 16;
+struct SpriteSheet {
+    SDL_Texture *texture = nullptr;
+    uint32_t tile_size = 32;
+    uint32_t tile_count = 0;
+};
+
+SpriteSheet *spriteSheets = new SpriteSheet[8];
+int spriteSheetCount = -1;
 
 const int w = 16 * 32;
 const int h = 16 * 32;
@@ -873,38 +878,43 @@ def_prim(draw_circle, fourToNoneU32) {
     return true;
 }
 
-def_prim(draw_sprite, fiveToNoneU32) {
+def_prim(draw_sprite, sixToNoneU32) {
     float scaleFactorX;
     float scaleFactorY;
     get_scale_factor(&scaleFactorX, &scaleFactorY);
 
     SDL_Rect rect = {
-        static_cast<int32_t>(arg4.int32 * scaleFactorX),
-        static_cast<int32_t>(arg3.int32 * scaleFactorY),
-        static_cast<int32_t>(arg2.int32 * scaleFactorX),
-        static_cast<int32_t>(arg1.int32 * scaleFactorY)
+        static_cast<int32_t>(arg5.int32 * scaleFactorX),
+        static_cast<int32_t>(arg4.int32 * scaleFactorY),
+        static_cast<int32_t>(arg3.int32 * scaleFactorX),
+        static_cast<int32_t>(arg2.int32 * scaleFactorY)
     };
     SDL_RenderFillRect(renderer, &rect);
+    uint32_t sprite_sheet = arg1.uint32;
     uint32_t sprite_id = arg0.uint32;
-    pop_args(5);
+    pop_args(6);
 
-    const int w = tile_size;
-    const int h = tile_size;
-    const int x = (sprite_id % tile_count) * w;
-    const int y = (sprite_id / tile_count) * h;
+    SpriteSheet *spriteSheet = &spriteSheets[sprite_sheet];
+
+    const int w = spriteSheet->tile_size;
+    const int h = spriteSheet->tile_size;
+    const int x = (sprite_id % spriteSheet->tile_count) * w;
+    const int y = (sprite_id / spriteSheet->tile_count) * h;
     SDL_Rect src_rect = {x, y, w, h};
-    SDL_RenderCopy(renderer, texture, &src_rect, &rect);
+    SDL_RenderCopy(renderer, spriteSheet->texture, &src_rect, &rect);
 
     return true;
 }
 
-def_prim(load_sprite, fourToNoneU32) {
+def_prim(load_sprite, fourToOneU32) {
     const uint32_t addr = arg3.uint32;
     const uint32_t size = arg2.uint32;
-    tile_size = arg1.uint32;
-    tile_count = arg0.uint32;
+    spriteSheetCount++;
+    SpriteSheet *spriteSheet = &spriteSheets[spriteSheetCount];
+    spriteSheet->tile_size = arg1.uint32;
+    spriteSheet->tile_count = arg0.uint32;
     const std::string filename = parse_utf8_string(m->memory.bytes, size, addr);
-    printf("Loading sprite sheet \"%s\" (tilesize %d, grid of %d x %d tiles)\n", filename.c_str(), tile_size, tile_count, tile_count);
+    printf("Loading sprite sheet \"%s\" (tilesize %d, grid of %d x %d tiles)\n", filename.c_str(), spriteSheet->tile_size, spriteSheet->tile_count, spriteSheet->tile_count);
     pop_args(4);
 
     SDL_Surface *texSurface = SDL_LoadBMP(filename.c_str());
@@ -914,8 +924,8 @@ def_prim(load_sprite, fourToNoneU32) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to load sprite", buffer, window);
         FATAL("Failed to load sprite sheet \"%s\"", filename.c_str());
     }
-    texture = SDL_CreateTextureFromSurface(renderer, texSurface);
-
+    spriteSheet->texture = SDL_CreateTextureFromSurface(renderer, texSurface);
+    pushInt32(spriteSheetCount);
     return true;
 }
 
