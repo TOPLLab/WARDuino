@@ -26,6 +26,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
+#include <SDL2/SDL_image.h>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
@@ -696,7 +697,12 @@ def_prim(init_display, twoToNoneU32) {
     }
 
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-        printf("SDL_mixer could not initialize! Error: %s\n", Mix_GetError());
+        fprintf(stderr, "SDL_mixer could not initialize! Error: %s\n", Mix_GetError());
+        return false;
+    }
+
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        fprintf(stderr, "could not initialize sdl2_image: %s\n", IMG_GetError());
         return false;
     }
     
@@ -917,7 +923,7 @@ def_prim(load_sprite, fourToOneU32) {
     printf("Loading sprite sheet \"%s\" (tilesize %d, grid of %d x %d tiles)\n", filename.c_str(), spriteSheet->tile_size, spriteSheet->tile_count, spriteSheet->tile_count);
     pop_args(4);
 
-    SDL_Surface *texSurface = SDL_LoadBMP(filename.c_str());
+    SDL_Surface *texSurface = IMG_Load(filename.c_str());
     if (!texSurface) {
         char buffer[100];
         snprintf(buffer, 100, "Failed to load sprite sheet \"%s\"", filename.c_str());
