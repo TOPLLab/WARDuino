@@ -72,16 +72,12 @@ void startDebuggerStd() {
     }
 }
 
-// K_THREAD_DEFINE(debugger_tid, DEBUGGER_STACK_SIZE, startDebuggerStd, NULL,
-// NULL,
-//                 NULL, DEBUGGER_PRIORITY, 0, 0);
+K_THREAD_DEFINE(debugger_tid, DEBUGGER_STACK_SIZE, startDebuggerStd, NULL, NULL,
+                NULL, DEBUGGER_PRIORITY, 0, 0);
 
 int main(void) {
-    // printf("Before\n");
     Module *m = wac->load_module(upload_wasm, upload_wasm_len, {});
-    // printf("after\n");
     wac->run_module(m);
-    // printf("after run\n");
     wac->unload_module(m);
 
     return 0;
