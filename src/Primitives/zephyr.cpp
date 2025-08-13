@@ -16,6 +16,7 @@
 #include <zephyr/devicetree/gpio.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
+#include <zephyr/drivers/adc.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util_macro.h>
 
@@ -36,7 +37,7 @@
 #ifdef CONFIG_BOARD_STM32L496G_DISCO
 #define OBB_PRIMITIVES 6
 #endif
-#define ALL_PRIMITIVES OBB_PRIMITIVES + 6
+#define ALL_PRIMITIVES OBB_PRIMITIVES + 7
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -301,6 +302,69 @@ def_prim(chip_digital_read, oneToOneU32) {
     return true;
 }
 
+def_prim(chip_analog_read, oneToOneU32) {
+    printf("chip_analog_read(%u)\n", arg0.uint32);
+    /*gpio_dt_spec pin_spec = specs[arg0.uint32];
+    uint8_t res = gpio_pin_get_raw(pin_spec.port, pin_spec.pin);*/
+
+    int16_t buf;
+    //struct adc_sequence seq = { .buffer = &buf, .buffer_size = sizeof(buf) };
+    //const int channel = 6; // Port 2
+    //const int channel = 7; // Port 3
+    //const int channel = 8; // Port 4
+    int *channels = new int[4]{
+        -1, // Port 1
+        6, // Port 2
+        7, // Port 3
+        8, // Port 4
+    };
+    int channel = channels[arg0.uint32];
+    if (channel < 0) {
+        printf("Invalid channel for chip_analog_read(%d)\n", arg0.uint32);
+        return false;
+    }
+    struct adc_sequence seq = {
+        .channels = BIT(channel), // Assuming channel 0 is the one we want to read
+        .buffer = &buf,
+        .buffer_size = sizeof(buf),
+        .resolution = 12, // 12-bit resolution
+        //.oversampling = 0,
+    };
+
+    static const struct device *adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc1));
+    static const struct adc_channel_cfg channel_cfgs[] = {
+        DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc1), ADC_CHANNEL_CFG_DT, (,))};
+
+    int err = adc_channel_setup(adc_dev, &channel_cfgs[channel]);
+    if (err < 0) {
+        printf("Failed to setup ADC channel: %d\n", err);
+        return false;
+    }
+
+    err = adc_read(adc_dev, &seq);
+    if (err < 0) {
+        printf("Failed to read ADC channel: %d\n", err);
+        return false;
+    }
+
+    /*const adc_dt_spec spec = ADC_DT_SPEC_GET(DT_NODELABEL(adc1));
+
+    //adc_channel_setup(adc_dev, struct adc_channel_cf)
+    int err = adc_channel_setup_dt(&spec);
+    if (err < 0) {
+        printf("Failed to setup ADC channel: %d\n", err);
+        return false;
+    }
+
+    adc_read_dt(&spec, &seq);*/
+
+    printf("ADC read value: %d\n", buf);
+
+    pop_args(1);
+    pushUInt32(buf);
+    return true;
+}
+
 def_prim(print_int, oneToNoneI32) {
     printf("%d\n", arg0.int32);
     pop_args(1);
@@ -481,6 +545,7 @@ void install_primitives() {
     install_primitive(chip_digital_write);
     install_primitive_reverse(chip_digital_write);
     install_primitive(chip_digital_read);
+    install_primitive(chip_analog_read);
     install_primitive(print_int);
     install_primitive(abort);
 
