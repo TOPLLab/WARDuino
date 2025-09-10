@@ -424,8 +424,38 @@ bool ConcolicInterpreter::i_instr_math_u64(Module *m, uint8_t opcode) {
 }
 
 bool ConcolicInterpreter::i_instr_math_f32(Module *m, uint8_t opcode) {
-    // TODO: Symbolic semantics
-    assert(false);
+    int original_sp = m->sp;
+    Interpreter::i_instr_math_f32(m, opcode);
+    m->sp = original_sp;
+
+    z3::expr a = m->symbolic_stack[m->sp - 1].value();
+    z3::expr b = m->symbolic_stack[m->sp].value();
+    std::optional<z3::expr> c;
+    m->sp -= 1;
+    switch (opcode) {
+        case 0x5b:
+            c = z3::ite(z3::fp_eq(a, b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+            break;  // f32.eq
+        case 0x5c:
+            c = z3::ite(!z3::fp_eq(a, b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+            break;  // f32.ne
+        case 0x5d:
+            c = z3::ite(a < b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+            break;  // f32.lt
+        case 0x5e:
+            c = z3::ite(a > b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+            break;  // f32.gt
+        case 0x5f:
+            c = z3::ite(a <= b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+            break;  // f32.le
+        case 0x60:
+            c = z3::ite(a >= b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+            break;  // f32.ge
+        default:
+            return false;
+    }
+    m->symbolic_stack[m->sp] = c;
+    return true;
 }
 
 bool ConcolicInterpreter::i_instr_math_f64(Module *m, uint8_t opcode) {
@@ -786,8 +816,8 @@ bool ConcolicInterpreter::i_instr_conversion(Module *m, uint8_t opcode) {
             assert(false);
             break;  // i64.trunc_u/f64
         case 0xb2:
-            // TODO: Symbolic semantics
-            assert(false);
+            // TODO: fpa_sort values
+            m->symbolic_stack[m->sp] = sbv_to_fpa(m->symbolic_stack[m->sp].value(), m->ctx.fpa_sort(8, 24));
             break;  // f32.convert_s/i32
         case 0xb3:
             // TODO: Symbolic semantics
