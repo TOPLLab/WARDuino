@@ -434,10 +434,10 @@ bool ConcolicInterpreter::i_instr_math_f32(Module *m, uint8_t opcode) {
     m->sp -= 1;
     switch (opcode) {
         case 0x5b:
-            c = z3::ite(z3::fp_eq(a, b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+            c = z3::ite(a == b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // f32.eq
         case 0x5c:
-            c = z3::ite(!z3::fp_eq(a, b), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+            c = z3::ite(a != b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
             break;  // f32.ne
         case 0x5d:
             c = z3::ite(a < b, m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
@@ -695,7 +695,6 @@ bool ConcolicInterpreter::i_instr_binary_i64(Module *m, uint8_t opcode) {
 }
 
 bool ConcolicInterpreter::i_instr_binary_f32(Module *m, uint8_t opcode) {
-    // TODO: Maybe reduce duplication since this is the same as i32?
     int original_sp = m->sp;
     Interpreter::i_instr_binary_i64(m, opcode);
     m->sp = original_sp;
@@ -705,53 +704,28 @@ bool ConcolicInterpreter::i_instr_binary_f32(Module *m, uint8_t opcode) {
     std::optional<z3::expr> c;
     m->sp -= 1;
     switch (opcode) {
-        case 0x7c:
+        case 0x92:
             c = a + b;
             break;  // f32.add
-        case 0x7d:
+        case 0x93:
             c = a - b;
             break;  // f32.sub
-        case 0x7e:
+        case 0x94:
             c = a * b;
             break;  // f32.mul
-        case 0x7f:
+        case 0x95:
             c = a / b;
-            break;  // f32.div_s
-        case 0x80:
-            c = z3::udiv(a, b);
-            break;  // f32.div_u
-        case 0x81:
-            c = z3::srem(a, b);
-            break;  // f32.rem_s
-        case 0x82:
-            c = z3::urem(a, b);
-            break;  // f32.rem_u
-        case 0x83:
-            c = a & b;
-            break;  // f32.and
-        case 0x84:
-            c = a | b;
-            break;  // f32.or
-        case 0x85:
-            c = a ^ b;
-            break;  // f32.xor
-        case 0x86:
-            c = z3::shl(a, b);
-            break;  // f32.shl
-        case 0x87:
-            c = z3::ashr(a, b);
-            break;  // f32.shr_s
-        case 0x88:
-            c = z3::lshr(a, b);
-            break;  // f32.shr_u
-        case 0x89:
-            // TODO: Symbolic semantics
-            c = z3::shl(a, b) | z3::lshr(a, 32 - b);
-            break;  // f32.rotl
-        case 0x8a:
+            break;  // f32.div
+        case 0x96:
+            c = z3::min(a, b);
+            break;  // f32.min
+        case 0x97:
+            c = z3::max(a, b);
+            break;  // f32.max
+        case 0x98:
             // TODO: Symbolic semantics
             assert(false);
-            break;  // f32.rotr
+            break;  // f32.copysign
         default:
             return false;
     }
