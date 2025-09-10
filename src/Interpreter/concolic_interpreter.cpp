@@ -605,53 +605,52 @@ bool ConcolicInterpreter::i_instr_binary_i64(Module *m, uint8_t opcode) {
     Interpreter::i_instr_binary_i64(m, opcode);
     m->sp = original_sp;
 
-    z3::expr d = m->symbolic_stack[m->sp - 1].value();
-    z3::expr e = m->symbolic_stack[m->sp].value();
-    std::optional<z3::expr> f;
+    z3::expr a = m->symbolic_stack[m->sp - 1].value();
+    z3::expr b = m->symbolic_stack[m->sp].value();
+    std::optional<z3::expr> c;
     m->sp -= 1;
     switch (opcode) {
         case 0x7c:
-            f = d + e;
+            c = a + b;
             break;  // i64.add
         case 0x7d:
-            f = d - e;
+            c = a - b;
             break;  // i64.sub
         case 0x7e:
-            f = d * e;
+            c = a * b;
             break;  // i64.mul
         case 0x7f:
-            f = d / e;
+            c = a / b;
             break;  // i64.div_s
         case 0x80:
-            f = z3::udiv(d, e);
+            c = z3::udiv(a, b);
             break;  // i64.div_u
         case 0x81:
-            f = z3::srem(d, e);
+            c = z3::srem(a, b);
             break;  // i64.rem_s
         case 0x82:
-            f = z3::urem(d, e);
+            c = z3::urem(a, b);
             break;  // i64.rem_u
         case 0x83:
-            f = d & e;
+            c = a & b;
             break;  // i64.and
         case 0x84:
-            f = d | e;
+            c = a | b;
             break;  // i64.or
         case 0x85:
-            f = d ^ e;
+            c = a ^ b;
             break;  // i64.xor
         case 0x86:
-            f = z3::shl(d, e);
+            c = z3::shl(a, b);
             break;  // i64.shl
         case 0x87:
-            f = z3::ashr(d, e);
+            c = z3::ashr(a, b);
             break;  // i64.shr_s
         case 0x88:
-            f = z3::lshr(d, e);
+            c = z3::lshr(a, b);
             break;  // i64.shr_u
         case 0x89:
-            // TODO: Symbolic semantics
-            assert(false);
+            c = z3::shl(b, a) | z3::lshr(b, 64 - a);
             break;  // i64.rotl
         case 0x8a:
             // TODO: Symbolic semantics
@@ -660,15 +659,75 @@ bool ConcolicInterpreter::i_instr_binary_i64(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->symbolic_stack[m->sp] = f;
+    m->symbolic_stack[m->sp] = c;
 
     return true;
 }
 
 bool ConcolicInterpreter::i_instr_binary_f32(Module *m, uint8_t opcode) {
-    // TODO: Symbolic semantics
-    assert(false);
-    return false;
+    // TODO: Maybe reduce duplication since this is the same as i32?
+    int original_sp = m->sp;
+    Interpreter::i_instr_binary_i64(m, opcode);
+    m->sp = original_sp;
+
+    z3::expr a = m->symbolic_stack[m->sp - 1].value();
+    z3::expr b = m->symbolic_stack[m->sp].value();
+    std::optional<z3::expr> c;
+    m->sp -= 1;
+    switch (opcode) {
+        case 0x7c:
+            c = a + b;
+            break;  // f32.add
+        case 0x7d:
+            c = a - b;
+            break;  // f32.sub
+        case 0x7e:
+            c = a * b;
+            break;  // f32.mul
+        case 0x7f:
+            c = a / b;
+            break;  // f32.div_s
+        case 0x80:
+            c = z3::udiv(a, b);
+            break;  // f32.div_u
+        case 0x81:
+            c = z3::srem(a, b);
+            break;  // f32.rem_s
+        case 0x82:
+            c = z3::urem(a, b);
+            break;  // f32.rem_u
+        case 0x83:
+            c = a & b;
+            break;  // f32.and
+        case 0x84:
+            c = a | b;
+            break;  // f32.or
+        case 0x85:
+            c = a ^ b;
+            break;  // f32.xor
+        case 0x86:
+            c = z3::shl(a, b);
+            break;  // f32.shl
+        case 0x87:
+            c = z3::ashr(a, b);
+            break;  // f32.shr_s
+        case 0x88:
+            c = z3::lshr(a, b);
+            break;  // f32.shr_u
+        case 0x89:
+            // TODO: Symbolic semantics
+            c = z3::shl(a, b) | z3::lshr(a, 32 - b);
+            break;  // f32.rotl
+        case 0x8a:
+            // TODO: Symbolic semantics
+            assert(false);
+            break;  // f32.rotr
+        default:
+            return false;
+    }
+    m->symbolic_stack[m->sp] = c;
+
+    return true;
 }
 
 bool ConcolicInterpreter::i_instr_binary_f64(Module *m, uint8_t opcode) {
