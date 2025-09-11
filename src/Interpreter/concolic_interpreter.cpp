@@ -787,7 +787,9 @@ bool ConcolicInterpreter::i_instr_conversion(Module *m, uint8_t opcode) {
             break;  // i64.trunc_u/f64
         case 0xb2:
             // TODO: fpa_sort values
-            m->symbolic_stack[m->sp] = sbv_to_fpa(m->symbolic_stack[m->sp].value(), m->ctx.fpa_sort(8, 24));
+            //m->symbolic_stack[m->sp].value().mk_from_ieee_bv(m->ctx.fpa_sort(8, 24));
+            m->symbolic_stack[m->sp] = sbv_to_fpa(m->symbolic_stack[m->sp].value(), z3::to_sort(m->ctx, Z3_mk_fpa_sort_single(m->ctx)));
+            //m->symbolic_stack[m->sp] = sbv_to_fpa(m->symbolic_stack[m->sp].value(), m->ctx.fpa_sort(8, 24));
             break;  // f32.convert_s/i32
         case 0xb3:
             // TODO: Symbolic semantics
