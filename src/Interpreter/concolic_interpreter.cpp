@@ -696,7 +696,7 @@ bool ConcolicInterpreter::i_instr_binary_i64(Module *m, uint8_t opcode) {
 
 bool ConcolicInterpreter::i_instr_binary_f32(Module *m, uint8_t opcode) {
     int original_sp = m->sp;
-    Interpreter::i_instr_binary_i64(m, opcode);
+    Interpreter::i_instr_binary_f32(m, opcode);
     m->sp = original_sp;
 
     z3::expr a = m->symbolic_stack[m->sp - 1].value();
