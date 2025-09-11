@@ -392,15 +392,15 @@ void Debugger::printValue(const StackValue *v, const uint32_t idx,
                      v->value.uint64);
             break;
         case F32:
-            snprintf(buff, 255, R"("type":"F32","value":")" FMT(PRIx32) "\"",
+            snprintf(buff, 255, R"("type":"F32","value":")" FMT(PRIi32) "\"",
                      v->value.uint32);
             break;
         case F64:
-            snprintf(buff, 255, R"("type":"F64","value":")" FMT(PRIx64) "\"",
+            snprintf(buff, 255, R"("type":"F64","value":")" FMT(PRIi64) "\"",
                      v->value.uint64);
             break;
         default:
-            snprintf(buff, 255, R"("type":"%02x","value":")" FMT(PRIx64) "\"",
+            snprintf(buff, 255, R"("type":"%02x","value":")" FMT(PRIi64) "\"",
                      v->value_type, v->value.uint64);
     }
     this->channel->write(R"({"idx":%d,%s}%s)", idx, buff, end ? "" : ",");
