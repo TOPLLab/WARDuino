@@ -653,6 +653,9 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
             z3::model model = s.get_model();
             for (int i = 0; i < (int)model.size(); i++) {
                 z3::func_decl func = model[i];
+                if (func.name().str().find("x_") == std::string::npos) {
+                    continue;
+                }
                 dbg_trace("- %s = %s\n", func.name().str().c_str(), model.get_const_interp(func).to_string().c_str());
                 m->symbolic_concrete_values[func.name().str()]
                     .concrete_value.value.uint64 =
@@ -707,6 +710,10 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
             z3::func_decl func = model[i];
             /*std::cout << func.name() << " = "
                       << model.get_const_interp(func) << std::endl;*/
+            if (func.name().str().find("x_") == std::string::npos) {
+                continue;
+            }
+            std::cout << model.get_const_interp(func).get_numeral_uint64() << std::endl;
             m->symbolic_concrete_values[func.name().str()].concrete_value.value.uint64 =
                 model.get_const_interp(func).get_numeral_uint64();
 
