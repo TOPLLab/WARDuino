@@ -750,20 +750,16 @@ bool ConcolicInterpreter::i_instr_conversion(Module *m, uint8_t opcode) {
             m->symbolic_stack[m->sp] = m->symbolic_stack[m->sp]->extract(31, 0);
             break;  // i32.wrap/i64
         case 0xa8:
-            // TODO: Symbolic semantics
-            assert(false);
+            m->symbolic_stack[m->sp] = z3::fpa_to_sbv(m->symbolic_stack[m->sp].value(), 32);
             break;  // i32.trunc_s/f32
         case 0xa9:
-            // TODO: Symbolic semantics
-            assert(false);
+            m->symbolic_stack[m->sp] = z3::fpa_to_ubv(m->symbolic_stack[m->sp].value(), 32);
             break;  // i32.trunc_u/f32
         case 0xaa:
-            // TODO: Symbolic semantics
-            assert(false);
+            m->symbolic_stack[m->sp] = z3::fpa_to_sbv(m->symbolic_stack[m->sp].value(), 32);
             break;  // i32.trunc_s/f64
         case 0xab:
-            // TODO: Symbolic semantics
-            assert(false);
+            m->symbolic_stack[m->sp] = z3::fpa_to_ubv(m->symbolic_stack[m->sp].value(), 32);
             break;  // i32.trunc_u/f64
         case 0xac:
             m->symbolic_stack[m->sp] =
