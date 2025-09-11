@@ -395,8 +395,8 @@ struct Model {
         return path_condition.substitute(from, to).simplify();
     }
 
-    void add_partial_match(Model em, size_t depth) {
-        if (depth >= em.values.size())
+    void add_partial_match(Model em, size_t depth, size_t symbolic_variable_count) {
+        if (depth >= symbolic_variable_count)
             return;
 
         z3::expr x_only_path_condition = em.x_only_path_condition(depth);
@@ -422,12 +422,12 @@ struct Model {
                 }
             }
 #endif
-            em.add_partial_match(em, depth + 1);
+            em.add_partial_match(em, depth + 1, symbolic_variable_count);
             subpaths.push_back(em);
         }
         else {
             Model &m = *already_exists;
-            m.add_partial_match(em, depth + 1);
+            m.add_partial_match(em, depth + 1, symbolic_variable_count);
         }
     }
 
@@ -665,7 +665,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         iteration_index++;
         models.push_back(m->symbolic_concrete_values);
 
-        graph.add_partial_match(Model(m->symbolic_concrete_values, m->path_condition), 0);
+        graph.add_partial_match(Model(m->symbolic_concrete_values, m->path_condition), 0, m->symbolic_variable_count);
 
         // Start a new concolic iteration by solving !path_condition.
         // TODO: When should I use simplify? Does the solver automatically
@@ -708,12 +708,12 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         std::vector<Z3_ast> to;*/
         for (int i = 0; i < (int)model.size(); i++) {
             z3::func_decl func = model[i];
-            /*std::cout << func.name() << " = "
-                      << model.get_const_interp(func) << std::endl;*/
             if (func.name().str().find("x_") == std::string::npos) {
                 continue;
             }
-            std::cout << model.get_const_interp(func).get_numeral_uint64() << std::endl;
+            /*std::cout << func.name() << " = "
+                      << model.get_const_interp(func) << std::endl;
+            std::cout << model.get_const_interp(func).get_numeral_uint64() << std::endl;*/
             m->symbolic_concrete_values[func.name().str()].concrete_value.value.uint64 =
                 model.get_const_interp(func).get_numeral_uint64();
 
