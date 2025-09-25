@@ -27,7 +27,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 29
+#define NUM_PRIMITIVES_ARDUINO 35
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -388,7 +388,7 @@ def_prim(http_post, tenToOneU32) {
     return true;
 }
 
-#define NUM_DIGITAL_PINS 30
+#define NUM_DIGITAL_PINS 100
 static uint32_t PINS[NUM_DIGITAL_PINS] = {};
 static uint8_t MODES[NUM_DIGITAL_PINS] = {};
 
@@ -510,6 +510,53 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     return true;
 }
 
+def_prim(drive_motor, twoToNoneU32) {
+    const int32_t speed = arg0.int32;
+    const uint32_t motor_index = arg1.uint32;
+    printf("EMU: drive_motor(%d, %d)\n", motor_index, speed);
+    pop_args(2);
+    return true;
+}
+
+def_prim(stop_motor, oneToNoneU32) {
+    uint32_t motor_index = arg0.uint32;
+    printf("EMU: stop_motor(%d)\n", motor_index);
+    pop_args(1);
+    return true;
+}
+
+def_prim(drive_motor_ms, threeToNoneU32) {
+    const int32_t time = arg0.uint32;
+    const int32_t speed = arg1.int32;
+    const int32_t motor_index = arg2.int32;
+    printf("EMU: drive_motor_ms(%d, %d, %d)\n", motor_index, speed, time);
+    pop_args(3);
+
+    return true;
+}
+
+def_prim(drive_motor_degrees, threeToNoneU32) {
+    int32_t degrees = arg0.int32;
+    int32_t speed = arg1.int32;
+    uint32_t motor_index = arg2.uint32;
+    printf("EMU: drive_motor_degrees(%d, %d, %d)\n", motor_index, speed, degrees);
+    pop_args(3);
+    return true;
+}
+
+def_prim(setup_uart_sensor, twoToNoneU32) {
+    printf("EMU: setup_uart_sensor(%d, %d)\n", arg1.uint32, arg0.uint32);
+    pop_args(2);
+    return true;
+}
+
+def_prim(read_uart_sensor, oneToOneI32) {
+    printf("EMU: read_uart_sensor(%d)\n", arg0.uint32);
+    pop_args(1);
+    pushInt32(0);
+    return true;
+}
+
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
@@ -559,6 +606,7 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     pop_args(2);
     return true;
 }
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -604,6 +652,14 @@ void install_primitives() {
     install_primitive(chip_ledc_setup);
     install_primitive(chip_ledc_attach_pin);
     install_primitive(chip_ledc_set_duty);
+
+    // Open Bot Brain
+    install_primitive(drive_motor);
+    install_primitive(drive_motor_ms);
+    install_primitive(drive_motor_degrees);
+    install_primitive(stop_motor);
+    install_primitive(setup_uart_sensor);
+    install_primitive(read_uart_sensor);
 }
 
 //------------------------------------------------------
