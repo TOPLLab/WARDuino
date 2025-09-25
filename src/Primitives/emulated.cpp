@@ -539,7 +539,8 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
     int32_t degrees = arg0.int32;
     int32_t speed = arg1.int32;
     uint32_t motor_index = arg2.uint32;
-    printf("EMU: drive_motor_degrees(%d, %d, %d)\n", motor_index, speed, degrees);
+    printf("EMU: drive_motor_degrees(%d, %d, %d)\n", motor_index, speed,
+           degrees);
     pop_args(3);
     return true;
 }
