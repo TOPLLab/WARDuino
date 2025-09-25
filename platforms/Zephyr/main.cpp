@@ -8,8 +8,8 @@
 #define DEBUGGER_STACK_SIZE 2048
 #define DEBUGGER_PRIORITY 0
 
-BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
-             "Console device is not ACM CDC UART device");
+/*BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console),
+   zephyr_cdc_acm_uart), "Console device is not ACM CDC UART device");*/
 
 static struct tty_serial console_serial;
 

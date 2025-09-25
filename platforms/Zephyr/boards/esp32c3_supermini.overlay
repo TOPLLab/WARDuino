@@ -1,18 +1,6 @@
 #include "../app.overlay"
 
 / {
-    chosen {
-        zephyr,console = &cdc_acm_uart0;
-    };
-};
-
-&zephyr_udc0 {
-    cdc_acm_uart0: cdc_acm_uart0 {
-        compatible = "zephyr,cdc-acm-uart";
-    };
-};
-
-/ {
     zephyr,user {
         warduino-gpios =
             <&gpio0 0 0>,
@@ -36,14 +24,6 @@
             <&gpio0 18 0>,
             <&gpio0 19 0>,
             <&gpio0 20 0>,
-            <&gpio0 21 0>,
-            <&gpio0 22 0>,
-            <&gpio0 23 0>,
-            <&gpio0 24 0>,
-            <&gpio0 25 0>,
-            <&gpio0 26 0>,
-            <&gpio0 27 0>,
-            <&gpio0 28 0>,
-            <&gpio0 29 0>;
+            <&gpio0 21 0>;
      };
 }; 

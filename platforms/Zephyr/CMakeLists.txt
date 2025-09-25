@@ -33,4 +33,9 @@ target_sources(app PRIVATE
     upload.h
 )
 
+add_definitions(-DINFO=0)
+add_definitions(-DDEBUG=0)
+add_definitions(-DTRACE=0)
+add_definitions(-DWARN=0)
+
 include_directories(../../lib/json/single_include/)

@@ -84,6 +84,47 @@ make flash
 
 Or simply run `idf.py flash`.
 
+### Build for Zephyr
+
+First, install the [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#getting-started-guide), then follow these steps:
+
+1. Activate your Zephyr environment:
+```bash
+source ~/zephyrproject/.venv/bin/activate
+source ~/zephyrproject/zephyr/zephyr-env.sh
+```
+   
+2. Go to the Zephyr folder:
+```bash
+cd platforms/Zephyr
+```
+
+3. Build your WebAssembly binary; for example:
+```bash
+wat2wasm --no-canonicalize-leb128s --disable-bulk-memory --debug-names -v -o upload.wasm ../../tutorials/wat/main/blink.wat
+```
+> [!NOTE]
+> The binary should be called `upload.wasm` and placed in the `platforms/Zephyr` folder.
+
+4. Build for Zephyr; for example, the esp32_devkitc_wroom/esp32/procpu:
+```bash
+west build -b esp32_devkitc_wroom/esp32/procpu
+```
+> [!NOTE]
+> Overlay files for the supported boards can be found in the `platforms/Zephyr/boards` folder.
+
+5. Now you are ready to flash your software with the following command:
+```bash
+west flash
+```
+
+This command also rebuilds the virtual machine, so you only need to run the build command from the previous step once.
+After flashing, you can monitor the serial port, with the following command (when using an Espressif board):
+
+```bash
+west espressif monitor
+```
+
 ### Build for Arduino
 
 First, install the [arduino-cli](https://arduino.github.io/arduino-cli/0.21/installation/).
