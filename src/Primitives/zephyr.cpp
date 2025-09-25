@@ -249,7 +249,7 @@ def_prim(chip_pin_mode, twoToNoneU32) {
     printf("chip_pin_mode(%u,%u)\n", arg1.uint32, arg0.uint32);
     gpio_dt_spec pin_spec = specs[arg1.uint32];
     int err = gpio_pin_configure(pin_spec.port, pin_spec.pin,
-                       arg0.uint32 == 0 ? GPIO_INPUT : GPIO_OUTPUT);
+                                 arg0.uint32 == 0 ? GPIO_INPUT : GPIO_OUTPUT);
     if (err < 0) {
         printf("Error configuring pin %d\n", err);
         return false;
