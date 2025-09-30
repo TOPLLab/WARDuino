@@ -308,7 +308,7 @@ def_prim(chip_analog_read, oneToOneU32) {
     //const int channel = 7; // Port 3
     //const int channel = 8; // Port 4
     int *channels = new int[4]{
-        -1, // Port 1
+        12, // Port 1
         6, // Port 2
         7, // Port 3
         8, // Port 4
@@ -318,6 +318,7 @@ def_prim(chip_analog_read, oneToOneU32) {
         printf("Invalid channel for chip_analog_read(%d)\n", arg0.uint32);
         return false;
     }
+    printf("Configuring channel %d\n", channel);
     struct adc_sequence seq = {
         .channels = BIT(channel), // Assuming channel 0 is the one we want to read
         .buffer = &buf,
@@ -326,32 +327,36 @@ def_prim(chip_analog_read, oneToOneU32) {
         //.oversampling = 0,
     };
 
-    static const struct device *adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc1));
-    static const struct adc_channel_cfg channel_cfgs[] = {
-        DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc1), ADC_CHANNEL_CFG_DT, (,))};
+    // Modify the adc on both lines here!
+    const device *adc_dev;
+    adc_channel_cfg cfg;
 
-    int err = adc_channel_setup(adc_dev, &channel_cfgs[channel]);
+    if (arg0.uint32 == 0) {
+        adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc3));
+        struct adc_channel_cfg channel_cfgs[] = {
+            DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc3), ADC_CHANNEL_CFG_DT, (,))};
+        cfg = channel_cfgs[channel];
+    }
+    else {
+        adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc1));
+        struct adc_channel_cfg channel_cfgs[] = {
+            DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc1), ADC_CHANNEL_CFG_DT, (,))};
+        cfg = channel_cfgs[channel];
+    }
+
+    int err = adc_channel_setup(adc_dev, &cfg);
     if (err < 0) {
         printf("Failed to setup ADC channel: %d\n", err);
+        perror("failed to setup ADC channel");
         return false;
     }
 
     err = adc_read(adc_dev, &seq);
     if (err < 0) {
         printf("Failed to read ADC channel: %d\n", err);
+        perror("failed to read ADC channel");
         return false;
     }
-
-    /*const adc_dt_spec spec = ADC_DT_SPEC_GET(DT_NODELABEL(adc1));
-
-    //adc_channel_setup(adc_dev, struct adc_channel_cf)
-    int err = adc_channel_setup_dt(&spec);
-    if (err < 0) {
-        printf("Failed to setup ADC channel: %d\n", err);
-        return false;
-    }
-
-    adc_read_dt(&spec, &seq);*/
 
     printf("ADC read value: %d\n", buf);
 
