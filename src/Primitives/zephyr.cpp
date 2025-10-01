@@ -472,25 +472,7 @@ void heartbeat_timer_func(struct k_timer *timer_id) {
 }
 
 int16_t read_value(int c, int *channels) {
-    //printf("read_value(%u)\n", c);
-
     int16_t buf = -1;
-    //struct adc_sequence seq = { .buffer = &buf, .buffer_size = sizeof(buf) };
-    //const int channel = 6; // Port 2
-    //const int channel = 7; // Port 3
-    //const int channel = 8; // Port 4
-    /*int *channels = new int[4]{
-        12, // Port 1
-        6, // Port 2
-        7, // Port 3
-        8, // Port 4
-    };*/
-    /*int *channels = new int[4]{
-        13, // Port 1
-        5, // Port 2
-        9, // Port 3
-        10, // Port 4
-    };*/
     int channel = channels[c];
     if (channel < 0) {
         printf("Invalid channel for chip_analog_read(%d)\n", channel);
@@ -498,17 +480,16 @@ int16_t read_value(int c, int *channels) {
     }
     //printf("Configuring channel %d\n", channel);
     struct adc_sequence seq = {
-        .channels = BIT(channel), // Assuming channel 0 is the one we want to read
+        .channels = BIT(channel),
         .buffer = &buf,
         .buffer_size = sizeof(buf),
-        .resolution = 12, // 12-bit resolution
-        //.oversampling = 0,
+        .resolution = 12
     };
 
-    // Modify the adc on both lines here!
     const device *adc_dev;
     adc_channel_cfg cfg;
 
+    // Port 0 uses adc3, the other ports use adc1.
     if (c == 0) {
         adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc3));
         struct adc_channel_cfg channel_cfgs[] = {
@@ -559,8 +540,8 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
 
     int channels[4] = {
         13, // Port 1
-        5, // Port 2
-        9, // Port 3
+        5,  // Port 2
+        9,  // Port 3
         10, // Port 4
     };
     int16_t v = read_value(arg0.uint32, channels);
