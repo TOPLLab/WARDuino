@@ -35,7 +35,7 @@
 
 #define OBB_PRIMITIVES 0
 #ifdef CONFIG_BOARD_STM32L496G_DISCO
-#define OBB_PRIMITIVES 6
+#define OBB_PRIMITIVES 7
 #endif
 #define ALL_PRIMITIVES OBB_PRIMITIVES + 7
 
@@ -302,28 +302,32 @@ def_prim(chip_digital_read, oneToOneU32) {
     return true;
 }
 
-def_prim(chip_analog_read, oneToOneU32) {
-    printf("chip_analog_read(%u)\n", arg0.uint32);
-    /*gpio_dt_spec pin_spec = specs[arg0.uint32];
-    uint8_t res = gpio_pin_get_raw(pin_spec.port, pin_spec.pin);*/
+int16_t read_value(int c, int *channels) {
+    //printf("read_value(%u)\n", c);
 
-    int16_t buf;
+    int16_t buf = -1;
     //struct adc_sequence seq = { .buffer = &buf, .buffer_size = sizeof(buf) };
     //const int channel = 6; // Port 2
     //const int channel = 7; // Port 3
     //const int channel = 8; // Port 4
-    int *channels = new int[4]{
+    /*int *channels = new int[4]{
         12, // Port 1
         6, // Port 2
         7, // Port 3
         8, // Port 4
-    };
-    int channel = channels[arg0.uint32];
+    };*/
+    /*int *channels = new int[4]{
+        13, // Port 1
+        5, // Port 2
+        9, // Port 3
+        10, // Port 4
+    };*/
+    int channel = channels[c];
     if (channel < 0) {
-        printf("Invalid channel for chip_analog_read(%d)\n", arg0.uint32);
-        return false;
+        printf("Invalid channel for chip_analog_read(%d)\n", channel);
+        return -1;
     }
-    printf("Configuring channel %d\n", channel);
+    //printf("Configuring channel %d\n", channel);
     struct adc_sequence seq = {
         .channels = BIT(channel), // Assuming channel 0 is the one we want to read
         .buffer = &buf,
@@ -336,7 +340,7 @@ def_prim(chip_analog_read, oneToOneU32) {
     const device *adc_dev;
     adc_channel_cfg cfg;
 
-    if (arg0.uint32 == 0) {
+    if (c == 0) {
         adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc3));
         struct adc_channel_cfg channel_cfgs[] = {
             DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc3), ADC_CHANNEL_CFG_DT, (,))};
@@ -353,20 +357,45 @@ def_prim(chip_analog_read, oneToOneU32) {
     if (err < 0) {
         printf("Failed to setup ADC channel: %d\n", err);
         perror("failed to setup ADC channel");
-        return false;
+        return -1;
     }
 
     err = adc_read(adc_dev, &seq);
     if (err < 0) {
         printf("Failed to read ADC channel: %d\n", err);
         perror("failed to read ADC channel");
-        return false;
+        return -1;
     }
 
-    printf("ADC read value: %d\n", buf);
+    printf("ADC read value(channel = %d): %d\n", channel, buf);
+    return buf;
+}
 
+def_prim(chip_analog_read, oneToOneU32) {
+    int channels[4] = {
+        12, // Port 1
+        6,  // Port 2
+        7,  // Port 3
+        8,  // Port 4
+    };
+    int16_t v = read_value(arg0.uint32, channels);
     pop_args(1);
-    pushUInt32(buf);
+    pushUInt32(v);
+    return true;
+}
+
+def_prim(ev3_touch_sensor, oneToOneU32) {
+    printf("ev3_touch_sensor(%u)\n", arg0.uint32);
+
+    int channels[4] = {
+        13, // Port 1
+        5, // Port 2
+        9, // Port 3
+        10, // Port 4
+    };
+    int16_t v = read_value(arg0.uint32, channels);
+    pop_args(1);
+    pushUInt32(v > 3000);
     return true;
 }
 
@@ -563,6 +592,8 @@ void install_primitives() {
 
     install_primitive(read_uart_sensor);
     install_primitive(setup_uart_sensor);
+
+    install_primitive(ev3_touch_sensor);
 
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(500), K_MSEC(500));
