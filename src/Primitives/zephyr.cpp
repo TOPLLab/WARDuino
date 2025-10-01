@@ -14,9 +14,9 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/devicetree/gpio.h>
+#include <zephyr/drivers/adc.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
-#include <zephyr/drivers/adc.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util_macro.h>
 
@@ -478,13 +478,11 @@ int16_t read_value(int c, int *channels) {
         printf("Invalid channel for chip_analog_read(%d)\n", channel);
         return -1;
     }
-    //printf("Configuring channel %d\n", channel);
-    struct adc_sequence seq = {
-        .channels = BIT(channel),
-        .buffer = &buf,
-        .buffer_size = sizeof(buf),
-        .resolution = 12
-    };
+    // printf("Configuring channel %d\n", channel);
+    struct adc_sequence seq = {.channels = BIT(channel),
+                               .buffer = &buf,
+                               .buffer_size = sizeof(buf),
+                               .resolution = 12};
 
     const device *adc_dev;
     adc_channel_cfg cfg;
@@ -493,13 +491,12 @@ int16_t read_value(int c, int *channels) {
     if (c == 0) {
         adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc3));
         struct adc_channel_cfg channel_cfgs[] = {
-            DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc3), ADC_CHANNEL_CFG_DT, (,))};
+            DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc3), ADC_CHANNEL_CFG_DT, (, ))};
         cfg = channel_cfgs[channel];
-    }
-    else {
+    } else {
         adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc1));
         struct adc_channel_cfg channel_cfgs[] = {
-            DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc1), ADC_CHANNEL_CFG_DT, (,))};
+            DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc1), ADC_CHANNEL_CFG_DT, (, ))};
         cfg = channel_cfgs[channel];
     }
 
@@ -523,10 +520,10 @@ int16_t read_value(int c, int *channels) {
 
 def_prim(nxt_touch_sensor, oneToOneU32) {
     int channels[4] = {
-        12, // Port 1
-        6,  // Port 2
-        7,  // Port 3
-        8,  // Port 4
+        12,  // Port 1
+        6,   // Port 2
+        7,   // Port 3
+        8,   // Port 4
     };
     int16_t v = read_value(arg0.uint32, channels);
     pop_args(1);
@@ -539,10 +536,10 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
     printf("ev3_touch_sensor(%u)\n", arg0.uint32);
 
     int channels[4] = {
-        13, // Port 1
-        5,  // Port 2
-        9,  // Port 3
-        10, // Port 4
+        13,  // Port 1
+        5,   // Port 2
+        9,   // Port 3
+        10,  // Port 4
     };
     int16_t v = read_value(arg0.uint32, channels);
     pop_args(1);
