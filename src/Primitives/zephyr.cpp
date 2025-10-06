@@ -37,7 +37,7 @@
 #ifdef CONFIG_BOARD_STM32L496G_DISCO
 #define OBB_PRIMITIVES 8
 #endif
-#define ALL_PRIMITIVES OBB_PRIMITIVES + 6
+#define ALL_PRIMITIVES OBB_PRIMITIVES + 7
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -302,6 +302,16 @@ def_prim(chip_digital_read, oneToOneU32) {
     return true;
 }
 
+def_prim(print_string, twoToNoneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    debug("EMU: print string at %i: ", addr);
+    printf("%s", text.c_str());
+    pop_args(2);
+    return true;
+}
+
 def_prim(print_int, oneToNoneI32) {
     printf("%d\n", arg0.int32);
     pop_args(1);
@@ -478,7 +488,6 @@ int16_t read_value(int c, int *channels) {
         printf("Invalid channel for chip_analog_read(%d)\n", channel);
         return -1;
     }
-    // printf("Configuring channel %d\n", channel);
     struct adc_sequence seq = {.channels = BIT(channel),
                                .buffer = &buf,
                                .buffer_size = sizeof(buf),
@@ -510,7 +519,6 @@ int16_t read_value(int c, int *channels) {
     err = adc_read(adc_dev, &seq);
     if (err < 0) {
         printf("Failed to read ADC channel: %d\n", err);
-        perror("failed to read ADC channel");
         return -1;
     }
 
@@ -559,6 +567,7 @@ void install_primitives() {
     install_primitive(chip_digital_write);
     install_primitive_reverse(chip_digital_write);
     install_primitive(chip_digital_read);
+    install_primitive(print_string);
     install_primitive(print_int);
     install_primitive(abort);
 
