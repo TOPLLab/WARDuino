@@ -14,6 +14,7 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/devicetree/gpio.h>
+#include <zephyr/drivers/adc.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/kernel.h>
@@ -34,9 +35,9 @@
 
 #define OBB_PRIMITIVES 0
 #ifdef CONFIG_BOARD_STM32L496G_DISCO
-#define OBB_PRIMITIVES 6
+#define OBB_PRIMITIVES 8
 #endif
-#define ALL_PRIMITIVES OBB_PRIMITIVES + 6
+#define ALL_PRIMITIVES OBB_PRIMITIVES + 7
 
 // Global index for installing primitives
 int prim_index = 0;
@@ -301,6 +302,16 @@ def_prim(chip_digital_read, oneToOneU32) {
     return true;
 }
 
+def_prim(print_string, twoToNoneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t size = arg0.uint32;
+    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    debug("EMU: print string at %i: ", addr);
+    printf("%s", text.c_str());
+    pop_args(2);
+    return true;
+}
+
 def_prim(print_int, oneToNoneI32) {
     printf("%d\n", arg0.int32);
     pop_args(1);
@@ -469,6 +480,81 @@ void heartbeat_timer_func(struct k_timer *timer_id) {
         uartHeartbeat(&sensors[i]);
     }
 }
+
+int16_t read_value(int c, int *channels) {
+    int16_t buf = -1;
+    int channel = channels[c];
+    if (channel < 0) {
+        printf("Invalid channel for chip_analog_read(%d)\n", channel);
+        return -1;
+    }
+    struct adc_sequence seq = {.channels = BIT(channel),
+                               .buffer = &buf,
+                               .buffer_size = sizeof(buf),
+                               .resolution = 12};
+
+    const device *adc_dev;
+    adc_channel_cfg cfg;
+
+    // Port 0 uses adc3, the other ports use adc1.
+    if (c == 0) {
+        adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc3));
+        struct adc_channel_cfg channel_cfgs[] = {
+            DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc3), ADC_CHANNEL_CFG_DT, (, ))};
+        cfg = channel_cfgs[channel];
+    } else {
+        adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc1));
+        struct adc_channel_cfg channel_cfgs[] = {
+            DT_FOREACH_CHILD_SEP(DT_NODELABEL(adc1), ADC_CHANNEL_CFG_DT, (, ))};
+        cfg = channel_cfgs[channel];
+    }
+
+    int err = adc_channel_setup(adc_dev, &cfg);
+    if (err < 0) {
+        printf("Failed to setup ADC channel: %d\n", err);
+        perror("failed to setup ADC channel");
+        return -1;
+    }
+
+    err = adc_read(adc_dev, &seq);
+    if (err < 0) {
+        printf("Failed to read ADC channel: %d\n", err);
+        return -1;
+    }
+
+    printf("ADC read value(channel = %d): %d\n", channel, buf);
+    return buf;
+}
+
+def_prim(nxt_touch_sensor, oneToOneU32) {
+    int channels[4] = {
+        12,  // Port 1
+        6,   // Port 2
+        7,   // Port 3
+        8,   // Port 4
+    };
+    int16_t v = read_value(arg0.uint32, channels);
+    pop_args(1);
+    pushUInt32(v < 2000);
+    return true;
+}
+
+// Currently only works on ports 1, 3, and 4.
+def_prim(ev3_touch_sensor, oneToOneU32) {
+    printf("ev3_touch_sensor(%u)\n", arg0.uint32);
+
+    int channels[4] = {
+        13,  // Port 1
+        5,   // Port 2
+        9,   // Port 3
+        10,  // Port 4
+    };
+    int16_t v = read_value(arg0.uint32, channels);
+    pop_args(1);
+    pushUInt32(v > 3000);
+    return true;
+}
+
 #endif
 
 //------------------------------------------------------
@@ -481,6 +567,7 @@ void install_primitives() {
     install_primitive(chip_digital_write);
     install_primitive_reverse(chip_digital_write);
     install_primitive(chip_digital_read);
+    install_primitive(print_string);
     install_primitive(print_int);
     install_primitive(abort);
 
@@ -493,6 +580,9 @@ void install_primitives() {
 
     install_primitive(read_uart_sensor);
     install_primitive(setup_uart_sensor);
+
+    install_primitive(nxt_touch_sensor);
+    install_primitive(ev3_touch_sensor);
 
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(500), K_MSEC(500));

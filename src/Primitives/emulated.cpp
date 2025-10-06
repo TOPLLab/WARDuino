@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <random>
 #include <thread>
 
 #include "../Memory/mem.h"
@@ -27,7 +28,7 @@
 #include "primitives.h"
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 35
+#define NUM_PRIMITIVES_ARDUINO 37
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -558,6 +559,28 @@ def_prim(read_uart_sensor, oneToOneI32) {
     return true;
 }
 
+std::random_device r;
+std::default_random_engine e(r());
+std::uniform_int_distribution<int16_t> adc_dist(0, 1 << 12);  // 12 bit adc
+
+def_prim(nxt_touch_sensor, oneToOneU32) {
+    const uint32_t port = arg0.uint32;
+    const int16_t v = adc_dist(e);
+    pop_args(1);
+    printf("nxt_touch_sensor(%u) = %d\n", port, v < 2000);
+    pushUInt32(v < 2000);
+    return true;
+}
+
+def_prim(ev3_touch_sensor, oneToOneU32) {
+    const uint32_t port = arg0.uint32;
+    const int16_t v = adc_dist(e);
+    pop_args(1);
+    printf("ev3_touch_sensor(%u) = %d\n", port, v > 3000);
+    pushUInt32(v > 3000);
+    return true;
+}
+
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
@@ -661,6 +684,8 @@ void install_primitives() {
     install_primitive(stop_motor);
     install_primitive(setup_uart_sensor);
     install_primitive(read_uart_sensor);
+    install_primitive(nxt_touch_sensor);
+    install_primitive(ev3_touch_sensor);
 }
 
 //------------------------------------------------------
