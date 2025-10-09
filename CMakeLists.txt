@@ -68,6 +68,7 @@ if (BUILD_EMULATOR)
     if (CMAKE_COMPILER_IS_GNUCXX)
         add_compile_options(-g -v -Wall -Wextra -Wunused)
     endif (CMAKE_COMPILER_IS_GNUCXX)
+    add_compile_options(-O3)
 
     # WARDuino CLI
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
