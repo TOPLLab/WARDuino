@@ -133,7 +133,8 @@ bool interp(Module *m, bool waiting) {
                 }
             }
         }
-        if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count > m->warduino->max_symbolic_variables) {
+        //if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count > m->warduino->max_symbolic_variables) {
+        if (m->warduino->stop) {
             return true;
         }
         T interpreter;

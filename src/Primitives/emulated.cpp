@@ -416,7 +416,7 @@ def_prim(chip_digital_read, oneToOneU32) {
     pop_args(1);
     //pushUInt32(1);  // HIGH
     if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
-        m->symbolic_variable_count++;
+        m->warduino->stop = true;
         return true;
     }
     push_symbolic_int(m, "chip_digital_read", pin);
@@ -431,7 +431,7 @@ def_prim(chip_analog_read, oneToOneI32) {
         return true;
     }*/
     if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
-        m->symbolic_variable_count++;
+        m->warduino->stop = true;
         return true;
     }
     push_symbolic_int(m, "chip_analog_read", pin);
@@ -447,6 +447,11 @@ def_prim(color_sensor, oneToOneI32) {
         push_symbolic_int(m, "color_sensor", pin);
         return true;
     }*/
+    if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
+        m->symbolic_variable_count++;
+        m->warduino->stop = true;
+        return true;
+    }
     push_symbolic_int(m, "color_sensor", pin);
     return true;
     pushInt32(sin(sensor_emu) * 100);

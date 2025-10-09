@@ -630,6 +630,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         m->symbolic_variable_count = 0;
         m->path_condition = m->ctx.bool_val(true);
         m->instructions_executed = 0;
+        wac->stop = false;
 
         bool success;
         if (!snapshot_messages.empty()) {
