@@ -383,6 +383,7 @@ struct Model {
     }
 
     z3::expr x_only_path_condition(size_t index) {
+        dbg_trace("x_only_path_condition depth = %lu\n", index);
         z3::expr_vector from(m->ctx);
         z3::expr_vector to(m->ctx);
         // TODO: values.size() maybe dangerous with substitute if it's higher than the current iteration symbolic variable count
@@ -390,8 +391,10 @@ struct Model {
             if (i == index) continue;
             std::string var_name = "x_" + std::to_string(i);
             from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
-            to.push_back(m->ctx.bv_val(values[var_name].concrete_value.value.uint64, 32));
+            to.push_back(m->ctx.bv_val(values[var_name].concrete_value.value.uint32, 32));
+            dbg_trace("%s = %u\n", var_name.c_str(), values[var_name].concrete_value.value.uint32);
         }
+        //std::cout << path_condition.substitute(from, to) << std::endl;
         return path_condition.substitute(from, to).simplify();
     }
 
@@ -400,11 +403,20 @@ struct Model {
             return;
 
         z3::expr x_only_path_condition = em.x_only_path_condition(depth);
+
+        dbg_trace("\n--- Adding partial match (depth = %lu) ---\n", depth);
         dbg_trace("x_only_path_condition = %s\n", x_only_path_condition.to_string().c_str());
+#ifdef DEBUG
+        // Verify that the path condition is satisfiable, if not something went wrong.
+        z3::solver s(m->ctx);
+        s.add(x_only_path_condition);
+        assert(s.check() == z3::sat);
+#endif
+
         std::string sym_var_name = "x_" + std::to_string(depth);
         auto already_exists = std::find_if(
             subpaths.begin(), subpaths.end(), [x_only_path_condition, this, sym_var_name, depth](Model otherModel) {
-                dbg_trace("Compare with %s", otherModel.x_only_path_condition(depth).to_string().c_str());
+                dbg_trace("Compare with %s\n", otherModel.x_only_path_condition(depth).to_string().c_str());
                 z3::solver s(m->ctx);
                 s.add(z3::forall(m->ctx.bv_const(sym_var_name.c_str(), 32),
                                  otherModel.x_only_path_condition(depth) ==
@@ -414,11 +426,14 @@ struct Model {
         // Doesn't exist!
         if (already_exists == subpaths.end()) {
 #if TRACE
-            dbg_trace("New branch value for %s, %llu\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint64);
+            dbg_trace("\u001b[32m");
+            //dbg_trace("New branch value for %s, %llu\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint64);
+            dbg_trace("New branch value for %s, %d\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint32);
+            dbg_trace("\u001b[0m");
             if (!subpaths.empty()) {
                 dbg_trace("Existing values:\n");
                 for (Model otherModel : subpaths) {
-                    dbg_trace("- %llu\n", otherModel.values[sym_var_name].concrete_value.value.uint64);
+                    dbg_trace("- %u\n", otherModel.values[sym_var_name].concrete_value.value.uint32);
                 }
             }
 #endif
@@ -426,6 +441,10 @@ struct Model {
             subpaths.push_back(em);
         }
         else {
+            dbg_trace("\u001b[34m");
+            //dbg_trace("Existing branch for %s, %llu\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint64);
+            dbg_trace("Existing branch for %s, %d\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint32);
+            dbg_trace("\u001b[0m");
             Model &m = *already_exists;
             m.add_partial_match(em, depth + 1, symbolic_variable_count);
         }
@@ -658,13 +677,14 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
                 }
                 dbg_trace("- %s = %s\n", func.name().str().c_str(), model.get_const_interp(func).to_string().c_str());
                 m->symbolic_concrete_values[func.name().str()]
-                    .concrete_value.value.uint64 =
-                    model.get_const_interp(func).get_numeral_uint64();
+                    .concrete_value.value.uint32 =
+                    model.get_const_interp(func).get_numeral_uint();
             }
         }
         iteration_index++;
         models.push_back(m->symbolic_concrete_values);
 
+        dbg_trace("path condition = %s\n", m->path_condition.to_string().c_str());
         graph.add_partial_match(Model(m->symbolic_concrete_values, m->path_condition), 0, m->symbolic_variable_count);
 
         // Start a new concolic iteration by solving !path_condition.
@@ -683,7 +703,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         std::cout << "!path_condition (simplified) = "
                   << (!m->path_condition).simplify() << std::endl;*/
         // s.add(!m->path_condition);
-        std::cout << m->path_condition.simplify() << std::endl;
+        //std::cout << m->path_condition.simplify() << std::endl;
         m->path_condition = m->path_condition.simplify();
         global_condition = global_condition &&
                            !m->path_condition;  // Not this path and also
@@ -713,9 +733,9 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
             }
             /*std::cout << func.name() << " = "
                       << model.get_const_interp(func) << std::endl;
-            std::cout << model.get_const_interp(func).get_numeral_uint64() << std::endl;*/
-            m->symbolic_concrete_values[func.name().str()].concrete_value.value.uint64 =
-                model.get_const_interp(func).get_numeral_uint64();
+            std::cout << model.get_const_interp(func).get_numeral_uint() << std::endl;*/
+            m->symbolic_concrete_values[func.name().str()].concrete_value.value.uint32 =
+                model.get_const_interp(func).get_numeral_uint();
 
             /*if (func.name().str() != "x_0") {
                 from.push_back(m->ctx.bv_const(func.name().str().c_str(), 32));
