@@ -418,10 +418,12 @@ struct Model {
             subpaths.begin(), subpaths.end(), [x_only_path_condition, this, sym_var_name, depth](Model otherModel) {
                 dbg_trace("Compare with %s\n", otherModel.x_only_path_condition(depth).to_string().c_str());
                 z3::solver s(m->ctx);
-                s.add(z3::forall(m->ctx.bv_const(sym_var_name.c_str(), 32),
+                /*s.add(z3::forall(m->ctx.bv_const(sym_var_name.c_str(), 32),
                                  otherModel.x_only_path_condition(depth) ==
                                      x_only_path_condition));
-                return s.check() == z3::sat;
+                return s.check() == z3::sat;*/
+                s.add(otherModel.x_only_path_condition(depth) != x_only_path_condition);
+                return s.check() != z3::sat;
             });
         // Doesn't exist!
         if (already_exists == subpaths.end()) {
