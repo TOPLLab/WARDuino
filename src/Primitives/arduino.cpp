@@ -25,6 +25,9 @@
 #include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
+// M5stack
+#include "m5stack/display.h"
+
 // NEOPIXEL
 #include <Adafruit_NeoPixel.h>
 #define PIN 33
@@ -132,7 +135,7 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 39
+#define NUM_PRIMITIVES_ARDUINO 44
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -245,6 +248,15 @@ Type fourToNoneU32 = {
     .results = nullptr,
     .mask =
         0x8001111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
+};
+
+Type fiveToNoneI32 = {
+    .form = FUNC,
+    .param_count = 5,
+    .params = param_I32_arr_len5,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x80011111
 };
 
 Type oneToOneU32 = {
@@ -956,6 +968,44 @@ int32_t http_post_request(Module *m, const String url, const String body,
     return httpResponseCode;
 }
 
+// Cardputer display
+def_prim(display_setup, NoneToNoneU32) {
+    setup();
+    return true;
+}
+
+def_prim(display_width, NoneToOneU32) {
+    pushInt32(width());
+    return true;
+}
+
+def_prim(display_height, NoneToOneU32) {
+    pushInt32(height());
+    return true;
+}
+
+
+def_prim(display_fillrect, fiveToNoneI32) {
+    uint32_t color = arg4.uint32;
+    int32_t height = arg3.int32;
+    int32_t width = arg2.int32;
+    int32_t y = arg1.int32;
+    int32_t x = arg0.int32;
+    fillRect(x, y, width, height, color);
+    pop_args(5);
+    return true;
+}
+
+def_prim(display_fillcircle, fourToNoneI32) {
+    uint32_t color = arg3.uint32;
+    int32_t radius = arg2.int32;
+    int32_t y = arg1.int32;
+    int32_t x = arg0.int32;
+    fillCircle(x, y, radius, color);
+    pop_args(5);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives & ISRs
 //------------------------------------------------------
@@ -1039,6 +1089,12 @@ void install_primitives() {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_attach);
     install_primitive(chip_ledc_set_duty);
+
+    install_primitive(display_setup);
+    install_primitive(display_width);
+    install_primitive(display_height);
+    install_primitive(display_fillrect);
+    install_primitive(display_fillcircle);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();
