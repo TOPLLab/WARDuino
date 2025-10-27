@@ -132,7 +132,7 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 38
+#define NUM_PRIMITIVES_ARDUINO 39
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -350,6 +350,11 @@ def_prim(millis, NoneToOneU32) {
 
 def_prim(micros, NoneToOneU64) {
     pushUInt64(micros());
+    return true;
+}
+
+def_prim(rand, NoneToOneU32) {
+    pushInt32(rand());
     return true;
 }
 
@@ -988,6 +993,7 @@ void install_primitives() {
     install_primitive(abort);
     install_primitive(millis);
     install_primitive(micros);
+    install_primitive(rand);
 
     install_primitive(print_int);
     install_primitive(print_string);
