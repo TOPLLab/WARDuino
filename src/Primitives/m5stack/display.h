@@ -1,9 +1,11 @@
 #pragma once
 
+#include <cstdint>
+
 // port of the Graphics library for M5Stack series
 // https://github.com/m5stack/M5GFX
 
-void setup();
+void displaySetup();
 
 int width();
 

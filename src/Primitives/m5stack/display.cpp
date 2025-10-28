@@ -1,7 +1,7 @@
 #include "display.h"
 #include "M5Cardputer.h"
 
-void setup() {
+void displaySetup() {
     auto cfg = M5.config();
     M5Cardputer.begin(cfg);
 }

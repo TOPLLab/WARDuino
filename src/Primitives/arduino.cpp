@@ -208,6 +208,7 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
+uint32_t param_I32_arr_len5[5] = {I32, I32, I32, I32, I32};
 uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                     I32, I32, I32, I32, I32};
 
@@ -970,7 +971,7 @@ int32_t http_post_request(Module *m, const String url, const String body,
 
 // Cardputer display
 def_prim(display_setup, NoneToNoneU32) {
-    setup();
+    displaySetup();
     return true;
 }
 
@@ -996,7 +997,7 @@ def_prim(display_fillrect, fiveToNoneI32) {
     return true;
 }
 
-def_prim(display_fillcircle, fourToNoneI32) {
+def_prim(display_fillcircle, fourToNoneU32) {
     uint32_t color = arg3.uint32;
     int32_t radius = arg2.int32;
     int32_t y = arg1.int32;
