@@ -366,8 +366,8 @@ def_prim(micros, NoneToOneU64) {
     return true;
 }
 
-def_prim(rand, NoneToOneU32) {
-    pushInt32(rand());
+def_prim(int_random, NoneToOneU32) {
+    pushInt32(random(6000));
     return true;
 }
 
@@ -1044,7 +1044,7 @@ void install_primitives() {
     install_primitive(abort);
     install_primitive(millis);
     install_primitive(micros);
-    install_primitive(rand);
+    install_primitive(int_random);
 
     install_primitive(print_int);
     install_primitive(print_string);

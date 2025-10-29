@@ -10,7 +10,7 @@
   ;; Imports from the WARDuino VM
   (import "env" "display_setup" (func $env.setup (type $void->void)))
   (import "env" "display_width" (func $env.width (type $void->int32)))
-  (import "env" "rand" (func $env.rand (type $void->int32)))
+  (import "env" "int_random" (func $env.rand (type $void->int32)))
   (import "env" "display_height" (func $env.height (type $void->int32)))
   (import "env" "display_fillrect" (func $env.fillrect (type $int32->i32->i32->i32->i32->void)))
   (import "env" "display_fillcircle" (func $env.fillcircle (type $int32->int32->i32->i32->void)))
