@@ -640,11 +640,13 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     (void)mutability;
                     uint32_t gidx = m->global_count;
                     m->global_count += 1;
-                    m->globals = (Global **)arecalloc(
-                        m->globals, gidx, m->global_count, sizeof(Global *),
-                        "globals");
-                    m->globals[gidx] = (Global *)acalloc(1, sizeof(Global), "globals");
-                    m->globals[gidx]->value = (StackValue *)acalloc(1, sizeof(StackValue), "globals");
+                    m->globals =
+                        (Global **)arecalloc(m->globals, gidx, m->global_count,
+                                             sizeof(Global *), "globals");
+                    m->globals[gidx] =
+                        (Global *)acalloc(1, sizeof(Global), "globals");
+                    m->globals[gidx]->value =
+                        (StackValue *)acalloc(1, sizeof(StackValue), "globals");
 
                     // Run the init_expr to get global value
                     run_init_expr(m, type, &pos);
@@ -671,9 +673,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             m->globals[index]->export_name = name;
                             break;
                         default:
-                            dbg_warn("  ignoring non-function export '%s'"
-                                     " kind 0x%x index 0x%x\n",
-                                     name, kind, index);
+                            dbg_warn(
+                                "  ignoring non-function export '%s'"
+                                " kind 0x%x index 0x%x\n",
+                                name, kind, index);
                     }
                 }
                 break;
