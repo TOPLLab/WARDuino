@@ -193,9 +193,9 @@ Callback::Callback(Module *m, std::string id, uint32_t tidx) {
 }
 
 void Callback::resolve_event(const Event &e) {
-    dbg_trace("Callback(%s, %u): resolving Event(%s, \"%s\")\n",
-              topic.c_str(), static_cast<unsigned int>(table_index),
-              e.topic.c_str(), e.payload.c_str());
+    dbg_trace("Callback(%s, %u): resolving Event(%s, \"%s\")\n", topic.c_str(),
+              static_cast<unsigned int>(table_index), e.topic.c_str(),
+              e.payload.c_str());
 
     // Copy topic and payload to linear memory
     uint32_t start = 10000;  // TODO use reserved area in linear memory

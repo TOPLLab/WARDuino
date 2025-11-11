@@ -83,11 +83,11 @@ typedef struct Memory {
 } Memory;
 
 typedef struct Global {
-    char *export_name;           // export name of the global
-    char *import_module;         // import module name
-    char *import_field;          // import field name
-    bool mutability;             // 0: immutable, 1: mutable
-    StackValue *value;           // current value
+    char *export_name;    // export name of the global
+    char *import_module;  // import module name
+    char *import_field;   // import field name
+    bool mutability;      // 0: immutable, 1: mutable
+    StackValue *value;    // current value
 } Global;
 
 typedef struct Options {
@@ -125,8 +125,8 @@ typedef struct Module {
     uint32_t start_function = -1;  // function to run on module load
     Table table;
     Memory memory;
-    uint32_t global_count = 0;      // number of globals
-    Global **globals = nullptr;    // globals
+    uint32_t global_count = 0;   // number of globals
+    Global **globals = nullptr;  // globals
     // Runtime state
     uint8_t *pc_ptr = nullptr;     // program counter
     int sp = -1;                   // operand stack pointer

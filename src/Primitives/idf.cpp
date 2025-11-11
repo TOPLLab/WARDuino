@@ -39,7 +39,6 @@
 int prim_index = 0;
 int global_index = 0;
 
-
 double sensor_emu = 0;
 
 /*
@@ -99,23 +98,20 @@ double sensor_emu = 0;
 #define arg8 get_arg(m, 8)
 #define arg9 get_arg(m, 9)
 
-#define def_glob(name, type, mut, init_value)               \
-    StackValue name##_sv { .value_type = type, init_value };\
-    Global name = {                                         \
-        .mutability = mut,                                  \
-        .import_field = #name,                              \
-        .value = &name##_sv                                 \
-    };                                                      \
+#define def_glob(name, type, mut, init_value)             \
+    StackValue name##_sv{.value_type = type, init_value}; \
+    Global name = {                                       \
+        .mutability = mut, .import_field = #name, .value = &name##_sv};
 
-#define install_global(global_name)                         \
-    {                                                       \
-        dbg_info("installing global: %s\n", #global_name);  \
-        if (global_index < ALL_GLOBALS) {                   \
-            globals[global_index++] = (global_name);        \
-        } else {                                            \
-            FATAL("global_index out of bounds");            \
-        }                                                   \
-    }                                                       \
+#define install_global(global_name)                        \
+    {                                                      \
+        dbg_info("installing global: %s\n", #global_name); \
+        if (global_index < ALL_GLOBALS) {                  \
+            globals[global_index++] = (global_name);       \
+        } else {                                           \
+            FATAL("global_index out of bounds");           \
+        }                                                  \
+    }
 
 // The primitive table
 PrimitiveEntry primitives[ALL_PRIMITIVES];
