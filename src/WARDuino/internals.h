@@ -82,6 +82,14 @@ typedef struct Memory {
     uint8_t *bytes = nullptr;  // memory area
 } Memory;
 
+typedef struct Global {
+    char *export_name;           // export name of the global
+    char *import_module;         // import module name
+    char *import_field;          // import field name
+    bool mutability;             // 0: immutable, 1: mutable
+    StackValue *value;           // current value
+} Global;
+
 typedef struct Options {
     // when true: host memory addresses will be outside allocated memory area
     // so do not do bounds checking
@@ -118,7 +126,7 @@ typedef struct Module {
     Table table;
     Memory memory;
     uint32_t global_count = 0;      // number of globals
-    StackValue *globals = nullptr;  // globals
+    Global **globals = nullptr;    // globals
     // Runtime state
     uint8_t *pc_ptr = nullptr;     // program counter
     int sp = -1;                   // operand stack pointer
