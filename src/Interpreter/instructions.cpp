@@ -470,7 +470,10 @@ bool i_instr_get_global(Module *m) {
  */
 bool i_instr_set_global(Module *m) {
     uint32_t arg = read_LEB_32(&m->pc_ptr);
-    m->globals[arg] = m->stack[m->sp--];
+    if (!m->globals[arg]->mutability) {
+        sprintf(exception, "attempt to set immutable global");
+        return false;
+    }
     *m->globals[arg]->value = m->stack[m->sp--];
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->stack[m->sp + 1]));
