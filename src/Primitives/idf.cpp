@@ -326,7 +326,7 @@ bool resolve_external_global(char *symbol, Global **val) {
         }
     }
     FATAL("Could not find global %s \n", symbol);
-    return false; 
+    return false;
 }
 
 //------------------------------------------------------
