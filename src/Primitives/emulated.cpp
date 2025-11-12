@@ -27,77 +27,6 @@
 #include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
-#define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 37
-
-#define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
-
-// Global index for installing primitives
-int prim_index = 0;
-
-double sensor_emu = 0;
-
-/*
-   Private macros to install a primitive
-*/
-#define install_primitive(prim_name)                                       \
-    {                                                                      \
-        dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-                 prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
-        if (prim_index < ALL_PRIMITIVES) {                                 \
-            PrimitiveEntry *p = &primitives[prim_index++];                 \
-            p->name = #prim_name;                                          \
-            p->t = &(prim_name##_type);                                    \
-            p->f = &(prim_name);                                           \
-            p->f_reverse = nullptr;                                        \
-            p->f_serialize_state = nullptr;                                \
-        } else {                                                           \
-            FATAL("prim_index out of bounds");                             \
-        }                                                                  \
-    }
-
-#define install_primitive_reverse(prim_name)             \
-    {                                                    \
-        PrimitiveEntry *p = &primitives[prim_index - 1]; \
-        p->f_reverse = &(prim_name##_reverse);           \
-        p->f_serialize_state = &(prim_name##_serialize); \
-    }
-
-#define def_prim(function_name, type) \
-    Type function_name##_type = type; \
-    bool function_name([[maybe_unused]] Module *m)
-
-#define def_prim_reverse(function_name)     \
-    void function_name##_reverse(Module *m, \
-                                 std::vector<IOStateElement> external_state)
-
-#define def_prim_serialize(function_name) \
-    void function_name##_serialize(       \
-        std::vector<IOStateElement *> &external_state)
-
-// TODO: use fp
-#define pop_args(n) m->sp -= n
-#define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
-#define pushUInt32(arg) m->stack[++m->sp].value.uint32 = arg
-#define pushInt32(arg) m->stack[++m->sp].value.int32 = arg
-#define pushUInt64(arg)                 \
-    m->stack[++m->sp].value_type = I64; \
-    m->stack[m->sp].value.uint64 = arg
-#define arg0 get_arg(m, 0)
-#define arg1 get_arg(m, 1)
-#define arg2 get_arg(m, 2)
-#define arg3 get_arg(m, 3)
-#define arg4 get_arg(m, 4)
-#define arg5 get_arg(m, 5)
-#define arg6 get_arg(m, 6)
-#define arg7 get_arg(m, 7)
-#define arg8 get_arg(m, 8)
-#define arg9 get_arg(m, 9)
-
-// The primitive table
-PrimitiveEntry primitives[ALL_PRIMITIVES];
-
-//
 uint32_t param_arr_len0[0] = {};
 uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
@@ -219,6 +148,8 @@ Type NoneToOneU64 = {.form = FUNC,
                      .result_count = 1,
                      .results = param_I64_arr_len1,
                      .mask = 0x82000};
+
+double sensor_emu = 0;
 
 def_prim(init_pixels, NoneToNoneU32) {
     printf("init_pixels \n");
@@ -634,7 +565,7 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
-void install_primitives() {
+void install_primitives(Interpreter *interpreter) {
     dbg_info("INSTALLING PRIMITIVES\n");
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(abort);
@@ -653,8 +584,7 @@ void install_primitives() {
     install_primitive(http_post);
 
     install_primitive(chip_pin_mode);
-    install_primitive(chip_digital_write);
-    install_primitive_reverse(chip_digital_write);
+    install_reversible_primitive(chip_digital_write);
     install_primitive(chip_delay);
     install_primitive(chip_digital_read);
     install_primitive(chip_analog_read);
@@ -688,25 +618,6 @@ void install_primitives() {
     install_primitive(ev3_touch_sensor);
 }
 
-//------------------------------------------------------
-// resolving the primitives
-//------------------------------------------------------
-// ReSharper disable once CppDFAConstantFunctionResult
-bool resolve_primitive(char *symbol, Primitive *val) {
-    debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
-
-    for (auto &primitive : primitives) {
-        //        printf("Checking %s = %s  \n", symbol, primitive.name);
-        if (!strcmp(symbol, primitive.name)) {
-            debug("FOUND PRIMITIVE\n");
-            *val = primitive.f;
-            return true;
-        }
-    }
-    FATAL("Could not find primitive %s \n", symbol);
-    // return false; // unreachable
-}
-
 Memory external_mem{};
 
 // ReSharper disable once CppDFAConstantFunctionResult
@@ -726,36 +637,6 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 
     FATAL("Could not find memory %s \n", symbol);
     // return false; // unreachable
-}
-
-//------------------------------------------------------
-// Restore external state when restoring a snapshot
-//------------------------------------------------------
-void restore_external_state(Module *m,
-                            const std::vector<IOStateElement> &external_state) {
-    std::set<std::string> prim_names;
-    for (uint32_t i = 0; i < m->import_count; i++) {
-        prim_names.emplace(m->functions[i].import_field);
-    }
-
-    for (PrimitiveEntry &p : primitives) {
-        if (prim_names.find(p.name) != prim_names.end()) {
-            if (p.f_reverse) {
-                printf("EMU: Reversing state for primitive %s\n", p.name);
-                p.f_reverse(m, external_state);
-            }
-        }
-    }
-}
-
-std::vector<IOStateElement *> get_io_state(Module *) {
-    std::vector<IOStateElement *> ioState;
-    for (auto &primitive : primitives) {
-        if (primitive.f_serialize_state) {
-            primitive.f_serialize_state(ioState);
-        }
-    }
-    return ioState;
 }
 
 #endif  // ARDUINO
