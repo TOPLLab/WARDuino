@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "debugtest": "npx ts-node ./src/debugger.test.ts",
-    "primtest":  "npx ts-node ./src/primitives.test.ts",
-    "spectest":  "npx ts-node ./src/spec.test.ts",
-    "comptest":  "npx ts-node ./src/comp.test.ts"
+    "primtest": "npx ts-node ./src/primitives.test.ts",
+    "spectest": "npx ts-node ./src/spec.test.ts",
+    "comptest": "npx ts-node ./src/comp.test.ts"
   },
   "devDependencies": {
     "latch": "file:./latch-0.4.1.tgz",
