@@ -62,9 +62,12 @@ void create_stack(std::vector<StackValue> *stack, T value, Ts... args) {
 
 template <typename... Ts>
 void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
-    Primitive primitive;
-    m->warduino->interpreter->resolve_primitive(function_name.c_str(),
-                                                &primitive);
+    Primitive primitive = {};
+    if (!m->warduino->interpreter->resolve_primitive(function_name.c_str(),
+                                                     &primitive)) {
+        printf("Failed to resolve primitive %s\n", function_name.c_str());
+        return;
+    }
 
     std::vector<StackValue> argStack;
     create_stack(&argStack, args...);
@@ -78,7 +81,7 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
 #define _install_primitive(prim_name)                                      \
     /*dbg_info("installing primitive number: %d  of %d with name: %s\n", \ \
     prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/          \
-    PrimitiveEntry p;                                                      \
+    PrimitiveEntry p = {};                                                 \
     p.name = #prim_name;                                                   \
     p.t = &(prim_name##_type);                                             \
     p.f = &(prim_name);                                                    \
