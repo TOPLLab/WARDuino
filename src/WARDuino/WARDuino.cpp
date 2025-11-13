@@ -11,7 +11,6 @@
 #include "../Utils/util.h"
 
 #define UNDEF (uint32_t)(-1)
-#define pushUInt32(m, arg) m->stack[++(m)->sp].value.uint32 = arg
 
 char exception[512];
 
