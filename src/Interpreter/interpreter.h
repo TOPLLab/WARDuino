@@ -4,7 +4,7 @@
 #include <set>
 
 #include "../WARDuino/internals.h"
-//#include "../Utils/macros.h"
+// #include "../Utils/macros.h"
 
 class Interpreter {
    public:
@@ -65,17 +65,17 @@ class Interpreter {
     //------------------------------------------------------
     // ReSharper disable once CppDFAConstantFunctionResult
     bool resolve_primitive(const char *symbol, Primitive *val) {
-        //debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
+        // debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
 
         for (auto &primitive : primitives) {
             //        printf("Checking %s = %s  \n", symbol, primitive.name);
             if (!strcmp(symbol, primitive.name)) {
-                //debug("FOUND PRIMITIVE\n");
+                // debug("FOUND PRIMITIVE\n");
                 *val = primitive.f;
                 return true;
             }
         }
-        //FATAL("Could not find primitive %s \n", symbol);
+        // FATAL("Could not find primitive %s \n", symbol);
         return false;
         // return false; // unreachable
     }
@@ -83,8 +83,8 @@ class Interpreter {
     //------------------------------------------------------
     // Restore external state when restoring a snapshot
     //------------------------------------------------------
-    void restore_external_state(Module *m,
-                                const std::vector<IOStateElement> &external_state) {
+    void restore_external_state(
+        Module *m, const std::vector<IOStateElement> &external_state) {
         std::set<std::string> prim_names;
         for (uint32_t i = 0; i < m->import_count; i++) {
             prim_names.emplace(m->functions[i].import_field);
