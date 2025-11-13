@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <set>
 
 #include "../WARDuino/internals.h"
