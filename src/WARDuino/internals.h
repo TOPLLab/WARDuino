@@ -1,5 +1,7 @@
 #pragma once
 #include <map>
+#include <string>
+#include <vector>
 
 // Structures
 typedef struct Type {
