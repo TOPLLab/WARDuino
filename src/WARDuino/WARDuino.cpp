@@ -16,8 +16,8 @@
 char exception[512];
 
 // UTIL
-bool resolvesym(Interpreter *interpreter, char *filename, char *symbol, uint8_t external_kind, void **val,
-                char **err) {
+bool resolvesym(Interpreter *interpreter, char *filename, char *symbol,
+                uint8_t external_kind, void **val, char **err) {
     if (nullptr != filename && !strcmp(filename, "env")) {
         switch (external_kind) {
             case 0x00:  // Function
@@ -448,8 +448,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     // TODO add special case form primitives with resolvePrim
                     do {
                         // Try using module as handle filename
-                        if (resolvesym(m->warduino->interpreter, import_module, import_field,
-                                       external_kind, &val, &err)) {
+                        if (resolvesym(m->warduino->interpreter, import_module,
+                                       import_field, external_kind, &val,
+                                       &err)) {
                             break;
                         }
 
@@ -462,8 +463,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                 sym[sidx] = '_';
                             }
                         }
-                        if (resolvesym(m->warduino->interpreter, nullptr, sym, external_kind, &val,
-                                       &err)) {
+                        if (resolvesym(m->warduino->interpreter, nullptr, sym,
+                                       external_kind, &val, &err)) {
                             break;
                         }
 
@@ -473,8 +474,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             (strncmp("env", import_module, 4) == 0) &&
                             (strncmp("_", import_field, 1) == 0)) {
                             sprintf(sym, "%s", import_field + 1);
-                            if (resolvesym(m->warduino->interpreter, nullptr, sym, external_kind, &val,
-                                           &err)) {
+                            if (resolvesym(m->warduino->interpreter, nullptr,
+                                           sym, external_kind, &val, &err)) {
                                 break;
                             }
                         }
@@ -482,8 +483,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         // Try the plain symbol by itself with module
                         // name/handle
                         sprintf(sym, "%s", import_field);
-                        if (resolvesym(m->warduino->interpreter, nullptr, sym, external_kind, &val,
-                                       &err)) {
+                        if (resolvesym(m->warduino->interpreter, nullptr, sym,
+                                       external_kind, &val, &err)) {
                             break;
                         }
 

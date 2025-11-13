@@ -22,7 +22,8 @@ void install_primitives(Interpreter *interpreter);
 /*std::vector<IOStateElement *> get_io_state(Module *m);
 
 void restore_external_state(Module *m,
-                            const std::vector<IOStateElement> &external_state);*/
+                            const std::vector<IOStateElement>
+&external_state);*/
 
 inline void create_stack(std::vector<StackValue> *) {}
 
@@ -62,7 +63,8 @@ void create_stack(std::vector<StackValue> *stack, T value, Ts... args) {
 template <typename... Ts>
 void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     Primitive primitive;
-    m->warduino->interpreter->resolve_primitive(function_name.c_str(), &primitive);
+    m->warduino->interpreter->resolve_primitive(function_name.c_str(),
+                                                &primitive);
 
     std::vector<StackValue> argStack;
     create_stack(&argStack, args...);
@@ -73,30 +75,27 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     primitive(m);
 }
 
-#define _install_primitive(prim_name)                                       \
+#define _install_primitive(prim_name)                                      \
     /*dbg_info("installing primitive number: %d  of %d with name: %s\n", \ \
-    prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/\
-    PrimitiveEntry p; \
-    p.name = #prim_name;                                          \
-    p.t = &(prim_name##_type);                                    \
-    p.f = &(prim_name);                                           \
-    p.f_reverse = nullptr;                                        \
-    p.f_serialize_state = nullptr;                                \
-    interpreter->register_primitive(p); \
+    prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/          \
+    PrimitiveEntry p;                                                      \
+    p.name = #prim_name;                                                   \
+    p.t = &(prim_name##_type);                                             \
+    p.f = &(prim_name);                                                    \
+    p.f_reverse = nullptr;                                                 \
+    p.f_serialize_state = nullptr;                                         \
+    interpreter->register_primitive(p);
 
-#define install_primitive(prim_name)                                       \
-{                                                                      \
-    /*dbg_info("installing primitive number: %d  of %d with name: %s\n", \ \
-    prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/\
-    _install_primitive(prim_name) \
-}
+#define install_primitive(prim_name)                                        \
+    {/*dbg_info("installing primitive number: %d  of %d with name: %s\n", \ \
+     prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/          \
+     _install_primitive(prim_name)}
 
-#define install_reversible_primitive(prim_name)             \
-{                                                    \
-    _install_primitive(prim_name)    \
-    p.f_reverse = &(prim_name##_reverse);           \
-    p.f_serialize_state = &(prim_name##_serialize); \
-}
+#define install_reversible_primitive(prim_name)                             \
+    {                                                                       \
+        _install_primitive(prim_name) p.f_reverse = &(prim_name##_reverse); \
+        p.f_serialize_state = &(prim_name##_serialize);                     \
+    }
 
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
@@ -135,7 +134,7 @@ inline uint32_t param_I32_arr_len2[2] = {I32, I32};
 inline uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 inline uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
 inline uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
-                                    I32, I32, I32, I32, I32};
+                                           I32, I32, I32, I32, I32};
 inline uint32_t param_I64_arr_len1[1] = {I64};
 
 inline Type oneToNoneU32 = {
@@ -230,24 +229,24 @@ inline Type tenToOneU32 = {
 };
 
 inline Type NoneToNoneU32 = {.form = FUNC,
-                      .param_count = 0,
-                      .params = nullptr,
-                      .result_count = 0,
-                      .results = nullptr,
-                      .mask = 0x80000};
+                             .param_count = 0,
+                             .params = nullptr,
+                             .result_count = 0,
+                             .results = nullptr,
+                             .mask = 0x80000};
 
 inline Type NoneToOneU32 = {.form = FUNC,
-                     .param_count = 0,
-                     .params = nullptr,
-                     .result_count = 1,
-                     .results = param_I32_arr_len1,
-                     .mask = 0x81000};
+                            .param_count = 0,
+                            .params = nullptr,
+                            .result_count = 1,
+                            .results = param_I32_arr_len1,
+                            .mask = 0x81000};
 
 inline Type NoneToOneU64 = {.form = FUNC,
-                     .param_count = 0,
-                     .params = nullptr,
-                     .result_count = 1,
-                     .results = param_I64_arr_len1,
-                     .mask = 0x82000};
+                            .param_count = 0,
+                            .params = nullptr,
+                            .result_count = 1,
+                            .results = param_I64_arr_len1,
+                            .mask = 0x82000};
 
 #endif
