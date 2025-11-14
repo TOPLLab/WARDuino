@@ -5,9 +5,9 @@
 (assert_return (invoke "get-y") (i64.const -15))
 
 (assert_return (invoke "get-1") (f32.const -3))
-;; TODO ADD ASSERT RETURN: (invoke "get-2") returns (f64.const -4)) (will fail with latch 0.3.1 https://github.com/TOPLLab/latch/issues/34)
+(assert_return (invoke "get-2") (f64.const -4))
 (assert_return (invoke "get-5") (f32.const -13))
-;; TODO ADD ASSERT RETURN: (invoke "get-6") returns (f64.const -14)) (will fail with latch 0.3.1 https://github.com/TOPLLab/latch/issues/34)
+(assert_return (invoke "get-6") (f64.const -14))
 
 (assert_return (invoke "set-2" (f64.const 4)))
 (assert_return (invoke "set-x" (i32.const 6)))
