@@ -74,23 +74,36 @@ void initTypes() {
     block_types[4].results = block_type_results[3];
 }
 
-Type *get_block_type(uint8_t value_type) {
-    switch (value_type) {
-        case 0x40:
-            return &block_types[0];
-        case I32:
-            return &block_types[1];
-        case I64:
-            return &block_types[2];
-        case F32:
-            return &block_types[3];
-        case F64:
-            return &block_types[4];
-        default:
-            FATAL("invalid block_type value_type: %d\n", value_type);
+Type *get_block_type(Module *m, uint8_t type) {
+    uint8_t *pos = &type;
+    int64_t type_s = read_LEB_signed(&pos, 33);
+    
+    if (type_s < 0) {
+        switch (type) {
+            case 0x40:
+                return &block_types[0];  // empty
+            case I32:
+                return &block_types[1];
+            case I64:
+                return &block_types[2];
+            case F32:
+                return &block_types[3];
+            case F64:
+                return &block_types[4];
+            default:
+                FATAL("invalid block_type value_type: %d\n", type);
+                return nullptr;
+        }
+    } else {
+        if ((uint32_t)type_s >= m->type_count) {
+            FATAL("block_type index out of bounds: %lld >= %u\n", 
+                  type_s, m->type_count);
             return nullptr;
+        }
+        return &m->types[type_s];
     }
 }
+
 
 // TODO: calculate this while parsing types
 uint64_t get_type_mask(Type *type) {
@@ -215,7 +228,7 @@ void find_blocks(Module *m) {
                 case 0x04:     // if
                     block = (Block *)acalloc(1, sizeof(Block), "Block");
                     block->block_type = opcode;
-                    block->type = get_block_type(*(pos + 1));
+                    block->type = get_block_type(m, *(pos + 1));
                     block->start_ptr = pos;
                     blockstack[++top] = block;
                     m->block_lookup[pos] = block;
@@ -261,7 +274,7 @@ void WARDuino::run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     WARDuino::instance()->program_state = WARDUINOinit;
     Block block;
     block.block_type = 0x01;
-    block.type = get_block_type(type);
+    block.type = get_block_type(m, type);
     block.start_ptr = *pc;
 
     m->pc_ptr = *pc;
@@ -899,8 +912,7 @@ WARDuino::WARDuino() {
 }
 
 // Return value of false means exception occurred
-bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
-                      StackValue *args) {
+bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity, StackValue *args, uint32_t max_results, StackValue *out_results, uint32_t *out_result_count) {
     bool result;
     m->sp = -1;
     m->fp = -1;
@@ -918,8 +930,28 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
     result = interpreter->interpret(m);
     dbg_trace("Interpretation ended\n");
     dbg_dump_stack(m);
-    return result;
+
+    if (!result) {
+        if (out_result_count) *out_result_count = 0;
+        return false;
+    }
+
+    uint32_t rescount = 0;
+    Type *ftype = m->functions[fidx].type;
+    rescount = ftype->result_count;
+
+    if (out_result_count)
+    { 
+        *out_result_count = rescount > max_results ? max_results : rescount;
+        
+        for (uint32_t i = 0; i < *out_result_count; ++i) {
+            out_results[i] = m->stack[m->sp - (rescount - 1) + i];
+        }
+    }
+
+    return true;
 }
+
 
 void WARDuino::setInterpreter(Interpreter *interpreter) {
     this->interpreter = interpreter;
@@ -930,9 +962,15 @@ int WARDuino::run_module(Module *m) {
 
     // execute main
     if (fidx != UNDEF) {
-        this->invoke(m, fidx);
-        return m->stack->value.uint32;
+        StackValue outputs[8];
+        uint32_t out_count = 0;
+        bool ok = this->invoke(m, fidx, 0, nullptr, 8, outputs, &out_count);
+        if (!ok) {
+            return 0;
+        }
+        return (int)outputs[0].value.uint32;
     }
+    fflush(stdout);
 
     // wait
     m->warduino->debugger->pauseRuntime(m);

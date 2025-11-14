@@ -45,20 +45,18 @@ Block *Interpreter::pop_block(Module *m) {
     m->fp = frame->fp;  // Restore frame pointer
 
     // Validate the return value
-    if (t->result_count == 1) {
-        if (m->stack[m->sp].value_type != t->results[0]) {
+    for (uint32_t i = 0; i < t->result_count; i++) {
+        if (m->stack[m->sp - (t->result_count - 1 - i)].value_type != t->results[i]) {
             sprintf(exception, "call type mismatch");
             return nullptr;
         }
     }
-
     // Restore stack pointer
-    if (t->result_count == 1) {
-        // Save top value as result
-        if (frame->sp < m->sp) {
-            m->stack[frame->sp + 1] = m->stack[m->sp];
-            m->sp = frame->sp + 1;
+    if (t->result_count > 0) {
+        for (uint32_t i = 0; i < t->result_count; i++) {
+            m->stack[frame->sp + 1 + i] = m->stack[m->sp - (t->result_count - 1) + i];
         }
+        m->sp = frame->sp + t->result_count;
     } else {
         if (frame->sp < m->sp) {
             m->sp = frame->sp;
