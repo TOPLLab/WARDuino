@@ -4,14 +4,14 @@ import {
     Framework,
     HybridScheduler,
     invoke,
-    OutputStyle,
+    StyleType,
     returns,
     Step,
     WASM
 } from "latch";
 
 const framework = Framework.getImplementation();
-framework.style(OutputStyle.github);
+framework.style(StyleType.github);
 
 const suite = framework.suite('Specification test suite for WebAssembly');
 suite.testee('emulator [:8500]', new EmulatorSpecification(8500));
