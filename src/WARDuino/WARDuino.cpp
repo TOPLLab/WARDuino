@@ -77,7 +77,7 @@ void initTypes() {
 Type *get_block_type(Module *m, uint8_t type) {
     uint8_t *pos = &type;
     int64_t type_s = read_LEB_signed(&pos, 33);
-    
+
     if (type_s < 0) {
         switch (type) {
             case 0x40:
@@ -96,14 +96,13 @@ Type *get_block_type(Module *m, uint8_t type) {
         }
     } else {
         if ((uint32_t)type_s >= m->type_count) {
-            FATAL("block_type index out of bounds: %lld >= %u\n", 
-                  type_s, m->type_count);
+            FATAL("block_type index out of bounds: %lld >= %u\n", type_s,
+                  m->type_count);
             return nullptr;
         }
         return &m->types[type_s];
     }
 }
-
 
 // TODO: calculate this while parsing types
 uint64_t get_type_mask(Type *type) {
@@ -912,7 +911,9 @@ WARDuino::WARDuino() {
 }
 
 // Return value of false means exception occurred
-bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity, StackValue *args, uint32_t max_results, StackValue *out_results, uint32_t *out_result_count) {
+bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
+                      StackValue *args, uint32_t max_results,
+                      StackValue *out_results, uint32_t *out_result_count) {
     bool result;
     m->sp = -1;
     m->fp = -1;
@@ -940,10 +941,9 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity, StackValue *args
     Type *ftype = m->functions[fidx].type;
     rescount = ftype->result_count;
 
-    if (out_result_count)
-    { 
+    if (out_result_count) {
         *out_result_count = rescount > max_results ? max_results : rescount;
-        
+
         for (uint32_t i = 0; i < *out_result_count; ++i) {
             out_results[i] = m->stack[m->sp - (rescount - 1) + i];
         }
@@ -951,7 +951,6 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity, StackValue *args
 
     return true;
 }
-
 
 void WARDuino::setInterpreter(Interpreter *interpreter) {
     this->interpreter = interpreter;

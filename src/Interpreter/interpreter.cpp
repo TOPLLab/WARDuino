@@ -46,7 +46,8 @@ Block *Interpreter::pop_block(Module *m) {
 
     // Validate the return value
     for (uint32_t i = 0; i < t->result_count; i++) {
-        if (m->stack[m->sp - (t->result_count - 1 - i)].value_type != t->results[i]) {
+        if (m->stack[m->sp - (t->result_count - 1 - i)].value_type !=
+            t->results[i]) {
             sprintf(exception, "call type mismatch");
             return nullptr;
         }
@@ -54,7 +55,8 @@ Block *Interpreter::pop_block(Module *m) {
     // Restore stack pointer
     if (t->result_count > 0) {
         for (uint32_t i = 0; i < t->result_count; i++) {
-            m->stack[frame->sp + 1 + i] = m->stack[m->sp - (t->result_count - 1) + i];
+            m->stack[frame->sp + 1 + i] =
+                m->stack[m->sp - (t->result_count - 1) + i];
         }
         m->sp = frame->sp + t->result_count;
     } else {
