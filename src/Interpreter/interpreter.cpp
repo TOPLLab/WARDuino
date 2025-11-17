@@ -104,8 +104,8 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
                   m->sp, STACK_SIZE);
         }
 #endif
+        memset(&m->stack[m->sp], 0, sizeof(StackValue));
         m->stack[m->sp].value_type = func->local_value_type[lidx];
-        m->stack[m->sp].value = {0};  // Initialize whole union to 0
     }
 
     // Set program counter to start of function
