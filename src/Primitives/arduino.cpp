@@ -25,12 +25,8 @@
 #include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
-// NEOPIXEL
-#include <Adafruit_NeoPixel.h>
-#define PIN 33
-#define NUMPIXELS 64
-Adafruit_NeoPixel pixels =
-    Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+// M5stack
+#include "m5stack/display.h"
 
 #define delay_us(ms) delayMicroseconds(ms)
 #include <SPI.h>
@@ -132,7 +128,7 @@ int resolve_isr(int pin) {
 // Primitives
 
 #define NUM_PRIMITIVES 0
-#define NUM_PRIMITIVES_ARDUINO 38
+#define NUM_PRIMITIVES_ARDUINO 44
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
@@ -205,6 +201,7 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
+uint32_t param_I32_arr_len5[5] = {I32, I32, I32, I32, I32};
 uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                     I32, I32, I32, I32, I32};
 
@@ -245,6 +242,15 @@ Type fourToNoneU32 = {
     .results = nullptr,
     .mask =
         0x8001111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
+};
+
+Type fiveToNoneI32 = {
+    .form = FUNC,
+    .param_count = 5,
+    .params = param_I32_arr_len5,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x80011111
 };
 
 Type oneToOneU32 = {
@@ -353,6 +359,11 @@ def_prim(micros, NoneToOneU64) {
     return true;
 }
 
+def_prim(int_random, NoneToOneU32) {
+    pushInt32(random(6000));
+    return true;
+}
+
 def_prim(print_int, oneToNoneU32) {
     uint32_t integer = arg0.uint32;
     Serial.print(integer);
@@ -370,122 +381,6 @@ def_prim(print_string, twoToNoneU32) {
     Serial.print(str);
     Serial.flush();
     pop_args(2);
-    return true;
-}
-
-def_prim(wifi_connect, fourToNoneU32) {
-    uint32_t ssid = arg3.uint32;
-    uint32_t len0 = arg2.uint32;
-    uint32_t pass = arg1.uint32;
-    uint32_t len1 = arg0.uint32;
-
-    String ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid).c_str();
-    String pass_str = parse_utf8_string(m->memory.bytes, len1, pass).c_str();
-
-    connect(ssid_str, pass_str);
-
-    pop_args(4);
-    return true;
-}
-
-def_prim(wifi_status, NoneToOneU32) {
-    int32_t status = WiFi.status();
-    pushInt32(status);
-    return true;
-}
-
-def_prim(wifi_connected, NoneToOneU32) {
-    pushInt32(WiFi.status() == WL_CONNECTED ? 1 : 0);
-    return true;
-}
-
-def_prim(wifi_localip, twoToOneU32) {
-    uint32_t buff = arg1.uint32;
-    IPAddress ip = WiFi.localIP();
-
-    String ipString = String(ip[0]);
-    for (byte octet = 1; octet < 4; ++octet) {
-        ipString += '.' + String(ip[octet]);
-    }
-
-    // TODO handle too small buffer
-    for (unsigned long i = 0; i < ipString.length(); i++) {
-        m->memory.bytes[buff + i] = (uint32_t)ipString[i];
-    }
-    pop_args(2);
-    pushInt32(buff);
-    return true;
-}
-
-def_prim(http_get, fourToOneU32) {
-    int32_t return_value = -11;
-
-    // Check WiFi connection status
-    if (WiFi.status() == WL_CONNECTED) {
-        uint32_t addr = arg3.uint32;
-        uint32_t length = arg2.uint32;
-        uint32_t response = arg1.uint32;
-        uint32_t size = arg0.uint32;
-
-        String url = parse_utf8_string(m->memory.bytes, length, addr).c_str();
-        Serial.print("GET ");
-        Serial.println(url);
-
-        Serial.flush();
-        // Send HTTP GET request
-        return_value = http_get_request(m, url, response, size);
-    }
-
-    pop_args(4);
-    pushInt32(return_value);
-    return true;
-}
-
-def_prim(http_post, tenToOneU32) {
-    int32_t status_code = -11;
-
-    // Check WiFi connection status
-    if (WiFi.status() == WL_CONNECTED) {
-        uint32_t url = arg9.uint32;
-        uint32_t url_len = arg8.uint32;
-        uint32_t body = arg7.uint32;
-        uint32_t body_len = arg6.uint32;
-        uint32_t content_type = arg5.uint32;
-        uint32_t content_type_len = arg4.uint32;
-        uint32_t authorization = arg3.uint32;
-        uint32_t authorization_len = arg2.uint32;
-        uint32_t response = arg1.uint32;
-        uint32_t size = arg0.uint32;
-
-        String url_parsed =
-            parse_utf8_string(m->memory.bytes, url_len, url).c_str();
-        String body_parsed =
-            parse_utf8_string(m->memory.bytes, body_len, body).c_str();
-        String content_type_parsed =
-            parse_utf8_string(m->memory.bytes, content_type_len, content_type)
-                .c_str();
-        String authorization_parsed =
-            parse_utf8_string(m->memory.bytes, authorization_len, authorization)
-                .c_str();
-        Serial.print("POST ");
-        Serial.print(url_parsed);
-        Serial.print("\n\t Content-type: '");
-        Serial.print(content_type_parsed);
-        Serial.print("'\n\t Authorization: '");
-        Serial.print(authorization_parsed);
-        Serial.print("'\n\t '");
-        Serial.print(body_parsed);
-        Serial.print("'\n");
-
-        // Send HTTP POST request
-        status_code =
-            http_post_request(m, url_parsed, body_parsed, content_type_parsed,
-                              authorization_parsed, response, size);
-    }
-
-    pop_args(10);
-    pushInt32(status_code);
-    Serial.flush();
     return true;
 }
 
@@ -597,32 +492,6 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
     return true;
 }
 
-def_prim(init_pixels, NoneToNoneU32) {
-    pixels.begin();
-    return true;
-}
-
-def_prim(set_pixel_color, fourToOneU32) {
-    uint8_t blue = arg0.uint32;
-    uint8_t green = arg1.uint32;
-    uint8_t red = arg2.uint32;
-    uint8_t index = arg3.uint32;
-
-    pixels.setPixelColor(index, pixels.Color(red, green, blue));
-    pop_args(4);
-    return true;
-}
-
-def_prim(show_pixels, NoneToNoneU32) {
-    pixels.show();
-    return true;
-}
-
-def_prim(clear_pixels, NoneToNoneU32) {
-    pixels.clear();
-    return true;
-}
-
 // LED Control primitives
 
 def_prim(chip_ledc_set_duty, threeToNoneU32) {
@@ -690,175 +559,6 @@ def_prim(unsubscribe_interrupt, oneToNoneU32) {
     detachInterrupt(digitalPinToInterrupt(pin));
 
     pop_args(1);
-    return true;
-}
-
-// MQTT MODULE
-
-#include <PubSubClient.h>
-
-WiFiClient wifiClient;
-PubSubClient mqttClient(wifiClient);
-
-def_prim(mqtt_init, threeToNoneU32) {
-    WiFi.mode(WIFI_STA);
-    uint32_t server_param = arg2.uint32;
-    uint32_t length = arg1.uint32;
-    uint32_t port = arg0.uint32;
-
-    const char *server =
-        parse_utf8_string(m->memory.bytes, length, server_param).c_str();
-    mqttClient.setServer(server, port);
-    mqttClient.setCallback([](const char *topic, const unsigned char *payload,
-                              unsigned int length) {
-        CallbackHandler::push_event(topic, (const char *)payload, length);
-    });
-
-#if DEBUG
-    Serial.print("Set MQTT server to [");
-    Serial.print(server);
-    Serial.print(":");
-    Serial.print(port);
-    Serial.println("]");
-    Serial.flush();
-#endif
-
-    pop_args(3);
-    return true;
-}
-
-def_prim(mqtt_connect, twoToOneU32) {
-    uint32_t client_id_param = arg1.uint32;
-    uint32_t length = arg0.uint32;
-
-    String client_id =
-        parse_utf8_string(m->memory.bytes, length, client_id_param).c_str();
-#if DEBUG
-    Serial.print("Connecting to MQTT server as ");
-    Serial.print(client_id);
-#endif
-    bool ret = mqttClient.connect(client_id.c_str());
-
-#if DEBUG
-    Serial.print(": ");
-    Serial.print(mqttClient.state());
-    Serial.print(", ");
-    Serial.println(ret);
-    Serial.flush();
-#endif
-
-    pop_args(2);
-    pushInt32((int)ret);
-    return true;
-}
-
-def_prim(mqtt_connected, NoneToOneU32) {
-    pushInt32((int)mqttClient.connected());
-    return true;
-}
-
-def_prim(mqtt_state, NoneToOneU32) {
-    pushInt32(mqttClient.state());
-    return true;
-}
-
-def_prim(mqtt_publish, fourToOneU32) {
-    uint32_t topic_param = arg3.uint32;
-    uint32_t topic_length = arg2.uint32;
-    uint32_t payload_param = arg1.uint32;
-    uint32_t payload_length = arg0.uint32;
-
-    String topic =
-        parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
-#if DEBUG
-    Serial.println("MQTT Publish");
-    Serial.print("(");
-    Serial.print(topic_param);
-    Serial.print(", ");
-    Serial.print(topic_length);
-    Serial.print(") ");
-    Serial.print(topic);
-    Serial.println("");
-#endif
-    String payload =
-        parse_utf8_string(m->memory.bytes, payload_length, payload_param)
-            .c_str();
-#if DEBUG
-    Serial.print("(");
-    Serial.print(payload_param);
-    Serial.print(", ");
-    Serial.print(payload_length);
-    Serial.print(") ");
-    Serial.print(payload);
-    Serial.println("");
-#endif
-
-    bool ret = mqttClient.publish(topic.c_str(), payload.c_str());
-
-#if DEBUG
-    Serial.print("Status code: ");
-    Serial.println(ret);
-    Serial.flush();
-#endif
-
-    pop_args(4);
-    pushInt32((int)ret);
-    return true;
-}
-
-def_prim(mqtt_subscribe, threeToOneU32) {
-    uint32_t topic_param = arg2.uint32;
-    uint32_t topic_length = arg1.uint32;
-    uint32_t fidx = arg0.uint32;
-
-    const char *topic =
-        parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
-
-    Callback c = Callback(m, topic, fidx);
-    CallbackHandler::add_callback(c);
-
-    bool ret = mqttClient.subscribe(topic);
-
-#if DEBUG
-    Serial.print("Subscribed to ");
-    Serial.println(topic);
-    Serial.flush();
-#endif
-
-    pop_args(2);
-    pushInt32((int)ret);
-    return true;
-}
-
-def_prim(mqtt_unsubscribe, threeToOneU32) {
-    uint32_t topic_param = arg2.uint32;
-    uint32_t topic_length = arg1.uint32;
-    uint32_t fidx = arg0.uint32;
-
-    const char *topic =
-        parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
-
-    Callback c = Callback(m, topic, fidx);
-    CallbackHandler::remove_callback(c);
-
-    bool ret = 1;
-    if (CallbackHandler::callback_count(topic) == 0) {
-        ret = mqttClient.unsubscribe(topic);
-    }
-
-#if DEBUG
-    Serial.print("Unsubscribed to ");
-    Serial.println(topic);
-    Serial.flush();
-#endif
-
-    pop_args(2);
-    pushInt32((int)ret);
-    return true;
-}
-
-def_prim(mqtt_loop, NoneToOneU32) {
-    pushInt32((int)mqttClient.loop());
     return true;
 }
 
@@ -951,6 +651,44 @@ int32_t http_post_request(Module *m, const String url, const String body,
     return httpResponseCode;
 }
 
+// Cardputer display
+def_prim(display_setup, NoneToNoneU32) {
+    displaySetup();
+    return true;
+}
+
+def_prim(display_width, NoneToOneU32) {
+    pushInt32(width());
+    return true;
+}
+
+def_prim(display_height, NoneToOneU32) {
+    pushInt32(height());
+    return true;
+}
+
+
+def_prim(display_fillrect, fiveToNoneI32) {
+    uint32_t color = arg4.uint32;
+    int32_t height = arg3.int32;
+    int32_t width = arg2.int32;
+    int32_t y = arg1.int32;
+    int32_t x = arg0.int32;
+    fillRect(x, y, width, height, color);
+    pop_args(5);
+    return true;
+}
+
+def_prim(display_fillcircle, fourToNoneU32) {
+    uint32_t color = arg3.uint32;
+    int32_t radius = arg2.int32;
+    int32_t y = arg1.int32;
+    int32_t x = arg0.int32;
+    fillCircle(x, y, radius, color);
+    pop_args(5);
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives & ISRs
 //------------------------------------------------------
@@ -988,17 +726,10 @@ void install_primitives() {
     install_primitive(abort);
     install_primitive(millis);
     install_primitive(micros);
+    install_primitive(int_random);
 
     install_primitive(print_int);
     install_primitive(print_string);
-
-    install_primitive(wifi_connect);
-    install_primitive(wifi_connected);
-    install_primitive(wifi_status);
-    install_primitive(wifi_localip);
-
-    install_primitive(http_get);
-    install_primitive(http_post);
 
     install_primitive(chip_pin_mode);
     install_primitive(chip_digital_write);
@@ -1015,24 +746,16 @@ void install_primitives() {
     install_primitive(subscribe_interrupt);
     install_primitive(unsubscribe_interrupt);
 
-    install_primitive(mqtt_init);
-    install_primitive(mqtt_connect);
-    install_primitive(mqtt_connected);
-    install_primitive(mqtt_state);
-    install_primitive(mqtt_publish);
-    install_primitive(mqtt_subscribe);
-    install_primitive(mqtt_unsubscribe);
-    install_primitive(mqtt_loop);
-
-    install_primitive(init_pixels);
-    install_primitive(set_pixel_color);
-    install_primitive(clear_pixels);
-    install_primitive(show_pixels);
-
     // temporary primitives needed for analogWrite in ESP32
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_attach);
     install_primitive(chip_ledc_set_duty);
+
+    install_primitive(display_setup);
+    install_primitive(display_width);
+    install_primitive(display_height);
+    install_primitive(display_fillrect);
+    install_primitive(display_fillcircle);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();

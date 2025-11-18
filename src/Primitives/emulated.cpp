@@ -103,6 +103,7 @@ uint32_t param_I32_arr_len1[1] = {I32};
 uint32_t param_I32_arr_len2[2] = {I32, I32};
 uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
+uint32_t param_I32_arr_len5[5] = {I32, I32, I32, I32, I32};
 uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                     I32, I32, I32, I32, I32};
 
