@@ -63,22 +63,6 @@ extern char exception[512];
 
 void skip_immediates(uint8_t **pos);
 
-typedef bool (*Primitive)(Module *);
-
-struct IOStateElement {
-    std::string key;
-    bool output;
-    int value;
-};
-
-typedef struct PrimitiveEntry {
-    const char *name;
-    Primitive f;
-    void (*f_reverse)(Module *m, std::vector<IOStateElement>);
-    void (*f_serialize_state)(std::vector<IOStateElement *> &);
-    Type *t;
-} PrimitiveEntry;
-
 class WARDuino {
    private:
     static WARDuino *singleton;
