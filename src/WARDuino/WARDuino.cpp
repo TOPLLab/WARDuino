@@ -96,8 +96,8 @@ Type *get_block_type(Module *m, uint8_t type) {
         }
     } else {
         if ((uint32_t)type_s >= m->type_count) {
-            FATAL("block_type index out of bounds: %lld >= %u\n", type_s,
-                  m->type_count);
+            FATAL("block_type index out of bounds: %lld >= %u\n",
+                  (long long)type_s, m->type_count);
             return nullptr;
         }
         return &m->types[type_s];
