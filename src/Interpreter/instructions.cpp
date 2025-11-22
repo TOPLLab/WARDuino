@@ -1268,6 +1268,31 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
     return true;
 }
 
+bool i_instr_extension(Module *m, uint8_t opcode) {
+    auto &v = m->stack[m->sp].value;
+
+    switch (opcode) {
+        case 0xc0:  // i32.extend8_s
+            v.int32 = static_cast<int8_t>(v.int32);
+            break;
+        case 0xc1:  // i32.extend16_s
+            v.int32 = static_cast<int16_t>(v.int32);
+            break;
+        case 0xc2:  // i64.extend8_s
+            v.int64 = static_cast<int8_t>(v.int64);
+            break;
+        case 0xc3:  // i64.extend16_s
+            v.int64 = static_cast<int16_t>(v.int64);
+            break;
+        case 0xc4:  // i64.extend32_s
+            v.int64 = static_cast<int32_t>(v.int64);
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
 /**
  * 0xe0 ... 0xe3 callback operations
  */
