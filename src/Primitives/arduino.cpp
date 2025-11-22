@@ -136,7 +136,7 @@ int resolve_isr(int pin) {
 
 #define ALL_PRIMITIVES (NUM_PRIMITIVES + NUM_PRIMITIVES_ARDUINO)
 
-#define NUM_GLOBALS 1
+#define NUM_GLOBALS 0
 #define ALL_GLOBALS NUM_GLOBALS
 
 // Indices for installing primitives and globals
