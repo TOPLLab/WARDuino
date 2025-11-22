@@ -21,10 +21,9 @@ export function parseResult(input: string): WASM.Value | undefined {
     let value;
     delta = consume(input, cursor, /^[^)]*/d);
     if (type === WASM.Type.f32 || type === WASM.Type.f64) {
-        value = parseFloat(input.slice(cursor, cursor + delta));
+        value = parseHexFloat(input.slice(cursor, cursor + delta));
     } else {
-        const bytes = type === WASM.Type.i64 ? 8 : 4;
-        value = parseInteger(input.slice(cursor, cursor + delta), bytes);
+        value = parseInteger(input.slice(cursor, cursor + delta));
     }
 
     if (value === undefined) {
@@ -52,10 +51,9 @@ export function parseArguments(input: string, index: Cursor): WASM.Value[] {
         delta = consume(input, cursor, /^[^)]*/d);
         let maybe: number | undefined;
         if (type === WASM.Type.f32 || type === WASM.Type.f64) {
-            maybe = parseFloat(input.slice(cursor, cursor + delta));
+            maybe = parseHexFloat(input.slice(cursor, cursor + delta));
         } else {
-            const bytes = type === WASM.Type.i64 ? 8 : 4;
-            maybe = parseInteger(input.slice(cursor, cursor + delta), bytes);
+            maybe = parseInteger(input.slice(cursor, cursor + delta));
         }
 
         if (maybe !== undefined) {
@@ -99,7 +97,7 @@ function sign(integer: number): number {
     return Math.sign(integer) || 1;
 }
 
-function parseFloat(input: string): number {
+function parseHexFloat(input: string): number {
     if (input.includes('-inf')) {
         return -Infinity;
     }
@@ -108,17 +106,8 @@ function parseFloat(input: string): number {
         return Infinity;
     }
 
-    if (input.includes('0x')) {
-        return parseHexFloat(input);
-    }
-
-    return Number(input);
-}
-
-function parseHexFloat(input: string): number {
-    const radix = 16;
-    let base: string = input;
-    let exponent = 0;
+    const radix: number = input.includes('0x') ? 16 : 10;
+    let base: string = input, mantissa, exponent = 0;
 
     const splitIndex = input.indexOf('p');
     if (splitIndex !== -1) {
@@ -127,8 +116,6 @@ function parseHexFloat(input: string): number {
     }
 
     const dotIndex = base.indexOf('.');
-    let mantissa: number;
-
     if (dotIndex !== -1) {
         const [integer, fractional] = base.split('.').map(hexStr => parseInt(hexStr, radix));
         const fraction = fractional / Math.pow(radix, base.length - dotIndex - 1);
@@ -144,22 +131,12 @@ function parseInteger(hex: string, bytes: number = 4): number {
     if (!hex.includes('0x')) {
         return parseInt(hex);
     }
-
-    const bigIntValue = BigInt(hex);
-    const bitSize = bytes * 8;
-    const signBit = BigInt(1) << BigInt(bitSize - 1);
-    const mask = (BigInt(1) << BigInt(bitSize)) - BigInt(1);
-
-    // mask to the correct bit width
-    const masked = bigIntValue & mask;
-    // check if negative (sign bit is set)
-    if (masked >= signBit) {
-        // convert from two's complement
-        const result = masked - (BigInt(1) << BigInt(bitSize));
-        return Number(result);
+    const mask = parseInt('0x80' + '00'.repeat(bytes - 1), 16);
+    let integer = parseInt(hex, 16);
+    if (integer >= mask) {
+        integer = integer - mask * 2;
     }
-
-    return Number(masked);
+    return integer;
 }
 
 export function find(regex: RegExp, input: string) {
