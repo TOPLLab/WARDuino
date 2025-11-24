@@ -94,7 +94,7 @@ class Interpreter {
         for (PrimitiveEntry &p : primitives) {
             if (prim_names.find(p.name) != prim_names.end()) {
                 if (p.f_reverse) {
-                    printf("EMU: Reversing state for primitive %s\n", p.name);
+                    printf("Reversing state for primitive %s\n", p.name);
                     p.f_reverse(m, external_state);
                 }
             }

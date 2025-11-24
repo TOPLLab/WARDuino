@@ -1,6 +1,7 @@
 #ifndef WARDUINO_PRIM_H
 #define WARDUINO_PRIM_H
 
+#include "../Utils/macros.h"
 #include "../WARDuino/internals.h"
 
 /**
@@ -18,12 +19,6 @@ bool resolve_external_memory(char *symbol, Memory **val);
 bool resolve_external_global(char *symbol, Global **val);
 
 void install_primitives(Interpreter *interpreter);
-
-/*std::vector<IOStateElement *> get_io_state(Module *m);
-
-void restore_external_state(Module *m,
-                            const std::vector<IOStateElement>
-&external_state);*/
 
 inline void create_stack(std::vector<StackValue> *) {}
 
@@ -78,24 +73,23 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     primitive(m);
 }
 
-#define _init_primitive(prim_name)                                         \
-    /*dbg_info("installing primitive number: %d  of %d with name: %s\n", \ \
-    prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/          \
-    PrimitiveEntry p = {};                                                 \
-    p.name = #prim_name;                                                   \
-    p.t = &(prim_name##_type);                                             \
-    p.f = &(prim_name);                                                    \
-    p.f_reverse = nullptr;                                                 \
+#define _init_primitive(prim_name) \
+    PrimitiveEntry p = {};         \
+    p.name = #prim_name;           \
+    p.t = &(prim_name##_type);     \
+    p.f = &(prim_name);            \
+    p.f_reverse = nullptr;         \
     p.f_serialize_state = nullptr;
 
-#define install_primitive(prim_name)                                         \
-    { /*dbg_info("installing primitive number: %d  of %d with name: %s\n", \ \
-      prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/          \
-        _init_primitive(prim_name) interpreter->register_primitive(p);       \
+#define install_primitive(prim_name)                                   \
+    {                                                                  \
+        dbg_info("installing primitive %s\n", #prim_name);             \
+        _init_primitive(prim_name) interpreter->register_primitive(p); \
     }
 
 #define install_reversible_primitive(prim_name)                          \
     {                                                                    \
+        dbg_info("installing reversible primitive %s\n", #prim_name);    \
         _init_primitive(prim_name) p.f_reverse = &(prim_name##_reverse); \
         p.f_serialize_state = &(prim_name##_serialize);                  \
         interpreter->register_primitive(p);                              \
