@@ -624,9 +624,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 // Allocate memory
                 // for (uint32_t c=0; c<memory_count; c++) {
                 parse_memory_type(m, &pos);
-                m->memory.bytes = (uint8_t *)acalloc(
-                    m->memory.pages * PAGE_SIZE, 1,  // sizeof(uint32_t),
-                    "Module->memory.bytes");
+                m->memory.bytes =
+                    (uint8_t *)acalloc(m->memory.pages * PAGE_SIZE,
+                                       1,  // sizeof(uint32_t),
+                                       "Module->memory.bytes");
                 //}
                 break;
             }

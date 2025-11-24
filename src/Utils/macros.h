@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#include "../WARDuino.h"
+#include "../WARDuino/internals.h"
 
 #ifndef DEBUG
 #define DEBUG 0

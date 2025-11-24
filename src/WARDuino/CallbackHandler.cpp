@@ -5,6 +5,7 @@
 #include "../Debug/debugger.h"
 #include "../Interpreter/interpreter.h"
 #include "../Utils/macros.h"
+#include "../WARDuino.h"
 
 void push_guard(Module *m) {
     if (m == nullptr) {

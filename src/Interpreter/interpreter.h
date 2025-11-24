@@ -4,8 +4,8 @@
 #include <cstring>
 #include <set>
 
+#include "../Utils/macros.h"
 #include "../WARDuino/internals.h"
-// #include "../Utils/macros.h"
 
 class Interpreter {
    public:
@@ -66,19 +66,18 @@ class Interpreter {
     //------------------------------------------------------
     // ReSharper disable once CppDFAConstantFunctionResult
     bool resolve_primitive(const char *symbol, Primitive *val) {
-        // debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
+        debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
 
         for (auto &primitive : primitives) {
             //        printf("Checking %s = %s  \n", symbol, primitive.name);
             if (!strcmp(symbol, primitive.name)) {
-                // debug("FOUND PRIMITIVE\n");
+                debug("FOUND PRIMITIVE\n");
                 *val = primitive.f;
                 return true;
             }
         }
-        // FATAL("Could not find primitive %s \n", symbol);
-        return false;
-        // return false; // unreachable
+        FATAL("Could not find primitive %s \n", symbol);
+        return false;  // unreachable
     }
 
     //------------------------------------------------------
@@ -94,7 +93,7 @@ class Interpreter {
         for (PrimitiveEntry &p : primitives) {
             if (prim_names.find(p.name) != prim_names.end()) {
                 if (p.f_reverse) {
-                    printf("Reversing state for primitive %s\n", p.name);
+                    dbg_info("Reversing state for primitive %s\n", p.name);
                     p.f_reverse(m, external_state);
                 }
             }
