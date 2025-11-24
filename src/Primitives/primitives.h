@@ -78,7 +78,7 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     primitive(m);
 }
 
-#define _install_primitive(prim_name)                                      \
+#define _init_primitive(prim_name)                                         \
     /*dbg_info("installing primitive number: %d  of %d with name: %s\n", \ \
     prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/          \
     PrimitiveEntry p = {};                                                 \
@@ -86,18 +86,19 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     p.t = &(prim_name##_type);                                             \
     p.f = &(prim_name);                                                    \
     p.f_reverse = nullptr;                                                 \
-    p.f_serialize_state = nullptr;                                         \
-    interpreter->register_primitive(p);
+    p.f_serialize_state = nullptr;
 
-#define install_primitive(prim_name)                                        \
-    {/*dbg_info("installing primitive number: %d  of %d with name: %s\n", \ \
-     prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/          \
-     _install_primitive(prim_name)}
+#define install_primitive(prim_name)                                         \
+    { /*dbg_info("installing primitive number: %d  of %d with name: %s\n", \ \
+      prim_index + 1, ALL_PRIMITIVES, #prim_name);              \*/          \
+        _init_primitive(prim_name) interpreter->register_primitive(p);       \
+    }
 
-#define install_reversible_primitive(prim_name)                             \
-    {                                                                       \
-        _install_primitive(prim_name) p.f_reverse = &(prim_name##_reverse); \
-        p.f_serialize_state = &(prim_name##_serialize);                     \
+#define install_reversible_primitive(prim_name)                          \
+    {                                                                    \
+        _init_primitive(prim_name) p.f_reverse = &(prim_name##_reverse); \
+        p.f_serialize_state = &(prim_name##_serialize);                  \
+        interpreter->register_primitive(p);                              \
     }
 
 #define def_prim(function_name, type) \
