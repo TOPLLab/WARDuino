@@ -116,4 +116,24 @@ jobs:
                   target: esp32
                   command: idf.py build -DBUILD_ESP=ON
                   path: .
-
+    compile-with-zephyr:
+      name: (Zephyr) Compile for ${{matrix.board.platform-name}}
+      needs: formatting-check
+      runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+        matrix:
+          board:
+            - fqbn: 'esp32:esp32:esp32'
+              platform-name: esp32_devkitc_wroom/esp32/procpu
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            submodules: 'recursive'
+        - name: Build WARDuino for Zephyr
+          uses: zephyrproject-rtos/action-zephyr-setup@v1
+          with:
+            app-path: app
+            toolchains: arm-zephyr-eabi
+  
