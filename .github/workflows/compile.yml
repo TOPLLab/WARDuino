@@ -132,8 +132,7 @@ jobs:
           with:
             submodules: 'recursive'
         - name: Build WARDuino for Zephyr
-          uses: zephyrproject-rtos/action-zephyr-setup@v1
+          uses: MaartenS11/action-zephyr-setup@main
           with:
             app-path: app
             toolchains: arm-zephyr-eabi
-  
