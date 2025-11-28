@@ -562,6 +562,7 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
 // Installing all the primitives
 //------------------------------------------------------
 void install_primitives() {
+    prim_index = 0;
     dbg_info("INSTALLING PRIMITIVES\n");
     install_primitive(chip_delay);
     install_primitive(chip_pin_mode);

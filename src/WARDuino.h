@@ -95,8 +95,10 @@ class WARDuino {
     Interpreter *interpreter;
     RunningState program_state = WARDUINOrun;
     ExecutionContext *execution_context = nullptr;
+    ~WARDuino();
 
     static WARDuino *instance();
+    static void shutdown();
 
     void setInterpreter(Interpreter *interpreter);
 

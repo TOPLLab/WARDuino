@@ -958,6 +958,24 @@ WARDuino::WARDuino() {
     initTypes();
 }
 
+WARDuino::~WARDuino() {
+    for (Module *m : this->modules) {
+        this->free_module_state(m);
+        free(m);
+    }
+    this->modules.clear();
+
+    this->free_execution_context();
+}
+
+void WARDuino::shutdown() {
+    if (singleton != nullptr) {
+        delete singleton;
+        singleton = nullptr;
+    }
+}
+
+
 void WARDuino::init_execution_context() {
     if (execution_context != nullptr) {
         return;

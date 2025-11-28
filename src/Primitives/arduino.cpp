@@ -985,6 +985,7 @@ void install_isrs() {
 }
 
 void install_primitives() {
+    prim_index = 0;
     dbg_info("INSTALLING PRIMITIVES\n");
     install_primitive(abort);
     install_primitive(millis);

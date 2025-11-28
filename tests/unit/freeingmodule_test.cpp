@@ -31,20 +31,20 @@ class FreeingModuleFixture : public ::testing::Test {
 };
 
 TEST_F(FreeingModuleFixture, FreeingModuleStateEmptiesModule) {
+    warduino->init_execution_context();
     warduino->instantiate_module(wasm_module, dimmer_wasm, dimmer_wasm_len);
     warduino->free_module_state(wasm_module);
-
+    warduino->free_execution_context();
     EXPECT_EQ(wasm_module->types, nullptr);
     EXPECT_EQ(wasm_module->functions, nullptr);
     EXPECT_EQ(wasm_module->globals, nullptr);
     EXPECT_EQ(wasm_module->table.entries, nullptr);
     EXPECT_EQ(wasm_module->memory.bytes, nullptr);
-    EXPECT_EQ(wasm_module->warduino->execution_context->stack, nullptr);
-    EXPECT_EQ(wasm_module->warduino->execution_context->callstack, nullptr);
-    EXPECT_EQ(wasm_module->warduino->execution_context->br_table, nullptr);
+    EXPECT_EQ(wasm_module->warduino->execution_context, nullptr);
 }
 
 TEST_F(FreeingModuleFixture, FreeingStatePreservesOptions) {
+    warduino->init_execution_context();
     warduino->instantiate_module(wasm_module, blink_wasm, blink_wasm_len);
     warduino->free_module_state(wasm_module);
     Options opts2 = wasm_module->options;

@@ -636,6 +636,7 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
 // Installing all the primitives
 //------------------------------------------------------
 void install_primitives() {
+    prim_index = 0;
     dbg_info("INSTALLING PRIMITIVES\n");
     dbg_info("INSTALLING FAKE ARDUINO\n");
     install_primitive(abort);

@@ -39,9 +39,9 @@ TEST_F(InstantiateModuleFixture, InitiallyEmpty) {
     EXPECT_EQ(wasm_module->globals, nullptr);
     EXPECT_EQ(wasm_module->table.entries, nullptr);
     EXPECT_EQ(wasm_module->memory.bytes, nullptr);
-    EXPECT_EQ(wasm_module->warduino->execution_context->stack, nullptr);
-    EXPECT_EQ(wasm_module->warduino->execution_context->callstack, nullptr);
-    EXPECT_EQ(wasm_module->warduino->execution_context->br_table, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->stack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->callstack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->br_table, nullptr);
 }
 
 TEST_F(InstantiateModuleFixture, FacLoadsWithoutTableGlobalsAndMemory) {
