@@ -423,7 +423,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     void *val;
                     char *err,
                         *sym = (char *)malloc(module_len + field_len + 5);
-                    bool resolved = false;
 
                     if (strcmp(import_module, "env") == 0) {
                         // TODO add special case form primitives with
@@ -484,16 +483,13 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                         val =
                                             (void *)target_mod->functions[tfidx]
                                                 .func_ptr;
-                                        resolved = true;
                                     }
                                 } break;
                                 case 0x01:  // Table (Shared Table)
                                     val = (void *)&target_mod->table;
-                                    resolved = true;
                                     break;
                                 case 0x02:  // Memory (Shared Memory)
                                     val = (void *)&target_mod->memory;
-                                    resolved = true;
                                     break;
                                 case 0x03:  // Global
                                     // Find global export not fully implemented
