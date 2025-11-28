@@ -531,6 +531,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         }
                         case 0x01:  // Table
                         {
+                            m->table.imported = true;
                             if (strcmp(import_module, "env") != 0) {
                                 Table *shared_table = (Table *)val;
                                 m->table.entries = shared_table->entries;
@@ -555,6 +556,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         }
                         case 0x02:  // Memory
                         {
+                            m->memory.imported = true;
                             if (strcmp(import_module, "env") != 0) {
                                 Memory *shared_mem = (Memory *)val;
                                 m->memory.bytes = shared_mem->bytes;
@@ -1102,7 +1104,8 @@ void WARDuino::free_module_state(Module *m) {
 
     if (m->functions != nullptr) {
         for (uint32_t i = 0; i < m->function_count; ++i)
-            free(m->functions[i].export_name);
+            if (m->functions[i].export_name != nullptr)
+                free(m->functions[i].export_name);
         free(m->functions);
         m->functions = nullptr;
     }
@@ -1112,14 +1115,25 @@ void WARDuino::free_module_state(Module *m) {
         m->globals = nullptr;
     }
 
-    if (m->table.entries != nullptr) {
-        free(m->table.entries);
-        m->table.entries = nullptr;
+    if (!m->table.imported) {
+        if (m->table.entries != nullptr) {
+            free(m->table.entries);
+            m->table.entries = nullptr;
+        }
+        m->table.elem_type = 0;
+        m->table.initial = 0;
+        m->table.maximum = 0;
+        m->table.size = 0;
     }
 
-    if (m->memory.bytes != nullptr) {
-        free(m->memory.bytes);
-        m->memory.bytes = nullptr;
+    if (!m->memory.imported) {
+        if (m->memory.bytes != nullptr) {
+            free(m->memory.bytes);
+            m->memory.bytes = nullptr;
+        }
+        m->memory.pages = 0;
+        m->memory.initial = 0;
+        m->memory.maximum = 0;
     }
 
     m->function_count = 0;
@@ -1132,14 +1146,6 @@ void WARDuino::free_module_state(Module *m) {
     if (m->exception != nullptr) {
         free(m->exception);  // safe to remove?
     }
-
-    m->memory.pages = 0;
-    m->memory.initial = 0;
-    m->memory.maximum = 0;
-    m->table.elem_type = 0;
-    m->table.initial = 0;
-    m->table.maximum = 0;
-    m->table.size = 0;
 
     m->block_lookup.clear();
 }
