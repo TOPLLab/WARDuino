@@ -11,12 +11,13 @@
 // performs proxy calls to an MCU
 bool proxy_call(Module *m, uint32_t fidx) {
     dbg_info("Remote Function Call %d\n", fidx);
+    ExecutionContext *ectx = m->warduino->execution_context;
     ProxySupervisor *supervisor = m->warduino->debugger->supervisor;
     RFC *rfc;
     Type *type = m->functions[fidx].type;
     if (type->param_count > 0) {
-        m->sp -= type->param_count;
-        StackValue *args = &m->stack[m->sp + 1];
+        ectx->sp -= type->param_count;
+        StackValue *args = &ectx->stack[ectx->sp + 1];
         rfc = new RFC(fidx, type, args);
     } else {
         rfc = new RFC(fidx, type);
@@ -34,7 +35,7 @@ bool proxy_call(Module *m, uint32_t fidx) {
     }
 
     if (rfc->type->result_count > 0) {
-        m->stack[++m->sp] = *rfc->result;
+        ectx->stack[++ectx->sp] = *rfc->result;
     }
     return true;
 }
@@ -95,14 +96,15 @@ Formal specification:
  * 0x02
  */
 bool i_instr_block(Module *m, uint8_t *block_ptr) {
-    read_LEB_32(&m->pc_ptr);  // ignore block type
-    if (m->csp >= CALLSTACK_SIZE) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+    read_LEB_32(&ectx->pc_ptr);  // ignore block type
+    if (ectx->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
         return false;
     }
     auto block_itr = m->block_lookup.find(block_ptr);
     ASSERT(block_itr != m->block_lookup.end(), "could not find block");
-    m->warduino->interpreter->push_block(m, block_itr->second, m->sp);
+    m->warduino->interpreter->push_block(m, block_itr->second, ectx->sp);
     return true;
 }
 
@@ -110,12 +112,14 @@ bool i_instr_block(Module *m, uint8_t *block_ptr) {
  * 0x03
  */
 bool i_instr_loop(Module *m, uint8_t *block_ptr) {
-    read_LEB_32(&m->pc_ptr);  // ignore block type
-    if (m->csp >= CALLSTACK_SIZE) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+    read_LEB_32(&ectx->pc_ptr);  // ignore block type
+    if (ectx->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
         return false;
     }
-    m->warduino->interpreter->push_block(m, m->block_lookup[block_ptr], m->sp);
+    m->warduino->interpreter->push_block(m, m->block_lookup[block_ptr],
+                                         ectx->sp);
     return true;
 }
 
@@ -123,24 +127,25 @@ bool i_instr_loop(Module *m, uint8_t *block_ptr) {
  * 0x04 if
  */
 bool i_instr_if(Module *m, uint8_t *block_ptr) {
-    read_LEB_32(&m->pc_ptr);  // ignore block type
+    ExecutionContext *ectx = m->warduino->execution_context;
+    read_LEB_32(&ectx->pc_ptr);  // ignore block type
     Block *block = m->block_lookup[block_ptr];
 
-    if (m->csp >= CALLSTACK_SIZE) {
+    if (ectx->csp >= CALLSTACK_SIZE) {
         sprintf(exception, "call stack exhausted");
         return false;
     }
-    m->warduino->interpreter->push_block(m, block, m->sp);
+    m->warduino->interpreter->push_block(m, block, ectx->sp);
 
-    uint32_t cond = m->stack[m->sp--].value.uint32;
+    uint32_t cond = ectx->stack[ectx->sp--].value.uint32;
     if (cond == 0) {  // if false (I32)
         // branch to else block or after end of if
         if (block->else_ptr == nullptr) {
             // no else block, pop if block and skip end
-            m->csp -= 1;
-            m->pc_ptr = block->br_ptr + 1;
+            ectx->csp -= 1;
+            ectx->pc_ptr = block->br_ptr + 1;
         } else {
-            m->pc_ptr = block->else_ptr;
+            ectx->pc_ptr = block->else_ptr;
         }
     }
     // if true, keep going
@@ -155,10 +160,11 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
  * 0x05 else
  */
 bool i_instr_else(Module *m) {
-    Block *block = m->callstack[m->csp].block;
-    m->pc_ptr = block->br_ptr;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    Block *block = ectx->callstack[ectx->csp].block;
+    ectx->pc_ptr = block->br_ptr;
 #if TRACE
-    debug("      - of %s jump to 0x%p\n", block_repr(block), m->pc_ptr);
+    debug("      - of %s jump to 0x%p\n", block_repr(block), ectx->pc_ptr);
 #endif
     return true;
 }
@@ -167,6 +173,7 @@ bool i_instr_else(Module *m) {
  * 0x0b end
  */
 bool i_instr_end(Module *m, bool *prog_done) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     Block *block = m->warduino->interpreter->pop_block(m);
     if (block == nullptr) {
         return false;  // an exception (set by pop_block)
@@ -176,12 +183,13 @@ bool i_instr_end(Module *m, bool *prog_done) {
 #endif
     if (block->block_type == 0x00) {  // Function
 #if TRACE
-        dbg_warn(
-            "  << fn0x%x(%d) %s = %s\n", block->fidx, block->fidx,
-            block->export_name ? block->export_name : "",
-            block->type->result_count > 0 ? value_repr(&m->stack[m->sp]) : "_");
+        dbg_warn("  << fn0x%x(%d) %s = %s\n", block->fidx, block->fidx,
+                 block->export_name ? block->export_name : "",
+                 block->type->result_count > 0
+                     ? value_repr(&ectx->stack[ectx->sp])
+                     : "_");
 #endif
-        if (m->csp == -1) {
+        if (ectx->csp == -1) {
             // Return to top-level
             *prog_done = true;
             return true;  // continue execution but brake dispatch loop
@@ -201,12 +209,13 @@ bool i_instr_end(Module *m, bool *prog_done) {
  * 0x0c br
  */
 bool i_instr_br(Module *m) {
-    uint32_t depth = read_LEB_32(&m->pc_ptr);
-    m->csp -= depth;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t depth = read_LEB_32(&ectx->pc_ptr);
+    ectx->csp -= depth;
     // set to end for pop_block
-    m->pc_ptr = m->callstack[m->csp].block->br_ptr;
+    ectx->pc_ptr = ectx->callstack[ectx->csp].block->br_ptr;
 #if TRACE
-    debug("      - to: 0x%p\n", m->pc_ptr);
+    debug("      - to: 0x%p\n", ectx->pc_ptr);
 #endif
     return true;
 }
@@ -215,13 +224,14 @@ bool i_instr_br(Module *m) {
  * 0x0d br_if
  */
 bool i_instr_br_if(Module *m) {
-    uint32_t depth = read_LEB_32(&m->pc_ptr);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t depth = read_LEB_32(&ectx->pc_ptr);
 
-    uint32_t cond = m->stack[m->sp--].value.uint32;
+    uint32_t cond = ectx->stack[ectx->sp--].value.uint32;
     if (cond) {  // if true
-        m->csp -= depth;
+        ectx->csp -= depth;
         // set to end for pop_block
-        m->pc_ptr = m->callstack[m->csp].block->br_ptr;
+        ectx->pc_ptr = ectx->callstack[ectx->csp].block->br_ptr;
     }
 #if TRACE
     debug("      - depth: 0x%x, cond: 0x%x, to: 0x%p\n", depth, cond,
@@ -234,7 +244,8 @@ bool i_instr_br_if(Module *m) {
  * 0x0e br_table
  */
 bool i_instr_br_table(Module *m) {
-    uint32_t count = read_LEB_32(&m->pc_ptr);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t count = read_LEB_32(&ectx->pc_ptr);
     if (count > BR_TABLE_SIZE) {
         // TODO: check this prior to runtime
         sprintf(exception, "br_table size %" PRIu32 " exceeds max %d\n", count,
@@ -242,20 +253,20 @@ bool i_instr_br_table(Module *m) {
         return false;
     }
     for (uint32_t i = 0; i < count; i++) {
-        m->br_table[i] = read_LEB_32(&m->pc_ptr);
+        ectx->br_table[i] = read_LEB_32(&ectx->pc_ptr);
     }
-    uint32_t depth = read_LEB_32(&m->pc_ptr);
+    uint32_t depth = read_LEB_32(&ectx->pc_ptr);
 
-    int32_t didx = m->stack[m->sp--].value.int32;
+    int32_t didx = ectx->stack[ectx->sp--].value.int32;
     if (didx >= 0 && didx < (int32_t)count) {
-        depth = m->br_table[didx];
+        depth = ectx->br_table[didx];
     }
 
-    m->csp -= depth;
+    ectx->csp -= depth;
     // set to end for pop_block
-    m->pc_ptr = m->callstack[m->csp].block->br_ptr;
+    ectx->pc_ptr = ectx->callstack[ectx->csp].block->br_ptr;
 #if TRACE
-    debug("      - count: %d, didx: %d, to: 0x%p\n", count, didx, m->pc_ptr);
+    debug("      - count: %d, didx: %d, to: 0x%p\n", count, didx, ectx->pc_ptr);
 #endif
     return true;
 }
@@ -264,14 +275,16 @@ bool i_instr_br_table(Module *m) {
  * 0x0f return
  */
 bool i_instr_return(Module *m) {
-    while (m->csp >= 0 && m->callstack[m->csp].block->block_type != 0x00) {
-        m->csp--;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    while (ectx->csp >= 0 &&
+           ectx->callstack[ectx->csp].block->block_type != 0x00) {
+        ectx->csp--;
     }
     // Set the program count to the end of the function
     // The actual pop_block and return is handled by the end opcode.
-    m->pc_ptr = m->callstack[0].block->end_ptr;
+    ectx->pc_ptr = ectx->callstack[0].block->end_ptr;
 #if TRACE
-    debug("      - to: 0x%p\n", m->pc_ptr);
+    debug("      - to: 0x%p\n", ectx->pc_ptr);
 #endif
     return true;
 }
@@ -280,26 +293,46 @@ bool i_instr_return(Module *m) {
  * 0x10 call
  */
 bool i_instr_call(Module *m) {
-    uint32_t fidx = read_LEB_32(&m->pc_ptr);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t fidx = read_LEB_32(&ectx->pc_ptr);
 
     if (m->warduino->debugger->isProxied(fidx)) {
         return proxy_call(m, fidx);
     }
 
     if (fidx < m->import_count) {
+        Block *func = &m->functions[fidx];
+
         // Mocking only works on primitives, no need to check for it otherwise.
-        if (m->sp >= 0) {
-            uint32_t arg = m->stack[m->sp].value.uint32;
+        if (ectx->sp >= 0) {
+            uint32_t arg = ectx->stack[ectx->sp].value.uint32;
             if (m->warduino->debugger->isMocked(fidx, arg)) {
-                m->stack[m->sp].value.uint32 =
+                ectx->stack[ectx->sp].value.uint32 =
                     m->warduino->debugger->getMockedValue(fidx, arg);
                 return true;
             }
         }
 
+        if (func->import_module != nullptr &&
+            strcmp(func->import_module, "env") != 0) {
+            // Cross-module call!
+            Module *target = m->warduino->get_module(func->import_module);
+            if (target != nullptr) {
+                // Find the exported function in target module
+                uint32_t target_fidx =
+                    m->warduino->get_export_fidx(target, func->import_field);
+                if (target_fidx != (uint32_t)-1) {
+                    // Switch to target module and call
+                    m->warduino->switch_to_module(target);
+                    m->warduino->interpreter->setup_call(target, target_fidx);
+                    return true;
+                }
+            }
+        }
+
         return ((Primitive)m->functions[fidx].func_ptr)(m);
     } else {
-        if (m->csp >= CALLSTACK_SIZE) {
+        if (ectx->csp >= CALLSTACK_SIZE) {
             sprintf(exception, "call stack exhausted");
             return false;
         }
@@ -315,10 +348,11 @@ bool i_instr_call(Module *m) {
  * 0x11 call_indirect
  */
 bool i_instr_call_indirect(Module *m) {
-    uint32_t tidx = read_LEB_32(&m->pc_ptr);  // TODO: use tidx?
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t tidx = read_LEB_32(&ectx->pc_ptr);  // TODO: use tidx?
     (void)tidx;
-    read_LEB_32(&m->pc_ptr);  // reserved immediate
-    uint32_t val = m->stack[m->sp--].value.uint32;
+    read_LEB_32(&ectx->pc_ptr);  // reserved immediate
+    uint32_t val = ectx->stack[ectx->sp--].value.uint32;
     if (m->options.mangle_table_index) {
         // val is the table address + the index (not sized for the
         // pointer size) so get the actual (sized) index
@@ -349,7 +383,7 @@ bool i_instr_call_indirect(Module *m) {
         Block *func = &m->functions[fidx];
         Type *ftype = func->type;
 
-        if (m->csp >= CALLSTACK_SIZE) {
+        if (ectx->csp >= CALLSTACK_SIZE) {
             sprintf(exception, "call stack exhausted");
             return false;
         }
@@ -364,13 +398,13 @@ bool i_instr_call_indirect(Module *m) {
 
         // Validate signatures match
         if ((int)(ftype->param_count + func->local_count) !=
-            m->sp - m->fp + 1) {
+            ectx->sp - ectx->fp + 1) {
             sprintf(exception,
                     "indirect call type mismatch (param counts differ)");
             return false;
         }
         for (uint32_t f = 0; f < ftype->param_count; f++) {
-            if (ftype->params[f] != m->stack[m->fp + f].value_type) {
+            if (ftype->params[f] != ectx->stack[ectx->fp + f].value_type) {
                 sprintf(exception,
                         "indirect call type mismatch (param types differ)");
                 return false;
@@ -392,7 +426,8 @@ bool i_instr_call_indirect(Module *m) {
  * remove a value from the stack
  */
 bool i_instr_drop(Module *m) {
-    m->sp--;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    ectx->sp--;
     return true;
 }
 
@@ -406,10 +441,11 @@ bool i_instr_drop(Module *m) {
  * else : push val_2 to the stack
  */
 bool i_instr_select(Module *m) {
-    uint32_t cond = m->stack[m->sp--].value.uint32;
-    m->sp--;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t cond = ectx->stack[ectx->sp--].value.uint32;
+    ectx->sp--;
     if (!cond) {  // use a instead of b
-        m->stack[m->sp] = m->stack[m->sp + 1];
+        ectx->stack[ectx->sp] = ectx->stack[ectx->sp + 1];
     }
     return true;
 }
@@ -419,12 +455,13 @@ bool i_instr_select(Module *m) {
  * move the i-th local to the top of the stack
  */
 bool i_instr_get_local(Module *m) {
-    int32_t arg = read_LEB_32(&m->pc_ptr);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    int32_t arg = read_LEB_32(&ectx->pc_ptr);
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg,
-          value_repr(&m->stack[m->fp + arg]));
+          value_repr(&ectx->stack[ectx->fp + arg]));
 #endif
-    m->stack[++m->sp] = m->stack[m->fp + arg];
+    ectx->stack[++ectx->sp] = ectx->stack[ectx->fp + arg];
     return true;
 }
 
@@ -432,11 +469,12 @@ bool i_instr_get_local(Module *m) {
  * 0x21 set_local
  */
 bool i_instr_set_local(Module *m) {
-    int32_t arg = read_LEB_32(&m->pc_ptr);
-    m->stack[m->fp + arg] = m->stack[m->sp--];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    int32_t arg = read_LEB_32(&ectx->pc_ptr);
+    ectx->stack[ectx->fp + arg] = ectx->stack[ectx->sp--];
 #if TRACE
     debug("      - arg: 0x%x, to %s (stack loc: %d)\n", arg,
-          value_repr(&m->stack[m->sp + 1]), m->fp + arg);
+          value_repr(&ectx->stack[ectx->sp + 1]), ectx->fp + arg);
 #endif
     return true;
 }
@@ -445,10 +483,12 @@ bool i_instr_set_local(Module *m) {
  * 0x0d tee_local
  */
 bool i_instr_tee_local(Module *m) {
-    int32_t arg = read_LEB_32(&m->pc_ptr);
-    m->stack[m->fp + arg] = m->stack[m->sp];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    int32_t arg = read_LEB_32(&ectx->pc_ptr);
+    ectx->stack[ectx->fp + arg] = ectx->stack[ectx->sp];
 #if TRACE
-    debug("      - arg: 0x%x, to %s\n", arg, value_repr(&m->stack[m->sp]));
+    debug("      - arg: 0x%x, to %s\n", arg,
+          value_repr(&ectx->stack[ectx->sp]));
 #endif
     return true;
 }
@@ -457,11 +497,12 @@ bool i_instr_tee_local(Module *m) {
  * 0x23 get_global
  */
 bool i_instr_get_global(Module *m) {
-    int32_t arg = read_LEB_32(&m->pc_ptr);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    int32_t arg = read_LEB_32(&ectx->pc_ptr);
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
 #endif
-    m->stack[++m->sp] = m->globals[arg];
+    ectx->stack[++ectx->sp] = m->globals[arg];
     return true;
 }
 
@@ -469,10 +510,12 @@ bool i_instr_get_global(Module *m) {
  * 0x24 set_global
  */
 bool i_instr_set_global(Module *m) {
-    uint32_t arg = read_LEB_32(&m->pc_ptr);
-    m->globals[arg] = m->stack[m->sp--];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t arg = read_LEB_32(&ectx->pc_ptr);
+    m->globals[arg] = ectx->stack[ectx->sp--];
 #if TRACE
-    debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->stack[m->sp + 1]));
+    debug("      - arg: 0x%x, got %s\n", arg,
+          value_repr(&ectx->stack[ectx->sp + 1]));
 #endif
     return true;
 }
@@ -481,9 +524,10 @@ bool i_instr_set_global(Module *m) {
  * 0x3f current_memory
  */
 bool i_instr_current_memory(Module *m) {
-    read_LEB_32(&m->pc_ptr);  // ignore reserved
-    m->stack[++m->sp].value_type = I32;
-    m->stack[m->sp].value.uint32 = m->memory.pages;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    read_LEB_32(&ectx->pc_ptr);  // ignore reserved
+    ectx->stack[++ectx->sp].value_type = I32;
+    ectx->stack[ectx->sp].value.uint32 = m->memory.pages;
     return true;
 }
 
@@ -491,14 +535,15 @@ bool i_instr_current_memory(Module *m) {
  * 0x40 grow_memory
  */
 bool i_instr_grow_memory(Module *m) {
-    read_LEB_32(&m->pc_ptr);  // ignore reserved
+    ExecutionContext *ectx = m->warduino->execution_context;
+    read_LEB_32(&ectx->pc_ptr);  // ignore reserved
     uint32_t prev_pages = m->memory.pages;
-    uint32_t delta = m->stack[m->sp].value.uint32;
-    m->stack[m->sp].value.uint32 = prev_pages;
+    uint32_t delta = ectx->stack[ectx->sp].value.uint32;
+    ectx->stack[ectx->sp].value.uint32 = prev_pages;
     if (delta == 0) {
         return true;  // No change
     } else if (delta + prev_pages > m->memory.maximum) {
-        m->stack[m->sp].value.uint32 = static_cast<uint32_t>(-1);
+        ectx->stack[ectx->sp].value.uint32 = static_cast<uint32_t>(-1);
         return true;
     }
     m->memory.pages += delta;
@@ -512,9 +557,10 @@ bool i_instr_grow_memory(Module *m) {
  * 0x0d XXX
  */
 bool i_instr_mem_load(Module *m, uint8_t opcode) {
-    uint32_t flags = read_LEB_32(&m->pc_ptr);
-    uint32_t offset = read_LEB_32(&m->pc_ptr);
-    uint32_t addr = m->stack[m->sp--].value.uint32;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t flags = read_LEB_32(&ectx->pc_ptr);
+    uint32_t offset = read_LEB_32(&ectx->pc_ptr);
+    uint32_t addr = ectx->stack[ectx->sp--].value.uint32;
     if (flags != 2 && TRACE) {
         dbg_info(
             "      - unaligned load - flags: 0x%x,"
@@ -527,11 +573,12 @@ bool i_instr_mem_load(Module *m, uint8_t opcode) {
 }
 
 bool i_instr_mem_store(Module *m, uint8_t opcode) {
-    StackValue *sval = &m->stack[m->sp--];
-    uint32_t flags = read_LEB_32(&m->pc_ptr);
-    uint32_t offset = read_LEB_32(&m->pc_ptr);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    StackValue *sval = &ectx->stack[ectx->sp--];
+    uint32_t flags = read_LEB_32(&ectx->pc_ptr);
+    uint32_t offset = read_LEB_32(&ectx->pc_ptr);
 
-    uint32_t addr = m->stack[m->sp--].value.uint32;
+    uint32_t addr = ectx->stack[ectx->sp--].value.uint32;
 
     if (flags != 2 && TRACE) {
         dbg_info(
@@ -554,26 +601,27 @@ bool i_instr_mem_store(Module *m, uint8_t opcode) {
  * 0x41...0x44 const
  */
 bool i_instr_const(Module *m, uint8_t opcode) {
-    StackValue *target = &m->stack[++m->sp];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    StackValue *target = &ectx->stack[++ectx->sp];
 
     switch (opcode) {
         case 0x41:  // i32.const
             target->value_type = I32;
-            target->value.uint32 = read_LEB_signed(&m->pc_ptr, 32);
+            target->value.uint32 = read_LEB_signed(&ectx->pc_ptr, 32);
             break;
         case 0x42:  // i64.const
             target->value_type = I64;
-            target->value.int64 = read_LEB_signed(&m->pc_ptr, 64);
+            target->value.int64 = read_LEB_signed(&ectx->pc_ptr, 64);
             break;
         case 0x43:  // f32.const
             target->value_type = F32;
-            memcpy(&target->value.uint32, m->pc_ptr, 4);
-            m->pc_ptr += 4;
+            memcpy(&target->value.uint32, ectx->pc_ptr, 4);
+            ectx->pc_ptr += 4;
             break;
         case 0x44:  // f64.const
             target->value_type = F64;
-            memcpy(&target->value.uint64, m->pc_ptr, 8);
-            m->pc_ptr += 8;
+            memcpy(&target->value.uint64, ectx->pc_ptr, 8);
+            ectx->pc_ptr += 8;
             break;
         default:
             return false;
@@ -585,15 +633,16 @@ bool i_instr_const(Module *m, uint8_t opcode) {
  * 0x45 eqz
  */
 bool i_instr_unary_u32(Module *m, uint8_t opcode) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     switch (opcode) {
         case 0x45:  // i32.eqz
-            m->stack[m->sp].value.uint32 =
-                static_cast<uint32_t>(m->stack[m->sp].value.uint32 == 0);
+            ectx->stack[ectx->sp].value.uint32 =
+                static_cast<uint32_t>(ectx->stack[ectx->sp].value.uint32 == 0);
             break;
         case 0x50:  // i64.eqz
-            m->stack[m->sp].value_type = I32;
-            m->stack[m->sp].value.uint32 =
-                static_cast<uint32_t>(m->stack[m->sp].value.uint64 == 0);
+            ectx->stack[ectx->sp].value_type = I32;
+            ectx->stack[ectx->sp].value.uint32 =
+                static_cast<uint32_t>(ectx->stack[ectx->sp].value.uint64 == 0);
             break;
         default:
             return false;
@@ -605,10 +654,11 @@ bool i_instr_unary_u32(Module *m, uint8_t opcode) {
  * 0x0d binop32
  */
 bool i_instr_math_u32(Module *m, uint8_t opcode) {
-    uint32_t a = m->stack[m->sp - 1].value.uint32;
-    uint32_t b = m->stack[m->sp].value.uint32;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t a = ectx->stack[ectx->sp - 1].value.uint32;
+    uint32_t b = ectx->stack[ectx->sp].value.uint32;
     uint32_t c;
-    m->sp -= 1;
+    ectx->sp -= 1;
     switch (opcode) {
         case 0x46:
             c = static_cast<uint32_t>(a == b);
@@ -643,8 +693,8 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->stack[m->sp].value_type = I32;
-    m->stack[m->sp].value.uint32 = c;
+    ectx->stack[ectx->sp].value_type = I32;
+    ectx->stack[ectx->sp].value.uint32 = c;
     return true;
 }
 
@@ -652,10 +702,11 @@ bool i_instr_math_u32(Module *m, uint8_t opcode) {
  * 0x0d binop64
  */
 bool i_instr_math_u64(Module *m, uint8_t opcode) {
-    uint64_t d = m->stack[m->sp - 1].value.uint64;
-    uint64_t e = m->stack[m->sp].value.uint64;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint64_t d = ectx->stack[ectx->sp - 1].value.uint64;
+    uint64_t e = ectx->stack[ectx->sp].value.uint64;
     uint32_t c;
-    m->sp -= 1;
+    ectx->sp -= 1;
     switch (opcode) {
         case 0x51:
             c = static_cast<uint32_t>(d == e);
@@ -690,8 +741,8 @@ bool i_instr_math_u64(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->stack[m->sp].value_type = I32;
-    m->stack[m->sp].value.uint32 = c;
+    ectx->stack[ectx->sp].value_type = I32;
+    ectx->stack[ectx->sp].value.uint32 = c;
     return true;
 }
 
@@ -699,10 +750,11 @@ bool i_instr_math_u64(Module *m, uint8_t opcode) {
  * 0x0d binop64
  */
 bool i_instr_math_f32(Module *m, uint8_t opcode) {
-    float g = m->stack[m->sp - 1].value.f32;
-    float h = m->stack[m->sp].value.f32;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    float g = ectx->stack[ectx->sp - 1].value.f32;
+    float h = ectx->stack[ectx->sp].value.f32;
     uint32_t c;
-    m->sp -= 1;
+    ectx->sp -= 1;
     switch (opcode) {
         case 0x5b:
             c = static_cast<uint32_t>(g == h);
@@ -725,8 +777,8 @@ bool i_instr_math_f32(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->stack[m->sp].value_type = I32;
-    m->stack[m->sp].value.uint32 = c;
+    ectx->stack[ectx->sp].value_type = I32;
+    ectx->stack[ectx->sp].value.uint32 = c;
     return true;
 }
 
@@ -734,11 +786,12 @@ bool i_instr_math_f32(Module *m, uint8_t opcode) {
  * 0x0d binopf64
  */
 bool i_instr_math_f64(Module *m, uint8_t opcode) {
-    double j = m->stack[m->sp - 1].value.f64;
-    double k = m->stack[m->sp].value.f64;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    double j = ectx->stack[ectx->sp - 1].value.f64;
+    double k = ectx->stack[ectx->sp].value.f64;
 
     uint32_t c;
-    m->sp -= 1;
+    ectx->sp -= 1;
     switch (opcode) {
         case 0x61:
             c = static_cast<uint32_t>(j == k);
@@ -761,13 +814,14 @@ bool i_instr_math_f64(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->stack[m->sp].value_type = I32;
-    m->stack[m->sp].value.uint32 = c;
+    ectx->stack[ectx->sp].value_type = I32;
+    ectx->stack[ectx->sp].value.uint32 = c;
     return true;
 }
 
 bool i_instr_unary_i32(Module *m, uint8_t opcode) {
-    uint32_t a = m->stack[m->sp].value.uint32;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t a = ectx->stack[ectx->sp].value.uint32;
     uint32_t c;
     switch (opcode) {
         case 0x67:
@@ -782,12 +836,13 @@ bool i_instr_unary_i32(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->stack[m->sp].value.uint32 = c;
+    ectx->stack[ectx->sp].value.uint32 = c;
     return true;
 }
 
 bool i_instr_unary_i64(Module *m, uint8_t opcode) {
-    uint64_t d = m->stack[m->sp].value.uint64;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint64_t d = ectx->stack[ectx->sp].value.uint64;
     uint64_t f;
     switch (opcode) {
         case 0x79:
@@ -802,7 +857,7 @@ bool i_instr_unary_i64(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->stack[m->sp].value.uint64 = f;
+    ectx->stack[ectx->sp].value.uint64 = f;
     return true;
 }
 
@@ -810,51 +865,64 @@ bool i_instr_unary_i64(Module *m, uint8_t opcode) {
  * 0x0d XXX
  */
 bool i_instr_unary_floating(Module *m, uint8_t opcode) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     switch (opcode) {
         // unary f32
         case 0x8b:
-            m->stack[m->sp].value.f32 = fabs(m->stack[m->sp].value.f32);
+            ectx->stack[ectx->sp].value.f32 =
+                fabs(ectx->stack[ectx->sp].value.f32);
             break;  // f32.abs
         case 0x8c:
-            m->stack[m->sp].value.f32 = -m->stack[m->sp].value.f32;
+            ectx->stack[ectx->sp].value.f32 = -ectx->stack[ectx->sp].value.f32;
             break;  // f32.neg
         case 0x8d:
-            m->stack[m->sp].value.f32 = ceil(m->stack[m->sp].value.f32);
+            ectx->stack[ectx->sp].value.f32 =
+                ceil(ectx->stack[ectx->sp].value.f32);
             break;  // f32.ceil
         case 0x8e:
-            m->stack[m->sp].value.f32 = floor(m->stack[m->sp].value.f32);
+            ectx->stack[ectx->sp].value.f32 =
+                floor(ectx->stack[ectx->sp].value.f32);
             break;  // f32.floor
         case 0x8f:
-            m->stack[m->sp].value.f32 = trunc(m->stack[m->sp].value.f32);
+            ectx->stack[ectx->sp].value.f32 =
+                trunc(ectx->stack[ectx->sp].value.f32);
             break;  // f32.trunc
         case 0x90:
-            m->stack[m->sp].value.f32 = rint(m->stack[m->sp].value.f32);
+            ectx->stack[ectx->sp].value.f32 =
+                rint(ectx->stack[ectx->sp].value.f32);
             break;  // f32.nearest
         case 0x91:
-            m->stack[m->sp].value.f32 = sqrt(m->stack[m->sp].value.f32);
+            ectx->stack[ectx->sp].value.f32 =
+                sqrt(ectx->stack[ectx->sp].value.f32);
             break;  // f32.sqrt
 
             // unary f64
         case 0x99:
-            m->stack[m->sp].value.f64 = fabs(m->stack[m->sp].value.f64);
+            ectx->stack[ectx->sp].value.f64 =
+                fabs(ectx->stack[ectx->sp].value.f64);
             break;  // f64.abs
         case 0x9a:
-            m->stack[m->sp].value.f64 = -m->stack[m->sp].value.f64;
+            ectx->stack[ectx->sp].value.f64 = -ectx->stack[ectx->sp].value.f64;
             break;  // f64.neg
         case 0x9b:
-            m->stack[m->sp].value.f64 = ceil(m->stack[m->sp].value.f64);
+            ectx->stack[ectx->sp].value.f64 =
+                ceil(ectx->stack[ectx->sp].value.f64);
             break;  // f64.ceil
         case 0x9c:
-            m->stack[m->sp].value.f64 = floor(m->stack[m->sp].value.f64);
+            ectx->stack[ectx->sp].value.f64 =
+                floor(ectx->stack[ectx->sp].value.f64);
             break;  // f64.floor
         case 0x9d:
-            m->stack[m->sp].value.f64 = trunc(m->stack[m->sp].value.f64);
+            ectx->stack[ectx->sp].value.f64 =
+                trunc(ectx->stack[ectx->sp].value.f64);
             break;  // f64.trunc
         case 0x9e:
-            m->stack[m->sp].value.f64 = rint(m->stack[m->sp].value.f64);
+            ectx->stack[ectx->sp].value.f64 =
+                rint(ectx->stack[ectx->sp].value.f64);
             break;  // f64.nearest
         case 0x9f:
-            m->stack[m->sp].value.f64 = sqrt(m->stack[m->sp].value.f64);
+            ectx->stack[ectx->sp].value.f64 =
+                sqrt(ectx->stack[ectx->sp].value.f64);
             break;  // f64.sqrt
         default:
             return false;
@@ -867,10 +935,11 @@ bool i_instr_unary_floating(Module *m, uint8_t opcode) {
  */
 bool i_instr_binary_i32(Module *m, uint8_t opcode) {
     // TODO: verify if this should not be done with int32_t instead
-    uint32_t a = m->stack[m->sp - 1].value.uint32;
-    uint32_t b = m->stack[m->sp].value.uint32;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint32_t a = ectx->stack[ectx->sp - 1].value.uint32;
+    uint32_t b = ectx->stack[ectx->sp].value.uint32;
     uint32_t c;
-    m->sp -= 1;
+    ectx->sp -= 1;
     if (opcode >= 0x6d && opcode <= 0x70 && b == 0) {
         sprintf(exception, "integer divide by zero");
         return false;
@@ -939,7 +1008,7 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
     //    sprintf(exception, "integer overflow");
     //    return false;
     //}
-    m->stack[m->sp].value.uint32 = c;
+    ectx->stack[ectx->sp].value.uint32 = c;
     return true;
 }
 
@@ -947,10 +1016,11 @@ bool i_instr_binary_i32(Module *m, uint8_t opcode) {
  * 0x0d XXX
  */
 bool i_instr_binary_i64(Module *m, uint8_t opcode) {
-    uint64_t d = m->stack[m->sp - 1].value.uint64;
-    uint64_t e = m->stack[m->sp].value.uint64;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint64_t d = ectx->stack[ectx->sp - 1].value.uint64;
+    uint64_t e = ectx->stack[ectx->sp].value.uint64;
     uint64_t f;
-    m->sp -= 1;
+    ectx->sp -= 1;
     if (opcode >= 0x7f && opcode <= 0x82 && e == 0) {
         sprintf(exception, "integer divide by zero");
         return false;
@@ -1012,7 +1082,7 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->stack[m->sp].value.uint64 = f;
+    ectx->stack[ectx->sp].value.uint64 = f;
 
     return true;
 }
@@ -1021,10 +1091,11 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
  * 0x0d XXX
  */
 bool i_instr_binary_f32(Module *m, uint8_t opcode) {
-    float g = m->stack[m->sp - 1].value.f32;
-    float h = m->stack[m->sp].value.f32;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    float g = ectx->stack[ectx->sp - 1].value.f32;
+    float h = ectx->stack[ectx->sp].value.f32;
     float i;
-    m->sp -= 1;
+    ectx->sp -= 1;
     switch (opcode) {
         case 0x92:
             i = g + h;
@@ -1050,7 +1121,7 @@ bool i_instr_binary_f32(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->stack[m->sp].value.f32 = i;
+    ectx->stack[ectx->sp].value.f32 = i;
     return true;
 }
 
@@ -1058,10 +1129,11 @@ bool i_instr_binary_f32(Module *m, uint8_t opcode) {
  * 0x0d XXX
  */
 bool i_instr_binary_f64(Module *m, uint8_t opcode) {
-    double j = m->stack[m->sp - 1].value.f64;
-    double k = m->stack[m->sp].value.f64;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    double j = ectx->stack[ectx->sp - 1].value.f64;
+    double k = ectx->stack[ectx->sp].value.f64;
     double l;
-    m->sp -= 1;
+    ectx->sp -= 1;
     switch (opcode) {
         case 0xa0:
             l = j + k;
@@ -1087,7 +1159,7 @@ bool i_instr_binary_f64(Module *m, uint8_t opcode) {
         default:
             return false;
     }
-    m->stack[m->sp].value.f64 = l;
+    ectx->stack[ectx->sp].value.f64 = l;
 
     return true;
 }
@@ -1096,170 +1168,182 @@ bool i_instr_binary_f64(Module *m, uint8_t opcode) {
  * 0x0d XXX
  */
 bool i_instr_conversion(Module *m, uint8_t opcode) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     switch (opcode) {
         case 0xa7:
-            m->stack[m->sp].value.uint64 &= 0x00000000ffffffff;
-            m->stack[m->sp].value_type = I32;
+            ectx->stack[ectx->sp].value.uint64 &= 0x00000000ffffffff;
+            ectx->stack[ectx->sp].value_type = I32;
             break;  // i32.wrap/i64
         case 0xa8:
-            if (std::isnan(m->stack[m->sp].value.f32)) {
+            if (std::isnan(ectx->stack[ectx->sp].value.f32)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
-            } else if (m->stack[m->sp].value.f32 >= INT32_MAX ||
-                       m->stack[m->sp].value.f32 < INT32_MIN) {
+            } else if (ectx->stack[ectx->sp].value.f32 >= INT32_MAX ||
+                       ectx->stack[ectx->sp].value.f32 < INT32_MIN) {
                 sprintf(exception, "integer overflow");
                 return false;
             }
-            m->stack[m->sp].value.int32 = m->stack[m->sp].value.f32;
-            m->stack[m->sp].value_type = I32;
+            ectx->stack[ectx->sp].value.int32 = ectx->stack[ectx->sp].value.f32;
+            ectx->stack[ectx->sp].value_type = I32;
             break;  // i32.trunc_s/f32
         case 0xa9:
-            if (std::isnan(m->stack[m->sp].value.f32)) {
+            if (std::isnan(ectx->stack[ectx->sp].value.f32)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
-            } else if (m->stack[m->sp].value.f32 >= UINT32_MAX ||
-                       m->stack[m->sp].value.f32 <= -1) {
+            } else if (ectx->stack[ectx->sp].value.f32 >= UINT32_MAX ||
+                       ectx->stack[ectx->sp].value.f32 <= -1) {
                 sprintf(exception, "integer overflow");
                 return false;
             }
-            m->stack[m->sp].value.uint32 = m->stack[m->sp].value.f32;
-            m->stack[m->sp].value_type = I32;
+            ectx->stack[ectx->sp].value.uint32 =
+                ectx->stack[ectx->sp].value.f32;
+            ectx->stack[ectx->sp].value_type = I32;
             break;  // i32.trunc_u/f32
         case 0xaa:
-            if (std::isnan(m->stack[m->sp].value.f64)) {
+            if (std::isnan(ectx->stack[ectx->sp].value.f64)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
-            } else if (m->stack[m->sp].value.f64 > INT32_MAX ||
-                       m->stack[m->sp].value.f64 < INT32_MIN) {
+            } else if (ectx->stack[ectx->sp].value.f64 > INT32_MAX ||
+                       ectx->stack[ectx->sp].value.f64 < INT32_MIN) {
                 sprintf(exception, "integer overflow");
                 return false;
             }
-            m->stack[m->sp].value.int32 = m->stack[m->sp].value.f64;
-            m->stack[m->sp].value_type = I32;
+            ectx->stack[ectx->sp].value.int32 = ectx->stack[ectx->sp].value.f64;
+            ectx->stack[ectx->sp].value_type = I32;
             break;  // i32.trunc_s/f64
         case 0xab:
-            if (std::isnan(m->stack[m->sp].value.f64)) {
+            if (std::isnan(ectx->stack[ectx->sp].value.f64)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
-            } else if (m->stack[m->sp].value.f64 > UINT32_MAX ||
-                       m->stack[m->sp].value.f64 <= -1) {
+            } else if (ectx->stack[ectx->sp].value.f64 > UINT32_MAX ||
+                       ectx->stack[ectx->sp].value.f64 <= -1) {
                 sprintf(exception, "integer overflow");
                 return false;
             }
-            m->stack[m->sp].value.uint32 = m->stack[m->sp].value.f64;
-            m->stack[m->sp].value_type = I32;
+            ectx->stack[ectx->sp].value.uint32 =
+                ectx->stack[ectx->sp].value.f64;
+            ectx->stack[ectx->sp].value_type = I32;
             break;  // i32.trunc_u/f64
         case 0xac:
-            m->stack[m->sp].value.uint64 = m->stack[m->sp].value.uint32;
-            sext_32_64(&m->stack[m->sp].value.uint64);
-            m->stack[m->sp].value_type = I64;
+            ectx->stack[ectx->sp].value.uint64 =
+                ectx->stack[ectx->sp].value.uint32;
+            sext_32_64(&ectx->stack[ectx->sp].value.uint64);
+            ectx->stack[ectx->sp].value_type = I64;
             break;  // i64.extend_s/i32
         case 0xad:
-            m->stack[m->sp].value.uint64 = m->stack[m->sp].value.uint32;
-            m->stack[m->sp].value_type = I64;
+            ectx->stack[ectx->sp].value.uint64 =
+                ectx->stack[ectx->sp].value.uint32;
+            ectx->stack[ectx->sp].value_type = I64;
             break;  // i64.extend_u/i32
         case 0xae:
-            if (std::isnan(m->stack[m->sp].value.f32)) {
+            if (std::isnan(ectx->stack[ectx->sp].value.f32)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
-            } else if (m->stack[m->sp].value.f32 >= INT64_MAX ||
-                       m->stack[m->sp].value.f32 < INT64_MIN) {
+            } else if (ectx->stack[ectx->sp].value.f32 >= INT64_MAX ||
+                       ectx->stack[ectx->sp].value.f32 < INT64_MIN) {
                 sprintf(exception, "integer overflow");
                 return false;
             }
-            m->stack[m->sp].value.int64 = m->stack[m->sp].value.f32;
-            m->stack[m->sp].value_type = I64;
+            ectx->stack[ectx->sp].value.int64 = ectx->stack[ectx->sp].value.f32;
+            ectx->stack[ectx->sp].value_type = I64;
             break;  // i64.trunc_s/f32
         case 0xaf:
-            if (std::isnan(m->stack[m->sp].value.f32)) {
+            if (std::isnan(ectx->stack[ectx->sp].value.f32)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
-            } else if (m->stack[m->sp].value.f32 >= UINT64_MAX ||
-                       m->stack[m->sp].value.f32 <= -1) {
+            } else if (ectx->stack[ectx->sp].value.f32 >= UINT64_MAX ||
+                       ectx->stack[ectx->sp].value.f32 <= -1) {
                 sprintf(exception, "integer overflow");
                 return false;
             }
-            m->stack[m->sp].value.uint64 = m->stack[m->sp].value.f32;
-            m->stack[m->sp].value_type = I64;
+            ectx->stack[ectx->sp].value.uint64 =
+                ectx->stack[ectx->sp].value.f32;
+            ectx->stack[ectx->sp].value_type = I64;
             break;  // i64.trunc_u/f32
         case 0xb0:
-            if (std::isnan(m->stack[m->sp].value.f64)) {
+            if (std::isnan(ectx->stack[ectx->sp].value.f64)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
-            } else if (m->stack[m->sp].value.f64 >= INT64_MAX ||
-                       m->stack[m->sp].value.f64 < INT64_MIN) {
+            } else if (ectx->stack[ectx->sp].value.f64 >= INT64_MAX ||
+                       ectx->stack[ectx->sp].value.f64 < INT64_MIN) {
                 sprintf(exception, "integer overflow");
                 return false;
             }
-            m->stack[m->sp].value.int64 = m->stack[m->sp].value.f64;
-            m->stack[m->sp].value_type = I64;
+            ectx->stack[ectx->sp].value.int64 = ectx->stack[ectx->sp].value.f64;
+            ectx->stack[ectx->sp].value_type = I64;
             break;  // i64.trunc_s/f64
         case 0xb1:
-            if (std::isnan(m->stack[m->sp].value.f64)) {
+            if (std::isnan(ectx->stack[ectx->sp].value.f64)) {
                 sprintf(exception, "invalid conversion to integer");
                 return false;
-            } else if (m->stack[m->sp].value.f64 >= UINT64_MAX ||
-                       m->stack[m->sp].value.f64 <= -1) {
+            } else if (ectx->stack[ectx->sp].value.f64 >= UINT64_MAX ||
+                       ectx->stack[ectx->sp].value.f64 <= -1) {
                 sprintf(exception, "integer overflow");
                 return false;
             }
-            m->stack[m->sp].value.uint64 = m->stack[m->sp].value.f64;
-            m->stack[m->sp].value_type = I64;
+            ectx->stack[ectx->sp].value.uint64 =
+                ectx->stack[ectx->sp].value.f64;
+            ectx->stack[ectx->sp].value_type = I64;
             break;  // i64.trunc_u/f64
         case 0xb2:
-            m->stack[m->sp].value.f32 = m->stack[m->sp].value.int32;
-            m->stack[m->sp].value_type = F32;
+            ectx->stack[ectx->sp].value.f32 = ectx->stack[ectx->sp].value.int32;
+            ectx->stack[ectx->sp].value_type = F32;
             break;  // f32.convert_s/i32
         case 0xb3:
-            m->stack[m->sp].value.f32 = m->stack[m->sp].value.uint32;
-            m->stack[m->sp].value_type = F32;
+            ectx->stack[ectx->sp].value.f32 =
+                ectx->stack[ectx->sp].value.uint32;
+            ectx->stack[ectx->sp].value_type = F32;
             break;  // f32.convert_u/i32
         case 0xb4:
-            m->stack[m->sp].value.f32 = m->stack[m->sp].value.int64;
-            m->stack[m->sp].value_type = F32;
+            ectx->stack[ectx->sp].value.f32 = ectx->stack[ectx->sp].value.int64;
+            ectx->stack[ectx->sp].value_type = F32;
             break;  // f32.convert_s/i64
         case 0xb5:
-            m->stack[m->sp].value.f32 = m->stack[m->sp].value.uint64;
-            m->stack[m->sp].value_type = F32;
+            ectx->stack[ectx->sp].value.f32 =
+                ectx->stack[ectx->sp].value.uint64;
+            ectx->stack[ectx->sp].value_type = F32;
             break;  // f32.convert_u/i64
         case 0xb6:
-            m->stack[m->sp].value.f32 = (float)m->stack[m->sp].value.f64;
-            m->stack[m->sp].value_type = F32;
+            ectx->stack[ectx->sp].value.f32 =
+                (float)ectx->stack[ectx->sp].value.f64;
+            ectx->stack[ectx->sp].value_type = F32;
             break;  // f32.demote/f64
         case 0xb7:
-            m->stack[m->sp].value.f64 = m->stack[m->sp].value.int32;
-            m->stack[m->sp].value_type = F64;
+            ectx->stack[ectx->sp].value.f64 = ectx->stack[ectx->sp].value.int32;
+            ectx->stack[ectx->sp].value_type = F64;
             break;  // f64.convert_s/i32
         case 0xb8:
-            m->stack[m->sp].value.f64 = m->stack[m->sp].value.uint32;
-            m->stack[m->sp].value_type = F64;
+            ectx->stack[ectx->sp].value.f64 =
+                ectx->stack[ectx->sp].value.uint32;
+            ectx->stack[ectx->sp].value_type = F64;
             break;  // f64.convert_u/i32
         case 0xb9:
-            m->stack[m->sp].value.f64 = m->stack[m->sp].value.int64;
-            m->stack[m->sp].value_type = F64;
+            ectx->stack[ectx->sp].value.f64 = ectx->stack[ectx->sp].value.int64;
+            ectx->stack[ectx->sp].value_type = F64;
             break;  // f64.convert_s/i64
         case 0xba:
-            m->stack[m->sp].value.f64 = m->stack[m->sp].value.uint64;
-            m->stack[m->sp].value_type = F64;
+            ectx->stack[ectx->sp].value.f64 =
+                ectx->stack[ectx->sp].value.uint64;
+            ectx->stack[ectx->sp].value_type = F64;
             break;  // f64.convert_u/i64
         case 0xbb:
-            m->stack[m->sp].value.f64 = m->stack[m->sp].value.f32;
-            m->stack[m->sp].value_type = F64;
+            ectx->stack[ectx->sp].value.f64 = ectx->stack[ectx->sp].value.f32;
+            ectx->stack[ectx->sp].value_type = F64;
             break;  // f64.promote/f32
 
             // reinterpretations
         case 0xbc:
-            m->stack[m->sp].value_type = I32;
+            ectx->stack[ectx->sp].value_type = I32;
             break;  // i32.reinterpret/f32
         case 0xbd:
-            m->stack[m->sp].value_type = I64;
+            ectx->stack[ectx->sp].value_type = I64;
             break;  // i64.reinterpret/f64
         case 0xbe:  // memmove(&m->stack[m->sp].value.f32,
             // &m->stack[m->sp].value.uint32, 4);
-            m->stack[m->sp].value_type = F32;
+            ectx->stack[ectx->sp].value_type = F32;
             break;  // f32.reinterpret/i32
         case 0xbf:
-            m->stack[m->sp].value_type = F64;
+            ectx->stack[ectx->sp].value_type = F64;
             break;  // f64.reinterpret/i64
         default:
             return false;

@@ -75,8 +75,9 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
     std::vector<StackValue> argStack;
     create_stack(&argStack, args...);
 
+    ExecutionContext *ectx = m->warduino->execution_context;
     for (auto arg : argStack) {
-        m->stack[++m->sp] = arg;
+        ectx->stack[++ectx->sp] = arg;
     }
     primitive(m);
 }

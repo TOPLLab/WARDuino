@@ -73,7 +73,18 @@ void print_help() {
     fprintf(stdout, "    --version      Get version information\n");
 }
 
-Module *load(WARDuino wac, const char *file_name, Options opt) {
+std::string getModuleName(const char *path) {
+    std::string p(path);
+    size_t lastSlash = p.find_last_of("/\\");
+    std::string filename =
+        (lastSlash == std::string::npos) ? p : p.substr(lastSlash + 1);
+    size_t lastDot = filename.find_last_of(".");
+    if (lastDot != std::string::npos) return filename.substr(0, lastDot);
+    return filename;
+}
+
+Module *load(WARDuino *wac, const char *file_name, const char *module_name,
+             Options opt) {
     uint8_t *wasm;
     unsigned int file_size;
 
@@ -104,8 +115,7 @@ Module *load(WARDuino wac, const char *file_name, Options opt) {
     }
     fclose(file);
     file = nullptr;
-
-    return wac.load_module(wasm, file_size, opt);
+    return wac->load_module(wasm, file_size, module_name, opt);
 
 error:
     fclose(file);
@@ -261,36 +271,29 @@ StackValue parseParameter(const char *input, uint8_t value_type) {
 int main(int argc, const char *argv[]) {
     ARGV_SHIFT();  // Skip command name
 
+    // Configuration
     bool return_exception = true;
     bool no_debug = false;
     bool no_socket = false;
     const char *socket = "8192";
     bool initiallyPaused = false;
-    const char *file_name = nullptr;
+    std::vector<const char *> input_files;
     const char *proxy = nullptr;
     const char *baudrate = nullptr;
     const char *mode = "interpreter";
     bool dump_info = false;
 
-    const char *fname = nullptr;
-    std::vector<StackValue> arguments = std::vector<StackValue>();
+    const char *invoke_fname = nullptr;
+    std::vector<const char *> invoke_raw_args;
 
-    if (argc > 0 && argv[0][0] != '-') {
-        ARGV_GET(file_name);
-
-        dbg_info("=== LOAD MODULE INTO WARDUINO ===\n");
-        m = load(*wac, file_name,
-                 {.disable_memory_bounds = false,
-                  .mangle_table_index = false,
-                  .dlsym_trim_underscore = false,
-                  .return_exception = return_exception});
-    }
-
-    // Parse options
     while (argc > 0) {
         const char *arg = argv[0];
+
         if (arg[0] != '-') {
-            break;
+            // input file
+            input_files.push_back(arg);
+            ARGV_SHIFT();
+            continue;
         }
 
         ARGV_SHIFT();
@@ -311,47 +314,72 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp("--paused", arg)) {
             initiallyPaused = true;
         } else if (!strcmp("--proxy", arg)) {
-            ARGV_GET(proxy);  // /dev/ttyUSB0
+            ARGV_GET(proxy);
         } else if (!strcmp("--baudrate", arg)) {
             ARGV_GET(baudrate);
         } else if (!strcmp("--mode", arg)) {
             ARGV_GET(mode);
         } else if (!strcmp("--invoke", arg)) {
-            ARGV_GET(fname);
-
-            // find function
-            int fidx = wac->get_export_fidx(m, fname);
-            if (fidx < 0) {
-                fprintf(stderr, "wdcli: no exported function with name '%s'\n",
-                        fname);
-                return 1;
-            }
-
-            Block function = m->functions[fidx];
-
-            // consume all arguments for the function
-            for (uint32_t i = 0; i < function.type->param_count; ++i) {
-                const char *number = nullptr;
-                ARGV_GET(number);
-
-                if (number[0] == '-') {
-                    FATAL("wdcli: wrong number of arguments for '%s'\n", fname);
-                }
-
-                arguments.push_back(
-                    parseParameter(number, function.type->params[i]));
+            ARGV_GET(invoke_fname);
+            // Collect remaining args as potential parameters until next flag
+            while (argc > 0 && argv[0][0] != '-') {
+                const char *val;
+                ARGV_GET(val);
+                invoke_raw_args.push_back(val);
             }
         } else if (!strcmp("--dump-info", arg)) {
             dump_info = true;
         }
     }
 
-    if (argc != 0 || file_name == nullptr) {
+    if (input_files.empty()) {
         print_help();
         return 1;
     }
 
-    m->warduino = wac;
+    dbg_info("=== LOAD MODULES INTO WARDUINO ===\n");
+    std::vector<Module *> loaded_modules;
+
+    for (const char *file_path : input_files) {
+        std::string modName = getModuleName(file_path);
+        Module *new_mod = load(wac, file_path, modName.c_str(),
+                               {.disable_memory_bounds = false,
+                                .mangle_table_index = false,
+                                .dlsym_trim_underscore = false,
+                                .return_exception = return_exception});
+
+        if (new_mod) {
+            new_mod->warduino = wac;
+            loaded_modules.push_back(new_mod);
+            m = new_mod;  // last loaded module is the active one
+        } else {
+            return 1;
+        }
+    }
+
+    std::vector<StackValue> parsed_args;
+    if (invoke_fname != nullptr) {
+        int fidx = wac->get_export_fidx(m, invoke_fname);
+        if (fidx < 0) {
+            fprintf(stderr, "wdcli: no exported function with name '%s'\n",
+                    invoke_fname);
+            return 1;
+        }
+        Block function = m->functions[fidx];
+
+        if (invoke_raw_args.size() != function.type->param_count) {
+            FATAL(
+                "wdcli: wrong number of arguments for '%s' (expected %d, got "
+                "%zu)\n",
+                invoke_fname, function.type->param_count,
+                invoke_raw_args.size());
+        }
+
+        for (uint32_t i = 0; i < function.type->param_count; ++i) {
+            parsed_args.push_back(
+                parseParameter(invoke_raw_args[i], function.type->params[i]));
+        }
+    }
 
     if (initiallyPaused) {
         wac->debugger->pauseRuntime(m);
@@ -388,12 +416,11 @@ int main(int argc, const char *argv[]) {
             json["primitive_fidx_mapping"] = fidx_mapping;
 
             std::cout << json << std::endl;
-            wac->unload_module(m);
+            for (auto mod : loaded_modules) wac->unload_module(mod);
             exit(0);
         }
 
         if (strcmp(mode, "proxy") == 0) {
-            // Run in proxy mode
             wac->debugger->proxify();
         } else if (proxy) {
             // Connect to proxy device
@@ -443,19 +470,21 @@ int main(int argc, const char *argv[]) {
             options.no_socket = no_socket;
             options.socket = std::stoi(socket);
             setupDebuggerCommunication(options);
-
             communication = std::thread(startDebuggerCommunication);
         }
 
-        // Run Wasm module
         dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
-        if (fname != nullptr) {
-            uint32_t fidx = wac->get_export_fidx(m, fname);
-            wac->invoke(m, fidx, arguments.size(), &arguments[0]);
+        if (invoke_fname != nullptr) {
+            uint32_t fidx = wac->get_export_fidx(m, invoke_fname);
+            wac->invoke(m, fidx, parsed_args.size(), parsed_args.data());
         } else {
             wac->run_module(m);
         }
-        wac->unload_module(m);
+
+        // Unload all
+        for (auto mod : loaded_modules) {
+            wac->unload_module(mod);
+        }
         wac->debugger->stop();
 
         if (!no_debug) {

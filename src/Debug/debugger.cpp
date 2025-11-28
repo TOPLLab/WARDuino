@@ -445,32 +445,35 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) const {
 
 void Debugger::handleInterruptRUN(const Module *m,
                                   RunningState *program_state) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     this->channel->write("GO!\n");
-    if (*program_state == WARDUINOpause && this->isBreakpoint(m->pc_ptr)) {
-        this->skipBreakpoint = m->pc_ptr;
+    if (*program_state == WARDUINOpause && this->isBreakpoint(ectx->pc_ptr)) {
+        this->skipBreakpoint = ectx->pc_ptr;
     }
     *program_state = WARDUINOrun;
 }
 
 void Debugger::handleSTEP(const Module *m, RunningState *program_state) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     *program_state = WARDUINOstep;
-    this->skipBreakpoint = m->pc_ptr;
+    this->skipBreakpoint = ectx->pc_ptr;
 }
 
 void Debugger::handleSTEPOver(const Module *m, RunningState *program_state) {
-    this->skipBreakpoint = m->pc_ptr;
-    uint8_t const opcode = *m->pc_ptr;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    this->skipBreakpoint = ectx->pc_ptr;
+    uint8_t const opcode = *ectx->pc_ptr;
     if (opcode == 0x10) {  // step over direct call
-        uint8_t *ptr_cpy = m->pc_ptr + 1;
+        uint8_t *ptr_cpy = ectx->pc_ptr + 1;
         read_LEB_32(&ptr_cpy);
-        this->mark = m->pc_ptr + (ptr_cpy - m->pc_ptr);
+        this->mark = ectx->pc_ptr + (ptr_cpy - ectx->pc_ptr);
         *program_state = WARDUINOrun;
         // warning: ack will be BP hit
     } else if (opcode == 0x11) {  // step over indirect call
-        uint8_t *ptr_cpy = m->pc_ptr + 1;
+        uint8_t *ptr_cpy = ectx->pc_ptr + 1;
         read_LEB_32(&ptr_cpy);
         read_LEB_32(&ptr_cpy);
-        this->mark = m->pc_ptr + (ptr_cpy - m->pc_ptr);
+        this->mark = ectx->pc_ptr + (ptr_cpy - ectx->pc_ptr);
         *program_state = WARDUINOrun;
     } else {
         // normal step
@@ -493,11 +496,12 @@ void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
 }
 
 void Debugger::dump(Module *m, bool full) const {
+    ExecutionContext *ectx = m->warduino->execution_context;
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("{");
 
     // current PC
-    this->channel->write("\"pc\":%" PRIu32 ",", toVA(m->pc_ptr));
+    this->channel->write("\"pc\":%" PRIu32 ",", toVA(ectx->pc_ptr));
 
     this->dumpBreakpoints(m);
 
@@ -517,10 +521,11 @@ void Debugger::dump(Module *m, bool full) const {
 }
 
 void Debugger::dumpStack(const Module *m) const {
+    ExecutionContext *ectx = m->warduino->execution_context;
     this->channel->write("{\"stack\": [");
-    int32_t i = m->sp;
+    int32_t i = ectx->sp;
     while (0 <= i) {
-        this->printValue(&m->stack[i], i, i < 1);
+        this->printValue(&ectx->stack[i], i, i < 1);
         i--;
     }
     this->channel->write("]}\n\n");
@@ -554,10 +559,11 @@ void Debugger::dumpFunctions(Module *m) const {
  * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
  */
 void Debugger::dumpCallstack(Module *m) const {
+    ExecutionContext *ectx = m->warduino->execution_context;
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("\"callstack\":[");
-    for (int i = 0; i <= m->csp; i++) {
-        const Frame *f = &m->callstack[i];
+    for (int i = 0; i <= ectx->csp; i++) {
+        const Frame *f = &ectx->callstack[i];
         int callsite_retaddr = -1;
         int retaddr = -1;
         // first frame has no retrun address
@@ -573,25 +579,26 @@ void Debugger::dumpCallstack(Module *m) const {
         this->channel->write("\"start\":%" PRIu32
                              ",\"ra\":%d,\"callsite\":%d}%s",
                              toVA(f->block->start_ptr), retaddr,
-                             callsite_retaddr, (i < m->csp) ? "," : "]");
+                             callsite_retaddr, (i < ectx->csp) ? "," : "]");
     }
 }
 
 void Debugger::dumpLocals(const Module *m) const {
     //    fflush(stdout);
-    int firstFunFramePtr = m->csp;
-    while (m->callstack[firstFunFramePtr].block->block_type != 0) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+    int firstFunFramePtr = ectx->csp;
+    while (ectx->callstack[firstFunFramePtr].block->block_type != 0) {
         firstFunFramePtr--;
         if (firstFunFramePtr < 0) {
             FATAL("Not in a function!");
         }
     }
-    Frame *f = &m->callstack[firstFunFramePtr];
+    Frame *f = &ectx->callstack[firstFunFramePtr];
     this->channel->write(R"({"count":%u,"locals":[)", f->block->local_count);
     //    fflush(stdout);  // FIXME: this is needed for ESP to properly print
     for (uint32_t i = 0; i < f->block->local_count; i++) {
         char _value_str[256];
-        auto v = &m->stack[m->fp + i];
+        auto v = &ectx->stack[ectx->fp + i];
         switch (v->value_type) {
             case I32:
                 snprintf(_value_str, 255,
@@ -726,7 +733,8 @@ bool Debugger::handleChangedLocal(const Module *m, uint8_t *bytes) const {
     uint32_t localId = read_LEB_32(&pos);
 
     this->channel->write("Local %u being changed\n", localId);
-    auto v = &m->stack[m->fp + localId];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    auto v = &ectx->stack[ectx->fp + localId];
     switch (v->value_type) {
         case I32:
             v->value.uint32 = read_LEB_signed(&pos, 32);
@@ -780,6 +788,7 @@ void Debugger::snapshot(Module *m) const {
 
 void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                        const uint8_t *state) const {
+    ExecutionContext *ectx = m->warduino->execution_context;
     debug("asked for inspect\n");
     uint16_t idx = 0;
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
@@ -790,7 +799,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
     while (idx < sizeStateArray) {
         switch (state[idx++]) {
             case pcState: {  // PC
-                this->channel->write("\"pc\":%" PRIu32 "", toVA(m->pc_ptr));
+                this->channel->write("\"pc\":%" PRIu32 "", toVA(ectx->pc_ptr));
                 addComma = true;
 
                 break;
@@ -811,8 +820,8 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
             case callstackState: {
                 this->channel->write("%s\"callstack\":[", addComma ? "," : "");
                 addComma = true;
-                for (int j = 0; j <= m->csp; j++) {
-                    const Frame *f = &m->callstack[j];
+                for (int j = 0; j <= ectx->csp; j++) {
+                    const Frame *f = &ectx->callstack[j];
                     const uint8_t bt = f->block->block_type;
                     const uint32_t block_key =
                         (bt == 0 || bt == 0xff || bt == 0xfe)
@@ -825,7 +834,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                         bt, fidx, f->sp, f->fp, j);
                     this->channel->write(
                         "\"block_key\":%" PRIu32 ",\"ra\":%d}%s", block_key, ra,
-                        (j < m->csp) ? "," : "");
+                        (j < ectx->csp) ? "," : "");
                 }
                 this->channel->write("]");
                 break;
@@ -833,9 +842,9 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
             case stackState: {
                 this->channel->write("%s\"stack\":[", addComma ? "," : "");
                 addComma = true;
-                for (int j = 0; j <= m->sp; j++) {
-                    auto v = &m->stack[j];
-                    printValue(v, j, j == m->sp);
+                for (int j = 0; j <= ectx->sp; j++) {
+                    auto v = &ectx->stack[j];
+                    printValue(v, j, j == ectx->sp);
                 }
                 this->channel->write("]");
                 break;
@@ -867,7 +876,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                     R"(%s"br_table":{"size":"0x%x","labels":[)",
                     addComma ? "," : "", BR_TABLE_SIZE);
                 for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
-                    this->channel->write("%" PRIu32 "%s", m->br_table[j],
+                    this->channel->write("%" PRIu32 "%s", ectx->br_table[j],
                                          (j + 1) == BR_TABLE_SIZE ? "" : ",");
                 }
                 this->channel->write("]}");
@@ -1003,12 +1012,13 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         }
         instructions_executed++;
 
+        ExecutionContext *ectx = m->warduino->execution_context;
         // Store arguments of last primitive call.
-        if ((fidx_called = getPrimitiveBeingCalled(m, m->pc_ptr))) {
+        if ((fidx_called = getPrimitiveBeingCalled(m, ectx->pc_ptr))) {
             const Type *type = m->functions[*fidx_called].type;
             for (uint32_t i = 0; i < type->param_count; i++) {
                 prim_args[type->param_count - i - 1] =
-                    m->stack[m->sp - i].value.uint32;
+                    ectx->stack[ectx->sp - i].value.uint32;
             }
         }
     } else if (snapshotPolicy != SnapshotPolicy::none) {
@@ -1048,9 +1058,10 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
 
     // nullify state
     this->breakpoints.clear();
-    m->csp = -1;
-    m->sp = -1;
-    memset(m->br_table, 0, BR_TABLE_SIZE);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    ectx->csp = -1;
+    ectx->sp = -1;
+    memset(ectx->br_table, 0, BR_TABLE_SIZE);
 
     while (first_msg < endfm) {
         switch (*first_msg++) {
@@ -1124,6 +1135,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
 }
 
 bool Debugger::saveState(Module *m, uint8_t *interruptData) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     uint8_t *program_state = nullptr;
     uint8_t *end_state = nullptr;
     program_state = interruptData + 1;  // skip interruptLoadSnapshot
@@ -1138,7 +1150,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 if (!isToPhysicalAddrPossible(pc, m)) {
                     FATAL("cannot set pc on invalid address\n");
                 }
-                m->pc_ptr = toPhysicalAddress(pc, m);
+                ectx->pc_ptr = toPhysicalAddress(pc, m);
                 debug("Updated pc %" PRIu32 "\n", pc);
                 break;
             }
@@ -1161,8 +1173,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 for (size_t i = 0; i < quantity; i++) {
                     /* printf("frame IDX: %lu\n", i); */
                     uint8_t block_type = *program_state++;
-                    m->csp += 1;
-                    Frame *f = m->callstack + m->csp;
+                    ectx->csp += 1;
+                    Frame *f = ectx->callstack + ectx->csp;
                     f->sp = read_B32_signed(&program_state);
                     f->fp = read_B32_signed(&program_state);
                     auto virtualRA = read_B32_signed(&program_state);
@@ -1179,7 +1191,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                                   ". Exiting program\n",
                                   fidx, f->block->fidx);
                         }
-                        m->fp = f->sp + 1;
+                        ectx->fp = f->sp + 1;
                     } else if (block_type == 0xff || block_type == 0xfe) {
                         debug("guard block %" PRIu8 "\n", block_type);
                         auto *guard =
@@ -1295,7 +1307,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 for (auto idx = begin_index; idx <= end_index; idx++) {
                     // FIXME speedup with memcpy?
                     uint32_t el = read_B32(&program_state);
-                    m->br_table[idx] = el;
+                    ectx->br_table[idx] = el;
                 }
                 break;
             }
@@ -1310,8 +1322,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     if (type_index >= sizeof(valtypes)) {
                         FATAL("received unknown type %" PRIu8 "\n", type_index);
                     }
-                    m->sp += 1;
-                    StackValue *sv = &m->stack[m->sp];
+                    ectx->sp += 1;
+                    StackValue *sv = &ectx->stack[ectx->sp];
                     sv->value.uint64 = 0;  // init whole union to 0
                     size_t qb = type_index == 0 || type_index == 2 ? 4 : 8;
                     sv->value_type = valtypes[type_index];
@@ -1551,7 +1563,8 @@ bool Debugger::handleUpdateStackValue(const Module *m, uint8_t *bytes) const {
     if (idx >= STACK_SIZE) {
         return false;
     }
-    StackValue *sv = &m->stack[idx];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    StackValue *sv = &ectx->stack[idx];
     // ReSharper disable once CppTooWideScopeInitStatement
     constexpr bool decodeType = false;
     if (!deserialiseStackValue(bytes, decodeType, sv)) {

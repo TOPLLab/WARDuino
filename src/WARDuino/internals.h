@@ -63,6 +63,7 @@ typedef struct Frame {
     int sp;
     int fp;
     uint8_t *ra_ptr;
+    struct Module *module;
 } Frame;
 
 ///
@@ -97,8 +98,21 @@ typedef struct Options {
 
 class WARDuino;  // predeclare for it work in the module decl
 
+typedef struct ExecutionContext {
+    uint8_t *pc_ptr = nullptr;
+    int sp = -1;
+    int fp = -1;
+    StackValue *stack = nullptr;
+    int csp = -1;
+    Frame *callstack = nullptr;
+    uint32_t *br_table = nullptr;
+
+    struct Module *current_module = nullptr;
+} ExecutionContext;
+
 typedef struct Module {
     WARDuino *warduino = nullptr;
+    char *name = nullptr;
     char *path = nullptr;  // file path of the wasm module
     Options options;       // Config options
 
@@ -119,14 +133,6 @@ typedef struct Module {
     Memory memory;
     uint32_t global_count = 0;      // number of globals
     StackValue *globals = nullptr;  // globals
-    // Runtime state
-    uint8_t *pc_ptr = nullptr;     // program counter
-    int sp = -1;                   // operand stack pointer
-    int fp = -1;                   // current frame pointer into stack
-    StackValue *stack = nullptr;   // main operand stack
-    int csp = -1;                  // callstack pointer
-    Frame *callstack = nullptr;    // callstack
-    uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
 } Module;

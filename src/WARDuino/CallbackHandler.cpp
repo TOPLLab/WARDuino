@@ -21,7 +21,9 @@ void push_guard(Module *m) {
     guard->import_field = nullptr;
     guard->import_module = nullptr;
     guard->func_ptr = nullptr;
-    WARDuino::instance()->interpreter->push_block(m, guard, m->sp);
+
+    ExecutionContext *ectx = m->warduino->execution_context;
+    WARDuino::instance()->interpreter->push_block(m, guard, ectx->sp);
 }
 
 // CallbackHandler class
@@ -209,16 +211,17 @@ void Callback::resolve_event(const Event &e) {
     }
 
     // Push arguments (5 args)
-    module->stack[++module->sp].value.uint32 = start - topic.length();
-    module->stack[module->sp].value_type = I32;
-    module->stack[++module->sp].value.uint32 = topic.length();
-    module->stack[module->sp].value_type = I32;
-    module->stack[++module->sp].value.uint32 = start;
-    module->stack[module->sp].value_type = I32;
-    module->stack[++module->sp].value.uint32 = payload.length();
-    module->stack[module->sp].value_type = I32;
-    module->stack[++module->sp].value.uint32 = payload.length();
-    module->stack[module->sp].value_type = I32;
+    ExecutionContext *ectx = module->warduino->execution_context;
+    ectx->stack[++ectx->sp].value.uint32 = start - topic.length();
+    ectx->stack[ectx->sp].value_type = I32;
+    ectx->stack[++ectx->sp].value.uint32 = topic.length();
+    ectx->stack[ectx->sp].value_type = I32;
+    ectx->stack[++ectx->sp].value.uint32 = start;
+    ectx->stack[ectx->sp].value_type = I32;
+    ectx->stack[++ectx->sp].value.uint32 = payload.length();
+    ectx->stack[ectx->sp].value_type = I32;
+    ectx->stack[++ectx->sp].value.uint32 = payload.length();
+    ectx->stack[ectx->sp].value_type = I32;
 
     // Setup function
     uint32_t fidx = module->table.entries[table_index];
