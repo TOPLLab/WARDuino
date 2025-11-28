@@ -309,10 +309,9 @@ void restore_external_state(Module *m,
     if (opcode == 0x10) {  // call opcode
         uint8_t *pc_copy = get_ectx(m)->pc_ptr + 1;
         uint32_t fidx = read_LEB_32(&pc_copy);
-        if (fidx < get_ectx(m)->import_count) {
+        if (fidx < m->import_count) {
             for (auto &primitive : primitives) {
-                if (!strcmp(primitive.name,
-                            get_ectx(m)->functions[fidx].import_field)) {
+                if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
                     if (primitive.f_reverse) {
                         debug("Reversing action for primitive %s\n",
                               primitive.name);

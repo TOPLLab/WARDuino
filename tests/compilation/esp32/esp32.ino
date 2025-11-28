@@ -60,7 +60,7 @@ void setup(void) {
 
 void loop() {
     disableCore0WDT();
-    m = wac->load_module(wasm, wasm_len, {});
+    m = wac->load_module(wasm, wasm_len, "main", {});
 
     printf("LOADED \n\n");
     uint8_t command[] = {'0', '3', '\n'};

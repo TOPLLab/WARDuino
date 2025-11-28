@@ -14,7 +14,7 @@ struct ModuleInfo {
 };
 
 ModuleInfo modules[] = {
-    {wasm, wasm_len, "main"},
+    {upload_wasm, upload_wasm_len, "main"},
 };
 const size_t module_count = sizeof(modules) / sizeof(modules[0]);
 

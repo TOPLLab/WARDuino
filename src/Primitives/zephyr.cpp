@@ -634,8 +634,8 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 void restore_external_state(Module *m,
                             const std::vector<IOStateElement> &external_state) {
     std::set<std::string> prim_names;
-    for (uint32_t i = 0; i < get_ectx(m)->import_count; i++) {
-        prim_names.emplace(get_ectx(m)->functions[i].import_field);
+    for (uint32_t i = 0; i < m->import_count; i++) {
+        prim_names.emplace(m->functions[i].import_field);
     }
 
     for (PrimitiveEntry &p : primitives) {
