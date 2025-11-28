@@ -39,9 +39,9 @@ TEST_F(InstantiateModuleFixture, InitiallyEmpty) {
     EXPECT_EQ(wasm_module->globals, nullptr);
     EXPECT_EQ(wasm_module->table.entries, nullptr);
     EXPECT_EQ(wasm_module->memory.bytes, nullptr);
-    EXPECT_EQ(wasm_module->stack, nullptr);
-    EXPECT_EQ(wasm_module->callstack, nullptr);
-    EXPECT_EQ(wasm_module->br_table, nullptr);
+    EXPECT_EQ(wasm_module->warduino->execution_context->stack, nullptr);
+    EXPECT_EQ(wasm_module->warduino->execution_context->callstack, nullptr);
+    EXPECT_EQ(wasm_module->warduino->execution_context->br_table, nullptr);
 }
 
 TEST_F(InstantiateModuleFixture, FacLoadsWithoutTableGlobalsAndMemory) {
@@ -49,9 +49,9 @@ TEST_F(InstantiateModuleFixture, FacLoadsWithoutTableGlobalsAndMemory) {
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_NE(wasm_module->types, nullptr);
     EXPECT_NE(wasm_module->functions, nullptr);
-    EXPECT_NE(wasm_module->stack, nullptr);
-    EXPECT_NE(wasm_module->callstack, nullptr);
-    EXPECT_NE(wasm_module->br_table, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->stack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->callstack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->br_table, nullptr);
 
     // memory, table, and globals are not used in fac.wast
     EXPECT_EQ(wasm_module->memory.bytes, nullptr);
@@ -63,9 +63,9 @@ TEST_F(InstantiateModuleFixture, BlinkLoadsWithoutTableAndMemory) {
     warduino->instantiate_module(wasm_module, blink_wasm, blink_wasm_len);
     EXPECT_NE(wasm_module->types, nullptr);
     EXPECT_NE(wasm_module->functions, nullptr);
-    EXPECT_NE(wasm_module->stack, nullptr);
-    EXPECT_NE(wasm_module->callstack, nullptr);
-    EXPECT_NE(wasm_module->br_table, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->stack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->callstack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->br_table, nullptr);
     EXPECT_NE(wasm_module->globals, nullptr);
 
     // not used in blink.wast
@@ -77,9 +77,9 @@ TEST_F(InstantiateModuleFixture, FacLoadsWithoutTableMemoryAndGlobals) {
     warduino->instantiate_module(wasm_module, fac_wasm, fac_wasm_len);
     EXPECT_NE(wasm_module->types, nullptr);
     EXPECT_NE(wasm_module->functions, nullptr);
-    EXPECT_NE(wasm_module->stack, nullptr);
-    EXPECT_NE(wasm_module->callstack, nullptr);
-    EXPECT_NE(wasm_module->br_table, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->stack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->callstack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->br_table, nullptr);
 
     // not used in fac.wast
     EXPECT_EQ(wasm_module->memory.bytes, nullptr);
@@ -92,9 +92,9 @@ TEST_F(InstantiateModuleFixture, DimmerLoadsWithTableMemoryAndGlobals) {
     ASSERT_NE(wasm_module, nullptr);
     EXPECT_NE(wasm_module->types, nullptr);
     EXPECT_NE(wasm_module->functions, nullptr);
-    EXPECT_NE(wasm_module->stack, nullptr);
-    EXPECT_NE(wasm_module->callstack, nullptr);
-    EXPECT_NE(wasm_module->br_table, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->stack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->callstack, nullptr);
+    EXPECT_NE(wasm_module->warduino->execution_context->br_table, nullptr);
     EXPECT_NE(wasm_module->globals, nullptr);
     EXPECT_NE(wasm_module->memory.bytes, nullptr);
     EXPECT_NE(wasm_module->table.entries, nullptr);

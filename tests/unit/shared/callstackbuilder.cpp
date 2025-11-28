@@ -5,33 +5,35 @@ CallstackBuilder::CallstackBuilder(Module* wasm_module) : m{wasm_module} {}
 
 void CallstackBuilder::pushBlock(Block* block, int sp) {
     // copy of push_block instructions.cpp
-    m->csp += 1;
-    m->callstack[m->csp].block = block;
-    m->callstack[m->csp].sp = sp;
-    m->callstack[m->csp].fp = m->fp;
-    m->callstack[m->csp].ra_ptr = m->pc_ptr;
+    ExecutionContext* ectx = m->warduino->execution_context;
+    ectx->csp += 1;
+    ectx->callstack[ectx->csp].block = block;
+    ectx->callstack[ectx->csp].sp = sp;
+    ectx->callstack[ectx->csp].fp = ectx->fp;
+    ectx->callstack[ectx->csp].ra_ptr = ectx->pc_ptr;
 }
 
 void CallstackBuilder::pushFunctionCall(uint32_t fidx) {
+    ExecutionContext* ectx = m->warduino->execution_context;
     // copy of setup_call from instructions.cpp
     Block* func = &m->functions[fidx];
     Type* type = func->type;
 
     // Push current frame on the call stack
-    this->pushBlock(func, m->sp - type->param_count);
+    this->pushBlock(func, ectx->sp - type->param_count);
 
     // Push locals (dropping extras)
-    m->fp = m->sp - ((int)type->param_count) + 1;
+    ectx->fp = ectx->sp - ((int)type->param_count) + 1;
 
     // Push function locals
     for (uint32_t lidx = 0; lidx < func->local_count; lidx++) {
-        m->sp += 1;
-        m->stack[m->sp].value_type = func->local_value_type[lidx];
-        m->stack[m->sp].value.uint64 = 0;  // Initialize whole union to 0
+        ectx->sp += 1;
+        ectx->stack[ectx->sp].value_type = func->local_value_type[lidx];
+        ectx->stack[ectx->sp].value.uint64 = 0;  // Initialize whole union to 0
     }
 
     // Set program counter to start of function
-    m->pc_ptr = func->start_ptr;
+    ectx->pc_ptr = func->start_ptr;
 }
 
 void CallstackBuilder::pushGuard(uint8_t guard_type) {
@@ -46,5 +48,5 @@ void CallstackBuilder::pushGuard(uint8_t guard_type) {
     guard->import_field = nullptr;
     guard->import_module = nullptr;
     guard->func_ptr = nullptr;
-    this->pushBlock(guard, m->sp);
+    this->pushBlock(guard, m->warduino->execution_context->sp);
 }
