@@ -76,13 +76,14 @@ double sensor_emu = 0;
         std::vector<IOStateElement *> &external_state)
 
 // TODO: use fp
-#define pop_args(n) m->sp -= n
-#define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
-#define pushUInt32(arg) m->stack[++m->sp].value.uint32 = arg
-#define pushInt32(arg) m->stack[++m->sp].value.int32 = arg
-#define pushUInt64(arg)                 \
-    m->stack[++m->sp].value_type = I64; \
-    m->stack[m->sp].value.uint64 = arg
+#define get_ectx(m) (m->warduino->execution_context)
+#define pop_args(n) (get_ectx(m)->sp -= n)
+#define get_arg(m, arg) get_ectx(m)->stack[get_ectx(m)->sp - (arg)].value
+#define pushUInt32(arg) get_ectx(m)->stack[++get_ectx(m)->sp].value.uint32 = arg
+#define pushInt32(arg) get_ectx(m)->stack[++get_ectx(m)->sp].value.int32 = arg
+#define pushUInt64(arg)                                     \
+    get_ectx(m)->stack[++get_ectx(m)->sp].value_type = I64; \
+    get_ectx(m)->stack[get_ectx(m)->sp].value.uint64 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
@@ -300,17 +301,18 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 //------------------------------------------------------
 void restore_external_state(Module *m,
                             const std::vector<IOStateElement> &external_state) {
-    uint8_t opcode = *m->pc_ptr;
+    uint8_t opcode = *(get_ectx(m)->pc_ptr);
     // TODO: Maybe primitives can also be called using the other call
     // instructions such as call_indirect
     //  maybe there should just be a function that checks if a certain function
     //  is being called that handles all these cases?
     if (opcode == 0x10) {  // call opcode
-        uint8_t *pc_copy = m->pc_ptr + 1;
+        uint8_t *pc_copy = get_ectx(m)->pc_ptr + 1;
         uint32_t fidx = read_LEB_32(&pc_copy);
-        if (fidx < m->import_count) {
+        if (fidx < get_ectx(m)->import_count) {
             for (auto &primitive : primitives) {
-                if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
+                if (!strcmp(primitive.name,
+                            get_ectx(m)->functions[fidx].import_field)) {
                     if (primitive.f_reverse) {
                         debug("Reversing action for primitive %s\n",
                               primitive.name);

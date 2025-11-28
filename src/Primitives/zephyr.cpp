@@ -83,13 +83,14 @@ double sensor_emu = 0;
         std::vector<IOStateElement *> &external_state)
 
 // TODO: use fp
-#define pop_args(n) m->sp -= n
-#define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
-#define pushUInt32(arg) m->stack[++m->sp].value.uint32 = arg
-#define pushInt32(arg) m->stack[++m->sp].value.int32 = arg
-#define pushUInt64(arg)                 \
-    m->stack[++m->sp].value_type = I64; \
-    m->stack[m->sp].value.uint64 = arg
+#define get_ectx(m) (m->warduino->execution_context)
+#define pop_args(n) (get_ectx(m)->sp -= n)
+#define get_arg(m, arg) get_ectx(m)->stack[get_ectx(m)->sp - (arg)].value
+#define pushUInt32(arg) get_ectx(m)->stack[++get_ectx(m)->sp].value.uint32 = arg
+#define pushInt32(arg) get_ectx(m)->stack[++get_ectx(m)->sp].value.int32 = arg
+#define pushUInt64(arg)                                     \
+    get_ectx(m)->stack[++get_ectx(m)->sp].value_type = I64; \
+    get_ectx(m)->stack[get_ectx(m)->sp].value.uint64 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
@@ -305,7 +306,7 @@ def_prim(chip_digital_read, oneToOneU32) {
 def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
-    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    std::string text = parse_utf8_string(get_ectx(m)->memory.bytes, size, addr);
     debug("EMU: print string at %i: ", addr);
     printf("%s", text.c_str());
     pop_args(2);
@@ -633,8 +634,8 @@ bool resolve_external_memory(char *symbol, Memory **val) {
 void restore_external_state(Module *m,
                             const std::vector<IOStateElement> &external_state) {
     std::set<std::string> prim_names;
-    for (uint32_t i = 0; i < m->import_count; i++) {
-        prim_names.emplace(m->functions[i].import_field);
+    for (uint32_t i = 0; i < get_ectx(m)->import_count; i++) {
+        prim_names.emplace(get_ectx(m)->functions[i].import_field);
     }
 
     for (PrimitiveEntry &p : primitives) {

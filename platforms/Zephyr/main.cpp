@@ -2,6 +2,8 @@
 #include <zephyr/console/tty.h>
 #include <zephyr/drivers/uart.h>
 
+#include <vector>
+
 #include "../../src/WARDuino.h"
 #include "upload.h"
 
@@ -15,6 +17,17 @@ static struct tty_serial console_serial;
 
 static uint8_t console_rxbuf[CONFIG_CONSOLE_GETCHAR_BUFSIZE];
 static uint8_t console_txbuf[CONFIG_CONSOLE_PUTCHAR_BUFSIZE];
+
+struct ModuleInfo {
+    unsigned char *wasm;
+    unsigned int wasm_len;
+    const char *name;
+};
+
+ModuleInfo modules[] = {
+    {wasm, wasm_len, "main"},
+};
+const size_t module_count = sizeof(modules) / sizeof(modules[0]);
 
 ssize_t war_console_read(void *dummy, void *buf, size_t size) {
     ARG_UNUSED(dummy);
@@ -54,6 +67,7 @@ int war_console_init(void) {
 }
 
 WARDuino *wac = WARDuino::instance();
+std::vector<Module *> loaded_modules;
 
 void startDebuggerStd() {
     Channel *duplex = new Duplex(stdin, stdout);
@@ -76,9 +90,34 @@ K_THREAD_DEFINE(debugger_tid, DEBUGGER_STACK_SIZE, startDebuggerStd, NULL, NULL,
                 NULL, DEBUGGER_PRIORITY, 0, 0);
 
 int main(void) {
-    Module *m = wac->load_module(upload_wasm, upload_wasm_len, {});
-    wac->run_module(m);
-    wac->unload_module(m);
+    // Load all modules
+    for (size_t i = 0; i < module_count; i++) {
+
+        Module *mod = wac->load_module(modules[i].wasm, modules[i].wasm_len,
+                                       modules[i].name,
+                                       {.disable_memory_bounds = false,
+                                        .mangle_table_index = false,
+                                        .dlsym_trim_underscore = false,
+                                        .return_exception = true});
+
+        if (mod) {
+            loaded_modules.push_back(mod);
+            printk("  ✓ Loaded %s (%u bytes)\n", modules[i].name,
+                   modules[i].wasm_len);
+        } else {
+            printk("  ✗ Failed to load %s\n", modules[i].name);
+        }
+    }
+
+    if (!loaded_modules.empty()) {
+        Module *m = loaded_modules.back();
+        wac->run_module(m);
+    }
+
+    for (auto mod : loaded_modules) {
+        wac->unload_module(mod);
+    }
+    loaded_modules.clear();
 
     return 0;
 }
