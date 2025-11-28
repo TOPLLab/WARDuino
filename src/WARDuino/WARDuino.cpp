@@ -994,7 +994,6 @@ void WARDuino::shutdown() {
     }
 }
 
-
 void WARDuino::init_execution_context() {
     if (execution_context != nullptr) {
         return;
