@@ -103,6 +103,7 @@ typedef struct Table {
     uint32_t maximum = 0;   // maximum table size
     uint32_t size = 0;      // current table size
     uint32_t *entries = nullptr;
+    bool imported = false;  // whether the table is imported/shared
 } Table;
 
 typedef struct Memory {
@@ -110,6 +111,7 @@ typedef struct Memory {
     uint32_t maximum = 0;      // maximum size (64K pages)
     uint32_t pages = 0;        // current size (64K pages)
     uint8_t *bytes = nullptr;  // memory area
+    bool imported = false;     // whether the memory is imported/shared
 } Memory;
 
 typedef struct Global {
