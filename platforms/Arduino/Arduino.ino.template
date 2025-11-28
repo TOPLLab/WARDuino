@@ -7,10 +7,19 @@
 #include "Arduino.h"
 #include "bin/upload.h"
 
-unsigned int wasm_len = upload_wasm_len;
-unsigned char* wasm = upload_wasm;
+struct ModuleInfo {
+    unsigned char* wasm;
+    unsigned int wasm_len;
+    const char* name;
+};
+
+ModuleInfo modules[] = {
+    {wasm, wasm_len, "main"},
+};
+const size_t module_count = sizeof(modules) / sizeof(modules[0]);
 
 WARDuino* wac = WARDuino::instance();
+std::vector<Module*> loaded_modules;
 Module* m;
 
 #define UART_PIN 3
@@ -52,20 +61,44 @@ void setup(void) {
     Serial.println(ESP.getFreePsram());
 }
 
-void loop() {
-    m = wac->load_module(wasm, wasm_len, {});
+void loop() {    
 
-    printf("LOADED \n\n");
+    for (size_t i = 0; i < module_count; i++) {
+        Serial.print("Loading module: ");
+        Serial.println(modules[i].name);
+        
+        Module* mod = wac->load_module(
+            modules[i].wasm, 
+            modules[i].wasm_len,
+            modules[i].name
+        );
+        
+        if (mod) {
+            loaded_modules.push_back(mod);
+            m = mod;
+        } else {
+            Serial.print("  ✗ Failed to load ");
+            Serial.println(modules[i].name);
+        }
+    }
+
     {{PAUSED}}
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL, 1, NULL);
 
     disableCore0WDT();
-    printf("START\n\n");
+    Serial.println("START\n");
 
     Serial.println("\nFree heap:");
     Serial.println(ESP.getFreeHeap());
 
-    wac->run_module(m);
-    printf("END\n\n");
-    wac->unload_module(m);
+    if (m) {
+        wac->run_module(m);
+    }
+    
+    Serial.println("END\n");
+    
+    for (auto mod : loaded_modules) {
+        wac->unload_module(mod);
+    }
+    loaded_modules.clear();
 }

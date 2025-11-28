@@ -137,7 +137,7 @@ def_prim(random_int, NoneToOneU32) {
 def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
-    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    std::string text = parse_utf8_string(get_ectx(m)->memory.bytes, size, addr);
     debug("EMU: print string at %i: ", addr);
     printf("%s", text.c_str());
     pop_args(2);
