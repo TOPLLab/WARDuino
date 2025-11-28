@@ -3,7 +3,9 @@
 //
 //
 #include <stdio.h>
+
 #include <vector>
+
 #include "../../src/WARDuino.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
@@ -17,9 +19,9 @@
 volatile bool handelingInterrupt = false;
 
 struct ModuleInfo {
-    unsigned char *wasm;
+    unsigned char* wasm;
     unsigned int wasm_len;
-    const char *name;
+    const char* name;
 };
 
 ModuleInfo modules[] = {
@@ -38,7 +40,7 @@ void startDebuggerStd(void* pvParameter) {
     Channel* duplex = new Duplex(stdin, stdout);
     wac->debugger->setChannel(duplex);
     duplex->open();
-    
+
     int valread;
     uint8_t buffer[1024] = {0};
     while (true) {
@@ -59,7 +61,7 @@ void app_main(void) {
                                         .mangle_table_index = false,
                                         .dlsym_trim_underscore = false,
                                         .return_exception = true});
-        
+
         if (mod) {
             loaded_modules.push_back(mod);
             printf("  ✓ Loaded %s (%u bytes)\n", modules[i].name,
@@ -68,19 +70,19 @@ void app_main(void) {
             printf("  ✗ Failed to load %s\n", modules[i].name);
         }
     }
-    
+
     xTaskCreate(startDebuggerStd, "Debug Thread", 5000, NULL,
                 10 /**tskIDLE_PRIORITY*/, NULL);
-    
+
     printf("START\n\n");
-    
+
     if (!loaded_modules.empty()) {
         Module* m = loaded_modules.back();
         wac->run_module(m);
     }
-    
+
     printf("END\n\n");
-    
+
     for (auto mod : loaded_modules) {
         wac->unload_module(mod);
     }

@@ -92,7 +92,6 @@ K_THREAD_DEFINE(debugger_tid, DEBUGGER_STACK_SIZE, startDebuggerStd, NULL, NULL,
 int main(void) {
     // Load all modules
     for (size_t i = 0; i < module_count; i++) {
-
         Module *mod = wac->load_module(modules[i].wasm, modules[i].wasm_len,
                                        modules[i].name,
                                        {.disable_memory_bounds = false,
