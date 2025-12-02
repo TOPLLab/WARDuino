@@ -66,7 +66,7 @@ class Interpreter {
     //------------------------------------------------------
     // ReSharper disable once CppDFAConstantFunctionResult
     bool resolve_primitive(const char *symbol, Primitive *val) {
-        debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
+        debug("Resolve primitive %s\n", symbol);
 
         for (auto &primitive : primitives) {
             //        printf("Checking %s = %s  \n", symbol, primitive.name);
