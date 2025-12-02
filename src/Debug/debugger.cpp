@@ -844,7 +844,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 this->channel->write("%s\"globals\":[", addComma ? "," : "");
                 addComma = true;
                 for (uint32_t j = 0; j < m->global_count; j++) {
-                    auto v = m->globals + j;
+                    auto v = (*(m->globals + j))->value;
                     printValue(v, j, j == (m->global_count - 1));
                 }
                 this->channel->write("]");  // closing globals
@@ -1063,15 +1063,15 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                     debug("globals freeing state and then allocating\n");
                     if (m->global_count > 0) free(m->globals);
                     if (amount > 0)
-                        m->globals = static_cast<StackValue *>(
-                            acalloc(amount, sizeof(StackValue), "globals"));
+                        m->globals = static_cast<Global **>(
+                            acalloc(amount, sizeof(Global *), "globals"));
                 } else {
                     debug("globals setting existing state to zero\n");
                     for (uint32_t i = 0; i < m->global_count; i++) {
                         debug("decreasing global_count\n");
-                        StackValue *sv = &m->globals[i];
-                        sv->value_type = 0;
-                        sv->value.uint32 = 0;
+                        Global *glob = m->globals[i];
+                        glob->value->value_type = 0;
+                        glob->value->value.uint32 = 0;
                     }
                 }
                 m->global_count = 0;
@@ -1221,7 +1221,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     if (type_index >= sizeof(valtypes)) {
                         FATAL("received unknown type %" PRIu8 "\n", type_index);
                     }
-                    StackValue *sv = &m->globals[m->global_count++];
+                    StackValue *sv = m->globals[m->global_count++]->value;
                     size_t qb = type_index == 0 || type_index == 2 ? 4 : 8;
                     debug("receiving type %" PRIu8 " and %d bytes \n",
                           type_index,
@@ -1539,7 +1539,7 @@ bool Debugger::handleUpdateGlobalValue(const Module *m, uint8_t *data) const {
     if (index >= m->global_count) return false;
 
     this->channel->write("Global %u being changed\n", index);
-    StackValue *v = &m->globals[index];
+    StackValue *v = m->globals[index]->value;
     constexpr bool decodeType = false;
     deserialiseStackValue(data, decodeType, v);
     this->channel->write("Global %u changed to %u\n", index, v->value.uint32);
