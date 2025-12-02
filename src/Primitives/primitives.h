@@ -238,6 +238,15 @@ inline Type NoneToNoneU32 = {.form = FUNC,
                              .results = nullptr,
                              .mask = 0x80000};
 
+inline Type oneToNoneI32 = {
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x8001 /* 0x800 = no return ; 1 = I32*/
+};
+
 inline Type NoneToOneU32 = {.form = FUNC,
                             .param_count = 0,
                             .params = nullptr,
