@@ -138,3 +138,19 @@ typedef struct Module {
 
     char *exception = nullptr;  // exception is set when the program fails
 } Module;
+
+typedef bool (*Primitive)(Module *);
+
+struct IOStateElement {
+    std::string key;
+    bool output;
+    int value;
+};
+
+typedef struct PrimitiveEntry {
+    const char *name;
+    Primitive f;
+    void (*f_reverse)(Module *m, std::vector<IOStateElement>);
+    void (*f_serialize_state)(std::vector<IOStateElement *> &);
+    Type *t;
+} PrimitiveEntry;
