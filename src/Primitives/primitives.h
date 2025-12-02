@@ -1,7 +1,7 @@
 #ifndef WARDUINO_PRIM_H
 #define WARDUINO_PRIM_H
 
-#include "../WARDuino.h"
+#include "../WARDuino/internals.h"
 
 /**
  * Handle import of memory by keeping a array of 256 pages.
@@ -128,5 +128,126 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
 #define arg7 get_arg(m, 7)
 #define arg8 get_arg(m, 8)
 #define arg9 get_arg(m, 9)
+
+inline uint32_t param_arr_len0[0] = {};
+inline uint32_t param_I32_arr_len1[1] = {I32};
+inline uint32_t param_I32_arr_len2[2] = {I32, I32};
+inline uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
+inline uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
+inline uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
+                                    I32, I32, I32, I32, I32};
+inline uint32_t param_I64_arr_len1[1] = {I64};
+
+inline Type oneToNoneU32 = {
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x8001 /* 0x800 = no return ; 1 = I32*/
+};
+
+inline Type twoToNoneU32 = {
+    .form = FUNC,
+    .param_count = 2,
+    .params = param_I32_arr_len2,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
+};
+
+inline Type threeToNoneU32 = {
+    .form = FUNC,
+    .param_count = 3,
+    .params = param_I32_arr_len3,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x800111 /* 0x800 = no return ; 1=I32; 1=I32; 1=I32*/
+};
+
+inline Type fourToNoneU32 = {
+    .form = FUNC,
+    .param_count = 4,
+    .params = param_I32_arr_len4,
+    .result_count = 0,
+    .results = nullptr,
+    .mask =
+        0x8001111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
+};
+
+inline Type oneToOneU32 = {
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+};
+
+inline Type oneToOneI32 = {
+    .form = FUNC,
+    .param_count = 1,
+    .params = param_I32_arr_len1,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+};
+
+inline Type twoToOneU32 = {
+    .form = FUNC,
+    .param_count = 2,
+    .params = param_I32_arr_len2,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x81011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
+};
+
+inline Type threeToOneU32 = {
+    .form = FUNC,
+    .param_count = 3,
+    .params = param_I32_arr_len3,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x810111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32*/
+};
+
+inline Type fourToOneU32 = {
+    .form = FUNC,
+    .param_count = 4,
+    .params = param_I32_arr_len4,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
+};
+
+inline Type tenToOneU32 = {
+    .form = FUNC,
+    .param_count = 10,
+    .params = param_I32_arr_len10,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask = 0x8101111111111 /* 0x8 1=I32 0=endRet ; 10 params 1=I32*/
+};
+
+inline Type NoneToNoneU32 = {.form = FUNC,
+                      .param_count = 0,
+                      .params = nullptr,
+                      .result_count = 0,
+                      .results = nullptr,
+                      .mask = 0x80000};
+
+inline Type NoneToOneU32 = {.form = FUNC,
+                     .param_count = 0,
+                     .params = nullptr,
+                     .result_count = 1,
+                     .results = param_I32_arr_len1,
+                     .mask = 0x81000};
+
+inline Type NoneToOneU64 = {.form = FUNC,
+                     .param_count = 0,
+                     .params = nullptr,
+                     .result_count = 1,
+                     .results = param_I64_arr_len1,
+                     .mask = 0x82000};
 
 #endif

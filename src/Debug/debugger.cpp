@@ -11,7 +11,6 @@
 #endif
 
 #include "../Memory/mem.h"
-#include "../Primitives/primitives.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 #include "../WARDuino/CallbackHandler.h"
