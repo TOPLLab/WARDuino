@@ -25,6 +25,8 @@ bool resolve_primitive(char *symbol, Primitive *val);
  */
 bool resolve_external_memory(char *symbol, Memory **val);
 
+bool resolve_external_global(char *symbol, Global **val);
+
 void install_primitives();
 
 std::vector<IOStateElement *> get_io_state(Module *m);

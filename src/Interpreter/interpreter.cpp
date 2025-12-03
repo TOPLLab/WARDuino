@@ -104,8 +104,8 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
                   m->sp, STACK_SIZE);
         }
 #endif
+        memset(&m->stack[m->sp], 0, sizeof(StackValue));
         m->stack[m->sp].value_type = func->local_value_type[lidx];
-        m->stack[m->sp].value = {0};  // Initialize whole union to 0
     }
 
     // Set program counter to start of function
@@ -434,6 +434,11 @@ bool Interpreter::interpret(Module *m, bool waiting) {
                 // conversion operations
             case 0xa7 ... 0xbb:
                 success &= i_instr_conversion(m, opcode);
+                continue;
+
+                // extension operations
+            case 0xc0 ... 0xc4:
+                success &= i_instr_extension(m, opcode);
                 continue;
 
                 // callback operations

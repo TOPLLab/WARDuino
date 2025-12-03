@@ -2,15 +2,15 @@
 (module
   ;; Typing
 
-  (func (export "type-local-i32") (result i32) (local i32) (local.get 0))
-  (func (export "type-local-i64") (result i64) (local i64) (local.get 0))
-  (func (export "type-local-f32") (result f32) (local f32) (local.get 0))
-  (func (export "type-local-f64") (result f64) (local f64) (local.get 0))
+  (func $type-local-i32 (export "type-local-i32") (result i32) (local i32) (local.get 0))
+  (func $type-local-i64 (export "type-local-i64") (result i64) (local i64) (local.get 0))
+  (func $type-local-f32 (export "type-local-f32") (result f32) (local f32) (local.get 0))
+  (func $type-local-f64 (export "type-local-f64") (result f64) (local f64) (local.get 0))
 
-  (func (export "type-param-i32") (param i32) (result i32) (local.get 0))
-  (func (export "type-param-i64") (param i64) (result i64) (local.get 0))
-  (func (export "type-param-f32") (param f32) (result f32) (local.get 0))
-  (func (export "type-param-f64") (param f64) (result f64) (local.get 0))
+  (func $type-param-i32 (export "type-param-i32") (param i32) (result i32) (local.get 0))
+  (func $type-param-i64 (export "type-param-i64") (param i64) (result i64) (local.get 0))
+  (func $type-param-f32 (export "type-param-f32") (param f32) (result f32) (local.get 0))
+  (func $type-param-f64 (export "type-param-f64") (param f64) (result f64) (local.get 0))
 
   (func (export "type-mixed") (param i64 f32 f64 i32 i32)
     (local f32 i64 i64 f64)
@@ -23,6 +23,19 @@
     (drop (i64.eqz (local.get 6)))
     (drop (i64.eqz (local.get 7)))
     (drop (f64.neg (local.get 8)))
+  )
+
+  ;; ensure the full 64-bit local value is 0-initialized
+  ;; (similar to type-local-<x>64 but with added stack garbage)
+  (func (export "zero-init-f64") (result f64)
+    (f64.const 0xAAAAAAAAAAAAAAAA)
+    (drop)
+    (call $type-local-f64)
+  )
+  (func (export "zero-init-i64") (result i64)
+    (i64.const 0xAAAAAAAAAAAAAAAA)
+    (drop)
+    (call $type-local-i64)
   )
 
   ;; Reading

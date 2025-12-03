@@ -459,9 +459,9 @@ bool i_instr_tee_local(Module *m) {
 bool i_instr_get_global(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
 #if TRACE
-    debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
+    debug("      - arg: 0x%x, got %s\n", arg, value_repr(m->globals[arg]));
 #endif
-    m->stack[++m->sp] = m->globals[arg];
+    m->stack[++m->sp] = *m->globals[arg]->value;
     return true;
 }
 
@@ -470,7 +470,7 @@ bool i_instr_get_global(Module *m) {
  */
 bool i_instr_set_global(Module *m) {
     uint32_t arg = read_LEB_32(&m->pc_ptr);
-    m->globals[arg] = m->stack[m->sp--];
+    *m->globals[arg]->value = m->stack[m->sp--];
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->stack[m->sp + 1]));
 #endif
@@ -1265,6 +1265,31 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             return false;
     }
 
+    return true;
+}
+
+bool i_instr_extension(Module *m, uint8_t opcode) {
+    auto &v = m->stack[m->sp].value;
+
+    switch (opcode) {
+        case 0xc0:  // i32.extend8_s
+            v.int32 = static_cast<int8_t>(v.int32);
+            break;
+        case 0xc1:  // i32.extend16_s
+            v.int32 = static_cast<int16_t>(v.int32);
+            break;
+        case 0xc2:  // i64.extend8_s
+            v.int64 = static_cast<int8_t>(v.int64);
+            break;
+        case 0xc3:  // i64.extend16_s
+            v.int64 = static_cast<int16_t>(v.int64);
+            break;
+        case 0xc4:  // i64.extend32_s
+            v.int64 = static_cast<int32_t>(v.int64);
+            break;
+        default:
+            return false;
+    }
     return true;
 }
 

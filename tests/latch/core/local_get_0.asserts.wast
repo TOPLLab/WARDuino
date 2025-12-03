@@ -2,6 +2,8 @@
        (assert_return (invoke "type-local-i64") (i64.const 0))
        (assert_return (invoke "type-local-f32") (f32.const 0))
        (assert_return (invoke "type-local-f64") (f64.const 0))
+       (assert_return (invoke "zero-init-f64") (f64.const 0))
+       (assert_return (invoke "zero-init-i64") (i64.const 0))
        (assert_return (invoke "type-param-i32" (i32.const 2)) (i32.const 2))
        (assert_return (invoke "type-param-i64" (i64.const 3)) (i64.const 3))
        (assert_return (invoke "as-block-value" (i32.const 6)) (i32.const 6))

@@ -114,6 +114,8 @@ class WARDuino {
 
     uint32_t get_export_fidx(Module *m, const char *name);
 
+    uint32_t get_export_global_idx(Module *m, const char *name);
+
     void handleInterrupt(size_t len, uint8_t *buff) const;
 
     void instantiate_module(Module *m, uint8_t *bytes, uint32_t byte_count);
