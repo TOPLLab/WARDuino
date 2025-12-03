@@ -36,8 +36,7 @@ bool resolvesym(char *filename, char *symbol, uint8_t external_kind, void **val,
             }
             case 0x03:  // Global
             {
-                *err = (char *)"Unsupported type of import: global (0x03)";
-                return false;
+                return resolve_external_global(symbol, (Global **)val);
             }
             default:
                 *err = (char *)"Unsupported type of import";
@@ -295,6 +294,20 @@ uint32_t WARDuino::get_export_fidx(Module *m, const char *name) {
     return static_cast<uint32_t>(-1);
 }
 
+uint32_t WARDuino::get_export_global_idx(Module *m, const char *name) {
+    // Find name global index
+    for (uint32_t g = 0; g < m->global_count; g++) {
+        char *gname = m->globals[g]->export_name;
+        if (!gname) {
+            continue;
+        }
+        if (strncmp(name, gname, 1024) == 0) {
+            return g;
+        }
+    }
+    return static_cast<uint32_t>(-1);
+}
+
 void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                   uint32_t byte_count) {
     uint32_t word;
@@ -539,33 +552,22 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         }
                         case 0x03:  // Global
                         {
+                            auto *gval = (Global *)val;
+                            ASSERT(gval->mutability == mutability,
+                                   "Imported global mutability mismatch:\n");
+                            ASSERT(gval->value->value_type == content_type,
+                                   "Imported global type mismatch\n");
                             m->global_count += 1;
-                            m->globals = (StackValue *)arecalloc(
+                            m->globals = (Global **)arecalloc(
                                 m->globals, m->global_count - 1,
-                                m->global_count, sizeof(StackValue), "globals");
-                            StackValue *glob = &m->globals[m->global_count - 1];
-                            glob->value_type = content_type;
-
-                            switch (
-                                content_type) {  // NOLINT(hicpp-multiway-paths-covered)
-                                case I32:
-                                    memcpy(&glob->value.uint32, val, 4);
-                                    break;
-                                case I64:
-                                    memcpy(&glob->value.uint64, val, 8);
-                                    break;
-                                case F32:
-                                    memcpy(&glob->value.f32, val, 4);
-                                    break;
-                                case F64:
-                                    memcpy(&glob->value.f64, val, 8);
-                                    break;
-                            }
+                                m->global_count, sizeof(Global *), "globals");
+                            Global **glob = &m->globals[m->global_count - 1];
+                            *glob = gval;
                             debug(
                                 "    setting global %d (content_type %d) to "
                                 "%p: %s\n",
                                 m->global_count - 1, content_type, val,
-                                value_repr(glob));
+                                value_repr(*glob));
                             break;
                         }
                         default:
@@ -634,20 +636,23 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 for (uint32_t g = 0; g < global_count; g++) {
                     // Same allocation Import of global above
                     uint8_t type = read_LEB(&pos, 7);
-                    // TODO: use mutability
                     uint8_t mutability = read_LEB(&pos, 1);
                     (void)mutability;
                     uint32_t gidx = m->global_count;
                     m->global_count += 1;
-                    m->globals = (StackValue *)arecalloc(
-                        m->globals, gidx, m->global_count, sizeof(StackValue),
-                        "globals");
-                    m->globals[gidx].value_type = type;
+                    m->globals =
+                        (Global **)arecalloc(m->globals, gidx, m->global_count,
+                                             sizeof(Global *), "globals");
+                    m->globals[gidx] =
+                        (Global *)acalloc(1, sizeof(Global), "globals");
+                    m->globals[gidx]->value =
+                        (StackValue *)acalloc(1, sizeof(StackValue), "globals");
 
                     // Run the init_expr to get global value
                     run_init_expr(m, type, &pos);
 
-                    m->globals[gidx] = m->stack[m->sp--];
+                    *(m->globals[gidx]->value) = m->stack[m->sp--];
+                    m->globals[gidx]->mutability = mutability;
                 }
                 pos = start_pos + section_len;
                 break;
@@ -658,18 +663,21 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 uint32_t export_count = read_LEB_32(&pos);
                 for (uint32_t e = 0; e < export_count; e++) {
                     char *name = read_string(&pos, nullptr);
-
                     uint32_t kind = *(pos++);  // read and move pos
                     uint32_t index = read_LEB_32(&pos);
-                    if (kind != 0x00) {
-                        dbg_warn(
-                            "  ignoring non-function export '%s'"
-                            " kind 0x%x index 0x%x\n",
-                            name, kind, index);
-                        continue;
+                    switch (kind) {
+                        case 0x00:
+                            m->functions[index].export_name = name;
+                            break;
+                        case 0x03:
+                            m->globals[index]->export_name = name;
+                            break;
+                        default:
+                            dbg_warn(
+                                "  ignoring non-function export '%s'"
+                                " kind 0x%x index 0x%x\n",
+                                name, kind, index);
                     }
-                    m->functions[index].export_name = name;
-                    debug("  export: %s (0x%x)\n", name, index);
                 }
                 break;
             }

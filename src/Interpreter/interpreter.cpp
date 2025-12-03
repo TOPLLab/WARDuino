@@ -436,6 +436,11 @@ bool Interpreter::interpret(Module *m, bool waiting) {
                 success &= i_instr_conversion(m, opcode);
                 continue;
 
+                // extension operations
+            case 0xc0 ... 0xc4:
+                success &= i_instr_extension(m, opcode);
+                continue;
+
                 // callback operations
             case 0xe0 ... 0xe3:
                 success &= i_instr_callback(m, opcode);
