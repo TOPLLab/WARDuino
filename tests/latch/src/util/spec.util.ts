@@ -77,10 +77,14 @@ function consume(input: string, cursor: number, regex: RegExp = / /d): number {
     return (match?.indices[0][1]) ?? 0;
 }
 
+function shouldParseLine(input: string): boolean {
+    return input.includes('(assert_return') && !input.replace(/\s+/g, '').startsWith(';;');
+}
+
 export function parseAsserts(file: string): string[] {
     const asserts: string[] = [];
     readFileSync(file).toString().split('\n').forEach((line) => {
-        if (line.includes('(assert_return')) {
+        if (shouldParseLine(line)) {
             asserts.push(line.replace(/.*\(assert_return\s*/, '('));
         }
     });

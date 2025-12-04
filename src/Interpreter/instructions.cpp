@@ -500,9 +500,9 @@ bool i_instr_get_global(Module *m) {
     ExecutionContext *ectx = m->warduino->execution_context;
     int32_t arg = read_LEB_32(&ectx->pc_ptr);
 #if TRACE
-    debug("      - arg: 0x%x, got %s\n", arg, value_repr(&m->globals[arg]));
+    debug("      - arg: 0x%x, got %s\n", arg, value_repr(m->globals[arg]));
 #endif
-    ectx->stack[++ectx->sp] = m->globals[arg];
+    ectx->stack[++ectx->sp] = *m->globals[arg]->value;
     return true;
 }
 
@@ -512,7 +512,7 @@ bool i_instr_get_global(Module *m) {
 bool i_instr_set_global(Module *m) {
     ExecutionContext *ectx = m->warduino->execution_context;
     uint32_t arg = read_LEB_32(&ectx->pc_ptr);
-    m->globals[arg] = ectx->stack[ectx->sp--];
+    *m->globals[arg]->value = ectx->stack[ectx->sp--];
 #if TRACE
     debug("      - arg: 0x%x, got %s\n", arg,
           value_repr(&ectx->stack[ectx->sp + 1]));
@@ -1349,6 +1349,31 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
             return false;
     }
 
+    return true;
+}
+
+bool i_instr_extension(Module *m, uint8_t opcode) {
+    auto &v = m->stack[m->sp].value;
+
+    switch (opcode) {
+        case 0xc0:  // i32.extend8_s
+            v.int32 = static_cast<int8_t>(v.int32);
+            break;
+        case 0xc1:  // i32.extend16_s
+            v.int32 = static_cast<int16_t>(v.int32);
+            break;
+        case 0xc2:  // i64.extend8_s
+            v.int64 = static_cast<int8_t>(v.int64);
+            break;
+        case 0xc3:  // i64.extend16_s
+            v.int64 = static_cast<int16_t>(v.int64);
+            break;
+        case 0xc4:  // i64.extend32_s
+            v.int64 = static_cast<int32_t>(v.int64);
+            break;
+        default:
+            return false;
+    }
     return true;
 }
 

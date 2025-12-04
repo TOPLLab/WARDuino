@@ -85,6 +85,14 @@ typedef struct Memory {
     bool imported = false;     // whether the memory is imported/shared
 } Memory;
 
+typedef struct Global {
+    char *export_name;    // export name of the global
+    char *import_module;  // import module name
+    char *import_field;   // import field name
+    bool mutability;      // 0: immutable, 1: mutable
+    StackValue *value;    // current value
+} Global;
+
 typedef struct Options {
     // when true: host memory addresses will be outside allocated memory area
     // so do not do bounds checking
@@ -133,8 +141,16 @@ typedef struct Module {
     uint32_t start_function = -1;  // function to run on module load
     Table table;
     Memory memory;
-    uint32_t global_count = 0;      // number of globals
-    StackValue *globals = nullptr;  // globals
+    uint32_t global_count = 0;   // number of globals
+    Global **globals = nullptr;  // globals
+    // Runtime state
+    uint8_t *pc_ptr = nullptr;     // program counter
+    int sp = -1;                   // operand stack pointer
+    int fp = -1;                   // current frame pointer into stack
+    StackValue *stack = nullptr;   // main operand stack
+    int csp = -1;                  // callstack pointer
+    Frame *callstack = nullptr;    // callstack
+    uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
 } Module;
