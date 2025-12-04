@@ -11,7 +11,6 @@
 #endif
 
 #include "../Memory/mem.h"
-#include "../Primitives/primitives.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 #include "../WARDuino/CallbackHandler.h"
@@ -922,7 +921,8 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 this->channel->write("%s", addComma ? "," : "");
                 this->channel->write("\"io\": [");
                 bool comma = false;
-                std::vector<IOStateElement *> external_state = get_io_state(m);
+                std::vector<IOStateElement *> external_state =
+                    m->warduino->interpreter->get_io_state(m);
                 for (auto state_elem : external_state) {
                     this->channel->write("%s{", comma ? ", " : "");
                     this->channel->write(
@@ -1383,7 +1383,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                           state_elem.output ? "output" : "input",
                           state_elem.value);
                 }
-                restore_external_state(m, external_state);
+                m->warduino->interpreter->restore_external_state(
+                    m, external_state);
                 break;
             }
             case overridesState: {
