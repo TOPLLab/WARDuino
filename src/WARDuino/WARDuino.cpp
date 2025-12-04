@@ -412,7 +412,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                           import_field);
 
                     uint32_t type_index = 0, fidx;
-                    uint8_t content_type = 0, mutability;
+                    uint8_t content_type = 0, mutability = 0;
 
                     switch (
                         external_kind) {  // NOLINT(hicpp-multiway-paths-covered)
@@ -427,9 +427,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             break;
                         case 0x03:  // Global
                             content_type = read_LEB(&pos, 7);
-                            // TODO: use mutability
                             mutability = read_LEB(&pos, 1);
-                            (void)mutability;
                             break;
                     }
 
