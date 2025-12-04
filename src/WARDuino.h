@@ -60,7 +60,9 @@ class WARDuino {
     void update_module(Module *old_module, uint8_t *wasm, uint32_t wasm_len);
 
     bool invoke(Module *m, uint32_t fidx, uint32_t arity = 0,
-                StackValue *args = nullptr);
+                StackValue *args = nullptr, uint32_t max_results = 0,
+                StackValue *out_results = nullptr,
+                uint32_t *out_result_count = nullptr);
 
     uint32_t get_export_fidx(Module *m, const char *name);
 
