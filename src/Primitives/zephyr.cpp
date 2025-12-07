@@ -15,6 +15,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/devicetree/gpio.h>
 #include <zephyr/drivers/adc.h>
+#include <zephyr/drivers/display.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/kernel.h>
@@ -377,6 +378,59 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
 
 #endif
 
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
+void draw_rect(const device *display_dev, int xpos, int ypos, int w, int h,
+               uint64_t color) {
+    struct display_buffer_descriptor new_buf_desc;
+    new_buf_desc.width = w;
+    new_buf_desc.height = h;
+    new_buf_desc.buf_size = new_buf_desc.width * new_buf_desc.height;
+    new_buf_desc.pitch = new_buf_desc.width;
+    new_buf_desc.frame_incomplete = false;
+    uint16_t *new_buf = static_cast<uint16_t *>(
+        malloc(sizeof(uint16_t) * new_buf_desc.buf_size));  // 16 bit color
+    for (int y = 0; y < new_buf_desc.height; y++) {
+        for (int x = 0; x < new_buf_desc.width; x++) {
+            new_buf[y * new_buf_desc.width + x] = color;
+        }
+    }
+    display_write(display_dev, xpos, ypos, &new_buf_desc, new_buf);
+    free(new_buf);
+}
+
+const device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+
+def_prim(init_display, NoneToNoneU32) {
+    struct display_capabilities capabilities;
+
+    if (!device_is_ready(display_dev)) {
+        printf("Device %s not found. Aborting sample.", display_dev->name);
+        return false;
+    }
+
+    printf("Display sample for %s", display_dev->name);
+    display_get_capabilities(display_dev, &capabilities);
+
+    printf("w = %d, h = %d\n", capabilities.x_resolution,
+           capabilities.y_resolution);
+
+    // Fill display in steps so we don't fill up memory with a huge framebuffer.
+    for (int x = 0; x < capabilities.x_resolution; x++) {
+        draw_rect(display_dev, x, 0, 1, capabilities.y_resolution, 0xffff);
+    }
+    // display_clear(display_dev);
+    display_blanking_off(display_dev);
+    return true;
+}
+
+def_prim(draw_rect, fiveToNoneU32) {
+    draw_rect(display_dev, arg4.int32, arg3.int32, arg2.int32, arg1.int32,
+              arg0.uint32);
+    pop_args(4);
+    return true;
+}
+#endif
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -404,6 +458,11 @@ void install_primitives(Interpreter *interpreter) {
 
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(500), K_MSEC(500));
+#endif
+
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
+    install_primitive(init_display);
+    install_primitive(draw_rect);
 #endif
 }
 

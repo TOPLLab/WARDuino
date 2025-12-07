@@ -131,6 +131,7 @@ inline uint32_t param_I32_arr_len1[1] = {I32};
 inline uint32_t param_I32_arr_len2[2] = {I32, I32};
 inline uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
 inline uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
+inline uint32_t param_I32_arr_len5[5] = {I32, I32, I32, I32, I32};
 inline uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
                                            I32, I32, I32, I32, I32};
 inline uint32_t param_I64_arr_len1[1] = {I64};
@@ -170,6 +171,16 @@ inline Type fourToNoneU32 = {
     .results = nullptr,
     .mask =
         0x8001111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
+};
+
+inline Type fiveToNoneU32 = {
+    .form = FUNC,
+    .param_count = 5,
+    .params = param_I32_arr_len5,
+    .result_count = 0,
+    .results = nullptr,
+    .mask = 0x80011111 /* 0x800 = no return ; 1 = I32 ; 1 = I32; 1 = I32; 1 =
+                          I32; 1 = I32*/
 };
 
 inline Type oneToOneU32 = {
