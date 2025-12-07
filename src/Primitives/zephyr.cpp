@@ -380,7 +380,7 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
 void draw_rect(const device *display_dev, int xpos, int ypos, int w, int h,
-               uint64_t color) {
+               uint16_t color) {
     struct display_buffer_descriptor new_buf_desc;
     new_buf_desc.width = w;
     new_buf_desc.height = h;
@@ -400,7 +400,7 @@ void draw_rect(const device *display_dev, int xpos, int ypos, int w, int h,
 
 const device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
 
-def_prim(init_display, NoneToNoneU32) {
+def_prim(display_setup, NoneToNoneU32) {
     struct display_capabilities capabilities;
 
     if (!device_is_ready(display_dev)) {
@@ -408,11 +408,12 @@ def_prim(init_display, NoneToNoneU32) {
         return false;
     }
 
-    printf("Display sample for %s", display_dev->name);
+    printf("Display setup for %s ", display_dev->name);
     display_get_capabilities(display_dev, &capabilities);
 
     printf("w = %d, h = %d\n", capabilities.x_resolution,
            capabilities.y_resolution);
+    printf("Display color format %d\n", capabilities.current_pixel_format);
 
     // Fill display in steps so we don't fill up memory with a huge framebuffer.
     for (int x = 0; x < capabilities.x_resolution; x++) {
@@ -423,7 +424,7 @@ def_prim(init_display, NoneToNoneU32) {
     return true;
 }
 
-def_prim(draw_rect, fiveToNoneU32) {
+def_prim(display_fillrect, fiveToNoneU32) {
     draw_rect(display_dev, arg4.int32, arg3.int32, arg2.int32, arg1.int32,
               arg0.uint32);
     pop_args(5);
@@ -461,8 +462,8 @@ void install_primitives(Interpreter *interpreter) {
 #endif
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
-    install_primitive(init_display);
-    install_primitive(draw_rect);
+    install_primitive(display_setup);
+    install_primitive(display_fillrect);
 #endif
 }
 
