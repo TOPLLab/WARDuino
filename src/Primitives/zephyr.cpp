@@ -426,7 +426,7 @@ def_prim(init_display, NoneToNoneU32) {
 def_prim(draw_rect, fiveToNoneU32) {
     draw_rect(display_dev, arg4.int32, arg3.int32, arg2.int32, arg1.int32,
               arg0.uint32);
-    pop_args(4);
+    pop_args(5);
     return true;
 }
 #endif
