@@ -327,6 +327,10 @@ bool i_instr_call(Module *m) {
                     m->warduino->interpreter->setup_call(target, target_fidx);
                     return true;
                 }
+            } else {
+                sprintf(exception, "import module %s not found",
+                        func->import_module);
+                return false;
             }
         }
 
