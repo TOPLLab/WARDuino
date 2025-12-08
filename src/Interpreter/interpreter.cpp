@@ -221,7 +221,6 @@ bool Interpreter::interpret(Module *m, bool waiting) {
     bool program_done = false;
 
     while ((!program_done && success) || waiting) {
-
         m = ectx->current_module;
 
         if (m->warduino->program_state == WARDUINOstep) {

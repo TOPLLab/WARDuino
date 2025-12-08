@@ -1359,7 +1359,6 @@ bool i_instr_conversion(Module *m, uint8_t opcode) {
 bool i_instr_extension(Module *m, uint8_t opcode) {
     ExecutionContext *ectx = m->warduino->execution_context;
     auto &v = ectx->stack[ectx->sp].value;
-    printf("Testing; extension opcode 0x%02x\n", opcode);
 
     switch (opcode) {
         case 0xc0:  // i32.extend8_s
