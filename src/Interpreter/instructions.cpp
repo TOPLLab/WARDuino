@@ -353,8 +353,7 @@ bool i_instr_call(Module *m) {
  */
 bool i_instr_call_indirect(Module *m) {
     ExecutionContext *ectx = m->warduino->execution_context;
-    uint32_t tidx = read_LEB_32(&ectx->pc_ptr);  // TODO: use tidx?
-    (void)tidx;
+    uint32_t tidx = read_LEB_32(&ectx->pc_ptr);
     read_LEB_32(&ectx->pc_ptr);  // reserved immediate
     uint32_t val = ectx->stack[ectx->sp--].value.uint32;
     if (m->options.mangle_table_index) {
@@ -376,15 +375,20 @@ bool i_instr_call_indirect(Module *m) {
     }
 
     uint32_t fidx = m->table.entries[val];
+
+    Module *target_module = m;
+    if (m->table.imported && m->table.owner != nullptr) {
+        target_module = m->table.owner;
+    }
 #if TRACE
     debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx, val,
           fidx);
 #endif
 
-    if (fidx < m->import_count) {
+    if (fidx < target_module->import_count) {
         // THUNK thunk_out(m, fidx);    // import/thunk call
     } else {
-        Block *func = &m->functions[fidx];
+        Block *func = &target_module->functions[fidx];
         Type *ftype = func->type;
 
         if (ectx->csp >= CALLSTACK_SIZE) {
@@ -398,7 +402,11 @@ bool i_instr_call_indirect(Module *m) {
             return false;
         }
 
-        m->warduino->interpreter->setup_call(m, fidx);  // regular function call
+        if (target_module != m) {
+            m->warduino->switch_to_module(target_module);
+        }
+
+        m->warduino->interpreter->setup_call(target_module, fidx);  // regular function call
 
         // Validate signatures match
         if ((int)(ftype->param_count + func->local_count) !=

@@ -74,7 +74,8 @@ typedef struct Table {
     uint32_t maximum = 0;   // maximum table size
     uint32_t size = 0;      // current table size
     uint32_t *entries = nullptr;
-    bool imported = false;  // whether the table is imported/shared
+    bool imported = false;           // whether the table is imported/shared
+    struct Module *owner = nullptr;  // module that owns the table
 } Table;
 
 typedef struct Memory {

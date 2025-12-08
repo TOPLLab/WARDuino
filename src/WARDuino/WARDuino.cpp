@@ -548,6 +548,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                 m->table.entries = shared_table->entries;
                                 m->table.size = shared_table->size;
                                 m->table.maximum = shared_table->maximum;
+                                m->table.owner = shared_table->owner;
                                 // We share the underlying array
                             } else {
                                 ASSERT(!m->table.entries,
@@ -654,6 +655,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 m->options.mangle_table_index = false;
                 m->table.entries = (uint32_t *)acalloc(
                     m->table.size, sizeof(uint32_t), "Module->table.entries");
+                m->table.owner = m;
                 //}
                 break;
             }
