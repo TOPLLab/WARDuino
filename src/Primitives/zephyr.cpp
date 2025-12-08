@@ -398,6 +398,29 @@ void draw_rect(const device *display_dev, int xpos, int ypos, int w, int h,
     free(new_buf);
 }
 
+#include "vgafont.h"
+
+void draw_char(const device *display_dev, int xpos, int ypos, char c,
+               uint16_t foreground, uint16_t background) {
+    struct display_buffer_descriptor new_buf_desc;
+    new_buf_desc.width = 8;
+    new_buf_desc.height = 16;
+    new_buf_desc.buf_size = new_buf_desc.width * new_buf_desc.height;
+    new_buf_desc.pitch = new_buf_desc.width;
+    new_buf_desc.frame_incomplete = false;
+    uint16_t *new_buf = static_cast<uint16_t *>(
+        malloc(sizeof(uint16_t) * new_buf_desc.buf_size));  // 16 bit color
+    for (int y = 0; y < new_buf_desc.height; y++) {
+        for (int x = 0; x < new_buf_desc.width; x++) {
+            new_buf[y * new_buf_desc.width + x] =
+                (font16[16 * c + y] >> (8 - x)) & 0b1 == 1 ? foreground
+                                                           : background;
+        }
+    }
+    display_write(display_dev, xpos, ypos, &new_buf_desc, new_buf);
+    free(new_buf);
+}
+
 const device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
 
 def_prim(display_setup, NoneToNoneU32) {
@@ -417,17 +440,29 @@ def_prim(display_setup, NoneToNoneU32) {
 
     // Fill display in steps so we don't fill up memory with a huge framebuffer.
     for (int x = 0; x < capabilities.x_resolution; x++) {
-        draw_rect(display_dev, x, 0, 1, capabilities.y_resolution, 0xffff);
+        draw_rect(display_dev, x, 0, 1, capabilities.y_resolution, 0x0000);
     }
     // display_clear(display_dev);
     display_blanking_off(display_dev);
     return true;
 }
 
-def_prim(display_fillrect, fiveToNoneU32) {
+def_prim(display_fill_rect, fiveToNoneU32) {
     draw_rect(display_dev, arg4.int32, arg3.int32, arg2.int32, arg1.int32,
               arg0.uint32);
     pop_args(5);
+    return true;
+}
+
+def_prim(display_draw_string, sixToNoneU32) {
+    uint32_t addr = arg3.uint32;
+    uint32_t size = arg2.uint32;
+    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    for (int i = 0; i < text.length(); i++) {
+        draw_char(display_dev, arg5.int32 + i * 8, arg4.int32, text[i],
+                  arg1.uint32, arg0.uint32);
+    }
+    pop_args(6);
     return true;
 }
 #endif
@@ -463,7 +498,8 @@ void install_primitives(Interpreter *interpreter) {
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
     install_primitive(display_setup);
-    install_primitive(display_fillrect);
+    install_primitive(display_fill_rect);
+    install_primitive(display_draw_string);
 #endif
 }
 
