@@ -447,6 +447,20 @@ def_prim(display_setup, NoneToNoneU32) {
     return true;
 }
 
+def_prim(display_width, NoneToOneU32) {
+    display_capabilities capabilities;
+    display_get_capabilities(display_dev, &capabilities);
+    pushUInt32(capabilities.x_resolution);
+    return true;
+}
+
+def_prim(display_height, NoneToOneU32) {
+    display_capabilities capabilities;
+    display_get_capabilities(display_dev, &capabilities);
+    pushUInt32(capabilities.y_resolution);
+    return true;
+}
+
 def_prim(display_fill_rect, fiveToNoneU32) {
     draw_rect(display_dev, arg4.int32, arg3.int32, arg2.int32, arg1.int32,
               arg0.uint32);
@@ -498,6 +512,8 @@ void install_primitives(Interpreter *interpreter) {
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
     install_primitive(display_setup);
+    install_primitive(display_width);
+    install_primitive(display_height);
     install_primitive(display_fill_rect);
     install_primitive(display_draw_string);
 #endif
