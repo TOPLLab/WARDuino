@@ -406,7 +406,8 @@ bool i_instr_call_indirect(Module *m) {
             m->warduino->switch_to_module(target_module);
         }
 
-        m->warduino->interpreter->setup_call(target_module, fidx);  // regular function call
+        m->warduino->interpreter->setup_call(target_module,
+                                             fidx);  // regular function call
 
         // Validate signatures match
         if ((int)(ftype->param_count + func->local_count) !=
