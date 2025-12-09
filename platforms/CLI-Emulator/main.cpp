@@ -295,16 +295,6 @@ int main(int argc, const char *argv[]) {
     const char *invoke_fname = nullptr;
     std::vector<const char *> invoke_raw_args;
 
-    // First, check for help/version before parsing other args
-    if (argc > 0 && (!strcmp(argv[0], "--help") || !strcmp(argv[0], "-h"))) {
-        print_help();
-        return 0;
-    }
-    if (argc > 0 && !strcmp(argv[0], "--version")) {
-        print_version();
-        return 0;
-    }
-
     // Parse main module (first positional argument)
     if (argc > 0 && argv[0][0] != '-') {
         main_module = argv[0];
@@ -323,7 +313,7 @@ int main(int argc, const char *argv[]) {
             print_help();
             return 0;
         } else if (!strcmp("--link", arg)) {
-            const char *link_file;
+            const char *link_file = nullptr;
             ARGV_GET(link_file);
             if (link_file) {
                 linked_modules.push_back(link_file);
