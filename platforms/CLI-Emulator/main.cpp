@@ -42,8 +42,15 @@ void print_help() {
     print_version();
     fprintf(stdout, "\n");
     fprintf(stdout, "Usage:\n");
-    fprintf(stdout, "    wdcli <file> [options]\n");
+    fprintf(stdout, "    wdcli <main-module> [options]\n");
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Arguments:\n");
+    fprintf(stdout, "    <main-module>  Main WebAssembly module to execute\n");
+    fprintf(stdout, "\n");
     fprintf(stdout, "Options:\n");
+    fprintf(stdout,
+            "    --link <file>  Link additional module(s) (can be specified "
+            "multiple times)\n");
     fprintf(stdout,
             "    --loop         Let the runtime loop infinitely on exceptions "
             "(default: false)\n");
@@ -71,6 +78,7 @@ void print_help() {
             "(default: interpreter)\n");
     fprintf(stdout, "    --invoke       Invoke a function from the module\n");
     fprintf(stdout, "    --version      Get version information\n");
+    fprintf(stdout, "    --help         Show this help message\n");
 }
 
 std::string getModuleName(const char *path) {
@@ -277,7 +285,8 @@ int main(int argc, const char *argv[]) {
     bool no_socket = false;
     const char *socket = "8192";
     bool initiallyPaused = false;
-    std::vector<const char *> input_files;
+    const char *main_module = nullptr;
+    std::vector<const char *> linked_modules;
     const char *proxy = nullptr;
     const char *baudrate = nullptr;
     const char *mode = "interpreter";
@@ -286,23 +295,42 @@ int main(int argc, const char *argv[]) {
     const char *invoke_fname = nullptr;
     std::vector<const char *> invoke_raw_args;
 
+    // First, check for help/version before parsing other args
+    if (argc > 0 && (!strcmp(argv[0], "--help") || !strcmp(argv[0], "-h"))) {
+        print_help();
+        return 0;
+    }
+    if (argc > 0 && !strcmp(argv[0], "--version")) {
+        print_version();
+        return 0;
+    }
+
+    // Parse main module (first positional argument)
+    if (argc > 0 && argv[0][0] != '-') {
+        main_module = argv[0];
+        ARGV_SHIFT();
+    }
+
+    // Parse options
     while (argc > 0) {
         const char *arg = argv[0];
-
-        if (arg[0] != '-') {
-            // input file
-            input_files.push_back(arg);
-            ARGV_SHIFT();
-            continue;
-        }
 
         ARGV_SHIFT();
         if (!strcmp("--version", arg)) {
             print_version();
             return 0;
-        } else if (!strcmp("--help", arg)) {
+        } else if (!strcmp("--help", arg) || !strcmp("-h", arg)) {
             print_help();
             return 0;
+        } else if (!strcmp("--link", arg)) {
+            const char *link_file;
+            ARGV_GET(link_file);
+            if (link_file) {
+                linked_modules.push_back(link_file);
+            } else {
+                fprintf(stderr, "wdcli: --link requires a file argument\n");
+                return 1;
+            }
         } else if (!strcmp("--loop", arg)) {
             return_exception = false;
         } else if (!strcmp("--no-debug", arg)) {
@@ -329,18 +357,24 @@ int main(int argc, const char *argv[]) {
             }
         } else if (!strcmp("--dump-info", arg)) {
             dump_info = true;
+        } else {
+            fprintf(stderr, "wdcli: unknown option '%s'\n", arg);
+            fprintf(stderr, "Try 'wdcli --help' for more information.\n");
+            return 1;
         }
     }
 
-    if (input_files.empty()) {
-        print_help();
+    if (main_module == nullptr) {
+        fprintf(stderr, "wdcli: no main module specified\n");
+        fprintf(stderr, "Usage: wdcli <main-module> [options]\n");
+        fprintf(stderr, "Try 'wdcli --help' for more information.\n");
         return 1;
     }
 
     dbg_info("=== LOAD MODULES INTO WARDUINO ===\n");
     std::vector<Module *> loaded_modules;
 
-    for (const char *file_path : input_files) {
+    for (const char *file_path : linked_modules) {
         std::string modName = getModuleName(file_path);
         Module *new_mod = load(wac, file_path, modName.c_str(),
                                {.disable_memory_bounds = false,
@@ -351,10 +385,30 @@ int main(int argc, const char *argv[]) {
         if (new_mod) {
             new_mod->warduino = wac;
             loaded_modules.push_back(new_mod);
-            m = new_mod;  // last loaded module is the active one
+            dbg_info("  Loaded linked module: %s\n", modName.c_str());
         } else {
+            fprintf(stderr, "wdcli: failed to load linked module '%s'\n",
+                    file_path);
             return 1;
         }
+    }
+
+    // Load main module last
+    std::string mainModName = getModuleName(main_module);
+    m = load(wac, main_module, mainModName.c_str(),
+             {.disable_memory_bounds = false,
+              .mangle_table_index = false,
+              .dlsym_trim_underscore = false,
+              .return_exception = return_exception});
+
+    if (m) {
+        m->warduino = wac;
+        loaded_modules.push_back(m);
+        dbg_info("  Loaded main module: %s\n", mainModName.c_str());
+    } else {
+        fprintf(stderr, "wdcli: failed to load main module '%s'\n",
+                main_module);
+        return 1;
     }
 
     std::vector<StackValue> parsed_args;
