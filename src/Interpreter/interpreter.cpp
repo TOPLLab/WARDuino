@@ -74,8 +74,11 @@ Block *Interpreter::pop_block(Module *m) {
         // Function, set pc to return address
         ectx->pc_ptr = frame->ra_ptr;
 
-        if (frame->module != m) {
-            m->warduino->switch_to_module(frame->module);
+        if (ectx->csp >= 0) {
+            Module *caller_module = ectx->callstack[ectx->csp].module;
+            if (caller_module != m) {
+                m->warduino->switch_to_module(caller_module);
+            }
         }
     }
 
