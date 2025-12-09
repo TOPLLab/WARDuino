@@ -19,6 +19,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/kernel.h>
+#include <zephyr/random/random.h>
 #include <zephyr/sys/util_macro.h>
 
 #include <chrono>
@@ -120,6 +121,16 @@ def_prim(chip_digital_read, oneToOneU32) {
     uint8_t res = gpio_pin_get_raw(pin_spec.port, pin_spec.pin);
     pop_args(1);
     pushUInt32(res);
+    return true;
+}
+
+def_prim(millis, NoneToOneU32) {
+    pushInt32(k_uptime_get());
+    return true;
+}
+
+def_prim(random_int, NoneToOneU32) {
+    pushInt32(sys_rand32_get());
     return true;
 }
 
@@ -490,6 +501,8 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(chip_pin_mode);
     install_reversible_primitive(chip_digital_write);
     install_primitive(chip_digital_read);
+    install_primitive(millis);
+    install_primitive(random_int);
     install_primitive(print_string);
     install_primitive(print_int);
     install_primitive(abort);
