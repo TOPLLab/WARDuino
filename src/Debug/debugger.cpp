@@ -366,7 +366,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         default:
-            // If it is not an existing debug operation it could be implemented reflectively, if not the VM will print an error.
+            // If it is not an existing debug operation it could be implemented
+            // reflectively, if not the VM will print an error.
             if (callbacks.find(*interruptData) == callbacks.end()) {
                 this->channel->write("COULD not parse interrupt data!\n");
                 free(interruptData);
@@ -1644,7 +1645,8 @@ Debugger::~Debugger() {
     delete this->supervisor;
 }
 
-std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
+std::optional<uint32_t> Debugger::isPrimitiveBeingCalled(Module *m,
+                                                         uint8_t *pc_ptr) {
     if (!pc_ptr) {
         return {};
     }
@@ -1696,10 +1698,10 @@ void Debugger::addCallback(uint8_t interrupt, uint32_t fidx) {
 void Debugger::handleCallbacks(Module *m, uint8_t interrupt, uint8_t *data) {
     auto result = callbacks.find(interrupt);
     if (result != callbacks.end()) {
-        std::set<uint32_t > &callBackFidxs = result->second;
+        std::set<uint32_t> &callBackFidxs = result->second;
         for (uint32_t tidx : callBackFidxs) {
             // Run primitive
-            //printf("Invoke debugger callback %d\n", tidx);
+            // printf("Invoke debugger callback %d\n", tidx);
             uint32_t fidx = m->table.entries[tidx];
 
             RunningState old_rs = m->warduino->program_state;
@@ -1711,8 +1713,10 @@ void Debugger::handleCallbacks(Module *m, uint8_t interrupt, uint8_t *data) {
             m->csp = -1;
             m->warduino->interpreter->setup_call(m, fidx);
             printf("m->pc_ptr = %p\n", m->pc_ptr);
-            //handleInterruptRUN(m, &m->warduino->program_state); // Maybe not ideal since this also prints GO and such...
-            // In this mode the debugger does not process messages, but this also means we can't debug the callbacks anymore.
+            //handleInterruptRUN(m, &m->warduino->program_state); // Maybe not
+            ideal since this also prints GO and such...
+            // In this mode the debugger does not process messages, but this
+            also means we can't debug the callbacks anymore.
             m->warduino->program_state = WARDUINOinit;
             bool success = m->warduino->interpreter->interpret(m);
             ASSERT(success, "Failed to run callback.");
@@ -1745,8 +1749,8 @@ void Debugger::handleCallbacks(Module *m, uint8_t interrupt, uint8_t *data) {
             callbackModule.fp = m->fp;
             callbackModule.stack = m->stack;
             callbackModule.csp = -1;
-            callbackModule.callstack = static_cast<Frame*>(
-                calloc(CALLSTACK_SIZE, sizeof(Frame)));
+            callbackModule.callstack =
+                static_cast<Frame *>(calloc(CALLSTACK_SIZE, sizeof(Frame)));
             callbackModule.br_table = static_cast<uint32_t *>(
                 calloc(BR_TABLE_SIZE, sizeof(uint32_t)));
             callbackModule.exception = nullptr;
@@ -1754,18 +1758,22 @@ void Debugger::handleCallbacks(Module *m, uint8_t interrupt, uint8_t *data) {
 
             m->warduino->program_state = WARDUINOinit;
             callbackModule.stack[++callbackModule.sp].value_type = I64;
-            // This works but is not ideal since it allows direct memory access into the interpreter, perhaps a separate memory segment could be used.
-            callbackModule.stack[callbackModule.sp].value.uint64 = reinterpret_cast<uint64_t>(data);
+            // This works but is not ideal since it allows direct memory access
+            // into the interpreter, perhaps a separate memory segment could be
+            // used.
+            callbackModule.stack[callbackModule.sp].value.uint64 =
+                reinterpret_cast<uint64_t>(data);
             m->warduino->interpreter->setup_call(&callbackModule, fidx);
-            //printf("m->pc_ptr = %p\n", callbackModule.pc_ptr);
+            // printf("m->pc_ptr = %p\n", callbackModule.pc_ptr);
             bool success = m->warduino->interpreter->interpret(&callbackModule);
             ASSERT(success, "Failed to run callback.");
             free(callbackModule.callstack);
             free(callbackModule.br_table);
             m->warduino->program_state = old_rs;
 
-            // Memory can grow in the callback, since the old pointer is still in module m,
-            // that one gets used after freeing it. As such we should update the pointer.
+            // Memory can grow in the callback, since the old pointer is still
+            // in module m, that one gets used after freeing it. As such we
+            // should update the pointer.
             m->memory = callbackModule.memory;
         }
     }

@@ -472,7 +472,8 @@ def_prim(add_debug_callback, twoToNoneU32) {
         return false;
     }
 
-    printf("Register debugger callback on interrupt %d, tidx %d\n", arg1.uint32, tidx);
+    printf("Register debugger callback on interrupt %d, tidx %d\n", arg1.uint32,
+           tidx);
     m->warduino->debugger->addCallback(arg1.uint32, tidx);
     pop_args(2);
     return true;
@@ -482,7 +483,8 @@ def_prim(add_debug_message, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
     std::string text = parse_utf8_string(m->memory.bytes, size, addr) + "\n";
-    m->warduino->debugger->addDebugMessage(text.length(), reinterpret_cast<const uint8_t *>(text.c_str()));
+    m->warduino->debugger->addDebugMessage(
+        text.length(), reinterpret_cast<const uint8_t *>(text.c_str()));
     pop_args(2);
     return true;
 }
@@ -505,7 +507,7 @@ def_prim(debug_get_opcode, oneToOneU32) {
 }
 
 def_prim(debug_read, oneToOneU32) {
-    const uint8_t data = *reinterpret_cast<uint8_t*>(arg0.uint64);
+    const uint8_t data = *reinterpret_cast<uint8_t *>(arg0.uint64);
     pop_args(1);
     pushUInt32(data);
     return true;
@@ -531,13 +533,16 @@ uint32_t wasm_alloc(Module *m, uint32_t size) {
     Block *alloc_func = nullptr;
     uint32_t i = 0;
     while (alloc_func == nullptr && i < m->function_count) {
-        if (m->functions[i].export_name && !strcmp(m->functions[i].export_name, "ward_alloc")) {
+        if (m->functions[i].export_name &&
+            !strcmp(m->functions[i].export_name, "ward_alloc")) {
             alloc_func = &m->functions[i];
         }
         i++;
     }
     if (!alloc_func) {
-        FATAL("Alloc function not found! Make sure the module exports a ward_alloc function");
+        FATAL(
+            "Alloc function not found! Make sure the module exports a "
+            "ward_alloc function");
     }
 
     m->stack[++m->sp].value_type = I32;
@@ -561,9 +566,10 @@ def_prim(get_stack, oneToOneU32) {
             case F64: printf(": f64 "); break;
         }*/
         m->memory.bytes[addr + i * elem_size] = module->stack[i].value_type;
-        m->warduino->interpreter->store(m, I32, 4 + addr + i * elem_size, module->stack[i]);
+        m->warduino->interpreter->store(m, I32, 4 + addr + i * elem_size,
+                                        module->stack[i]);
     }
-    //printf("\n");
+    // printf("\n");
     /*for (int i = 0; i < 16; i++) {
         m->memory.bytes[addr + i] = 5;
         //m->warduino->interpreter->store(m, I32, addr + i, module->stack[i]);
@@ -573,7 +579,8 @@ def_prim(get_stack, oneToOneU32) {
     return true;
 }
 
-// TODO: Move this function or make it accessible because this is just a copy from the debugger.
+// TODO: Move this function or make it accessible because this is just a copy
+// from the debugger.
 uint8_t *findOpcode(const Module *m, Block *block) {
     auto find =
         std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
@@ -597,13 +604,22 @@ def_prim(get_callstack, oneToOneU32) {
     constexpr uint32_t struct_size = 4 * 6;
     const uint32_t size = (module->csp + 1) * struct_size;
     const uint32_t addr = wasm_alloc(m, size);
-    //printf("callstack size = %d\n", module->csp + 1);
+    // printf("callstack size = %d\n", module->csp + 1);
     for (int i = 0; i <= module->csp; i++) {
         const Frame *f = &module->callstack[i];
         const uint8_t bt = f->block->block_type;
-        const uint32_t block_key = (bt == 0 || bt == 0xff || bt == 0xfe) ? 0 : toVirtualAddress(findOpcode(module, f->block), module);
+        const uint32_t block_key =
+            (bt == 0 || bt == 0xff || bt == 0xfe)
+                ? 0
+                : toVirtualAddress(findOpcode(module, f->block), module);
         const uint32_t fidx = bt == 0 ? f->block->fidx : 0;
-        const uint32_t ra = f->ra_ptr == nullptr ? 0 : toVirtualAddress(f->ra_ptr, module); // Zero points to the wasm magic number, and so we can use it to indicate invalid values
+        const uint32_t ra =
+            f->ra_ptr == nullptr
+                ? 0
+                : toVirtualAddress(
+                      f->ra_ptr,
+                      module);  // Zero points to the wasm magic number, and so
+                                // we can use it to indicate invalid values
         // Write to memory: bt, fidx, f->sp, f->fp, block_key, ra
         // Struct with 6 elements.
         StackValue v;
@@ -612,17 +628,22 @@ def_prim(get_callstack, oneToOneU32) {
         v.value.uint32 = fidx;
         m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4, v);
         v.value.int32 = f->sp;
-        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 2, v);
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 2,
+                                        v);
         v.value.int32 = f->fp;
-        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 3, v);
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 3,
+                                        v);
         v.value.uint32 = block_key;
-        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 4, v);
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 4,
+                                        v);
         v.value.uint32 = ra;
-        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 5, v);
+        m->warduino->interpreter->store(m, I32, addr + i * struct_size + 4 * 5,
+                                        v);
 
-        //printf("frame[%d] bt = %d fidx = %d sp = %d fp = %d block_key = %d ra = %d\n", i, bt, fidx, f->sp, f->fp, block_key, ra);
+        // printf("frame[%d] bt = %d fidx = %d sp = %d fp = %d block_key = %d ra
+        // = %d\n", i, bt, fidx, f->sp, f->fp, block_key, ra);
     }
-    //printf("---\n");
+    // printf("---\n");
     pop_args(1);
     pushUInt32(addr);
     return true;

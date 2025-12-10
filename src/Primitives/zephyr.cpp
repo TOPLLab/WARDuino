@@ -385,7 +385,8 @@ def_prim(add_debug_callback, twoToNoneU32) {
         return false;
     }
 
-    printf("Register debugger callback on interrupt %d, tidx %d\n", arg1.uint32, tidx);
+    printf("Register debugger callback on interrupt %d, tidx %d\n", arg1.uint32,
+           tidx);
     m->warduino->debugger->addCallback(arg1.uint32, tidx);
     pop_args(2);
     return true;

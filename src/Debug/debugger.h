@@ -228,7 +228,8 @@ class Debugger {
     Channel *channel;
     ProxySupervisor *supervisor = nullptr;
 
-    std::unordered_set<uint8_t *> breakpoints = {};  // Vector, we expect few breakpoints
+    std::unordered_set<uint8_t *> breakpoints =
+        {};             // Vector, we expect few breakpoints
     uint8_t *mark = 0;  // a unique temporary breakpoint that gets removed
                         // whenever a breakpoint is hit
     uint8_t *skipBreakpoint =
