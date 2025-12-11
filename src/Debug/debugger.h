@@ -145,6 +145,7 @@ class Debugger {
 
     // Debugger callbacks
     std::unordered_map<uint8_t, std::set<uint32_t>> callbacks;
+    std::unordered_map<uint8_t, std::set<uint32_t>> function_callbacks;
 
     // Private methods
 
@@ -326,4 +327,6 @@ class Debugger {
     // Debugger callbacks
     void addCallback(uint8_t interrupt, uint32_t fidx);
     void handleCallbacks(Module *m, uint8_t interrupt, uint8_t *data);
+    void addFunctionCallback(Module *m, uint8_t tidx, uint32_t callback_tidx);
+    void handleFunctionCallbacks(Module *m, uint32_t called_fidx);
 };

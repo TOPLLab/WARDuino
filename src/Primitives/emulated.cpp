@@ -479,6 +479,20 @@ def_prim(add_debug_callback, twoToNoneU32) {
     return true;
 }
 
+def_prim(add_callback, twoToNoneU32) {
+    uint8_t tidx = arg0.uint32;
+
+    if (tidx < 0 || m->table.size < tidx) {
+        printf("add_callback: out of range table index %i\n", tidx);
+        return false;
+    }
+
+    printf("Register callback on interrupt %d, tidx %d\n", arg1.uint32, tidx);
+    m->warduino->debugger->addFunctionCallback(m, arg1.uint32, tidx);
+    pop_args(2);
+    return true;
+}
+
 def_prim(add_debug_message, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
@@ -705,6 +719,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(ev3_touch_sensor);
 
     install_primitive(add_debug_callback);
+    install_primitive(add_callback);
     install_primitive(add_debug_message);
     install_primitive(debug_get_pc);
     install_primitive(debug_get_opcode);

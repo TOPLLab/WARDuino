@@ -74,6 +74,8 @@ Block *Interpreter::pop_block(Module *m) {
 }
 
 void Interpreter::setup_call(Module *m, uint32_t fidx) {
+    m->warduino->debugger->handleFunctionCallbacks(m, fidx);
+
     Block *func = &m->functions[fidx];
     Type *type = func->type;
 

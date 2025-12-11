@@ -1778,3 +1778,87 @@ void Debugger::handleCallbacks(Module *m, uint8_t interrupt, uint8_t *data) {
         }
     }
 }
+
+void Debugger::addFunctionCallback(Module *m, uint8_t tidx,
+                                   uint32_t callback_tidx) {
+    const uint32_t fidx = m->table.entries[tidx];
+    printf("fidx = %d\n", fidx);
+    if (function_callbacks.find(fidx) == function_callbacks.end()) {
+        function_callbacks[fidx] = {};
+    }
+
+    std::set<uint32_t> &callbacksFidxs = function_callbacks[fidx];
+    callbacksFidxs.insert(callback_tidx);
+}
+
+void Debugger::handleFunctionCallbacks(Module *m, uint32_t called_fidx) {
+    auto result = function_callbacks.find(called_fidx);
+    if (result != function_callbacks.end()) {
+        std::set<uint32_t> &callBackFidxs = result->second;
+        for (uint32_t tidx : callBackFidxs) {
+            // Run primitive
+            // printf("Invoke debugger callback %d\n", tidx);
+            uint32_t fidx = m->table.entries[tidx];
+
+            RunningState old_rs = m->warduino->program_state;
+
+            Module callbackModule;
+            callbackModule.warduino = m->warduino;
+            callbackModule.path = m->path;
+            callbackModule.options = m->options;
+            callbackModule.byte_count = m->byte_count;
+            callbackModule.bytes = m->bytes;
+            callbackModule.type_count = m->type_count;
+            callbackModule.types = m->types;
+            callbackModule.import_count = m->import_count;
+            callbackModule.function_count = m->function_count;
+            callbackModule.functions = m->functions;
+            callbackModule.block_lookup = m->block_lookup;
+            callbackModule.start_function = m->start_function;
+            callbackModule.table = m->table;
+            callbackModule.memory = m->memory;
+            callbackModule.global_count = m->global_count;
+            callbackModule.globals = m->globals;
+            // Runtime state (Partially)
+            callbackModule.sp = m->sp;
+            callbackModule.fp = m->fp;
+            callbackModule.stack = m->stack;
+            callbackModule.csp = -1;
+            callbackModule.callstack =
+                static_cast<Frame *>(calloc(CALLSTACK_SIZE, sizeof(Frame)));
+            callbackModule.br_table = static_cast<uint32_t *>(
+                calloc(BR_TABLE_SIZE, sizeof(uint32_t)));
+            callbackModule.exception = nullptr;
+            callbackModule.pc_ptr = nullptr;
+
+            m->warduino->program_state = WARDUINOinit;
+            // Pass the source fidx.
+            callbackModule.stack[++callbackModule.sp].value_type = I32;
+            callbackModule.stack[callbackModule.sp].value.uint32 = fidx;
+            ASSERT(m->functions[fidx].type->param_count - 1 ==
+                       m->functions[called_fidx].type->param_count,
+                   "Callback function has incorrect argument count!");
+            for (int i = 0; i < m->functions[called_fidx].type->param_count;
+                 i++) {
+                // for (int i = 0;  i < 1; i++) { //  Would be nice to use the
+                // param_count here but functions loaded from the module have no
+                // type...
+                callbackModule.stack[++callbackModule.sp].value_type = I64;
+                callbackModule.stack[callbackModule.sp] = m->stack[m->sp - i];
+            }
+
+            m->warduino->interpreter->setup_call(&callbackModule, fidx);
+            // printf("m->pc_ptr = %p\n", callbackModule.pc_ptr);
+            bool success = m->warduino->interpreter->interpret(&callbackModule);
+            ASSERT(success, "Failed to run callback.");
+            free(callbackModule.callstack);
+            free(callbackModule.br_table);
+            m->warduino->program_state = old_rs;
+
+            // Memory can grow in the callback, since the old pointer is still
+            // in module m, that one gets used after freeing it. As such we
+            // should update the pointer.
+            m->memory = callbackModule.memory;
+        }
+    }
+}
