@@ -9,7 +9,6 @@
 
 #include "../../src/WARDuino.h"
 #include <zephyr/net/net_mgmt.h>
-#include <zephyr/net/wifi_credentials.h>
 #include <zephyr/net/wifi_mgmt.h>
 
 #include <cstdint>
