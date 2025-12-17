@@ -2,7 +2,6 @@
 #include <stddef.h>
 #include <string.h>
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
 #include <zephyr/types.h>
 
 #include <zephyr/net/net_mgmt.h>
@@ -10,8 +9,6 @@
 
 #include <cstdint>
 #include <cstdio>
-
-LOG_MODULE_REGISTER(WARDuinoWifiTest, LOG_LEVEL_INF);
 
 #define EVENT_MASK (NET_EVENT_WIFI_CONNECT_RESULT | NET_EVENT_WIFI_DISCONNECT_RESULT)
 
