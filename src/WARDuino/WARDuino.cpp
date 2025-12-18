@@ -567,7 +567,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                 "    setting global %d (content_type %d) to "
                                 "%p: %s\n",
                                 m->global_count - 1, content_type, val,
-                                value_repr(*glob));
+                                value_repr((*glob)->value));
                             break;
                         }
                         default:
