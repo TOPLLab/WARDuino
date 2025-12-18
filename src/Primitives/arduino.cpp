@@ -184,7 +184,7 @@ def_prim(micros, NoneToOneU64) {
 }
 
 def_prim(print_int, oneToNoneU32) {
-    uint32_t integer = arg0.uint32;
+    uint32_t integer = warg0.uint32;
     Serial.print(integer);
     Serial.flush();
     pop_args(1);
@@ -193,7 +193,7 @@ def_prim(print_int, oneToNoneU32) {
 
 def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
-    uint32_t size = arg0.uint32;
+    uint32_t size = warg0.uint32;
 
     String str = parse_utf8_string(m->memory.bytes, size, addr).c_str();
 
@@ -207,7 +207,7 @@ def_prim(wifi_connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
     uint32_t pass = arg1.uint32;
-    uint32_t len1 = arg0.uint32;
+    uint32_t len1 = warg0.uint32;
 
     String ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid).c_str();
     String pass_str = parse_utf8_string(m->memory.bytes, len1, pass).c_str();
@@ -255,7 +255,7 @@ def_prim(http_get, fourToOneU32) {
         uint32_t addr = arg3.uint32;
         uint32_t length = arg2.uint32;
         uint32_t response = arg1.uint32;
-        uint32_t size = arg0.uint32;
+        uint32_t size = warg0.uint32;
 
         String url = parse_utf8_string(m->memory.bytes, length, addr).c_str();
         Serial.print("GET ");
@@ -285,7 +285,7 @@ def_prim(http_post, tenToOneU32) {
         uint32_t authorization = arg3.uint32;
         uint32_t authorization_len = arg2.uint32;
         uint32_t response = arg1.uint32;
-        uint32_t size = arg0.uint32;
+        uint32_t size = warg0.uint32;
 
         String url_parsed =
             parse_utf8_string(m->memory.bytes, url_len, url).c_str();
@@ -323,7 +323,7 @@ def_prim(http_post, tenToOneU32) {
 def_prim(chip_pin_mode, twoToNoneU32) {
     printf("chip_pin_mode \n");
     uint8_t pin = arg1.uint32;
-    uint8_t mode = arg0.uint32;
+    uint8_t mode = warg0.uint32;
     pinMode(pin, mode);
     pop_args(2);
     return true;
@@ -333,7 +333,7 @@ def_prim(chip_pin_mode, twoToNoneU32) {
 def_prim(chip_digital_write, twoToNoneU32) {
     yield();
     uint8_t pin = arg1.uint32;
-    uint8_t val = arg0.uint32;
+    uint8_t val = warg0.uint32;
     digitalWrite(pin, val);
     pop_args(2);
     return true;
@@ -370,7 +370,7 @@ def_prim_serialize(chip_digital_write) {
 }
 
 def_prim(chip_delay, oneToNoneU32) {
-    delay(arg0.uint32);
+    delay(warg0.uint32);
     pop_args(1);
     return true;
 }
@@ -384,7 +384,7 @@ def_prim(chip_delay_us, oneToNoneU32) {
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
-    uint8_t pin = arg0.uint32;
+    uint8_t pin = warg0.uint32;
     uint8_t res = digitalRead(pin);
     pop_args(1);
     pushUInt32(res);
@@ -392,7 +392,7 @@ def_prim(chip_digital_read, oneToOneU32) {
 }
 
 def_prim(chip_analog_read, oneToOneI32) {
-    uint8_t pin = arg0.uint32;
+    uint8_t pin = warg0.uint32;
     pop_args(1);
     pushInt32(analogRead(pin));
     return true;
@@ -400,7 +400,7 @@ def_prim(chip_analog_read, oneToOneI32) {
 
 def_prim(chip_analog_write, twoToNoneU32) {
     uint8_t pin = arg1.uint32;
-    uint8_t brightness = arg0.uint32;
+    uint8_t brightness = warg0.uint32;
     pop_args(2);
     analogWrite(pin, brightness);
     return true;
@@ -408,7 +408,7 @@ def_prim(chip_analog_write, twoToNoneU32) {
 
 // warning: undefined symbol: write_spi_byte
 def_prim(write_spi_byte, oneToNoneU32) {
-    write_spi_byte(arg0.uint32);
+    write_spi_byte(warg0.uint32);
     pop_args(1);
     return true;
 }
@@ -422,7 +422,7 @@ def_prim(spi_begin, NoneToNoneU32) {
 }
 
 def_prim(write_spi_bytes_16, twoToNoneU32) {
-    write_spi_bytes_16_prim(arg1.uint32, arg0.uint32);
+    write_spi_bytes_16_prim(arg1.uint32, warg0.uint32);
     pop_args(2);
     return true;
 }
@@ -433,7 +433,7 @@ def_prim(init_pixels, NoneToNoneU32) {
 }
 
 def_prim(set_pixel_color, fourToOneU32) {
-    uint8_t blue = arg0.uint32;
+    uint8_t blue = warg0.uint32;
     uint8_t green = arg1.uint32;
     uint8_t red = arg2.uint32;
     uint8_t index = arg3.uint32;
@@ -458,7 +458,7 @@ def_prim(clear_pixels, NoneToNoneU32) {
 def_prim(chip_ledc_set_duty, threeToNoneU32) {
     uint8_t channel = arg2.uint32;
     uint32_t value = arg1.uint32;
-    uint32_t maxValue = arg0.uint32;
+    uint32_t maxValue = warg0.uint32;
 
     // printf("chip_ledc_analog_write(%u, %u, %u)\n", channel, value, maxValue);
     // calculate duty, 4095 from 2 ^ 12 - 1
@@ -472,7 +472,7 @@ def_prim(chip_ledc_set_duty, threeToNoneU32) {
 def_prim(chip_ledc_attach, threeToNoneU32) {
     uint32_t channel = arg2.uint32;
     uint32_t freq = arg1.uint32;
-    uint32_t resolution = arg0.uint32;
+    uint32_t resolution = warg0.uint32;
     ledcAttach(channel, freq, resolution);
     pop_args(3);
     return true;
@@ -483,7 +483,7 @@ def_prim(chip_ledc_attach, threeToNoneU32) {
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
-    uint8_t mode = arg0.uint32;
+    uint8_t mode = warg0.uint32;
 
     dbg_info("subscribe_interrupt(%i, %i, %i)\n", pin, tidx, mode);
 
@@ -515,7 +515,7 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 }
 
 def_prim(unsubscribe_interrupt, oneToNoneU32) {
-    uint8_t pin = arg0.uint32;
+    uint8_t pin = warg0.uint32;
 
     detachInterrupt(digitalPinToInterrupt(pin));
 
@@ -534,7 +534,7 @@ def_prim(mqtt_init, threeToNoneU32) {
     WiFi.mode(WIFI_STA);
     uint32_t server_param = arg2.uint32;
     uint32_t length = arg1.uint32;
-    uint32_t port = arg0.uint32;
+    uint32_t port = warg0.uint32;
 
     const char *server =
         parse_utf8_string(m->memory.bytes, length, server_param).c_str();
@@ -559,7 +559,7 @@ def_prim(mqtt_init, threeToNoneU32) {
 
 def_prim(mqtt_connect, twoToOneU32) {
     uint32_t client_id_param = arg1.uint32;
-    uint32_t length = arg0.uint32;
+    uint32_t length = warg0.uint32;
 
     String client_id =
         parse_utf8_string(m->memory.bytes, length, client_id_param).c_str();
@@ -596,7 +596,7 @@ def_prim(mqtt_publish, fourToOneU32) {
     uint32_t topic_param = arg3.uint32;
     uint32_t topic_length = arg2.uint32;
     uint32_t payload_param = arg1.uint32;
-    uint32_t payload_length = arg0.uint32;
+    uint32_t payload_length = warg0.uint32;
 
     String topic =
         parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
@@ -639,7 +639,7 @@ def_prim(mqtt_publish, fourToOneU32) {
 def_prim(mqtt_subscribe, threeToOneU32) {
     uint32_t topic_param = arg2.uint32;
     uint32_t topic_length = arg1.uint32;
-    uint32_t fidx = arg0.uint32;
+    uint32_t fidx = warg0.uint32;
 
     const char *topic =
         parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();
@@ -663,7 +663,7 @@ def_prim(mqtt_subscribe, threeToOneU32) {
 def_prim(mqtt_unsubscribe, threeToOneU32) {
     uint32_t topic_param = arg2.uint32;
     uint32_t topic_length = arg1.uint32;
-    uint32_t fidx = arg0.uint32;
+    uint32_t fidx = warg0.uint32;
 
     const char *topic =
         parse_utf8_string(m->memory.bytes, topic_length, topic_param).c_str();

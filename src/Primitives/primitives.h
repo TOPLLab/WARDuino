@@ -115,16 +115,16 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
 #define pushUInt64(arg)                 \
     m->stack[++m->sp].value_type = I64; \
     m->stack[m->sp].value.uint64 = arg
-#define arg0 get_arg(m, 0)
-#define arg1 get_arg(m, 1)
-#define arg2 get_arg(m, 2)
-#define arg3 get_arg(m, 3)
-#define arg4 get_arg(m, 4)
-#define arg5 get_arg(m, 5)
-#define arg6 get_arg(m, 6)
-#define arg7 get_arg(m, 7)
-#define arg8 get_arg(m, 8)
-#define arg9 get_arg(m, 9)
+#define warg0 get_arg(m, 0)
+#define warg1 get_arg(m, 1)
+#define warg2 get_arg(m, 2)
+#define warg3 get_arg(m, 3)
+#define warg4 get_arg(m, 4)
+#define warg5 get_arg(m, 5)
+#define warg6 get_arg(m, 6)
+#define warg7 get_arg(m, 7)
+#define warg8 get_arg(m, 8)
+#define warg9 get_arg(m, 9)
 
 inline uint32_t param_arr_len0[0] = {};
 inline uint32_t param_I32_arr_len1[1] = {I32};

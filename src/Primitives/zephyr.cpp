@@ -60,7 +60,7 @@ Global globals[ALL_GLOBALS];
 
 def_prim(chip_delay, oneToNoneU32) {
     k_yield();
-    k_msleep(arg0.uint32);
+    k_msleep(warg0.uint32);
     pop_args(1);
     return true;
 }
@@ -69,10 +69,10 @@ struct gpio_dt_spec specs[] = {DT_FOREACH_PROP_ELEM_SEP(
     DT_PATH(zephyr_user), warduino_gpios, GPIO_DT_SPEC_GET_BY_IDX, (, ))};
 
 def_prim(chip_pin_mode, twoToNoneU32) {
-    printf("chip_pin_mode(%u,%u)\n", arg1.uint32, arg0.uint32);
-    gpio_dt_spec pin_spec = specs[arg1.uint32];
+    printf("chip_pin_mode(%u,%u)\n", warg1.uint32, warg0.uint32);
+    gpio_dt_spec pin_spec = specs[warg1.uint32];
     int err = gpio_pin_configure(pin_spec.port, pin_spec.pin,
-                                 arg0.uint32 == 0 ? GPIO_INPUT : GPIO_OUTPUT);
+                                 warg0.uint32 == 0 ? GPIO_INPUT : GPIO_OUTPUT);
     if (err < 0) {
         printf("Error configuring pin %d\n", err);
         return false;
@@ -84,10 +84,10 @@ def_prim(chip_pin_mode, twoToNoneU32) {
 std::unordered_map<uint32_t, uint32_t> io_map;
 
 def_prim(chip_digital_write, twoToNoneU32) {
-    printf("chip_digital_write(%u,%u)\n", arg1.uint32, arg0.uint32);
-    gpio_dt_spec pin_spec = specs[arg1.uint32];
-    gpio_pin_set_raw(pin_spec.port, pin_spec.pin, arg0.uint32);
-    io_map[arg1.uint32] = arg0.uint32;
+    printf("chip_digital_write(%u,%u)\n", warg1.uint32, warg0.uint32);
+    gpio_dt_spec pin_spec = specs[warg1.uint32];
+    gpio_pin_set_raw(pin_spec.port, pin_spec.pin, warg0.uint32);
+    io_map[warg1.uint32] = warg0.uint32;
     pop_args(2);
     return true;
 }
@@ -116,8 +116,8 @@ def_prim_reverse(chip_digital_write) {
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
-    printf("chip_digital_read(%u)\n", arg0.uint32);
-    gpio_dt_spec pin_spec = specs[arg0.uint32];
+    printf("chip_digital_read(%u)\n", warg0.uint32);
+    gpio_dt_spec pin_spec = specs[warg0.uint32];
     uint8_t res = gpio_pin_get_raw(pin_spec.port, pin_spec.pin);
     pop_args(1);
     pushUInt32(res);
@@ -135,8 +135,8 @@ def_prim(random_int, NoneToOneU32) {
 }
 
 def_prim(print_string, twoToNoneU32) {
-    uint32_t addr = arg1.uint32;
-    uint32_t size = arg0.uint32;
+    uint32_t addr = warg1.uint32;
+    uint32_t size = warg0.uint32;
     std::string text = parse_utf8_string(m->memory.bytes, size, addr);
     debug("EMU: print string at %i: ", addr);
     printf("%s", text.c_str());
@@ -145,7 +145,7 @@ def_prim(print_string, twoToNoneU32) {
 }
 
 def_prim(print_int, oneToNoneI32) {
-    printf("%d\n", arg0.int32);
+    printf("%d\n", warg0.int32);
     pop_args(1);
     return true;
 }
@@ -179,7 +179,7 @@ std::optional<Motor> get_motor(uint32_t motor_index) {
 
 def_prim(drive_motor, twoToNoneU32) {
     int32_t speed = arg0.int32;
-    uint32_t motor_index = arg1.uint32;
+    uint32_t motor_index = warg1.uint32;
     printf("drive_motor(%d, %d)\n", motor_index, speed);
     pop_args(2);
 
@@ -206,9 +206,9 @@ def_prim(stop_motor, oneToNoneU32) {
 }
 
 def_prim(drive_motor_ms, threeToNoneU32) {
-    int32_t time = arg0.uint32;
-    int32_t speed = arg1.int32;
-    int32_t motor_index = arg2.int32;
+    int32_t time = warg0.uint32;
+    int32_t speed = warg1.int32;
+    int32_t motor_index = warg2.int32;
     printf("drive_motor_ms(%d, %d, %d)\n", motor_index, speed, time);
     pop_args(3);
 
@@ -240,9 +240,9 @@ bool drive_motor_degrees_relative(uint32_t motor_index, int32_t degrees,
 }
 
 def_prim(drive_motor_degrees, threeToNoneU32) {
-    int32_t degrees = arg0.int32;
-    int32_t speed = arg1.int32;
-    uint32_t motor_index = arg2.uint32;
+    int32_t degrees = warg0.int32;
+    int32_t speed = warg1.int32;
+    uint32_t motor_index = warg2.uint32;
     pop_args(3);
     return drive_motor_degrees_relative(motor_index, degrees, speed);
 }
@@ -285,16 +285,16 @@ UartSensor sensors[] = {UartSensor(uart_devs[0]), UartSensor(uart_devs[1]),
                         UartSensor(uart_devs[2]), UartSensor(uart_devs[3])};
 
 def_prim(setup_uart_sensor, twoToNoneU32) {
-    printf("get sensor %d\n", arg1.uint32);
-    UartSensor *sensor = &sensors[arg1.uint32];
-    bool result = configure_uart_sensor(sensor, arg0.uint32);
+    printf("get sensor %d\n", warg1.uint32);
+    UartSensor *sensor = &sensors[warg1.uint32];
+    bool result = configure_uart_sensor(sensor, warg0.uint32);
     pop_args(2);
     return result;
 }
 
 def_prim(read_uart_sensor, oneToOneI32) {
-    printf("read_uart_sensor(%d)\n", arg0.uint32);
-    UartSensor *sensor = &sensors[arg0.uint32];
+    printf("read_uart_sensor(%d)\n", warg0.uint32);
+    UartSensor *sensor = &sensors[warg0.uint32];
     if (!sensor_ready(sensor)) {
         printk("Input port is not ready!\n");
         return false;
@@ -365,7 +365,7 @@ def_prim(nxt_touch_sensor, oneToOneU32) {
         7,   // Port 3
         8,   // Port 4
     };
-    int16_t v = read_value(arg0.uint32, channels);
+    int16_t v = read_value(warg0.uint32, channels);
     pop_args(1);
     pushUInt32(v < 2000);
     return true;
@@ -373,7 +373,7 @@ def_prim(nxt_touch_sensor, oneToOneU32) {
 
 // Currently only works on ports 1, 3, and 4.
 def_prim(ev3_touch_sensor, oneToOneU32) {
-    printf("ev3_touch_sensor(%u)\n", arg0.uint32);
+    printf("ev3_touch_sensor(%u)\n", warg0.uint32);
 
     int channels[4] = {
         13,  // Port 1
@@ -381,7 +381,7 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
         9,   // Port 3
         10,  // Port 4
     };
-    int16_t v = read_value(arg0.uint32, channels);
+    int16_t v = read_value(warg0.uint32, channels);
     pop_args(1);
     pushUInt32(v > 3000);
     return true;
@@ -473,19 +473,19 @@ def_prim(display_height, NoneToOneU32) {
 }
 
 def_prim(display_fill_rect, fiveToNoneU32) {
-    draw_rect(display_dev, arg4.int32, arg3.int32, arg2.int32, arg1.int32,
-              arg0.uint32);
+    draw_rect(display_dev, warg4.int32, warg3.int32, warg2.int32, warg1.int32,
+              warg0.uint32);
     pop_args(5);
     return true;
 }
 
 def_prim(display_draw_string, sixToNoneU32) {
-    uint32_t addr = arg3.uint32;
-    uint32_t size = arg2.uint32;
+    uint32_t addr = warg3.uint32;
+    uint32_t size = warg2.uint32;
     std::string text = parse_utf8_string(m->memory.bytes, size, addr);
     for (int i = 0; i < text.length(); i++) {
-        draw_char(display_dev, arg5.int32 + i * 8, arg4.int32, text[i],
-                  arg1.uint32, arg0.uint32);
+        draw_char(display_dev, warg5.int32 + i * 8, warg4.int32, text[i],
+                  warg1.uint32, warg0.uint32);
     }
     pop_args(6);
     return true;
@@ -496,10 +496,10 @@ def_prim(display_draw_string, sixToNoneU32) {
 #include "Zephyr/wifi.h"
 
 def_prim(wifi_connect, fourToNoneU32) {
-    uint32_t ssid = arg3.uint32;
-    uint32_t len0 = arg2.uint32;
-    uint32_t pass = arg1.uint32;
-    uint32_t len1 = arg0.uint32;
+    uint32_t ssid = warg3.uint32;
+    uint32_t len0 = warg2.uint32;
+    uint32_t pass = warg1.uint32;
+    uint32_t len1 = warg0.uint32;
 
     std::string ssid_str =
         parse_utf8_string(m->memory.bytes, len0, ssid).c_str();

@@ -95,7 +95,7 @@ def_prim(micros, NoneToOneU64) {
 
 // call callback test function (temporary)
 def_prim(test, oneToNoneU32) {
-    uint32_t fidx = arg0.uint32;
+    uint32_t fidx = warg0.uint32;
 
     std::string topic = "interrupt";
     topic.append(std::to_string(fidx));
@@ -111,14 +111,14 @@ def_prim(test, oneToNoneU32) {
 
 def_prim(print_int, oneToNoneU32) {
     debug("EMU: print ");
-    printf("%u\n", arg0.uint32);
+    printf("%u\n", warg0.uint32);
     pop_args(1);
     return true;
 }
 
 def_prim(print_string, twoToNoneU32) {
-    uint32_t addr = arg1.uint32;
-    uint32_t size = arg0.uint32;
+    uint32_t addr = warg1.uint32;
+    uint32_t size = warg0.uint32;
     std::string text = parse_utf8_string(m->memory.bytes, size, addr);
     debug("EMU: print string at %i: ", addr);
     printf("%s", text.c_str());
@@ -127,10 +127,10 @@ def_prim(print_string, twoToNoneU32) {
 }
 
 def_prim(wifi_connect, fourToNoneU32) {
-    uint32_t ssid = arg3.uint32;
-    uint32_t len0 = arg2.uint32;
-    uint32_t pass = arg1.uint32;
-    uint32_t len1 = arg0.uint32;
+    uint32_t ssid = warg3.uint32;
+    uint32_t len0 = warg2.uint32;
+    uint32_t pass = warg1.uint32;
+    uint32_t len1 = warg0.uint32;
 
     std::string ssid_str = parse_utf8_string(m->memory.bytes, len0, ssid);
     std::string pass_str = parse_utf8_string(m->memory.bytes, len1, pass);
@@ -151,7 +151,7 @@ def_prim(wifi_connected, NoneToOneU32) {
 }
 
 def_prim(wifi_localip, twoToOneU32) {
-    uint32_t buff = arg1.uint32;
+    uint32_t buff = warg1.uint32;
     // uint32_t size = arg0.uint32; // never used in emulator
     std::string ip = "192.168.0.181";
 
@@ -165,10 +165,10 @@ def_prim(wifi_localip, twoToOneU32) {
 
 def_prim(http_get, fourToOneU32) {
     // Get arguments
-    uint32_t url = arg3.uint32;
-    uint32_t length = arg2.uint32;
-    int32_t response = arg1.uint32;
-    uint32_t size = arg0.uint32;
+    uint32_t url = warg3.uint32;
+    uint32_t length = warg2.uint32;
+    int32_t response = warg1.uint32;
+    uint32_t size = warg0.uint32;
     // Parse url
     std::string text = parse_utf8_string(m->memory.bytes, length, url);
     debug("EMU: http get request %s\n", text.c_str());
@@ -191,15 +191,15 @@ def_prim(http_get, fourToOneU32) {
 
 def_prim(http_post, tenToOneU32) {
     // Get arguments
-    uint32_t url = arg9.uint32;
-    uint32_t url_len = arg8.uint32;
-    uint32_t body = arg7.uint32;
-    uint32_t body_len = arg6.uint32;
-    uint32_t content_type = arg5.uint32;
-    uint32_t content_type_len = arg4.uint32;
-    uint32_t authorization = arg3.uint32;
-    uint32_t authorization_len = arg2.uint32;
-    int32_t response = arg1.uint32;
+    uint32_t url = warg9.uint32;
+    uint32_t url_len = warg8.uint32;
+    uint32_t body = warg7.uint32;
+    uint32_t body_len = warg6.uint32;
+    uint32_t content_type = warg5.uint32;
+    uint32_t content_type_len = warg4.uint32;
+    uint32_t authorization = warg3.uint32;
+    uint32_t authorization_len = warg2.uint32;
+    int32_t response = warg1.uint32;
     // uint32_t size = arg0.uint32; // never used in emulator
 
     std::string url_parsed = parse_utf8_string(m->memory.bytes, url_len, url);
@@ -225,8 +225,8 @@ static uint32_t PINS[NUM_DIGITAL_PINS] = {};
 static uint8_t MODES[NUM_DIGITAL_PINS] = {};
 
 def_prim(chip_pin_mode, twoToNoneU32) {
-    uint8_t pin = arg1.uint32;
-    uint8_t val = arg0.uint32;
+    uint8_t pin = warg1.uint32;
+    uint8_t val = warg0.uint32;
     if (pin < NUM_DIGITAL_PINS) {
         MODES[pin] = val;
     }
@@ -236,8 +236,8 @@ def_prim(chip_pin_mode, twoToNoneU32) {
 }
 
 def_prim(chip_digital_write, twoToNoneU32) {
-    uint8_t pin = arg1.uint32;
-    uint8_t val = arg0.uint32;
+    uint8_t pin = warg1.uint32;
+    uint8_t val = warg0.uint32;
     printf("EMU: chip_digital_write(%u,%u) \n", pin, val);
     bool writable = pin < NUM_DIGITAL_PINS && MODES[pin] == 0x02;
     if (writable) {
@@ -280,7 +280,7 @@ def_prim_serialize(chip_digital_write) {
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
-    uint8_t pin = arg0.uint32;
+    uint8_t pin = warg0.uint32;
     pop_args(1);
     if (pin < NUM_DIGITAL_PINS) {
         pushUInt32(PINS[pin]);
@@ -307,7 +307,7 @@ def_prim(chip_delay, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
     debug("EMU: chip_delay(%u) \n", arg0.uint32);
-    sleep_for(milliseconds(arg0.uint32));
+    sleep_for(milliseconds(warg0.uint32));
     debug("EMU: .. done\n");
     pop_args(1);
     return true;
@@ -317,7 +317,7 @@ def_prim(chip_delay_us, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
     debug("EMU: chip_delay(%u ms) \n", arg0.uint32);
-    sleep_for(microseconds(arg0.uint32));
+    sleep_for(microseconds(warg0.uint32));
     debug("EMU: .. done\n");
     pop_args(1);
     return true;
@@ -343,24 +343,24 @@ def_prim(write_spi_bytes_16, twoToNoneU32) {
 }
 
 def_prim(drive_motor, twoToNoneU32) {
-    const int32_t speed = arg0.int32;
-    const uint32_t motor_index = arg1.uint32;
+    const int32_t speed = warg0.int32;
+    const uint32_t motor_index = warg1.uint32;
     printf("EMU: drive_motor(%d, %d)\n", motor_index, speed);
     pop_args(2);
     return true;
 }
 
 def_prim(stop_motor, oneToNoneU32) {
-    uint32_t motor_index = arg0.uint32;
+    uint32_t motor_index = warg0.uint32;
     printf("EMU: stop_motor(%d)\n", motor_index);
     pop_args(1);
     return true;
 }
 
 def_prim(drive_motor_ms, threeToNoneU32) {
-    const int32_t time = arg0.uint32;
-    const int32_t speed = arg1.int32;
-    const int32_t motor_index = arg2.int32;
+    const int32_t time = warg0.uint32;
+    const int32_t speed = warg1.int32;
+    const int32_t motor_index = warg2.int32;
     printf("EMU: drive_motor_ms(%d, %d, %d)\n", motor_index, speed, time);
     pop_args(3);
 
@@ -368,9 +368,9 @@ def_prim(drive_motor_ms, threeToNoneU32) {
 }
 
 def_prim(drive_motor_degrees, threeToNoneU32) {
-    int32_t degrees = arg0.int32;
-    int32_t speed = arg1.int32;
-    uint32_t motor_index = arg2.uint32;
+    int32_t degrees = warg0.int32;
+    int32_t speed = warg1.int32;
+    uint32_t motor_index = warg2.uint32;
     printf("EMU: drive_motor_degrees(%d, %d, %d)\n", motor_index, speed,
            degrees);
     pop_args(3);
@@ -378,13 +378,13 @@ def_prim(drive_motor_degrees, threeToNoneU32) {
 }
 
 def_prim(setup_uart_sensor, twoToNoneU32) {
-    printf("EMU: setup_uart_sensor(%d, %d)\n", arg1.uint32, arg0.uint32);
+    printf("EMU: setup_uart_sensor(%d, %d)\n", warg1.uint32, warg0.uint32);
     pop_args(2);
     return true;
 }
 
 def_prim(read_uart_sensor, oneToOneI32) {
-    printf("EMU: read_uart_sensor(%d)\n", arg0.uint32);
+    printf("EMU: read_uart_sensor(%d)\n", warg0.uint32);
     pop_args(1);
     pushInt32(0);
     return true;
@@ -395,7 +395,7 @@ std::default_random_engine e(r());
 std::uniform_int_distribution<int16_t> adc_dist(0, 1 << 12);  // 12 bit adc
 
 def_prim(nxt_touch_sensor, oneToOneU32) {
-    const uint32_t port = arg0.uint32;
+    const uint32_t port = warg0.uint32;
     const int16_t v = adc_dist(e);
     pop_args(1);
     printf("nxt_touch_sensor(%u) = %d\n", port, v < 2000);
@@ -404,7 +404,7 @@ def_prim(nxt_touch_sensor, oneToOneU32) {
 }
 
 def_prim(ev3_touch_sensor, oneToOneU32) {
-    const uint32_t port = arg0.uint32;
+    const uint32_t port = warg0.uint32;
     const int16_t v = adc_dist(e);
     pop_args(1);
     printf("ev3_touch_sensor(%u) = %d\n", port, v > 3000);
@@ -413,10 +413,10 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
 }
 
 def_prim(subscribe_interrupt, threeToNoneU32) {
-    uint8_t pin = arg2.uint32;   // GPIOPin
-    uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
+    uint8_t pin = warg2.uint32;   // GPIOPin
+    uint8_t tidx = warg1.uint32;  // Table Idx pointing to Callback function
     [[maybe_unused]] uint8_t mode =
-        arg0.uint32;  // Not used by emulator only printed
+        warg0.uint32;  // Not used by emulator only printed
 
     debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, tidx, mode);
 
@@ -436,9 +436,9 @@ def_prim(subscribe_interrupt, threeToNoneU32) {
 
 // Temporary Primitives needed for analogWrite in ESP32
 def_prim(chip_ledc_set_duty, threeToNoneU32) {
-    uint8_t channel = arg2.uint32;
-    uint32_t value = arg1.uint32;
-    uint32_t maxValue = arg0.uint32;
+    uint8_t channel = warg2.uint32;
+    uint32_t value = warg1.uint32;
+    uint32_t maxValue = warg0.uint32;
     // calculate duty, 4095 from 2 ^ 12 - 1
     printf("chip_analog_write(%u, %u, %u)\n", channel, value, maxValue);
     pop_args(3);
@@ -446,17 +446,17 @@ def_prim(chip_ledc_set_duty, threeToNoneU32) {
 }
 
 def_prim(chip_ledc_setup, threeToNoneU32) {
-    uint32_t channel = arg2.uint32;
-    uint32_t freq = arg1.uint32;
-    uint32_t ledc_timer = arg0.uint32;
+    uint32_t channel = warg2.uint32;
+    uint32_t freq = warg1.uint32;
+    uint32_t ledc_timer = warg0.uint32;
     printf("chip_ledc_setup(%u, %u, %u)\n", channel, freq, ledc_timer);
     pop_args(3);
     return true;
 }
 
 def_prim(chip_ledc_attach_pin, twoToNoneU32) {
-    uint32_t pin = arg1.uint32;
-    uint32_t channel = arg0.uint32;
+    uint32_t pin = warg1.uint32;
+    uint32_t channel = warg0.uint32;
     printf("chip_ledc_attach_pin(%u,%u)\n", pin, channel);
     pop_args(2);
     return true;

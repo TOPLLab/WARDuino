@@ -51,25 +51,25 @@ int global_index = 0;
 Global globals[ALL_GLOBALS];
 
 def_prim(chip_delay, oneToNoneU32) {
-    vTaskDelay(arg0.uint32 / portTICK_PERIOD_MS);
+    vTaskDelay(warg0.uint32 / portTICK_PERIOD_MS);
     pop_args(1);
     return true;
 }
 
 def_prim(chip_pin_mode, twoToNoneU32) {
-    gpio_set_direction(gpio_num_t(arg1.uint32), gpio_mode_t(arg0.uint32));
+    gpio_set_direction(gpio_num_t(arg1.uint32), gpio_mode_t(warg0.uint32));
     pop_args(2);
     return true;
 }
 
 def_prim(chip_digital_write, twoToNoneU32) {
-    gpio_set_level(gpio_num_t(arg1.uint32), gpio_mode_t(arg0.uint32));
+    gpio_set_level(gpio_num_t(arg1.uint32), gpio_mode_t(warg0.uint32));
     pop_args(2);
     return true;
 }
 
 def_prim(chip_digital_read, oneToOneU32) {
-    gpio_num_t pin = gpio_num_t(arg0.uint32);
+    gpio_num_t pin = gpio_num_t(warg0.uint32);
     uint8_t res = (uint8_t)gpio_get_level(pin);
     pop_args(1);
     pushUInt32(res);
