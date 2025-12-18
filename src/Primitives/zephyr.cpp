@@ -492,6 +492,27 @@ def_prim(display_draw_string, sixToNoneU32) {
 }
 #endif
 
+#if IS_ENABLED(CONFIG_WIFI)
+#include "Zephyr/wifi.h"
+
+def_prim(wifi_connect, fourToNoneU32) {
+    uint32_t ssid = arg3.uint32;
+    uint32_t len0 = arg2.uint32;
+    uint32_t pass = arg1.uint32;
+    uint32_t len1 = arg0.uint32;
+
+    std::string ssid_str =
+        parse_utf8_string(m->memory.bytes, len0, ssid).c_str();
+    std::string pass_str =
+        parse_utf8_string(m->memory.bytes, len1, pass).c_str();
+
+    network_connect(ssid_str.c_str(), pass_str.c_str());
+
+    pop_args(4);
+    return true;
+}
+#endif
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -529,6 +550,10 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(display_height);
     install_primitive(display_fill_rect);
     install_primitive(display_draw_string);
+#endif
+
+#if IS_ENABLED(CONFIG_WIFI)
+    install_primitive(wifi_connect);
 #endif
 }
 
