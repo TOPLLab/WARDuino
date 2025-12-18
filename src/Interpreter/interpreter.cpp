@@ -432,7 +432,7 @@ bool Interpreter::interpret(Module *m, bool waiting) {
                 continue;
 
                 // conversion operations
-            case 0xa7 ... 0xbb:
+            case 0xa7 ... 0xbf:
                 success &= i_instr_conversion(m, opcode);
                 continue;
 
