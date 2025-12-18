@@ -459,7 +459,8 @@ bool i_instr_tee_local(Module *m) {
 bool i_instr_get_global(Module *m) {
     int32_t arg = read_LEB_32(&m->pc_ptr);
 #if TRACE
-    debug("      - arg: 0x%x, got %s\n", arg, value_repr(m->globals[arg]));
+    debug("      - arg: 0x%x, got %s\n", arg,
+          value_repr(m->globals[arg]->value));
 #endif
     m->stack[++m->sp] = *m->globals[arg]->value;
     return true;
