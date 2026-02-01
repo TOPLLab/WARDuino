@@ -458,6 +458,12 @@ def_prim(display_setup, NoneToNoneU32) {
     return true;
 }
 
+def_prim(display_set_orientation, oneToNoneI32) {
+    display_set_orientation(display_dev, static_cast<display_orientation>(arg0.uint32));
+    pop_args(1);
+    return true;
+}
+
 def_prim(display_width, NoneToOneU32) {
     display_capabilities capabilities;
     display_get_capabilities(display_dev, &capabilities);
@@ -525,6 +531,7 @@ void install_primitives(Interpreter *interpreter) {
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
     install_primitive(display_setup);
+    install_primitive(display_set_orientation);
     install_primitive(display_width);
     install_primitive(display_height);
     install_primitive(display_fill_rect);
