@@ -412,10 +412,10 @@ void draw_rect(const device *display_dev, int xpos, int ypos, int w, int h,
 #include "vgafont.h"
 
 void draw_char(const device *display_dev, int xpos, int ypos, char c,
-               uint16_t foreground, uint16_t background) {
+               uint16_t foreground, uint16_t background, int scale) {
     struct display_buffer_descriptor new_buf_desc;
-    new_buf_desc.width = 8;
-    new_buf_desc.height = 16;
+    new_buf_desc.width = 8 * scale;
+    new_buf_desc.height = 16 * scale;
     new_buf_desc.buf_size = new_buf_desc.width * new_buf_desc.height;
     new_buf_desc.pitch = new_buf_desc.width;
     new_buf_desc.frame_incomplete = false;
@@ -424,8 +424,9 @@ void draw_char(const device *display_dev, int xpos, int ypos, char c,
     for (int y = 0; y < new_buf_desc.height; y++) {
         for (int x = 0; x < new_buf_desc.width; x++) {
             new_buf[y * new_buf_desc.width + x] =
-                (font16[16 * c + y] >> (8 - x)) & 0b1 == 1 ? foreground
-                                                           : background;
+                (font16[16 * c + y / scale] >> (8 - x / scale)) & 0b1 == 1
+                    ? foreground
+                    : background;
         }
     }
     display_write(display_dev, xpos, ypos, &new_buf_desc, new_buf);
@@ -459,7 +460,8 @@ def_prim(display_setup, NoneToNoneU32) {
 }
 
 def_prim(display_set_orientation, oneToNoneI32) {
-    display_set_orientation(display_dev, static_cast<display_orientation>(arg0.uint32));
+    display_set_orientation(display_dev,
+                            static_cast<display_orientation>(arg0.uint32));
     pop_args(1);
     return true;
 }
@@ -485,15 +487,16 @@ def_prim(display_fill_rect, fiveToNoneU32) {
     return true;
 }
 
-def_prim(display_draw_string, sixToNoneU32) {
-    uint32_t addr = arg3.uint32;
-    uint32_t size = arg2.uint32;
+def_prim(display_draw_string, sevenToNoneU32) {
+    uint32_t addr = arg4.uint32;
+    uint32_t size = arg3.uint32;
     std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    int scale = arg2.uint32;
     for (int i = 0; i < text.length(); i++) {
-        draw_char(display_dev, arg5.int32 + i * 8, arg4.int32, text[i],
-                  arg1.uint32, arg0.uint32);
+        draw_char(display_dev, arg6.int32 + i * 8 * scale, arg5.int32, text[i],
+                  arg1.uint32, arg0.uint32, scale);
     }
-    pop_args(6);
+    pop_args(7);
     return true;
 }
 #endif
