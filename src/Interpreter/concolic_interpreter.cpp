@@ -206,14 +206,14 @@ bool ConcolicInterpreter::i_instr_if(Module *m, uint8_t *block_ptr) {
 
     // Update the path condition based on if the branch will be taken in the
     // current execution or not.
-    m->path_condition = m->path_condition && (cond ? sym_cond : !sym_cond);
+    /*m->path_condition = m->path_condition && (cond ? sym_cond : !sym_cond);
 
     // Assert that a constant path condition must always be true, if it's false
     // then we are in an impossible branch so something went wrong.
     if (m->path_condition.is_const()) {
         assert(m->path_condition.simplify().is_bool() &&
                m->path_condition.simplify().is_true());
-    }
+    }*/
 
     // Run the concrete implementation of the if instruction.
     return Interpreter::i_instr_if(m, block_ptr);

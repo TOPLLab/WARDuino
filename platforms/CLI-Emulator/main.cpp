@@ -422,8 +422,9 @@ struct Model {
                                  otherModel.x_only_path_condition(depth) ==
                                      x_only_path_condition));
                 return s.check() == z3::sat;*/
-                s.add(otherModel.x_only_path_condition(depth) != x_only_path_condition);
-                return s.check() != z3::sat;
+                //s.add(otherModel.x_only_path_condition(depth) != x_only_path_condition);
+                //return s.check() != z3::sat;
+                return false; // no path merging
             });
         // Doesn't exist!
         if (already_exists == subpaths.end()) {

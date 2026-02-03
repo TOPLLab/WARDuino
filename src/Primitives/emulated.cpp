@@ -289,6 +289,9 @@ void push_symbolic_int(Module *m, std::string primitive_origin, uint32_t arg) {
     }
     pushInt32(concrete_value);
     m->symbolic_stack[m->sp] = m->ctx.bv_const(var_name.c_str(), 32);
+    //z3::expr cond = z3::ite(m->symbolic_stack[m->sp].value() == m->ctx.bv_val(concrete_value, 32), m->ctx.bv_val(1, 32), m->ctx.bv_val(0, 32));
+    m->path_condition = m->path_condition && m->symbolic_stack[m->sp].value() == m->ctx.bv_val(concrete_value, 32);
+    std::cout << m->path_condition << std::endl;
     m->symbolic_concrete_values[var_name] = {
         .concrete_value = { .value_type = I32, .value = {.int32 = concrete_value} },
         .primitive_origin = primitive_origin,
