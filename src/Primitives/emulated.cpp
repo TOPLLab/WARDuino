@@ -998,6 +998,18 @@ def_prim(text_width, threeToOneU32) {
     return true;
 }
 
+def_prim(text_height, threeToOneU32) {
+    const std::string text = parse_utf8_string(m->memory.bytes, arg1.uint32, arg2.uint32);
+    const Font font = fonts[arg0.uint32];
+    pop_args(3);
+    int h;
+    TTF_SizeText(font.font, text.c_str(), nullptr, &h);
+    float scaleFactorX, scaleFactorY;
+    get_scale_factor(&scaleFactorX, &scaleFactorY);
+    pushUInt32(h / scaleFactorX);
+    return true;
+}
+
 def_prim(present_display_buffer, NoneToNoneU32) {
     SDL_RenderPresent(renderer);
     return true;
@@ -1090,6 +1102,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(load_font);
     install_primitive(set_font_style);
     install_primitive(text_width);
+    install_primitive(text_height);
 
     // Sound primitives
     install_primitive(load_wav);
