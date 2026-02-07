@@ -547,8 +547,11 @@ const int h = 16 * 32;
 uint32_t pixels1[w * h] = {};
 uint32_t pixels2[w * h] = {};
 
-TTF_Font *font = nullptr;
-uint32_t font_size = 0;
+struct Font {
+    TTF_Font *font = nullptr;
+    uint32_t size = 0;
+};
+std::vector<Font> fonts = {};
 
 def_prim(init_display, twoToNoneU32) {
     printf("init_display \n");
@@ -816,7 +819,7 @@ def_prim(load_sprite, fourToOneU32) {
     return true;
 }
 
-def_prim(load_font, threeToNoneU32) {
+def_prim(load_font, threeToOneU32) {
     const uint32_t addr = arg2.uint32;
     const uint32_t size = arg1.uint32;
     const uint32_t ptsize = arg0.uint32;
@@ -826,21 +829,22 @@ def_prim(load_font, threeToNoneU32) {
     float scaleFactorX, scaleFactorY;
     get_scale_factor(&scaleFactorX, &scaleFactorY);
 
-    font = TTF_OpenFont(filename.c_str(), ptsize * scaleFactorX);
-    font_size = ptsize;
+    TTF_Font *font = TTF_OpenFont(filename.c_str(), ptsize * scaleFactorX);
     if (!font) {
         char buffer[100];
         snprintf(buffer, 100, "Failed to load font \"%s\"", filename.c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to load font", buffer, window);
         FATAL("Failed to load font \"%s\"", filename.c_str());
     }
+    pushInt32(fonts.size());
+    fonts.push_back(Font { font, ptsize });
 
     return true;
 }
 
-def_prim(set_font_style, oneToNoneU32) {
-    TTF_SetFontStyle(font, arg0.int32);
-    pop_args(1);
+def_prim(set_font_style, twoToNoneU32) {
+    TTF_SetFontStyle(fonts[arg1.uint32].font, arg0.int32);
+    pop_args(2);
     return true;
 }
 
@@ -947,44 +951,47 @@ def_prim(draw_raw, fiveToNoneU32) {
     return true;
 }
 
-def_prim(draw_text, fiveToNoneU32) {
+def_prim(draw_text, sixToNoneU32) {
+    if (arg2.uint32 >= fonts.size()) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No font was loaded", "Please load a font before calling draw_text.", window);
+        FATAL("No font was loaded before calling draw_Text\n");
+    }
+
+    const Font font = fonts[arg2.uint32];
     const uint32_t addr = arg1.uint32;
     const uint32_t size = arg0.uint32;
     const std::string text = parse_utf8_string(m->memory.bytes, size, addr);
-    const uint8_t r = (arg2.uint32 >> 16) & 0xff;
-    const uint8_t g = (arg2.uint32 >> 8) & 0xff;
-    const uint8_t b = arg2.uint32 & 0xff;
+    const uint8_t r = (arg3.uint32 >> 16) & 0xff;
+    const uint8_t g = (arg3.uint32 >> 8) & 0xff;
+    const uint8_t b = arg3.uint32 & 0xff;
     const SDL_Color color = (SDL_Color) {r, g, b, 0};
 
     float scaleFactorX, scaleFactorY;
     get_scale_factor(&scaleFactorX, &scaleFactorY);
-    if (!font) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No font was loaded", "Please load a font before calling draw_text.", window);
-        FATAL("No font was loaded before calling draw_Text\n");
-    }
     // TODO: TTF_SetFontSize resets the font cache, so this is an expensive operation.
-    TTF_SetFontSize(font, font_size * scaleFactorX);
-    SDL_Surface* surface = TTF_RenderUTF8_Blended(font,
+    TTF_SetFontSize(font.font, font.size * scaleFactorX);
+    SDL_Surface* surface = TTF_RenderUTF8_Blended(font.font,
         text.c_str(), color);
     //assert(surface != nullptr);
     if (surface == nullptr) {
-        pop_args(5);
+        pop_args(6);
         return true;
     }
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-    const SDL_Rect rect = {static_cast<int32_t>(arg4.int32 * scaleFactorX), static_cast<int32_t>(arg3.int32 * scaleFactorY), surface->w, surface->h};
+    const SDL_Rect rect = {static_cast<int32_t>(arg5.int32 * scaleFactorX), static_cast<int32_t>(arg4.int32 * scaleFactorY), surface->w, surface->h};
     SDL_RenderCopy(renderer, texture, nullptr, &rect);
     SDL_DestroyTexture(texture);
     SDL_FreeSurface(surface);
-    pop_args(5);
+    pop_args(6);
     return true;
 }
 
-def_prim(text_width, twoToOneU32) {
-    const std::string text = parse_utf8_string(m->memory.bytes, arg0.uint32, arg1.uint32);
-    pop_args(2);
+def_prim(text_width, threeToOneU32) {
+    const std::string text = parse_utf8_string(m->memory.bytes, arg1.uint32, arg2.uint32);
+    const Font font = fonts[arg0.uint32];
+    pop_args(3);
     int w;
-    TTF_SizeText(font, text.c_str(), &w, nullptr);
+    TTF_SizeText(font.font, text.c_str(), &w, nullptr);
     float scaleFactorX, scaleFactorY;
     get_scale_factor(&scaleFactorX, &scaleFactorY);
     pushUInt32(w / scaleFactorX);
