@@ -838,6 +838,12 @@ def_prim(load_font, threeToNoneU32) {
     return true;
 }
 
+def_prim(set_font_style, oneToNoneU32) {
+    TTF_SetFontStyle(font, arg0.int32);
+    pop_args(1);
+    return true;
+}
+
 def_prim(load_wav, twoToOneU32) {
     const uint32_t addr = arg1.uint32;
     const uint32_t size = arg0.uint32;
@@ -952,6 +958,10 @@ def_prim(draw_text, fiveToNoneU32) {
 
     float scaleFactorX, scaleFactorY;
     get_scale_factor(&scaleFactorX, &scaleFactorY);
+    if (!font) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No font was loaded", "Please load a font before calling draw_text.", window);
+        FATAL("No font was loaded before calling draw_Text\n");
+    }
     // TODO: TTF_SetFontSize resets the font cache, so this is an expensive operation.
     TTF_SetFontSize(font, font_size * scaleFactorX);
     SDL_Surface* surface = TTF_RenderUTF8_Blended(font,
@@ -1071,6 +1081,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(draw_raw);
     install_primitive(draw_text);
     install_primitive(load_font);
+    install_primitive(set_font_style);
     install_primitive(text_width);
 
     // Sound primitives
