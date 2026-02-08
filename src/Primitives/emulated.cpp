@@ -553,18 +553,19 @@ struct Font {
 };
 std::vector<Font> fonts = {};
 
-def_prim(init_display, twoToNoneU32) {
-    printf("init_display \n");
+def_prim(create_window, threeToNoneU32) {
+    printf("create_window %d %d %d\n", arg2.uint32, arg1.uint32, arg0.uint32);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
         fprintf(stderr, "Could not initialize sdl2: %s\n", SDL_GetError());
         return false;
     }
+    uint32_t resizable_flag = arg0.uint32 > 0 ? SDL_WINDOW_RESIZABLE : 0;
     window = SDL_CreateWindow(
                     "WARDuino emulated display",
                     SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                    arg1.uint32, arg0.uint32,
-                    SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI
+                    arg2.uint32, arg1.uint32,
+                    SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | resizable_flag
                     );
     if (window == NULL) {
         fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
@@ -589,7 +590,22 @@ def_prim(init_display, twoToNoneU32) {
         fprintf(stderr, "could not initialize sdl2_image: %s\n", IMG_GetError());
         return false;
     }
+    pop_args(3);
     
+    return true;
+}
+
+def_prim(window_width, NoneToNoneU32) {
+    int w;
+    SDL_GetWindowSize(window, &w, nullptr);
+    pushInt32(w);
+    return true;
+}
+
+def_prim(window_height, NoneToNoneU32) {
+    int h;
+    SDL_GetWindowSize(window, nullptr, &h);
+    pushInt32(h);
     return true;
 }
 
@@ -602,7 +618,7 @@ void get_scale_factor(float *scaleFactorX, float *scaleFactorY) {
     *scaleFactorY =  static_cast<float>(dh) / static_cast<float>(wh);
 }
 
-def_prim(dispose_display, NoneToNoneU32) {
+def_prim(dispose_window, NoneToNoneU32) {
     SDL_DestroyWindow(window);
     SDL_Quit();
     return true;
@@ -1089,9 +1105,11 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(chip_ledc_attach_pin);
     install_primitive(chip_ledc_set_duty);
 
-    install_primitive(init_display);
-    install_primitive(dispose_display); 
+    install_primitive(create_window);
+    install_primitive(dispose_window); 
     install_primitive(present_display_buffer);
+    install_primitive(window_width);
+    install_primitive(window_height);
     install_primitive(draw_rect);
     install_primitive(draw_rounded_rect);
     install_primitive(draw_circle);
