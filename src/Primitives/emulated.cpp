@@ -24,10 +24,10 @@
 #include <random>
 #include <thread>
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
-#include <SDL2/SDL_mixer.h>
-#include <SDL2/SDL_image.h>
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
+#include <SDL3_mixer/SDL_mixer.h>
+#include <SDL3_image/SDL_image.h>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
@@ -306,6 +306,10 @@ def_prim_serialize(chip_digital_write) {
     }
 }
 
+SDL_Renderer *renderer;
+SDL_Window* window = nullptr;
+float display_scale = 1.0f;
+
 def_prim(chip_digital_read, oneToOneU32) {
     uint32_t pin = arg0.uint32;
     pop_args(1);
@@ -320,17 +324,18 @@ def_prim(chip_digital_read, oneToOneU32) {
     SDL_Event event;
     while( SDL_PollEvent( &event ) ){
         switch( event.type ){
-            case SDL_WINDOWEVENT:
-                if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
-                    //SDL_DestroyWindow(window);
-                    SDL_Quit();
-                    exit(0);
-                }
+            case SDL_EVENT_QUIT:
+                //SDL_DestroyWindow(window);
+                SDL_Quit();
+                exit(0);
+            break;
+            case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+                display_scale = SDL_GetWindowDisplayScale(window);
             break;
         }
     }
     
-    const uint8_t* keystate = SDL_GetKeyboardState(nullptr);
+    const bool* keystate = SDL_GetKeyboardState(nullptr);
 
     //continuous-response keys
     /*if(keystate[SDL_SCANCODE_LEFT] && pin == 1024) {
@@ -529,10 +534,6 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     return true;
 }
 
-SDL_Renderer *renderer;
-SDL_Window* window = nullptr;
-SDL_Surface* screenSurface = nullptr;
-
 struct SpriteSheet {
     SDL_Texture *texture = nullptr;
     uint32_t tile_size = 32;
@@ -553,43 +554,41 @@ struct Font {
 };
 std::vector<Font> fonts = {};
 
+MIX_Mixer *mixer;
+
 def_prim(create_window, threeToNoneU32) {
     printf("create_window %d %d %d\n", arg2.uint32, arg1.uint32, arg0.uint32);
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         fprintf(stderr, "Could not initialize sdl2: %s\n", SDL_GetError());
         return false;
     }
     uint32_t resizable_flag = arg0.uint32 > 0 ? SDL_WINDOW_RESIZABLE : 0;
     window = SDL_CreateWindow(
-                    "WARDuino emulated display",
-                    SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                    arg2.uint32, arg1.uint32,
-                    SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | resizable_flag
-                    );
+        "WARDuino emulated display",
+        arg2.uint32, arg1.uint32,
+        SDL_WINDOW_HIGH_PIXEL_DENSITY | resizable_flag
+    );
     if (window == NULL) {
         fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
         return false;
     }
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);             
+    renderer = SDL_CreateRenderer(window, nullptr);
     if (!renderer) {                                                                               
         fprintf(stderr, "Could not create renderer: %s\n", SDL_GetError());                            
         return false;                                                                                  
     }
-    if (TTF_Init()) {
+    if (!TTF_Init()) {
         fprintf(stderr, "Failed to init SDL TTF: %s\n", SDL_GetError());
         return false;
     }
 
-    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-        fprintf(stderr, "SDL_mixer could not initialize! Error: %s\n", Mix_GetError());
+    if (!MIX_Init()) {
+        fprintf(stderr, "Failed to init SDL Mixer: %s\n", SDL_GetError());
         return false;
     }
+    mixer = MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
 
-    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
-        fprintf(stderr, "could not initialize sdl2_image: %s\n", IMG_GetError());
-        return false;
-    }
     pop_args(3);
     
     return true;
@@ -609,15 +608,6 @@ def_prim(window_height, NoneToNoneU32) {
     return true;
 }
 
-void get_scale_factor(float *scaleFactorX, float *scaleFactorY) {
-    int dw, dh;
-    SDL_GL_GetDrawableSize(window, &dw, &dh);
-    int ww, wh;
-    SDL_GetWindowSize(window, &ww, &wh);
-    *scaleFactorX =  static_cast<float>(dw) / static_cast<float>(ww);
-    *scaleFactorY =  static_cast<float>(dh) / static_cast<float>(wh);
-}
-
 def_prim(dispose_window, NoneToNoneU32) {
     SDL_DestroyWindow(window);
     SDL_Quit();
@@ -629,16 +619,12 @@ def_prim(draw_rect, fiveToNoneU32) {
     uint32_t g = (arg0.uint32 >> 8) & 0xff;
     uint32_t b = arg0.uint32 & 0xff;
     //printf("(%d, %d) (%d, %d)\n", arg4.int32, arg3.int32, arg2.int32, arg1.int32);
-
-    float scaleFactorX;
-    float scaleFactorY;
-    get_scale_factor(&scaleFactorX, &scaleFactorY);
     
-    SDL_Rect rect = {
-        static_cast<int32_t>(arg4.int32 * scaleFactorX),
-        static_cast<int32_t>(arg3.int32 * scaleFactorY),
-        static_cast<int32_t>(arg2.int32 * scaleFactorX),
-        static_cast<int32_t>(arg1.int32 * scaleFactorY)
+    SDL_FRect rect = {
+        arg4.int32 * display_scale,
+        arg3.int32 * display_scale,
+        arg2.int32 * display_scale,
+        arg1.int32 * display_scale
     };
     SDL_SetRenderDrawColor(renderer, r, g, b, 255);
     SDL_RenderFillRect(renderer, &rect);
@@ -649,67 +635,67 @@ def_prim(draw_rect, fiveToNoneU32) {
 
 void draw_circle_segment(float scaleFactorX, float scaleFactorY, int offsetX, int offsetY, int xpos, int ypos, int cx, int cy) {
     // bottom right
-    SDL_Rect rect = {
-        static_cast<int32_t>((cx + offsetX) * scaleFactorX),
-        static_cast<int32_t>((cy + offsetY) * scaleFactorY + ypos),
-        xpos,
+    SDL_FRect rect = {
+        (cx + offsetX) * scaleFactorX,
+        (cy + offsetY) * scaleFactorY + ypos,
+        static_cast<float>(xpos),
         1
     };
     SDL_RenderFillRect(renderer, &rect);
     rect = {
-        static_cast<int32_t>((cx + offsetX) * scaleFactorX + ypos),
-        static_cast<int32_t>((cy + offsetY) * scaleFactorY),
+        (cx + offsetX) * scaleFactorX + ypos,
+        (cy + offsetY) * scaleFactorY,
         1,
-        xpos
+        static_cast<float>(xpos)
     };
     SDL_RenderFillRect(renderer, &rect);
 
     // bottom left
     rect = {
-        static_cast<int32_t>(cx * scaleFactorX - xpos),
-        static_cast<int32_t>((cy + offsetY) * scaleFactorY + ypos),
-        xpos,
+        cx * scaleFactorX - xpos,
+        (cy + offsetY) * scaleFactorY + ypos,
+        static_cast<float>(xpos),
         1
     };
     SDL_RenderFillRect(renderer, &rect);
     rect = {
-        static_cast<int32_t>(cx * scaleFactorX - ypos),
-        static_cast<int32_t>((cy + offsetY) * scaleFactorY),
+        cx * scaleFactorX - ypos,
+        (cy + offsetY) * scaleFactorY,
         1,
-        xpos
+        static_cast<float>(xpos)
     };
     SDL_RenderFillRect(renderer, &rect);
 
     // top part of the circle
     // top right
     rect = {
-        static_cast<int32_t>((cx + offsetX) * scaleFactorX),
-        static_cast<int32_t>(cy * scaleFactorY - ypos),
-        xpos,
+        (cx + offsetX) * scaleFactorX,
+        cy * scaleFactorY - ypos,
+        static_cast<float>(xpos),
         1
     };
     SDL_RenderFillRect(renderer, &rect);
     rect = {
-        static_cast<int32_t>((cx + offsetX) * scaleFactorX + ypos),
-        static_cast<int32_t>(cy * scaleFactorY - xpos),
+        (cx + offsetX) * scaleFactorX + ypos,
+        cy * scaleFactorY - xpos,
         1,
-        xpos
+        static_cast<float>(xpos)
     };
     SDL_RenderFillRect(renderer, &rect);
 
     // top left
     rect = {
-        static_cast<int32_t>(cx * scaleFactorX - xpos),
-        static_cast<int32_t>(cy * scaleFactorY - ypos),
-        xpos,
+        cx * scaleFactorX - xpos,
+        cy * scaleFactorY - ypos,
+        static_cast<float>(xpos),
         1
     };
     SDL_RenderFillRect(renderer, &rect);
     rect = {
-        static_cast<int32_t>(cx * scaleFactorX - ypos),
-        static_cast<int32_t>(cy * scaleFactorY - xpos),
+        cx * scaleFactorX - ypos,
+        cy * scaleFactorY - xpos,
         1,
-        xpos
+        static_cast<float>(xpos)
     };
     SDL_RenderFillRect(renderer, &rect);
 }
@@ -720,11 +706,7 @@ void draw_circle(int32_t cx, int32_t cy, int32_t radius, int32_t color, int32_t 
     const uint32_t b = color & 0xff;
     SDL_SetRenderDrawColor(renderer, r, g, b, 255);
 
-    float scaleFactorX;
-    float scaleFactorY;
-    get_scale_factor(&scaleFactorX, &scaleFactorY);
-
-    radius = radius * scaleFactorX;
+    radius = radius * display_scale;
 
     int p = 1;
     int r2 = 1;
@@ -735,7 +717,7 @@ void draw_circle(int32_t cx, int32_t cy, int32_t radius, int32_t color, int32_t 
     int x = 1;
     int v = r2;
     int xPos=radius, yPos=0;
-    draw_circle_segment(scaleFactorX, scaleFactorY, spaceX, spaceY, xPos, yPos, cx, cy);
+    draw_circle_segment(display_scale, display_scale, spaceX, spaceY, xPos, yPos, cx, cy);
     while (xPos >= yPos) {
         yPos += 1;
         v += x;
@@ -745,33 +727,29 @@ void draw_circle(int32_t cx, int32_t cy, int32_t radius, int32_t color, int32_t 
             p -= 2;
             xPos -= 1;
         }
-        draw_circle_segment(scaleFactorX, scaleFactorY, spaceX, spaceY, xPos, yPos, cx, cy);
+        draw_circle_segment(display_scale, display_scale, spaceX, spaceY, xPos, yPos, cx, cy);
     }
 }
 
 def_prim(draw_rounded_rect, sixToNoneU32) {
-    float scaleFactorX;
-    float scaleFactorY;
-    get_scale_factor(&scaleFactorX, &scaleFactorY);
-
     int cx = arg5.int32;
     int cy = arg4.int32;
     int radius = arg1.int32;
     int spaceX = arg3.int32 - radius * 2;
     int spaceY = arg2.int32 - radius * 2;
     draw_circle(cx + radius, cy + radius, radius, arg0.uint32, spaceX, spaceY);
-    const SDL_Rect hrect = {
-        .x = static_cast<int32_t>(cx * scaleFactorX),
-        .y = static_cast<int32_t>((cy + radius) * scaleFactorY),
-        .w = static_cast<int32_t>((spaceX + radius * 2) * scaleFactorX),
-        .h = static_cast<int32_t>(spaceY * scaleFactorY)
+    const SDL_FRect hrect = {
+        .x = cx * display_scale,
+        .y = (cy + radius) * display_scale,
+        .w = (spaceX + radius * 2) * display_scale,
+        .h = spaceY * display_scale
     };
     SDL_RenderFillRect(renderer, &hrect);
-    const SDL_Rect vrect = {
-        .x = static_cast<int32_t>((cx + radius) * scaleFactorX),
-        .y = static_cast<int32_t>(cy * scaleFactorY),
-        .w = static_cast<int32_t>(spaceX * scaleFactorX),
-        .h = static_cast<int32_t>((spaceY + radius * 2) * scaleFactorY)
+    const SDL_FRect vrect = {
+        .x = (cx + radius) * display_scale,
+        .y = cy * display_scale,
+        .w = spaceX * display_scale,
+        .h = (spaceY + radius * 2) * display_scale
     };
     SDL_RenderFillRect(renderer, &vrect);
     pop_args(6);
@@ -785,15 +763,11 @@ def_prim(draw_circle, fourToNoneU32) {
 }
 
 def_prim(draw_sprite, sixToNoneU32) {
-    float scaleFactorX;
-    float scaleFactorY;
-    get_scale_factor(&scaleFactorX, &scaleFactorY);
-
-    SDL_Rect rect = {
-        static_cast<int32_t>(arg5.int32 * scaleFactorX),
-        static_cast<int32_t>(arg4.int32 * scaleFactorY),
-        static_cast<int32_t>(arg3.int32 * scaleFactorX),
-        static_cast<int32_t>(arg2.int32 * scaleFactorY)
+    SDL_FRect rect = {
+        arg5.int32 * display_scale,
+        arg4.int32 * display_scale,
+        arg3.int32 * display_scale,
+        arg2.int32 * display_scale
     };
     SDL_RenderFillRect(renderer, &rect);
     uint32_t sprite_sheet = arg1.uint32;
@@ -806,8 +780,13 @@ def_prim(draw_sprite, sixToNoneU32) {
     const int h = spriteSheet->tile_size;
     const int x = (sprite_id % spriteSheet->tile_count) * w;
     const int y = (sprite_id / spriteSheet->tile_count) * h;
-    SDL_Rect src_rect = {x, y, w, h};
-    SDL_RenderCopy(renderer, spriteSheet->texture, &src_rect, &rect);
+    SDL_FRect src_rect = {
+        static_cast<float>(x), 
+        static_cast<float>(y), 
+        static_cast<float>(w), 
+        static_cast<float>(h)
+    };
+    SDL_RenderTexture(renderer, spriteSheet->texture, &src_rect, &rect);
 
     return true;
 }
@@ -842,10 +821,7 @@ def_prim(load_font, threeToOneU32) {
     const std::string filename = parse_utf8_string(m->memory.bytes, size, addr);
     pop_args(3);
 
-    float scaleFactorX, scaleFactorY;
-    get_scale_factor(&scaleFactorX, &scaleFactorY);
-
-    TTF_Font *font = TTF_OpenFont(filename.c_str(), ptsize * scaleFactorX);
+    TTF_Font *font = TTF_OpenFont(filename.c_str(), ptsize * display_scale);
     if (!font) {
         char buffer[100];
         snprintf(buffer, 100, "Failed to load font \"%s\"", filename.c_str());
@@ -864,42 +840,86 @@ def_prim(set_font_style, twoToNoneU32) {
     return true;
 }
 
-def_prim(load_wav, twoToOneU32) {
+std::vector<MIX_Audio*> audios = {};
+std::vector<MIX_Track*> tracks = {};
+
+def_prim(load_audio, twoToOneU32) {
     const uint32_t addr = arg1.uint32;
     const uint32_t size = arg0.uint32;
     pop_args(2);
     const std::string filename = parse_utf8_string(m->memory.bytes, size, addr);
-    Mix_Chunk *sound = Mix_LoadWAV(filename.c_str());
-    if (!sound) {
+
+    // Load and play audio using SDL.
+    MIX_Audio *audio = MIX_LoadAudio(mixer, filename.c_str(), false);
+    if (!audio) {
         char buffer[100];
         snprintf(buffer, 100, "Failed to load sound \"%s\"", filename.c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to load sound", buffer, window);
         FATAL("Failed to load sound \"%s\"", filename.c_str());
     }
+    audios.push_back(audio);
 
-    // Play the sound on the first available channel (-1), once (0)
-    pushInt32(Mix_PlayChannel(-1, sound, 0));
+    pushInt32(audios.size() - 1);
+    return true;
+}
+
+def_prim(play_audio, oneToOneU32) {
+    const uint32_t audio_idx = arg0.uint32;
+    MIX_Audio *audio = audios[audio_idx];
+
+    int track_idx = 0;
+    while (track_idx < tracks.size() && MIX_TrackPlaying(tracks[track_idx])) {
+        track_idx++;
+    }
+    if (track_idx >= tracks.size()) {
+        MIX_Track *track = MIX_CreateTrack(mixer);
+        tracks.push_back(track);
+    }
+
+    MIX_Track *track = tracks[track_idx];
+    MIX_SetTrackAudio(track, audio);
+    if (!MIX_PlayTrack(track, 0)) {
+        FATAL("Failed to play audio %s\n", SDL_GetError());
+    }
+    pop_args(1);
+    pushUInt32(track_idx);
+    return true;
+}
+
+def_prim(get_audio_duration, oneToOneU32) {
+    const int audio_idx = arg0.uint32;
+    MIX_Audio *audio = audios[audio_idx];
+    pop_args(1);
+    pushInt64(MIX_AudioFramesToMS(audio, MIX_GetAudioDuration(audio)));
     return true;
 }
 
 def_prim(pause_channel, oneToNoneU32) {
     const uint32_t channel = arg0.uint32;
     pop_args(1);
-    Mix_Pause(channel);
+    MIX_PauseTrack(tracks[channel]);
     return true;
 }
 
 def_prim(resume_channel, oneToNoneU32) {
     const uint32_t channel = arg0.uint32;
     pop_args(1);
-    Mix_Resume(channel);
+    MIX_ResumeTrack(tracks[channel]);
     return true;
 }
 
 def_prim(is_playing_channel, oneToOneU32) {
     const uint32_t channel = arg0.uint32;
     pop_args(1);
-    pushInt32(Mix_Playing(channel));
+    pushInt32(MIX_TrackPlaying(tracks[channel]));
+    return true;
+}
+
+def_prim(get_channel_position, oneToOneU32) {
+    const uint32_t channel = arg0.uint32;
+    pop_args(1);
+    MIX_Track *track = tracks[channel];
+    pushInt64(MIX_TrackFramesToMS(track, MIX_GetTrackPlaybackPosition(track)));
     return true;
 }
 
@@ -909,7 +929,12 @@ def_prim(draw_raw, fiveToNoneU32) {
     uint32_t b = arg0.uint32 & 0xff;
     //printf("(%d, %d) (%d, %d)\n", arg4.int32, arg3.int32, arg2.int32, arg1.int32);
     
-    SDL_Rect rect = {arg4.int32, arg3.int32, arg2.int32, arg1.int32}; 
+    SDL_FRect rect = {
+        static_cast<float>(arg4.int32), 
+        static_cast<float>(arg3.int32), 
+        static_cast<float>(arg2.int32), 
+        static_cast<float>(arg1.int32)
+    }; 
     SDL_SetRenderDrawColor(renderer, r, g, b, 255);                                       
     //SDL_RenderDrawRect(renderer, &rect);   
     SDL_RenderFillRect(renderer, &rect);
@@ -953,8 +978,8 @@ def_prim(draw_raw, fiveToNoneU32) {
     
     SDL_UpdateTexture(texture, NULL, pixels1, w * sizeof(uint32_t));
     
-    SDL_Rect src_rect = {0, 0, w, h};
-    SDL_RenderCopy(renderer, texture, &src_rect, &rect);
+    SDL_FRect src_rect = {0, 0, static_cast<float>(w), static_cast<float>(h)};
+    SDL_RenderTexture(renderer, texture, &src_rect, &rect);
     
     /*int w = 32;
     int h = 32;
@@ -982,47 +1007,45 @@ def_prim(draw_text, sixToNoneU32) {
     const uint8_t b = arg3.uint32 & 0xff;
     const SDL_Color color = (SDL_Color) {r, g, b, 0};
 
-    float scaleFactorX, scaleFactorY;
-    get_scale_factor(&scaleFactorX, &scaleFactorY);
     // TODO: TTF_SetFontSize resets the font cache, so this is an expensive operation.
-    TTF_SetFontSize(font.font, font.size * scaleFactorX);
-    SDL_Surface* surface = TTF_RenderUTF8_Blended(font.font,
-        text.c_str(), color);
+    TTF_SetFontSize(font.font, font.size * display_scale);
+    SDL_Surface* surface = TTF_RenderText_Blended(font.font,
+        text.c_str(), text.length(), color);
     //assert(surface != nullptr);
     if (surface == nullptr) {
         pop_args(6);
         return true;
     }
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-    const SDL_Rect rect = {static_cast<int32_t>(arg5.int32 * scaleFactorX), static_cast<int32_t>(arg4.int32 * scaleFactorY), surface->w, surface->h};
-    SDL_RenderCopy(renderer, texture, nullptr, &rect);
+    const SDL_FRect rect = {arg5.int32 * display_scale, arg4.int32 * display_scale, static_cast<float>(surface->w), static_cast<float>(surface->h)};
+    SDL_RenderTexture(renderer, texture, nullptr, &rect);
     SDL_DestroyTexture(texture);
-    SDL_FreeSurface(surface);
+    SDL_DestroySurface(surface);
     pop_args(6);
     return true;
 }
 
 def_prim(text_width, threeToOneU32) {
-    const std::string text = parse_utf8_string(m->memory.bytes, arg1.uint32, arg2.uint32);
+    const std::string s = parse_utf8_string(m->memory.bytes, arg1.uint32, arg2.uint32);
     const Font font = fonts[arg0.uint32];
     pop_args(3);
     int w;
-    TTF_SizeText(font.font, text.c_str(), &w, nullptr);
-    float scaleFactorX, scaleFactorY;
-    get_scale_factor(&scaleFactorX, &scaleFactorY);
-    pushUInt32(w / scaleFactorX);
+    TTF_Text *text = TTF_CreateText(nullptr, font.font, s.c_str(), s.length());
+    TTF_GetTextSize(text, &w, nullptr);
+    TTF_DestroyText(text);
+    pushUInt32(w / display_scale);
     return true;
 }
 
 def_prim(text_height, threeToOneU32) {
-    const std::string text = parse_utf8_string(m->memory.bytes, arg1.uint32, arg2.uint32);
+    const std::string s = parse_utf8_string(m->memory.bytes, arg1.uint32, arg2.uint32);
     const Font font = fonts[arg0.uint32];
     pop_args(3);
     int h;
-    TTF_SizeText(font.font, text.c_str(), nullptr, &h);
-    float scaleFactorX, scaleFactorY;
-    get_scale_factor(&scaleFactorX, &scaleFactorY);
-    pushUInt32(h / scaleFactorX);
+    TTF_Text *text = TTF_CreateText(nullptr, font.font, s.c_str(), s.length());
+    TTF_GetTextSize(text, nullptr, &h);
+    TTF_DestroyText(text);
+    pushUInt32(h / display_scale);
     return true;
 }
 
@@ -1032,21 +1055,21 @@ def_prim(present_display_buffer, NoneToNoneU32) {
 }
 
 def_prim(get_mouse_x, NoneToOneU32) {
-    int x, y;
+    float x, y;
     SDL_GetMouseState(&x, &y);
-    pushInt32(x);
+    pushInt32((int) x);
     return true;
 }
 
 def_prim(get_mouse_y, NoneToOneU32) {
-    int x, y;
+    float x, y;
     SDL_GetMouseState(&x, &y);
-    pushInt32(y);
+    pushInt32((int) y);
     return true;
 }
 
 def_prim(get_mouse_pressed, NoneToOneU32) {
-    pushInt32(SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON(SDL_BUTTON_LEFT));
+    pushInt32(SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MASK(SDL_BUTTON_LEFT));
     return true;
 }
 
@@ -1123,10 +1146,13 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(text_height);
 
     // Sound primitives
-    install_primitive(load_wav);
+    install_primitive(load_audio);
+    install_primitive(play_audio);
+    install_primitive(get_audio_duration);
     install_primitive(pause_channel);
     install_primitive(resume_channel);
     install_primitive(is_playing_channel);
+    install_primitive(get_channel_position);
 
     // Mouse primitives
     install_primitive(get_mouse_x);
