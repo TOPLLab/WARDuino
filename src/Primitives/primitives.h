@@ -115,6 +115,9 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
 #define pushUInt64(arg)                 \
     m->stack[++m->sp].value_type = I64; \
     m->stack[m->sp].value.uint64 = arg
+#define pushInt64(arg)                 \
+    m->stack[++m->sp].value_type = I64; \
+    m->stack[m->sp].value.int64 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
