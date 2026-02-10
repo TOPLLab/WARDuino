@@ -440,7 +440,10 @@ bool Interpreter::interpret(Module *m, bool waiting) {
             case 0xc0 ... 0xc4:
                 success &= i_instr_extension(m, opcode);
                 continue;
-
+                // saturated arithmetic + bulk operations
+            case 0xfc:
+                success &= i_instr_sat_bulk(m);
+                continue;
                 // callback operations
             case 0xe0 ... 0xe3:
                 success &= i_instr_callback(m, opcode);
