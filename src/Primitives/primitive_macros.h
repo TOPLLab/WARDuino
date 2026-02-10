@@ -43,6 +43,9 @@
 #define pushUInt64(arg)                                     \
     get_ectx(m)->stack[++get_ectx(m)->sp].value_type = I64; \
     get_ectx(m)->stack[get_ectx(m)->sp].value.uint64 = arg
+#define pushInt64(arg)                 \
+    get_ectx(m)->stack[++get_ectx(m)->sp].value_type = I64; \
+    get_ectx(m)->stack[get_ectx(m)->sp].value.int64 = arg
 #define arg0 get_arg(m, 0)
 #define arg1 get_arg(m, 1)
 #define arg2 get_arg(m, 2)
