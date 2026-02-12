@@ -1316,12 +1316,28 @@ bool i_instr_sat_bulk(Module *m) {
             m->stack[m->sp].value.uint32 = m->stack[m->sp].value.f64;
             m->stack[m->sp].value_type = I32;
             break;
-        case 0x04:  // i64.trunc_sat_s_f32
-            m->stack[m->sp].value.int64 = m->stack[m->sp].value.f32;
+        case 0x04: // i64.trunc_sat_s_f32
+            if (std::isnan(m->stack[m->sp].value.f32)) {
+                m->stack[m->sp].value.int64 = 0;
+            } else if(m->stack[m->sp].value.f32 <= static_cast<float>(INT64_MIN)) {
+                m->stack[m->sp].value.int64 = INT64_MIN;
+            } else if (m->stack[m->sp].value.f32 >= static_cast<float>(INT64_MAX)) {
+                m->stack[m->sp].value.int64 = INT64_MAX;
+            } else {
+                m->stack[m->sp].value.int64 = m->stack[m->sp].value.f32;
+            }
             m->stack[m->sp].value_type = I64;
             break;
-        case 0x05:  // i64.trunc_sat_u_f32
-            m->stack[m->sp].value.uint64 = m->stack[m->sp].value.f32;
+        case 0x05: // i64.trunc_sat_u_f32
+            if (std::isnan(m->stack[m->sp].value.f32)) {
+                m->stack[m->sp].value.uint64 = 0;
+            } else if(m->stack[m->sp].value.f32 <= static_cast<float>(0)) {
+                m->stack[m->sp].value.uint64 = 0;
+            } else if (m->stack[m->sp].value.f32 >= static_cast<float>(UINT64_MAX)) {
+                m->stack[m->sp].value.uint64 = UINT64_MAX;
+            } else {
+                m->stack[m->sp].value.uint64 = m->stack[m->sp].value.f32;
+            }
             m->stack[m->sp].value_type = I64;
             break;
         case 0x06:  // i64.trunc_sat_s_f64
