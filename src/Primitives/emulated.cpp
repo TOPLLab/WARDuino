@@ -810,6 +810,7 @@ def_prim(load_sprite, fourToOneU32) {
         FATAL("Failed to load sprite sheet \"%s\"", filename.c_str());
     }
     spriteSheet->texture = SDL_CreateTextureFromSurface(renderer, texSurface);
+    SDL_SetTextureScaleMode(spriteSheet->texture, SDL_SCALEMODE_NEAREST);
     pushInt32(spriteSheetCount);
     return true;
 }
