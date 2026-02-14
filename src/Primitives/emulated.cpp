@@ -309,6 +309,7 @@ def_prim_serialize(chip_digital_write) {
 SDL_Renderer *renderer;
 SDL_Window* window = nullptr;
 float display_scale = 1.0f;
+SDL_PropertiesID props = SDL_CreateProperties();
 
 def_prim(chip_digital_read, oneToOneU32) {
     uint32_t pin = arg0.uint32;
@@ -856,7 +857,7 @@ def_prim(load_audio, twoToOneU32) {
         char buffer[100];
         snprintf(buffer, 100, "Failed to load sound \"%s\"", filename.c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to load sound", buffer, window);
-        FATAL("Failed to load sound \"%s\"", filename.c_str());
+        FATAL("Failed to load sound \"%s\"\n", filename.c_str());
     }
     audios.push_back(audio);
 
@@ -864,8 +865,8 @@ def_prim(load_audio, twoToOneU32) {
     return true;
 }
 
-def_prim(play_audio, oneToOneU32) {
-    const uint32_t audio_idx = arg0.uint32;
+def_prim(play_audio, twoToOneU32) {
+    const uint32_t audio_idx = arg1.uint32;
     MIX_Audio *audio = audios[audio_idx];
 
     int track_idx = 0;
@@ -879,7 +880,9 @@ def_prim(play_audio, oneToOneU32) {
 
     MIX_Track *track = tracks[track_idx];
     MIX_SetTrackAudio(track, audio);
-    if (!MIX_PlayTrack(track, 0)) {
+    const uint32_t loop_count = arg0.int32;
+    SDL_SetNumberProperty(props, MIX_PROP_PLAY_LOOPS_NUMBER, loop_count);
+    if (!MIX_PlayTrack(track, props)) {
         FATAL("Failed to play audio %s\n", SDL_GetError());
     }
     pop_args(1);
