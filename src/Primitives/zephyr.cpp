@@ -17,9 +17,9 @@
 #include <zephyr/drivers/adc.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
+#include <zephyr/drivers/spi.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util_macro.h>
-#include <zephyr/drivers/spi.h>
 
 #include <chrono>
 #include <cmath>
@@ -394,8 +394,8 @@ int write_spi_bytes(unsigned char *data, size_t len) {
         return -1;
     }
 
-    struct spi_buf tx_buf = { .buf = data, .len = len };
-    struct spi_buf_set tx_bufs = { .buffers = &tx_buf, .count = 1 };
+    struct spi_buf tx_buf = {.buf = data, .len = len};
+    struct spi_buf_set tx_bufs = {.buffers = &tx_buf, .count = 1};
 
     // Now write the buffer using SPI.
     struct spi_config config;
@@ -422,7 +422,7 @@ int write_spi_bytes_16_prim(int times, unsigned int color) {
 
 def_prim(write_spi_byte, oneToNoneU32) {
     debug("write_spi_byte(%d)\n", arg0.uint32);
-    unsigned char data = (char) arg0.uint32;
+    unsigned char data = (char)arg0.uint32;
     int result = write_spi_bytes(&data, 1);
     pop_args(1);
     return result == 0;
@@ -442,11 +442,12 @@ def_prim(read_spi_byte, NoneToOneU32) {
     config.frequency = DT_PROP(DT_NODELABEL(spi0), clock_frequency);
     config.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(9);
     config.slave = 0;
-    config.cs = {}; // TODO: Chip select line, maybe useful or can we do it manually not sure
+    config.cs = {};  // TODO: Chip select line, maybe useful or can we do it
+                     // manually not sure
 
     unsigned char data = 0;
-    struct spi_buf tx_buf = { .buf = &data, .len = 1 };
-    struct spi_buf_set tx_bufs = { .buffers = &tx_buf, .count = 1 };
+    struct spi_buf tx_buf = {.buf = &data, .len = 1};
+    struct spi_buf_set tx_bufs = {.buffers = &tx_buf, .count = 1};
 
     printf("data= %c\n", data);
 
