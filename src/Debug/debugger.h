@@ -138,6 +138,9 @@ class Debugger {
     uint32_t instructions_executed;       // #instructions since last checkpoint
     std::optional<uint32_t> fidx_called;  // The primitive that was executed
     uint32_t prim_args[8];                // The arguments of the executed prim
+    uint32_t min_return_values;
+    uint32_t checkpoint_state_size;
+    uint8_t *checkpoint_state;
 
     // Continue for
     int32_t remaining_instructions;
