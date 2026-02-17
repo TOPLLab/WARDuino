@@ -400,7 +400,7 @@ int write_spi_bytes(unsigned char *data, size_t len) {
     // Now write the buffer using SPI.
     struct spi_config config;
     config.frequency = DT_PROP(DT_NODELABEL(spi0), clock_frequency);
-    config.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8);
+    config.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8) | SPI_TRANSFER_MSB;
     config.slave = 0;
     config.cs = {};
 
@@ -411,8 +411,10 @@ int write_spi_bytes_16_prim(int times, unsigned int color) {
     unsigned char *data = new unsigned char[times * 2];
     unsigned char colorB = color >> 8;
     for (int x = 0; x < times; x++) {
-        data[x * 2] = color;
-        data[x * 2 + 1] = colorB;
+        // Most SPI devices expect Big-Endian data, so we first write the most
+        // significant byte.
+        data[x * 2 + 1] = color;
+        data[x * 2] = colorB;
     }
 
     int result = write_spi_bytes(data, times * 2);
