@@ -854,6 +854,7 @@ def_prim(load_audio, twoToOneU32) {
     // Load and play audio using SDL.
     MIX_Audio *audio = MIX_LoadAudio(mixer, filename.c_str(), false);
     if (!audio) {
+        SDL_Log("SDL error = %s\n", SDL_GetError());
         char buffer[100];
         snprintf(buffer, 100, "Failed to load sound \"%s\"", filename.c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to load sound", buffer, window);
@@ -885,7 +886,7 @@ def_prim(play_audio, twoToOneU32) {
     if (!MIX_PlayTrack(track, props)) {
         FATAL("Failed to play audio %s\n", SDL_GetError());
     }
-    pop_args(1);
+    pop_args(2);
     pushUInt32(track_idx);
     return true;
 }
