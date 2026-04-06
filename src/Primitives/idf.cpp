@@ -135,42 +135,4 @@ bool resolve_external_global(char *symbol, Global **val) {
     return false;
 }
 
-//------------------------------------------------------
-// Restore external state when restoring a snapshot
-//------------------------------------------------------
-void restore_external_state(Module *m,
-                            const std::vector<IOStateElement> &external_state) {
-    uint8_t opcode = *(get_ectx(m)->pc_ptr);
-    // TODO: Maybe primitives can also be called using the other call
-    // instructions such as call_indirect
-    //  maybe there should just be a function that checks if a certain function
-    //  is being called that handles all these cases?
-    if (opcode == 0x10) {  // call opcode
-        uint8_t *pc_copy = get_ectx(m)->pc_ptr + 1;
-        uint32_t fidx = read_LEB_32(&pc_copy);
-        if (fidx < m->import_count) {
-            for (auto &primitive : primitives) {
-                if (!strcmp(primitive.name, m->functions[fidx].import_field)) {
-                    if (primitive.f_reverse) {
-                        debug("Reversing action for primitive %s\n",
-                              primitive.name);
-                        primitive.f_reverse(m, external_state);
-                    }
-                    return;
-                }
-            }
-        }
-    }
-}
-
-std::vector<IOStateElement *> get_io_state(Module *m) {
-    std::vector<IOStateElement *> ioState;
-    for (auto &primitive : primitives) {
-        if (primitive.f_serialize_state) {
-            primitive.f_serialize_state(ioState);
-        }
-    }
-    return ioState;
-}
-
 #endif  // ARDUINO
