@@ -111,10 +111,10 @@ void invoke_primitive(Module *m, const std::string &function_name, Ts... args) {
 // TODO: use fp
 #define get_ectx(m) (m->warduino->execution_context)
 #define pop_args(n) get_ectx(m)->sp -= n
-#define get_arg(m, arg) get_ectx(m)->stack[(get_ectx(m))->sp - (arg)].value
+#define get_arg(m, arg) get_ectx(m)->stack[get_ectx(m)->sp - (arg)].value
 #define pushUInt32(arg) get_ectx(m)->stack[++get_ectx(m)->sp].value.uint32 = arg
 #define pushInt32(arg) get_ectx(m)->stack[++get_ectx(m)->sp].value.int32 = arg
-#define pushUInt64(arg)                 \
+#define pushUInt64(arg)                                     \
     get_ectx(m)->stack[++get_ectx(m)->sp].value_type = I64; \
     get_ectx(m)->stack[get_ectx(m)->sp].value.uint64 = arg
 #define arg0 get_arg(m, 0)
