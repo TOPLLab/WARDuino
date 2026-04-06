@@ -505,6 +505,7 @@ def_prim(display_draw_string, sevenToNoneU32) {
 // Installing all the primitives
 //------------------------------------------------------
 void install_primitives(Interpreter *interpreter) {
+    prim_index = 0;
     dbg_info("INSTALLING PRIMITIVES\n");
     install_primitive(chip_delay);
     install_primitive(chip_pin_mode);
