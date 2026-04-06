@@ -513,7 +513,8 @@ bool i_instr_get_global(Module *m) {
     ExecutionContext *ectx = m->warduino->execution_context;
     int32_t arg = read_LEB_32(&ectx->pc_ptr);
 #if TRACE
-    debug("      - arg: 0x%x, got %s\n", arg, value_repr(m->globals[arg]));
+    debug("      - arg: 0x%x, got %s\n", arg,
+          value_repr(m->globals[arg]->value));
 #endif
     ectx->stack[++ectx->sp] = *m->globals[arg]->value;
     return true;

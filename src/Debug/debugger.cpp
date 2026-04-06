@@ -11,7 +11,6 @@
 #endif
 
 #include "../Memory/mem.h"
-#include "../Primitives/primitives.h"
 #include "../Utils//util.h"
 #include "../Utils/macros.h"
 #include "../WARDuino/CallbackHandler.h"
@@ -392,15 +391,15 @@ void Debugger::printValue(const StackValue *v, const uint32_t idx,
                      v->value.uint64);
             break;
         case F32:
-            snprintf(buff, 255, R"("type":"F32","value":")" FMT(PRIi32) "\"",
+            snprintf(buff, 255, R"("type":"F32","value":")" FMT(PRIx32) "\"",
                      v->value.uint32);
             break;
         case F64:
-            snprintf(buff, 255, R"("type":"F64","value":")" FMT(PRIi64) "\"",
+            snprintf(buff, 255, R"("type":"F64","value":")" FMT(PRIx64) "\"",
                      v->value.uint64);
             break;
         default:
-            snprintf(buff, 255, R"("type":"%02x","value":")" FMT(PRIi64) "\"",
+            snprintf(buff, 255, R"("type":"%02x","value":")" FMT(PRIx64) "\"",
                      v->value_type, v->value.uint64);
     }
     this->channel->write(R"({"idx":%d,%s}%s)", idx, buff, end ? "" : ",");
@@ -931,7 +930,8 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 this->channel->write("%s", addComma ? "," : "");
                 this->channel->write("\"io\": [");
                 bool comma = false;
-                std::vector<IOStateElement *> external_state = get_io_state(m);
+                std::vector<IOStateElement *> external_state =
+                    m->warduino->interpreter->get_io_state(m);
                 for (auto state_elem : external_state) {
                     this->channel->write("%s{", comma ? ", " : "");
                     this->channel->write(
@@ -1395,7 +1395,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                           state_elem.output ? "output" : "input",
                           state_elem.value);
                 }
-                restore_external_state(m, external_state);
+                m->warduino->interpreter->restore_external_state(
+                    m, external_state);
                 break;
             }
             case overridesState: {
