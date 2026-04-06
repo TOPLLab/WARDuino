@@ -222,7 +222,8 @@ void Callback::resolve_event(const Event &e) {
     module->stack[module->sp].value_type = I32;
 
     // Setup function
-    uint32_t fidx = module->table.entries[table_index];
+    uint32_t fidx = (uint32_t)(uintptr_t)module->table.entries[table_index].value.ref;
+
     WARDuino::instance()->interpreter->setup_call(module, fidx);
 
     // Validate argument count

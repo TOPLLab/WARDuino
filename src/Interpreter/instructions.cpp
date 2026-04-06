@@ -337,7 +337,7 @@ bool i_instr_call_indirect(Module *m) {
         return false;
     }
 
-    uint32_t fidx = m->table.entries[val];
+    uint32_t fidx = (uint32_t)(uintptr_t)m->table.entries[val].value.ref;
 #if TRACE
     debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx, val,
           fidx);
@@ -409,6 +409,25 @@ bool i_instr_select(Module *m) {
     uint32_t cond = m->stack[m->sp--].value.uint32;
     m->sp--;
     if (!cond) {  // use a instead of b
+        m->stack[m->sp] = m->stack[m->sp + 1];
+    }
+    return true;
+}
+
+/**
+ * 0x1C select with type immediate
+ */
+bool i_instr_select_t(Module *m) {
+    uint32_t vec_len = read_LEB_32(&m->pc_ptr);
+    
+    for (uint32_t i = 0; i < vec_len; i++) {
+        uint8_t valtype = read_LEB(&m->pc_ptr, 7);
+        (void)valtype;  // validation only
+    }
+    
+    uint32_t cond = m->stack[m->sp--].value.uint32;
+    m->sp--;
+    if (!cond) {
         m->stack[m->sp] = m->stack[m->sp + 1];
     }
     return true;
@@ -1293,6 +1312,308 @@ bool i_instr_extension(Module *m, uint8_t opcode) {
     }
     return true;
 }
+
+/**
+ * 0xD0 ref.null
+ * Creates a null reference of the specified type
+ */
+bool i_instr_ref_null(Module *m) {
+    uint8_t reftype = read_LEB(&m->pc_ptr, 7);
+
+    if (reftype != FUNCREF && reftype != EXTERNREF) {
+        sprintf(exception, "invalid reference type 0x%x for ref.null", reftype);
+        return false;
+    }
+
+    m->sp++;
+    set_null_ref(&m->stack[m->sp], reftype);
+
+#if TRACE
+    debug("      - ref.null type=0x%x\n", reftype);
+#endif
+    return true;
+}
+
+/**
+ * 0xD1 ref.is_null
+ * Checks if a reference is null
+ */
+bool i_instr_ref_is_null(Module *m) {
+    StackValue *ref = &m->stack[m->sp];
+
+    if (!IS_REFTYPE(ref->value_type)) {
+        sprintf(exception, "ref.is_null requires reference type, got 0x%x",
+                ref->value_type);
+        return false;
+    }
+
+    uint32_t result = is_null_ref(ref) ? 1 : 0;
+    m->stack[m->sp].value_type = I32;
+    m->stack[m->sp].value.uint32 = result;
+
+#if TRACE
+    debug("      - ref.is_null result=%d\n", result);
+#endif
+    return true;
+}
+
+/**
+ * 0xD2 ref.func
+ * Creates a function reference
+ */
+bool i_instr_ref_func(Module *m) {
+    uint32_t fidx = read_LEB_32(&m->pc_ptr);
+
+    if (fidx >= m->function_count) {
+        sprintf(exception, "ref.func: invalid function index %" PRIu32, fidx);
+        return false;
+    }
+
+    m->sp++;
+    m->stack[m->sp].value_type = FUNCREF;
+    m->stack[m->sp].value.ref =
+        reinterpret_cast<void *>(static_cast<uintptr_t>(fidx));
+
+#if TRACE
+    debug("      - ref.func fidx=%" PRIu32 "\n", fidx);
+#endif
+    return true;
+}
+
+/**
+ * 0x25 table.get
+ * Gets an element from a table
+ */
+bool i_instr_table_get(Module *m) {
+    uint32_t tableidx = read_LEB_32(&m->pc_ptr);
+
+    if (tableidx >= m->table_count) {
+        sprintf(exception, "table.get: invalid table index %u", tableidx);
+        return false;
+    }
+
+    uint32_t index = m->stack[m->sp--].value.uint32;
+    Table *table = &m->table;  // TODO: should become &m->tables[tableidx]; 
+
+    if (index >= table->size) {
+        sprintf(exception, "table.get: index %u out of bounds", index);
+        return false;
+    }
+
+    if (table->entries[index].value_type != table->elem_type) {
+        sprintf(exception, "table.get: type mismatch in table slot");
+        return false;
+    }
+
+    m->stack[++m->sp] = table->entries[index];
+
+#if TRACE
+    debug("      - table.get table=%d idx=%d\n", tableidx, index);
+#endif
+
+    return true;
+}
+
+/**
+ * 0x26 table.set
+ * Sets an element in a table
+ */
+bool i_instr_table_set(Module *m) {
+    uint32_t tableidx = read_LEB_32(&m->pc_ptr);
+
+    if (tableidx >= m->table_count) {
+        sprintf(exception, "table.set: invalid table index %u", tableidx);
+        return false;
+    }
+    StackValue val = m->stack[m->sp--];
+    uint32_t index = m->stack[m->sp--].value.uint32;
+    Table *table = &m->table;  // TODO: should become &m->tables[tableidx];
+
+    if (index >= table->size) {
+        sprintf(exception, "table.set: index %u out of bounds", index);
+        return false;
+    }
+
+    if (val.value_type != table->elem_type) {
+        sprintf(exception, "table.set: type mismatch");
+        return false;
+    }
+
+    table->entries[index] = val;
+
+#if TRACE
+    debug("      - table.set table=%d idx=%d\n", tableidx, index);
+#endif
+    return true;
+}
+
+/**
+ * 0xFC 0x10 table.size
+ * Returns the current size of a table
+ */
+bool i_instr_table_size(Module *m) {
+    uint32_t tableidx = read_LEB_32(&m->pc_ptr);
+
+    if (tableidx >= m->table_count) {
+        sprintf(exception, "table.size: invalid table index %u", tableidx);
+        return false;
+    }
+
+    m->stack[++m->sp].value_type = I32;
+    m->stack[m->sp].value.uint32 = m->table.size;
+
+#if TRACE
+    debug("      - table.size table=%d size=%d\n", tableidx, m->table.size);
+#endif
+    return true;
+}
+
+/**
+ * 0xFC 0x0F table.grow
+ * Grows a table by a given delta
+ */
+bool i_instr_table_grow(Module *m) {
+    uint32_t tableidx = read_LEB_32(&m->pc_ptr);
+
+    if (tableidx >= m->table_count) {
+        sprintf(exception, "table.grow: invalid table index %u", tableidx);
+        return false;
+    }
+
+    uint32_t delta = m->stack[m->sp--].value.uint32;
+    StackValue init_val = m->stack[m->sp--];
+    Table *table = &m->table;  // TODO: should become &m->tables[tableidx]; !!!
+
+    // verify init value type matches table type
+    if (init_val.value_type != table->elem_type) {
+        sprintf(exception, "table.grow: init value type mismatch");
+        return false;
+    }
+
+    uint32_t old_size = table->size;
+    uint32_t new_size = old_size + delta;
+
+    // check if growth exceeds maximum
+    if (new_size > table->maximum || new_size < old_size) {
+        m->stack[++m->sp].value_type = I32;
+        m->stack[m->sp].value.int32 = -1;
+        return true;
+    }
+
+    // grow the table
+    table->entries =
+        (StackValue *)arecalloc(table->entries, old_size, new_size,
+                                sizeof(StackValue), "table.entries");
+
+    // initialize new slots with the init value
+    for (uint32_t i = old_size; i < new_size; i++) {
+        table->entries[i] = init_val;
+    }
+
+    table->size = new_size;
+
+    m->stack[++m->sp].value_type = I32;
+    m->stack[m->sp].value.uint32 = old_size;
+
+#if TRACE
+    debug("      - table.grow table=%d delta=%d old_size=%d\n", tableidx, delta,
+          old_size);
+#endif
+    return true;
+}
+
+/**
+ * 0xFC 0x11 table.fill
+ * Fills a range in a table with a value
+ */
+bool i_instr_table_fill(Module *m) {
+    uint32_t tableidx = read_LEB_32(&m->pc_ptr);
+
+    if (tableidx >= m->table_count) {
+        sprintf(exception, "table.fill: invalid table index %u", tableidx);
+        return false;
+    }
+
+    uint32_t n = m->stack[m->sp--].value.uint32;
+    StackValue val = m->stack[m->sp--];
+    uint32_t i = m->stack[m->sp--].value.uint32;
+
+    Table *table = &m->table;  // TODO: should become &m->tables[tableidx]; !!!
+
+    // Verify value type matches table type
+    if (val.value_type != table->elem_type) {
+        sprintf(exception, "table.fill: type mismatch");
+        return false;
+    }
+
+    if (i + n > table->size) {
+        sprintf(exception, "table.fill: out of bounds");
+        return false;
+    }
+
+    // Fill the range with the value
+    for (uint32_t idx = i; idx < i + n; idx++) {
+        table->entries[idx] = val;
+    }
+
+#if TRACE
+    debug("      - table.fill table=%d start=%d len=%d\n", tableidx, i, n);
+#endif
+    return true;
+}
+
+/**
+ * 0xFC 0x0E table.copy
+ * Copies elements from one table to another
+ */
+// bool i_instr_table_copy(Module *m) {
+//     uint32_t dst_tableidx = read_LEB_32(&m->pc_ptr);
+//     uint32_t src_tableidx = read_LEB_32(&m->pc_ptr);
+
+//     if (dst_tableidx >= m->table_count || src_tableidx >= m->table_count) {
+//         sprintf(exception, "table.copy: invalid table index");
+//         return false;
+//     }
+
+//     uint32_t n = m->stack[m->sp--].value.uint32;
+//     uint32_t s = m->stack[m->sp--].value.uint32;
+//     uint32_t d = m->stack[m->sp--].value.uint32;
+
+//     Table *dst_table = &m->tables[dst_tableidx];
+//     Table *src_table = &m->tables[src_tableidx];
+
+//     // Check bounds
+//     if (s + n > src_table->size || d + n > dst_table->size) {
+//         sprintf(exception, "table.copy: out of bounds");
+//         return false;
+//     }
+
+//     // Check type compatibility (source type must be subtype of dest type)
+//     // For now, require exact match
+//     if (src_table->elem_type != dst_table->elem_type) {
+//         sprintf(exception, "table.copy: incompatible table types");
+//         return false;
+//     }
+
+//     // Handle overlapping ranges correctly
+//     if (dst_tableidx == src_tableidx && d > s && d < s + n) {
+//         // Overlapping, copy backwards
+//         for (uint32_t i = n; i > 0; i--) {
+//             dst_table->entries[d + i - 1] = src_table->entries[s + i - 1];
+//         }
+//     } else {
+//         // Non-overlapping or forward copy is safe
+//         for (uint32_t i = 0; i < n; i++) {
+//             dst_table->entries[d + i] = src_table->entries[s + i];
+//         }
+//     }
+
+// #if TRACE
+//     debug("      - table.copy dst=%d src=%d d=%d s=%d n=%d\n", dst_tableidx,
+//           src_tableidx, d, s, n);
+// #endif
+//     return true;
+// }
 
 /**
  * 0xe0 ... 0xe3 callback operations

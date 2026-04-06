@@ -116,6 +116,17 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
+def_prim(print_ref, oneToNoneU32) {
+    debug("EMU: print ref ");
+    if (is_null_ref(reinterpret_cast<const StackValue *>(&arg0))) {
+        printf("null\n");
+    } else {
+        printf("ref %p\n", arg0.ref);
+    }
+    pop_args(1);
+    return true;
+}
+
 def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
@@ -473,6 +484,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(micros);
 
     install_primitive(print_int);
+    install_primitive(print_ref);
     install_primitive(print_string);
 
     install_primitive(wifi_connect);

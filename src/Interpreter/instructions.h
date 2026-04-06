@@ -26,6 +26,8 @@ bool i_instr_drop(Module *m);
 
 bool i_instr_select(Module *m);
 
+bool i_instr_select_t(Module *m);
+
 bool i_instr_get_local(Module *m);
 
 bool i_instr_set_local(Module *m);
@@ -73,5 +75,23 @@ bool i_instr_binary_f64(Module *m, uint8_t opcode);
 bool i_instr_conversion(Module *m, uint8_t opcode);
 
 bool i_instr_extension(Module *m, uint8_t opcode);
+
+bool i_instr_ref_null(Module *m);
+
+bool i_instr_ref_is_null(Module *m);
+
+bool i_instr_ref_func(Module *m);
+
+bool i_instr_table_get(Module *m);
+
+bool i_instr_table_set(Module *m);
+
+bool i_instr_table_fill(Module *m);
+
+// bool i_instr_table_copy(Module *m);
+
+bool i_instr_table_grow(Module *m);
+
+bool i_instr_table_size(Module *m);
 
 bool i_instr_callback(Module *m, uint8_t opcode);

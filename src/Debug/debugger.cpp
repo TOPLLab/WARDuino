@@ -398,6 +398,22 @@ void Debugger::printValue(const StackValue *v, const uint32_t idx,
             snprintf(buff, 255, R"("type":"F64","value":")" FMT(PRIx64) "\"",
                      v->value.uint64);
             break;
+        case FUNCREF:
+            if (is_null_ref(v)) {
+                snprintf(buff, 255, R"("type":"funcref","value":null)");
+            } else {
+                uint32_t fidx = (uint32_t)(uintptr_t)v->value.ref;
+                snprintf(buff, 255, R"("type":"funcref","value":%u)", fidx);
+            }
+            break;
+        case EXTERNREF:
+            if (is_null_ref(v)) {
+                snprintf(buff, 255, R"("type":"externref","value":null)");
+            } else {
+                snprintf(buff, 255, R"("type":"externref","value":"%p")",
+                         v->value.ref);
+            }
+            break;
         default:
             snprintf(buff, 255, R"("type":"%02x","value":")" FMT(PRIx64) "\"",
                      v->value_type, v->value.uint64);
@@ -609,6 +625,26 @@ void Debugger::dumpLocals(const Module *m) const {
             case F64:
                 snprintf(_value_str, 255, R"("type":"F64","value":%.7f)",
                          v->value.f64);
+                break;
+            case FUNCREF:
+                if (is_null_ref(v)) {
+                    snprintf(_value_str, 255,
+                             R"("type":"funcref","value":null)");
+                } else {
+                    uint32_t fidx = (uint32_t)(uintptr_t)v->value.ref;
+                    snprintf(_value_str, 255, R"("type":"funcref","value":%u)",
+                             fidx);
+                }
+                break;
+            case EXTERNREF:
+                if (is_null_ref(v)) {
+                    snprintf(_value_str, 255,
+                             R"("type":"externref","value":null)");
+                } else {
+                    snprintf(_value_str, 255,
+                             R"("type":"externref","value":"%p")",
+                             v->value.ref);
+                }
                 break;
             default:
                 snprintf(_value_str, 255,
@@ -855,7 +891,8 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                     addComma ? "," : "", m->table.maximum, m->table.initial);
                 addComma = true;
                 for (uint32_t j = 0; j < m->table.size; j++) {
-                    this->channel->write("%" PRIu32 "%s", m->table.entries[j],
+                    this->channel->write("%" PRIu32 "%s",
+                                         m->table.entries[j].value.ref,
                                          (j + 1) == m->table.size ? "" : ",");
                 }
                 this->channel->write("]}");  // closing table
@@ -865,9 +902,25 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 this->channel->write(
                     R"(%s"br_table":{"size":"0x%x","labels":[)",
                     addComma ? "," : "", BR_TABLE_SIZE);
-                for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
-                    this->channel->write("%" PRIu32 "%s", m->br_table[j],
-                                         (j + 1) == BR_TABLE_SIZE ? "" : ",");
+                for (uint32_t j = 0; j < m->table.size; j++) {
+                    StackValue *entry = &m->table.entries[j];
+
+                    if (is_null_ref(entry)) {
+                        this->channel->write("null");
+                    } else if (entry->value_type == FUNCREF) {
+                        uint32_t fidx = (uint32_t)(uintptr_t)entry->value.ref;
+                        this->channel->write("%u", fidx);
+                    } else if (entry->value_type == EXTERNREF) {
+                        this->channel->write("\"%p\"", entry->value.ref);
+                    } else {
+                        // Unknown type, output raw
+                        this->channel->write("\"0x%" PRIx64 "\"",
+                                             entry->value.uint64);
+                    }
+
+                    if (j + 1 < m->table.size) {
+                        this->channel->write(",");
+                    }
                 }
                 this->channel->write("]}");
                 break;
@@ -1087,8 +1140,8 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 if (m->table.size != size) {
                     debug("old table size %d\n", m->table.size);
                     if (m->table.size != 0) free(m->table.entries);
-                    m->table.entries = static_cast<uint32_t *>(acalloc(
-                        size, sizeof(uint32_t), "Module->table.entries"));
+                    m->table.entries = static_cast<StackValue *>(acalloc(
+                        size, sizeof(StackValue), "Module->table.entries"));
                 }
                 m->table.size = 0;  // allows to accumulatively add entries
                 break;
@@ -1236,8 +1289,33 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
             case tableState: {
                 uint32_t quantity = read_B32(&program_state);
                 for (size_t i = 0; i < quantity; i++) {
-                    uint32_t ne = read_B32(&program_state);
-                    m->table.entries[m->table.size++] = ne;
+                    if (m->table.size >= m->table.maximum) {
+                        FATAL("table overflow during restoration\n");
+                    }
+
+                    uint8_t entry_type = *program_state++;
+
+                    if (entry_type != m->table.elem_type) {
+                        debug("warning: entry type mismatch at index %u\n", i);
+                    }
+
+                    StackValue *entry = &m->table.entries[m->table.size];
+                    entry->value_type = entry_type;
+
+                    if (entry_type == FUNCREF) {
+                        uint32_t fidx = read_B32(&program_state);
+                        entry->value.ref = (void *)(uintptr_t)fidx;
+                        debug("funcref entry with fidx %" PRIu32 "\n", fidx);
+                    } else if (entry_type == EXTERNREF) {
+                        // TODO: not storing the actual externref value, we set it to null
+                        set_null_ref(entry, EXTERNREF);
+                        program_state += sizeof(void *);
+                        debug("externref entry (null)\n");
+                    } else {
+                        FATAL("unknown table entry type 0x%02x\n", entry_type);
+                    }
+
+                    m->table.size++;
                 }
                 break;
             }
