@@ -435,48 +435,51 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         *sym = (char *)malloc(module_len + field_len + 5);
 
                     if (strcmp(import_module, "env") == 0) {
-                    // TODO add special case form primitives with resolvePrim
-                    do {
-                        // Try using module as handle filename
-                        if (resolvesym(m->warduino->interpreter, import_module,
-                                       import_field, external_kind, &val,
-                                       &err)) {
-                            break;
-                        }
-
-                        // Try concatenating module and field using underscores
-                        // Also, replace '-' with '_'
-                        sprintf(sym, "_%s__%s_", import_module, import_field);
-                        int sidx = -1;
-                        while (sym[++sidx]) {
-                            if (sym[sidx] == '-') {
-                                sym[sidx] = '_';
+                        // TODO add special case form primitives with
+                        // resolvePrim
+                        do {
+                            // Try using module as handle filename
+                            if (resolvesym(m->warduino->interpreter,
+                                           import_module, import_field,
+                                           external_kind, &val, &err)) {
+                                break;
                             }
-                        }
-                        if (resolvesym(m->warduino->interpreter, nullptr, sym,
-                                       external_kind, &val, &err)) {
-                            break;
-                        }
 
-                        // If enabled, try without the leading underscore (added
-                        // by emscripten for external symbols)
-                        if (m->options.dlsym_trim_underscore &&
-                            (strncmp("env", import_module, 4) == 0) &&
-                            (strncmp("_", import_field, 1) == 0)) {
-                            sprintf(sym, "%s", import_field + 1);
+                            // Try concatenating module and field using
+                            // underscores Also, replace '-' with '_'
+                            sprintf(sym, "_%s__%s_", import_module,
+                                    import_field);
+                            int sidx = -1;
+                            while (sym[++sidx]) {
+                                if (sym[sidx] == '-') {
+                                    sym[sidx] = '_';
+                                }
+                            }
                             if (resolvesym(m->warduino->interpreter, nullptr,
                                            sym, external_kind, &val, &err)) {
                                 break;
                             }
-                        }
 
-                        // Try the plain symbol by itself with module
-                        // name/handle
-                        sprintf(sym, "%s", import_field);
-                        if (resolvesym(m->warduino->interpreter, nullptr, sym,
-                                       external_kind, &val, &err)) {
-                            break;
-                        }
+                            // If enabled, try without the leading underscore
+                            // (added by emscripten for external symbols)
+                            if (m->options.dlsym_trim_underscore &&
+                                (strncmp("env", import_module, 4) == 0) &&
+                                (strncmp("_", import_field, 1) == 0)) {
+                                sprintf(sym, "%s", import_field + 1);
+                                if (resolvesym(m->warduino->interpreter,
+                                               nullptr, sym, external_kind,
+                                               &val, &err)) {
+                                    break;
+                                }
+                            }
+
+                            // Try the plain symbol by itself with module
+                            // name/handle
+                            sprintf(sym, "%s", import_field);
+                            if (resolvesym(m->warduino->interpreter, nullptr,
+                                           sym, external_kind, &val, &err)) {
+                                break;
+                            }
                             FATAL("Error: %s\n", err);
                         } while (false);
                     } else {

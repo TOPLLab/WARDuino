@@ -42,32 +42,6 @@ int global_index = 0;
 
 double sensor_emu = 0;
 
-/*
-   Private macros to install a primitive
-*/
-#define install_primitive(prim_name)                                       \
-    {                                                                      \
-        dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-                 prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
-        if (prim_index < ALL_PRIMITIVES) {                                 \
-            PrimitiveEntry *p = &primitives[prim_index++];                 \
-            p->name = #prim_name;                                          \
-            p->t = &(prim_name##_type);                                    \
-            p->f = &(prim_name);                                           \
-            p->f_reverse = nullptr;                                        \
-            p->f_serialize_state = nullptr;                                \
-        } else {                                                           \
-            FATAL("prim_index out of bounds");                             \
-        }                                                                  \
-    }
-
-#define install_primitive_reverse(prim_name)             \
-    {                                                    \
-        PrimitiveEntry *p = &primitives[prim_index - 1]; \
-        p->f_reverse = &(prim_name##_reverse);           \
-        p->f_serialize_state = &(prim_name##_serialize); \
-    }
-
 #define def_prim(function_name, type) \
     Type function_name##_type = type; \
     bool function_name(Module *m)
