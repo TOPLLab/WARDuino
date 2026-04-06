@@ -54,26 +54,6 @@ double sensor_emu = 0;
     void function_name##_serialize(       \
         std::vector<IOStateElement *> &external_state)
 
-// TODO: use fp
-#define get_ectx(m) (m->warduino->execution_context)
-#define pop_args(n) (get_ectx(m)->sp -= n)
-#define get_arg(m, arg) get_ectx(m)->stack[get_ectx(m)->sp - (arg)].value
-#define pushUInt32(arg) get_ectx(m)->stack[++get_ectx(m)->sp].value.uint32 = arg
-#define pushInt32(arg) get_ectx(m)->stack[++get_ectx(m)->sp].value.int32 = arg
-#define pushUInt64(arg)                                     \
-    get_ectx(m)->stack[++get_ectx(m)->sp].value_type = I64; \
-    get_ectx(m)->stack[get_ectx(m)->sp].value.uint64 = arg
-#define arg0 get_arg(m, 0)
-#define arg1 get_arg(m, 1)
-#define arg2 get_arg(m, 2)
-#define arg3 get_arg(m, 3)
-#define arg4 get_arg(m, 4)
-#define arg5 get_arg(m, 5)
-#define arg6 get_arg(m, 6)
-#define arg7 get_arg(m, 7)
-#define arg8 get_arg(m, 8)
-#define arg9 get_arg(m, 9)
-
 #define def_glob(name, type, mut, init_value)             \
     StackValue name##_sv{.value_type = type, init_value}; \
     Global name = {                                       \
