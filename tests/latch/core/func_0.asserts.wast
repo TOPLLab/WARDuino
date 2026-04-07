@@ -15,14 +15,14 @@
 )
 
 (assert_return (invoke "local-first-i32") (i32.const 0))
-;; (assert_return (invoke "local-first-i64") (i64.const 0))
+(assert_return (invoke "local-first-i64") (i64.const 0))
 (assert_return (invoke "local-first-f32") (f32.const 0))
-;; (assert_return (invoke "local-first-f64") (f64.const 0))
+(assert_return (invoke "local-first-f64") (f64.const 0))
 (assert_return (invoke "local-second-i32") (i32.const 0))
-;; (assert_return (invoke "local-second-i64") (i64.const 0))
+(assert_return (invoke "local-second-i64") (i64.const 0))
 (assert_return (invoke "local-second-f32") (f32.const 0))
-;; (assert_return (invoke "local-second-f64") (f64.const 0))
-;; (assert_return (invoke "local-mixed") (f64.const 0))
+(assert_return (invoke "local-second-f64") (f64.const 0))
+(assert_return (invoke "local-mixed") (f64.const 0))
 
 (assert_return (invoke "param-first-i32" (i32.const 2) (i32.const 3)) (i32.const 2))
 (assert_return (invoke "param-first-i64" (i64.const 2) (i64.const 3)) (i64.const 2))
@@ -103,6 +103,6 @@
  (i32.const 4) (f32.const 6) (f64.const 13) (f64.const 11) (i32.const 15) (f32.const 16) (i32.const 14) (f64.const 12))
 
 (assert_return (invoke "init-local-i32") (i32.const 0))
-;; (assert_return (invoke "init-local-i64") (i64.const 0))
+(assert_return (invoke "init-local-i64") (i64.const 0))
 (assert_return (invoke "init-local-f32") (f32.const 0))
-;; (assert_return (invoke "init-local-f64") (f64.const 0))
+(assert_return (invoke "init-local-f64") (f64.const 0))
