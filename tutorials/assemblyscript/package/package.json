@@ -1,0 +1,28 @@
+{
+  "name": "as-warduino",
+  "version": "0.1.1",
+  "types": "assembly/index.ts",
+  "license": "MPL-2.0",
+  "author": "Team WARDuino <warduino@ugent.be>",
+  "repository": "https://github.com/TOPLLab/WARDuino-sdk.git",
+  "tags": [
+    "arduino",
+    "assemblyscript",
+    "esp32",
+    "warduino",
+    "webassembly"
+  ],
+  "scripts": {
+    "asbuild:debug": "npx asc --config asconfig.json --target debug",
+    "asbuild:release": "npx asc --config asconfig.json --disableWarning 235 --target release",
+    "asbuild": "npm run asbuild:debug && npm run asbuild:release",
+    "prepublishOnly": "npm run asbuild"
+  },
+  "devDependencies": {
+    "assemblyscript": "latest"
+  },
+  "files": [
+    "assembly/index.ts",
+    "assembly/warduino.ts"
+  ]
+}

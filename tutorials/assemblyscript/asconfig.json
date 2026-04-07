@@ -12,7 +12,11 @@
       "converge": true,
       "optimizeLevel": 3,
       "outFile": "bin/main.wasm",
-      "shrinkLevel": 2
+      "shrinkLevel": 2,
+      "exportRuntime": false,
+      "runtime": "stub",
+      "converge": true,
+      "noAssert": false
     }
   },
   "options": {

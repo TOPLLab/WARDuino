@@ -203,6 +203,7 @@ def_prim(print_string, twoToNoneU32) {
     return true;
 }
 
+/**
 def_prim(wifi_connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
@@ -318,6 +319,7 @@ def_prim(http_post, tenToOneU32) {
     Serial.flush();
     return true;
 }
+    */
 
 // warning: undefined symbol: chip_pin_mode
 def_prim(chip_pin_mode, twoToNoneU32) {
@@ -478,6 +480,7 @@ def_prim(chip_ledc_attach, threeToNoneU32) {
     return true;
 }
 
+/**
 // INTERRUPTS
 
 def_prim(subscribe_interrupt, threeToNoneU32) {
@@ -691,6 +694,224 @@ def_prim(mqtt_loop, NoneToOneU32) {
     pushInt32((int)mqttClient.loop());
     return true;
 }
+*/
+
+//Serial Begin
+
+def_prim(serial_begin, oneToNoneU32) {
+    uint32_t baud_rate = arg0.uint32;
+
+    Serial.begin(baud_rate);
+    pop_args(1);
+    return true;
+}
+
+
+//Setup
+
+//fix against memory leak (unsuccessful)
+bool setup_initialized = false;
+
+def_prim(set_initialised, NoneToNoneU32) {
+    if (!setup_initialized) {
+        setup_initialized = true;
+    }
+    return true;
+}
+
+def_prim(check_initialised, NoneToOneU32) {
+    pushInt32(setup_initialized ? 1 : 0);
+    return true;
+}   
+
+/** LoRa node 
+#include "LoRaHash.h"
+uint32_t nodeID = 1; //TODO: get access to MAC ID of MCU
+uint32_t position = 0; //GPS position, needed? possible?
+//TODO: generate RSA key pair for LoRaNode
+uint8_t publicKey[32] = {0};
+uint8_t privateKey[32] = {0};
+uint32_t lastUpdated = millis();
+LoRaNode node = LoRaNode(nodeID, position, lastUpdated, publicKey);
+
+LoraHashTable LoRaTable = LoraHashTable();
+*/
+
+// LoRa MODULE
+extern "C" {
+    uint32_t radio_begin_extern(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    uint32_t radio_transmit_extern(String);
+    uint32_t radio_startReceive_extern();
+    int radio_receive_extern(String* data, uint32_t timeout);
+}
+
+/**
+startLoRaCommunication() {
+    LoRaTable.init(); //initialise the hash table for LoRa Peers
+    LoRaTable.addNode(nodeID, position, lastUpdated, hash); //add self to the hash table
+
+    uint32_t buffer[32]; // buffer for serialisation
+    uint32_t length = LoRaTable.serialiseSelf(buffer, sizeof(buffer)); //serialise self and store in buffer to be sent to LoRa Peers
+    radio_transmit_extern(buffer); //send information to LoRa Peers
+    
+    uint32_t receivedBuffer[32];
+    size_t receivedLength = radio_receive_extern(receivedBuffer, 2000); //wait for information from LoRa Peers
+    LoRaTable.updateTable(receivedBuffer, receivedLength); //update own hash table with information from LoRa Peers
+} 
+*/
+
+def_prim(radio_begin, sixToOneU32) {
+    uint32_t frequency = arg5.uint32;
+    uint32_t bandwidth = arg4.uint32;
+    uint32_t spreadingFactor = arg3.uint32;
+    uint32_t codingRate = arg2.uint32;
+    uint32_t syncWord = arg1.uint32;
+    uint32_t outputPower = arg0.uint32;
+
+    Serial.println("Initializing radio...");
+    uint32_t state = radio_begin_extern(frequency, bandwidth, spreadingFactor, codingRate, syncWord, outputPower);
+    pop_args(6);
+    pushInt32((int)state);
+
+    //startLoRaCommunication()
+
+    return true;
+}
+
+def_prim(radio_transmit, twoToOneU32) {
+    uint32_t data_param = arg1.uint32;
+    uint32_t data_length = arg0.uint32;
+
+    String data = parse_utf8_string(m->memory.bytes, data_length, data_param).c_str();
+    //TODO: secure with session key encryption
+    //uint32_t encrypted = node.encrypt(node.sessionKey, (uint8_t*)data.c_str(), data.length()); //pseudocode
+
+    int result = radio_transmit_extern(data);
+    pop_args(2);
+    pushInt32((int)result);
+    return true;
+}
+
+def_prim(radio_startReceive, NoneToOneU32) {
+    int status = radio_startReceive_extern();
+    pushInt32((int)status);
+    return true;
+}
+
+def_prim(radio_receive, twoToOneU32) {
+    uint32_t response = arg1.uint32;
+    uint32_t size = arg0.uint32;
+
+    String data;
+    int state = radio_receive_extern(&data, 2000);
+
+    //TODO: decrypt message using session key
+    //String data = node.decrypt(node.sessionKey, (uint8_t*)encrypted.c_str(), encrypted.length()); //pseudocode
+
+    Serial.print("receive state: ");
+    Serial.println(state);
+
+    if (state == 0) {
+        Serial.print("data: ");
+        Serial.println(data);
+        for (unsigned long i = 0; i < data.length(); i++) {
+            m->memory.bytes[response + i] = (uint32_t)data[i]; //write received data to memory
+        }
+        m->memory.bytes[response + data.length()] = 0; // Null-terminated
+    } else {
+        Serial.println("status code: " + String(state));
+    }
+    pop_args(2);
+    pushInt32(state);
+    return true;
+}
+
+//M5CARDPUTER MODULE
+
+#include "M5Cardputer.h"
+
+def_prim(m5_cardputer_begin, NoneToNoneU32) {
+    Serial.println("Initializing M5Cardputer...");
+    auto cfg = M5.config();
+    M5Cardputer.begin(cfg, true); 
+    return true;
+}
+
+def_prim(m5_cardputer_display_height, NoneToOneU32) {
+    Serial.println("height...");
+    pushInt32((int)M5Cardputer.Display.height());
+    return true;
+}
+
+def_prim(m5_cardputer_display_width, NoneToOneU32) {
+    pushInt32((int)M5Cardputer.Display.width());
+    return true;
+}
+
+def_prim(m5_cardputer_display_setRotation, oneToNoneU32) {
+    Serial.println("rotation...");
+    uint32_t rotation = arg0.uint32;
+    M5Cardputer.Display.setRotation(rotation);
+    pop_args(1);
+    return true;
+}
+
+def_prim(m5_cardputer_display_fillScreen, oneToNoneU32) {
+    uint32_t color = arg0.uint32;
+    M5Cardputer.Display.fillScreen(color);
+    pop_args(1);
+    return true;
+}
+
+def_prim(m5_cardputer_display_setTextColor, oneToNoneU32) {
+    uint32_t color = arg0.uint32;
+    M5Cardputer.Display.setTextColor(color);
+    pop_args(1);
+    return true;
+}
+
+def_prim(m5_cardputer_display_setTextSize, oneToNoneU32) {
+    uint32_t size = arg0.uint32;
+    M5Cardputer.Display.setTextSize(size);
+    pop_args(1);
+    return true;
+}
+
+def_prim(m5_cardputer_display_setCursor, twoToNoneU32) {
+    uint32_t y = arg1.uint32;
+    uint32_t x = arg0.uint32;
+    M5Cardputer.Display.setCursor(x, y);
+    pop_args(2);
+    return true;
+}
+
+def_prim(m5_cardputer_display_println, twoToNoneU32) {
+    uint32_t text_param = arg1.uint32;
+    uint32_t text_length = arg0.uint32;
+
+    Serial.println("printing line...");
+
+    String text =
+        parse_utf8_string(m->memory.bytes, text_length, text_param).c_str();
+
+    M5Cardputer.Display.println(text);
+    pop_args(2);
+    return true;
+}
+
+def_prim(m5_cardputer_display_print, twoToNoneU32) {
+    uint32_t text_param = arg1.uint32;
+    uint32_t text_length = arg0.uint32;
+
+    String text =
+        parse_utf8_string(m->memory.bytes, text_length, text_param).c_str();
+
+    M5Cardputer.Display.print(text);
+    pop_args(2);
+    return true;
+}
+
+/**
 
 //------------------------------------------------------
 // Util functions
@@ -780,7 +1001,7 @@ int32_t http_post_request(Module *m, const String url, const String body,
 
     return httpResponseCode;
 }
-
+*/
 //------------------------------------------------------
 // Installing all the primitives & ISRs
 //------------------------------------------------------
@@ -822,6 +1043,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(print_int);
     install_primitive(print_string);
 
+    /**
     install_primitive(wifi_connect);
     install_primitive(wifi_connected);
     install_primitive(wifi_status);
@@ -830,6 +1052,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(http_get);
     install_primitive(http_post);
 
+    */
     install_primitive(chip_pin_mode);
     install_reversible_primitive(chip_digital_write);
     install_primitive(chip_delay);
@@ -840,7 +1063,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(spi_begin);
     install_primitive(write_spi_byte);
     install_primitive(write_spi_bytes_16);
-
+    /**
     install_primitive(subscribe_interrupt);
     install_primitive(unsubscribe_interrupt);
 
@@ -857,6 +1080,26 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(set_pixel_color);
     install_primitive(clear_pixels);
     install_primitive(show_pixels);
+    */
+
+    install_primitive(serial_begin);
+
+    install_primitive(set_initialised);
+    install_primitive(check_initialised);
+
+    install_primitive(radio_begin);
+    install_primitive(radio_transmit);
+    install_primitive(radio_startReceive);
+    install_primitive(radio_receive);
+
+    install_primitive(m5_cardputer_begin);
+    install_primitive(m5_cardputer_display_setRotation);
+    install_primitive(m5_cardputer_display_fillScreen);
+    install_primitive(m5_cardputer_display_setTextColor);
+    install_primitive(m5_cardputer_display_setTextSize);
+    install_primitive(m5_cardputer_display_setCursor);
+    install_primitive(m5_cardputer_display_println);
+    install_primitive(m5_cardputer_display_print);
 
     // temporary primitives needed for analogWrite in ESP32
     install_primitive(chip_analog_write);
