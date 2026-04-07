@@ -15,9 +15,11 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/devicetree/gpio.h>
 #include <zephyr/drivers/adc.h>
+#include <zephyr/drivers/display.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/kernel.h>
+#include <zephyr/random/random.h>
 #include <zephyr/sys/util_macro.h>
 
 #include <chrono>
@@ -33,77 +35,10 @@
 #include "Mindstorms/uart_sensor.h"
 #include "primitives.h"
 
-#define OBB_PRIMITIVES 0
-#ifdef CONFIG_BOARD_STM32L496G_DISCO
-#define OBB_PRIMITIVES 8
-#endif
-#define ALL_PRIMITIVES OBB_PRIMITIVES + 7
-
 #define NUM_GLOBALS 0
 #define ALL_GLOBALS NUM_GLOBALS
 
-// Indices for installing primitives and globals
-int prim_index = 0;
 int global_index = 0;
-
-double sensor_emu = 0;
-
-/*
-   Private macros to install a primitive
-*/
-#define install_primitive(prim_name)                                       \
-    {                                                                      \
-        dbg_info("installing primitive number: %d  of %d with name: %s\n", \
-                 prim_index + 1, ALL_PRIMITIVES, #prim_name);              \
-        if (prim_index < ALL_PRIMITIVES) {                                 \
-            PrimitiveEntry *p = &primitives[prim_index++];                 \
-            p->name = #prim_name;                                          \
-            p->t = &(prim_name##_type);                                    \
-            p->f = &(prim_name);                                           \
-            p->f_reverse = nullptr;                                        \
-            p->f_serialize_state = nullptr;                                \
-        } else {                                                           \
-            FATAL("prim_index out of bounds");                             \
-        }                                                                  \
-    }
-
-#define install_primitive_reverse(prim_name)             \
-    {                                                    \
-        PrimitiveEntry *p = &primitives[prim_index - 1]; \
-        p->f_reverse = &(prim_name##_reverse);           \
-        p->f_serialize_state = &(prim_name##_serialize); \
-    }
-
-#define def_prim(function_name, type) \
-    Type function_name##_type = type; \
-    bool function_name(Module *m)
-
-#define def_prim_reverse(function_name)     \
-    void function_name##_reverse(Module *m, \
-                                 std::vector<IOStateElement> external_state)
-
-#define def_prim_serialize(function_name) \
-    void function_name##_serialize(       \
-        std::vector<IOStateElement *> &external_state)
-
-// TODO: use fp
-#define pop_args(n) m->sp -= n
-#define get_arg(m, arg) m->stack[(m)->sp - (arg)].value
-#define pushUInt32(arg) m->stack[++m->sp].value.uint32 = arg
-#define pushInt32(arg) m->stack[++m->sp].value.int32 = arg
-#define pushUInt64(arg)                 \
-    m->stack[++m->sp].value_type = I64; \
-    m->stack[m->sp].value.uint64 = arg
-#define arg0 get_arg(m, 0)
-#define arg1 get_arg(m, 1)
-#define arg2 get_arg(m, 2)
-#define arg3 get_arg(m, 3)
-#define arg4 get_arg(m, 4)
-#define arg5 get_arg(m, 5)
-#define arg6 get_arg(m, 6)
-#define arg7 get_arg(m, 7)
-#define arg8 get_arg(m, 8)
-#define arg9 get_arg(m, 9)
 
 #define def_glob(name, type, mut, init_value)             \
     StackValue name##_sv{.value_type = type, init_value}; \
@@ -120,142 +55,8 @@ double sensor_emu = 0;
         }                                                  \
     }
 
-// The primitive table
-PrimitiveEntry primitives[ALL_PRIMITIVES];
 // The globals table
 Global globals[ALL_GLOBALS];
-
-//
-uint32_t param_arr_len0[0] = {};
-uint32_t param_I32_arr_len1[1] = {I32};
-uint32_t param_I32_arr_len2[2] = {I32, I32};
-uint32_t param_I32_arr_len3[3] = {I32, I32, I32};
-uint32_t param_I32_arr_len4[4] = {I32, I32, I32, I32};
-uint32_t param_I32_arr_len10[10] = {I32, I32, I32, I32, I32,
-                                    I32, I32, I32, I32, I32};
-
-uint32_t param_I64_arr_len1[1] = {I64};
-
-Type oneToNoneU32 = {
-    .form = FUNC,
-    .param_count = 1,
-    .params = param_I32_arr_len1,
-    .result_count = 0,
-    .results = nullptr,
-    .mask = 0x8001 /* 0x800 = no return ; 1 = I32*/
-};
-
-Type oneToNoneI32 = {
-    .form = FUNC,
-    .param_count = 1,
-    .params = param_I32_arr_len1,
-    .result_count = 0,
-    .results = nullptr,
-    .mask = 0x8001 /* 0x800 = no return ; 1 = I32*/
-};
-
-Type twoToNoneU32 = {
-    .form = FUNC,
-    .param_count = 2,
-    .params = param_I32_arr_len2,
-    .result_count = 0,
-    .results = nullptr,
-    .mask = 0x80011 /* 0x800 = no return ; 1 = I32; 1 = I32*/
-};
-
-Type threeToNoneU32 = {
-    .form = FUNC,
-    .param_count = 3,
-    .params = param_I32_arr_len3,
-    .result_count = 0,
-    .results = nullptr,
-    .mask = 0x800111 /* 0x800 = no return ; 1=I32; 1=I32; 1=I32*/
-};
-
-Type fourToNoneU32 = {
-    .form = FUNC,
-    .param_count = 4,
-    .params = param_I32_arr_len4,
-    .result_count = 0,
-    .results = nullptr,
-    .mask =
-        0x8001111 /* 0x800 = no return ; 1 = I32; 1 = I32; 1 = I32; 1 = I32*/
-};
-
-Type oneToOneU32 = {
-    .form = FUNC,
-    .param_count = 1,
-    .params = param_I32_arr_len1,
-    .result_count = 1,
-    .results = param_I32_arr_len1,
-    .mask = 0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
-};
-
-Type oneToOneI32 = {
-    .form = FUNC,
-    .param_count = 1,
-    .params = param_I32_arr_len1,
-    .result_count = 1,
-    .results = param_I32_arr_len1,
-    .mask = 0x80011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
-};
-
-Type twoToOneU32 = {
-    .form = FUNC,
-    .param_count = 2,
-    .params = param_I32_arr_len2,
-    .result_count = 1,
-    .results = param_I32_arr_len1,
-    .mask = 0x81011 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32*/
-};
-
-Type threeToOneU32 = {
-    .form = FUNC,
-    .param_count = 3,
-    .params = param_I32_arr_len3,
-    .result_count = 1,
-    .results = param_I32_arr_len1,
-    .mask = 0x810111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32*/
-};
-
-Type fourToOneU32 = {
-    .form = FUNC,
-    .param_count = 4,
-    .params = param_I32_arr_len4,
-    .result_count = 1,
-    .results = param_I32_arr_len1,
-    .mask = 0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
-};
-
-Type tenToOneU32 = {
-    .form = FUNC,
-    .param_count = 10,
-    .params = param_I32_arr_len10,
-    .result_count = 1,
-    .results = param_I32_arr_len1,
-    .mask = 0x8101111111111 /* 0x8 1=I32 0=endRet ; 10 params 1=I32*/
-};
-
-Type NoneToNoneU32 = {.form = FUNC,
-                      .param_count = 0,
-                      .params = nullptr,
-                      .result_count = 0,
-                      .results = nullptr,
-                      .mask = 0x80000};
-
-Type NoneToOneU32 = {.form = FUNC,
-                     .param_count = 0,
-                     .params = nullptr,
-                     .result_count = 1,
-                     .results = param_I32_arr_len1,
-                     .mask = 0x81000};
-
-Type NoneToOneU64 = {.form = FUNC,
-                     .param_count = 0,
-                     .params = nullptr,
-                     .result_count = 1,
-                     .results = param_I64_arr_len1,
-                     .mask = 0x82000};
 
 def_prim(chip_delay, oneToNoneU32) {
     k_yield();
@@ -320,6 +121,16 @@ def_prim(chip_digital_read, oneToOneU32) {
     uint8_t res = gpio_pin_get_raw(pin_spec.port, pin_spec.pin);
     pop_args(1);
     pushUInt32(res);
+    return true;
+}
+
+def_prim(millis, NoneToOneU32) {
+    pushInt32(k_uptime_get());
+    return true;
+}
+
+def_prim(random_int, NoneToOneU32) {
+    pushInt32(sys_rand32_get());
     return true;
 }
 
@@ -578,16 +389,129 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
 
 #endif
 
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
+void draw_rect(const device *display_dev, int xpos, int ypos, int w, int h,
+               uint16_t color) {
+    struct display_buffer_descriptor new_buf_desc;
+    new_buf_desc.width = w;
+    new_buf_desc.height = h;
+    new_buf_desc.buf_size = new_buf_desc.width * new_buf_desc.height;
+    new_buf_desc.pitch = new_buf_desc.width;
+    new_buf_desc.frame_incomplete = false;
+    uint16_t *new_buf = static_cast<uint16_t *>(
+        malloc(sizeof(uint16_t) * new_buf_desc.buf_size));  // 16 bit color
+    for (int y = 0; y < new_buf_desc.height; y++) {
+        for (int x = 0; x < new_buf_desc.width; x++) {
+            new_buf[y * new_buf_desc.width + x] = color;
+        }
+    }
+    display_write(display_dev, xpos, ypos, &new_buf_desc, new_buf);
+    free(new_buf);
+}
+
+#include "vgafont.h"
+
+void draw_char(const device *display_dev, int xpos, int ypos, char c,
+               uint16_t foreground, uint16_t background, int scale) {
+    struct display_buffer_descriptor new_buf_desc;
+    new_buf_desc.width = 8 * scale;
+    new_buf_desc.height = 16 * scale;
+    new_buf_desc.buf_size = new_buf_desc.width * new_buf_desc.height;
+    new_buf_desc.pitch = new_buf_desc.width;
+    new_buf_desc.frame_incomplete = false;
+    uint16_t *new_buf = static_cast<uint16_t *>(
+        malloc(sizeof(uint16_t) * new_buf_desc.buf_size));  // 16 bit color
+    for (int y = 0; y < new_buf_desc.height; y++) {
+        for (int x = 0; x < new_buf_desc.width; x++) {
+            new_buf[y * new_buf_desc.width + x] =
+                (font16[16 * c + y / scale] >> (8 - x / scale)) & 0b1 == 1
+                    ? foreground
+                    : background;
+        }
+    }
+    display_write(display_dev, xpos, ypos, &new_buf_desc, new_buf);
+    free(new_buf);
+}
+
+const device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+
+def_prim(display_setup, NoneToNoneU32) {
+    struct display_capabilities capabilities;
+
+    if (!device_is_ready(display_dev)) {
+        printf("Device %s not found. Aborting sample.", display_dev->name);
+        return false;
+    }
+
+    printf("Display setup for %s ", display_dev->name);
+    display_get_capabilities(display_dev, &capabilities);
+
+    printf("w = %d, h = %d\n", capabilities.x_resolution,
+           capabilities.y_resolution);
+    printf("Display color format %d\n", capabilities.current_pixel_format);
+
+    // Fill display in steps so we don't fill up memory with a huge framebuffer.
+    for (int x = 0; x < capabilities.x_resolution; x++) {
+        draw_rect(display_dev, x, 0, 1, capabilities.y_resolution, 0x0000);
+    }
+    // display_clear(display_dev);
+    display_blanking_off(display_dev);
+    return true;
+}
+
+def_prim(display_set_orientation, oneToNoneI32) {
+    display_set_orientation(display_dev,
+                            static_cast<display_orientation>(arg0.uint32));
+    pop_args(1);
+    return true;
+}
+
+def_prim(display_width, NoneToOneU32) {
+    display_capabilities capabilities;
+    display_get_capabilities(display_dev, &capabilities);
+    pushUInt32(capabilities.x_resolution);
+    return true;
+}
+
+def_prim(display_height, NoneToOneU32) {
+    display_capabilities capabilities;
+    display_get_capabilities(display_dev, &capabilities);
+    pushUInt32(capabilities.y_resolution);
+    return true;
+}
+
+def_prim(display_fill_rect, fiveToNoneU32) {
+    draw_rect(display_dev, arg4.int32, arg3.int32, arg2.int32, arg1.int32,
+              arg0.uint32);
+    pop_args(5);
+    return true;
+}
+
+def_prim(display_draw_string, sevenToNoneU32) {
+    uint32_t addr = arg4.uint32;
+    uint32_t size = arg3.uint32;
+    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    int scale = arg2.uint32;
+    for (int i = 0; i < text.length(); i++) {
+        draw_char(display_dev, arg6.int32 + i * 8 * scale, arg5.int32, text[i],
+                  arg1.uint32, arg0.uint32, scale);
+    }
+    pop_args(7);
+    return true;
+}
+#endif
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
-void install_primitives() {
+void install_primitives(Interpreter *interpreter) {
     dbg_info("INSTALLING PRIMITIVES\n");
     install_primitive(chip_delay);
     install_primitive(chip_pin_mode);
-    install_primitive(chip_digital_write);
-    install_primitive_reverse(chip_digital_write);
+    install_reversible_primitive(chip_digital_write);
     install_primitive(chip_digital_read);
+    install_primitive(millis);
+    install_primitive(random_int);
     install_primitive(print_string);
     install_primitive(print_int);
     install_primitive(abort);
@@ -596,8 +520,7 @@ void install_primitives() {
     install_primitive(drive_motor);
     install_primitive(stop_motor);
     install_primitive(drive_motor_ms);
-    install_primitive(drive_motor_degrees);
-    install_primitive_reverse(drive_motor_degrees);
+    install_reversible_primitive(drive_motor_degrees);
 
     install_primitive(read_uart_sensor);
     install_primitive(setup_uart_sensor);
@@ -608,24 +531,15 @@ void install_primitives() {
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(500), K_MSEC(500));
 #endif
-}
 
-//------------------------------------------------------
-// resolving the primitives
-//------------------------------------------------------
-bool resolve_primitive(char *symbol, Primitive *val) {
-    debug("Resolve primitives (%d) for %s  \n", ALL_PRIMITIVES, symbol);
-
-    for (auto &primitive : primitives) {
-        //        printf("Checking %s = %s  \n", symbol, primitive.name);
-        if (!strcmp(symbol, primitive.name)) {
-            debug("FOUND PRIMITIVE\n");
-            *val = primitive.f;
-            return true;
-        }
-    }
-    FATAL("Could not find primitive %s \n", symbol);
-    return false;
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
+    install_primitive(display_setup);
+    install_primitive(display_set_orientation);
+    install_primitive(display_width);
+    install_primitive(display_height);
+    install_primitive(display_fill_rect);
+    install_primitive(display_draw_string);
+#endif
 }
 
 Memory external_mem = {0, 0, 0, nullptr};
@@ -659,37 +573,6 @@ bool resolve_external_global(char *symbol, Global **val) {
     }
     FATAL("Could not find global %s \n", symbol);
     return false;
-}
-
-//------------------------------------------------------
-// Restore external state when restoring a snapshot
-//------------------------------------------------------
-void restore_external_state(Module *m,
-                            const std::vector<IOStateElement> &external_state) {
-    std::set<std::string> prim_names;
-    for (uint32_t i = 0; i < m->import_count; i++) {
-        prim_names.emplace(m->functions[i].import_field);
-    }
-
-    for (PrimitiveEntry &p : primitives) {
-        if (prim_names.find(p.name) != prim_names.end()) {
-            printf("%s\n", p.name);
-            if (p.f_reverse) {
-                printf("Reversing action for primitive %s\n", p.name);
-                p.f_reverse(m, external_state);
-            }
-        }
-    }
-}
-
-std::vector<IOStateElement *> get_io_state(Module *) {
-    std::vector<IOStateElement *> ioState;
-    for (auto &primitive : primitives) {
-        if (primitive.f_serialize_state) {
-            primitive.f_serialize_state(ioState);
-        }
-    }
-    return ioState;
 }
 
 #endif  // ARDUINO
