@@ -49,8 +49,8 @@ void print_help() {
     fprintf(stdout, "\n");
     fprintf(stdout, "Options:\n");
     fprintf(stdout,
-            "    --link <file>  Link additional module(s) (can be specified "
-            "multiple times)\n");
+            "    --link <file>  Link additional module(s) (multiple files can "
+            "be specified)\n");
     fprintf(stdout,
             "    --loop         Let the runtime loop infinitely on exceptions "
             "(default: false)\n");
@@ -313,12 +313,16 @@ int main(int argc, const char *argv[]) {
             print_help();
             return 0;
         } else if (!strcmp("--link", arg)) {
-            const char *link_file = nullptr;
-            ARGV_GET(link_file);
-            if (link_file) {
+            bool found = false;
+            while (argc > 0 && argv[0][0] != '-') {
+                const char *link_file;
+                ARGV_GET(link_file);
                 linked_modules.push_back(link_file);
-            } else {
-                fprintf(stderr, "wdcli: --link requires a file argument\n");
+                found = true;
+            }
+            if (!found) {
+                fprintf(stderr,
+                        "wdcli: --link requires at least one file argument\n");
                 return 1;
             }
         } else if (!strcmp("--loop", arg)) {
