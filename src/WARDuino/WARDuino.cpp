@@ -503,10 +503,15 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                     val = (void *)&target_mod->memory;
                                     break;
                                 case 0x03:  // Global
-                                    // Find global export not fully implemented
-                                    // in get_export_fidx helper This would
-                                    // require iterating target_mod exports
-                                    // looking for globals
+                                    uint32_t gidx = get_export_global_idx(
+                                        target_mod, import_field);
+                                    if (gidx != (uint32_t)-1) {
+                                        val = (void *)target_mod->globals[gidx];
+                                    } else {
+                                        FATAL(
+                                            "Global import not found: %s.%s\n",
+                                            import_module, import_field);
+                                    }
                                     break;
                             }
                         }
@@ -596,7 +601,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         {
                             auto *gval = (Global *)val;
                             ASSERT(gval->mutability == mutability,
-                                   "Imported global mutability mismatch:\n");
+                                   "Imported global mutability mismatch: "
+                                   "imported=%d, expected=%d",
+                                   gval->mutability, mutability);
                             ASSERT(gval->value->value_type == content_type,
                                    "Imported global type mismatch\n");
                             m->global_count += 1;

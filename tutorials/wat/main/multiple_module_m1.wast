@@ -4,7 +4,7 @@
   (import "multiple_module_m2" "add_twenty" (func $m2_add (param i32) (result i32)))
   (import "multiple_module_m3" "table" (table $tbl 5 funcref))
   (import "multiple_module_m3" "shared_mem" (memory $mem 1))
-  (import "multiple_module_m3" "get_counter" (func $get_counter (result i32)))
+  (import "multiple_module_m3" "counter" (global $counter (mut i32)))
   (import "multiple_module_m3" "inc_counter" (func $inc_counter))
   (import "multiple_module_m3" "set_in_memory" (func $set_in_memory (param i32)))
   
@@ -13,7 +13,7 @@
   (data (i32.const 160) "Table callback to table in M3 at index ")
   (data (i32.const 200) "Shared memory read: ")
   (data (i32.const 220) "Global counter: ")
-  (data (i32.const 240) "Increased global counter: ")
+  (data (i32.const 240) "Global counter +2: ")
   
   (func $main (export "main")
     (call $print (i32.const 100) (i32.const 26))
@@ -30,11 +30,15 @@
     (call_indirect (type 0))
     
     (call $print (i32.const 220) (i32.const 16))
-    (call $get_counter)
+    (global.get $counter)
     (call $print_int)
-    (call $print (i32.const 240) (i32.const 27))
-    (call $inc_counter)
-    (call $get_counter)
+    (call $print (i32.const 240) (i32.const 20))
+    (global.get $counter) ;; first increment (in M1)
+    (i32.const 1)
+    (i32.add)
+    (global.set $counter)
+    (call $inc_counter) ;; second increment (in M3)
+    (global.get $counter)
     (call $print_int)
     
     (call $set_in_memory (i32.const 8888))
