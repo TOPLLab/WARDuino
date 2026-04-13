@@ -1094,9 +1094,12 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
     return fidx;
 }
 
-#if defined(ESP) || defined(ARDUINO)
-#include "Arduino.h"
-#define TOTAL_MALLOC ESP.getHeapSize() - ESP.getFreeHeap()
+#if defined(ARDUINO)
+#include <Esp.h>
+#define TOTAL_MALLOC (ESP.getHeapSize() - ESP.getFreeHeap())
+#elif defined(ESP_PLATFORM)
+#include <esp_heap_caps.h>
+#define TOTAL_MALLOC (heap_caps_get_total_size(MALLOC_CAP_DEFAULT) - heap_caps_get_free_size(MALLOC_CAP_DEFAULT))
 #elif defined(__APPLE__)
 #include <malloc/malloc.h>
 #define TOTAL_MALLOC mstats().bytes_used
@@ -1104,5 +1107,4 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
 #include <malloc.h>
 #define TOTAL_MALLOC mallinfo2().uordblks
 #endif
-
 uint32_t WARDuino::get_heap_used() { return TOTAL_MALLOC; }
