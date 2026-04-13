@@ -512,6 +512,7 @@ void Debugger::dump(Module *m, bool full) const {
         this->dumpLocals(m);
         this->channel->write(", ");
         this->dumpEvents(0, static_cast<long>(CallbackHandler::event_count()));
+        this->channel->write(", ");
     }
 
     this->dumpHeapInfo(m);
@@ -671,7 +672,7 @@ void Debugger::dumpCallbackmapping() const {
 }
 
 void Debugger::dumpHeapInfo(Module *m) const {
-    this->channel->write(R"("heap":{"used":%u}})",
+    this->channel->write(R"("heap":{"used":%u})",
                          m->warduino->get_heap_used());
 }
 
@@ -982,6 +983,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 uint32_t heap_used = m->warduino->get_heap_used();
                 this->channel->write(R"(%s"heap":{"used":%d})",
                                      addComma ? "," : "", heap_used);
+                addComma = true;
                 break;
             }
             default: {
