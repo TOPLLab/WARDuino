@@ -51,6 +51,7 @@ enum ExecutionState {
     eventsState = 0x0A,
     ioState = 0x0B,
     overridesState = 0x0C,
+    heapState = 0x0D,
 };
 
 enum InterruptTypes {
@@ -182,6 +183,8 @@ class Debugger {
     void dumpEvents(long start, long size) const;
 
     void dumpCallbackmapping() const;
+
+    void dumpHeapInfo(Module *m) const;
 
     void inspect(Module *m, uint16_t sizeStateArray,
                  const uint8_t *state) const;
