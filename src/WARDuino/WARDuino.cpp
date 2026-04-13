@@ -1095,7 +1095,7 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
 }
 
 #if defined(ESP) || defined(ARDUINO)
-#include Arduino.h
+#include <Esp.h>
 #define TOTAL_MALLOC ESP.getHeapSize() - ESP.getFreeHeap()
 #elif defined(__APPLE__)
 #include <malloc/malloc.h>
