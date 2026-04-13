@@ -795,8 +795,7 @@ void Debugger::snapshot(Module *m) const {
                        callbacksState,
                        eventsState,
                        ioState,
-                       overridesState,
-                       heapState};
+                       overridesState};
     inspect(m, numberBytes, state);
 }
 
