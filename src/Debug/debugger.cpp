@@ -672,8 +672,7 @@ void Debugger::dumpCallbackmapping() const {
 }
 
 void Debugger::dumpHeapInfo(Module *m) const {
-    this->channel->write(R"("heap":{"used":%u})",
-                         m->warduino->get_heap_used());
+    this->channel->write(R"("heap":{"used":%u})", m->warduino->get_heap_used());
 }
 
 /**
