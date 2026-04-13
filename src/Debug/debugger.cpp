@@ -508,11 +508,13 @@ void Debugger::dump(Module *m, bool full) const {
     this->dumpCallstack(m);
 
     if (full) {
-        this->channel->write(R"(, "locals": )");
+        this->channel->write(R"( "locals": )");
         this->dumpLocals(m);
         this->channel->write(", ");
         this->dumpEvents(0, static_cast<long>(CallbackHandler::event_count()));
     }
+
+    this->dumpHeapInfo(m);
 
     this->channel->write("}\n\n");
     //    fflush(stdout);
@@ -581,7 +583,7 @@ void Debugger::dumpCallstack(Module *m) const {
         this->channel->write("\"start\":%" PRIu32
                              ",\"ra\":%d,\"callsite\":%d}%s",
                              toVA(f->block->start_ptr), retaddr,
-                             callsite_retaddr, (i < m->csp) ? "," : "]");
+                             callsite_retaddr, (i < m->csp) ? "," : "],");
     }
 }
 
@@ -666,6 +668,11 @@ void Debugger::dumpEvents(long start, long size) const {
 
 void Debugger::dumpCallbackmapping() const {
     this->channel->write("%s\n", CallbackHandler::dump_callbacks().c_str());
+}
+
+void Debugger::dumpHeapInfo(Module *m) const {
+    this->channel->write(R"("heap":{"used":%u}})",
+                         m->warduino->get_heap_used());
 }
 
 /**
@@ -776,7 +783,7 @@ bool Debugger::handlePushedEvent(char *bytes) const {
 }
 
 void Debugger::snapshot(Module *m) const {
-    uint16_t numberBytes = 12;
+    uint16_t numberBytes = 13;
     uint8_t state[] = {pcState,
                        breakpointsState,
                        callstackState,
@@ -788,7 +795,8 @@ void Debugger::snapshot(Module *m) const {
                        callbacksState,
                        eventsState,
                        ioState,
-                       overridesState};
+                       overridesState,
+                       heapState};
     inspect(m, numberBytes, state);
 }
 
@@ -968,6 +976,12 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 }
                 this->channel->write("]");
                 addComma = true;
+                break;
+            }
+            case heapState: {
+                uint32_t heap_used = m->warduino->get_heap_used();
+                this->channel->write(R"(%s"heap":{"used":%d})",
+                                     addComma ? "," : "", heap_used);
                 break;
             }
             default: {
