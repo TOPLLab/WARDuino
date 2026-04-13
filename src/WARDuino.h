@@ -71,4 +71,6 @@ class WARDuino {
     void instantiate_module(Module *m, uint8_t *bytes, uint32_t byte_count);
 
     void free_module_state(Module *m);
+
+    uint32_t get_heap_used();
 };

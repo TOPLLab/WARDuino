@@ -462,6 +462,12 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     return true;
 }
 
+def_prim(heap_used, zeroToOneU32) {
+    printf("EMU: heap_used()\n");
+    pushUInt32(m->warduino->get_heap_used());
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -516,6 +522,8 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(read_uart_sensor);
     install_primitive(nxt_touch_sensor);
     install_primitive(ev3_touch_sensor);
+
+    install_primitive(heap_used);
 }
 
 Memory external_mem{};
