@@ -986,7 +986,7 @@ void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
         }
         checkpoint_state_size = read_LEB_32(data_ptr);
         checkpoint_state = new uint8_t[checkpoint_state_size];
-        for (int i = 0; i < checkpoint_state_size; i++) {
+        for (uint32_t i = 0; i < checkpoint_state_size; i++) {
             checkpoint_state[i] = **data_ptr;
             *data_ptr += 1;
         }
