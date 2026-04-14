@@ -25,6 +25,9 @@ Debugger::Debugger(Channel *duplex) {
     this->checkpointInterval = 10;
     this->instructions_executed = 0;
     this->fidx_called = {};
+    this->min_return_values = 0;
+    this->checkpoint_state = nullptr;
+    this->checkpoint_state_size = 0;
     this->remaining_instructions = -1;
 }
 
@@ -965,11 +968,33 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
 }
 
 void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
-    snapshotPolicy = SnapshotPolicy{*interruptData};
+    uint8_t **data_ptr = &interruptData;
+    if (*interruptData <= 2) {
+        snapshotPolicy = SnapshotPolicy{*interruptData};
+        min_return_values = 0;
+        if (checkpoint_state) {
+            free(checkpoint_state);
+        }
+        checkpoint_state = nullptr;
+        checkpoint_state_size = 0;
+    } else {
+        snapshotPolicy = SnapshotPolicy::checkpointing;
+        *data_ptr += 1;
+        min_return_values = read_LEB_32(data_ptr);
+        if (checkpoint_state) {
+            free(checkpoint_state);
+        }
+        checkpoint_state_size = read_LEB_32(data_ptr);
+        checkpoint_state = new uint8_t[checkpoint_state_size];
+        for (uint32_t i = 0; i < checkpoint_state_size; i++) {
+            checkpoint_state[i] = **data_ptr;
+            *data_ptr += 1;
+        }
+    }
 
     // Make a checkpoint when you first enable checkpointing
     if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-        uint8_t *ptr = interruptData + 1;
+        uint8_t *ptr = *data_ptr + 1;
         checkpointInterval = read_B32(&ptr);
         checkpoint(m, true);
     }
@@ -1016,9 +1041,22 @@ void Debugger::handleSnapshotPolicy(Module *m) {
     }
 }
 
-void Debugger::checkpoint(Module *m, bool force) {
+void Debugger::checkpoint(Module *m, const bool force) {
     if (instructions_executed == 0 && !force) {
         return;
+    }
+
+    if (min_return_values != 0) {
+        if (!fidx_called) {
+            // Tracing mode is on, but no primitive was called.
+            return;
+        }
+
+        const Type *type = m->functions[*fidx_called].type;
+        if (type->result_count < min_return_values) {
+            // Primitive was called but did not have the required return values.
+            return;
+        }
     }
 
     this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, )",
@@ -1032,9 +1070,23 @@ void Debugger::checkpoint(Module *m, bool force) {
             comma = true;
         }
         this->channel->write("], ");
+
+        // Return values:
+        this->channel->write(R"("returns": [)");
+        comma = false;
+        for (uint32_t i = 0; i < func_block.type->result_count; i++) {
+            channel->write("%s%d", comma ? ", " : "",
+                           m->stack[m->sp - i].value.uint32);
+            comma = true;
+        }
+        this->channel->write("], ");
     }
-    this->channel->write(R"("snapshot": )", instructions_executed);
-    snapshot(m);
+    this->channel->write(R"("snapshot": )");
+    if (!checkpoint_state) {
+        snapshot(m);
+    } else {
+        inspect(m, checkpoint_state_size, checkpoint_state);
+    }
     this->channel->write("}\n");
     instructions_executed = 0;
 }
