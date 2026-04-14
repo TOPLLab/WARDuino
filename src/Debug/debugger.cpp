@@ -1041,7 +1041,7 @@ void Debugger::handleSnapshotPolicy(Module *m) {
     }
 }
 
-void Debugger::checkpoint(Module *m, bool force) {
+void Debugger::checkpoint(Module *m, const bool force) {
     if (instructions_executed == 0 && !force) {
         return;
     }
