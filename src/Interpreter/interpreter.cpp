@@ -127,10 +127,7 @@ bool i_instr_table_init_indexed(Module *m) {
         return false;
     }
 
-    // Table *table = (tableidx == 0 && m->table_count == 0)
-    //                    ? &m->table
-    //                    : &m->tables[tableidx];
-    Table *table = &m->table;
+    Table *table = &m->tables[tableidx];
 
     uint32_t n = m->stack[m->sp--].value.uint32;
     uint32_t s = m->stack[m->sp--].value.uint32;
@@ -517,9 +514,10 @@ bool Interpreter::interpret(Module *m, bool waiting) {
                     case 0x0e:  // table.copy
                         // success &= i_instr_table_copy(m);
                         // continue;
-                        
+
                         // TODO: unsupported for now (currently only 1 table)
-                        sprintf(exception, "unrecognized 0xfc sub-opcode 0x%x", sub_opcode);
+                        sprintf(exception, "unrecognized 0xfc sub-opcode 0x%x",
+                                sub_opcode);
                         return false;
                     case 0x0f:  // table.grow
                         success &= i_instr_table_grow(m);

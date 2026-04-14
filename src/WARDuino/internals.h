@@ -37,7 +37,10 @@
 #define IS_NUMTYPE(t) ((t) >= F64 && (t) <= I32)
 #define IS_VALTYPE(t) (IS_NUMTYPE(t) || IS_REFTYPE(t))
 
-#define NULL_REF ((void*)(uintptr_t)0xFFFFFFFF) // using nullptr / 0 as null reference causes conflicts with valid function index 0
+#define NULL_REF \
+    ((void *)(uintptr_t)0xFFFFFFFF)  // using nullptr / 0 as null reference
+                                     // causes conflicts with valid function
+                                     // index 0
 
 // Structures
 typedef struct Type {
@@ -135,6 +138,12 @@ typedef struct Global {
     StackValue *value;    // current value
 } Global;
 
+typedef struct ElemSegment {
+    uint8_t elem_type;
+    uint32_t count;
+    StackValue *elems;
+} ElemSegment;
+
 typedef struct Options {
     // when true: host memory addresses will be outside allocated memory area
     // so do not do bounds checking
@@ -170,11 +179,12 @@ typedef struct Module {
     uint32_t start_function = -1;  // function to run on module load
 
     uint32_t table_count = 0;  // number of tables
-    // Table *tables = nullptr;   // array of tables
-    Table table;
+    Table *tables = nullptr;   // array of tables
     Memory memory;
-    uint32_t global_count = 0;   // number of globals
-    Global **globals = nullptr;  // globals
+    uint32_t global_count = 0;     // number of globals
+    Global **globals = nullptr;    // globals
+    uint32_t elem_count = 0;       // number of element segments
+    ElemSegment *elems = nullptr;  // element segments
     // Runtime state
     uint8_t *pc_ptr = nullptr;     // program counter
     int sp = -1;                   // operand stack pointer

@@ -315,10 +315,10 @@ bool i_instr_call(Module *m) {
  * 0x11 call_indirect
  */
 bool i_instr_call_indirect(Module *m) {
-    uint32_t tidx = read_LEB_32(&m->pc_ptr);  // TODO: use tidx?
-    (void)tidx;
-    read_LEB_32(&m->pc_ptr);  // reserved immediate
-    uint32_t val = m->stack[m->sp--].value.uint32;
+    uint32_t type_idx = read_LEB_32(&m->pc_ptr);
+    uint32_t table_idx = read_LEB_32(&m->pc_ptr);
+    uint32_t elem_idx = m->stack[m->sp--].value.uint32;
+    Table *table = &m->tables[table_idx];
     if (m->options.mangle_table_index) {
         // val is the table address + the index (not sized for the
         // pointer size) so get the actual (sized) index
@@ -328,19 +328,21 @@ bool i_instr_call_indirect(Module *m) {
               (uint32_t)((uint64_t)m->table.entries) - val);
 #endif
         // val = val - (uint32_t)((uint64_t)m->table.entries & 0xFFFFFFFF);
-        val = val - (uint32_t)((uint64_t)m->table.entries);
+        elem_idx =
+            elem_idx - (uint32_t)((uint64_t)m->tables[table_idx].entries);
     }
-    if (val >= m->table.maximum) {
+    if (elem_idx >= m->tables[table_idx].maximum) {
         sprintf(exception,
                 "undefined element 0x%" PRIx32 " (max: 0x%" PRIx32 ") in table",
-                val, m->table.maximum);
+                elem_idx, m->tables[table_idx].maximum);
         return false;
     }
 
-    uint32_t fidx = (uint32_t)(uintptr_t)m->table.entries[val].value.ref;
+    uint32_t fidx =
+        (uint32_t)(uintptr_t)m->tables[table_idx].entries[elem_idx].value.ref;
 #if TRACE
-    debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", tidx, val,
-          fidx);
+    debug("       - call_indirect tidx: %d, val: 0x%x, fidx: 0x%x\n", table_idx,
+          elem_idx, fidx);
 #endif
 
     if (fidx < m->import_count) {
@@ -353,7 +355,7 @@ bool i_instr_call_indirect(Module *m) {
             sprintf(exception, "call stack exhausted");
             return false;
         }
-        if (ftype->mask != m->types[tidx].mask) {
+        if (ftype->mask != m->types[type_idx].mask) {
             sprintf(exception,
                     "indirect call type mismatch (call type and function type "
                     "differ)");
@@ -379,9 +381,9 @@ bool i_instr_call_indirect(Module *m) {
 
 #if TRACE
         debug(
-            "      - tidx: %d, table idx: %d, "
+            "      - type idx: %d, table idx: %d, "
             "calling function fidx: %d at: 0x%p\n",
-            tidx, val, fidx, m->pc_ptr);
+            type_idx, table_idx, fidx, m->pc_ptr);
 #endif
     }
     return true;
@@ -419,12 +421,12 @@ bool i_instr_select(Module *m) {
  */
 bool i_instr_select_t(Module *m) {
     uint32_t vec_len = read_LEB_32(&m->pc_ptr);
-    
+
     for (uint32_t i = 0; i < vec_len; i++) {
         uint8_t valtype = read_LEB(&m->pc_ptr, 7);
         (void)valtype;  // validation only
     }
-    
+
     uint32_t cond = m->stack[m->sp--].value.uint32;
     m->sp--;
     if (!cond) {
@@ -1393,7 +1395,7 @@ bool i_instr_table_get(Module *m) {
     }
 
     uint32_t index = m->stack[m->sp--].value.uint32;
-    Table *table = &m->table;  // TODO: should become &m->tables[tableidx]; 
+    Table *table = &m->tables[tableidx];
 
     if (index >= table->size) {
         sprintf(exception, "table.get: index %u out of bounds", index);
@@ -1427,7 +1429,7 @@ bool i_instr_table_set(Module *m) {
     }
     StackValue val = m->stack[m->sp--];
     uint32_t index = m->stack[m->sp--].value.uint32;
-    Table *table = &m->table;  // TODO: should become &m->tables[tableidx];
+    Table *table = &m->tables[tableidx];
 
     if (index >= table->size) {
         sprintf(exception, "table.set: index %u out of bounds", index);
@@ -1460,10 +1462,11 @@ bool i_instr_table_size(Module *m) {
     }
 
     m->stack[++m->sp].value_type = I32;
-    m->stack[m->sp].value.uint32 = m->table.size;
+    m->stack[m->sp].value.uint32 = m->tables[tableidx].size;
 
 #if TRACE
-    debug("      - table.size table=%d size=%d\n", tableidx, m->table.size);
+    debug("      - table.size table=%d size=%d\n", tableidx,
+          m->tables[tableidx].size);
 #endif
     return true;
 }
@@ -1482,7 +1485,7 @@ bool i_instr_table_grow(Module *m) {
 
     uint32_t delta = m->stack[m->sp--].value.uint32;
     StackValue init_val = m->stack[m->sp--];
-    Table *table = &m->table;  // TODO: should become &m->tables[tableidx]; !!!
+    Table *table = &m->tables[tableidx];
 
     // verify init value type matches table type
     if (init_val.value_type != table->elem_type) {
@@ -1538,7 +1541,7 @@ bool i_instr_table_fill(Module *m) {
     StackValue val = m->stack[m->sp--];
     uint32_t i = m->stack[m->sp--].value.uint32;
 
-    Table *table = &m->table;  // TODO: should become &m->tables[tableidx]; !!!
+    Table *table = &m->tables[tableidx];
 
     // Verify value type matches table type
     if (val.value_type != table->elem_type) {

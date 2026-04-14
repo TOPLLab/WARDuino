@@ -886,43 +886,68 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 break;
             }
             case tableState: {
-                this->channel->write(
-                    R"(%s"table":{"max":%d, "init":%d, "elements":[)",
-                    addComma ? "," : "", m->table.maximum, m->table.initial);
+                this->channel->write("%s\"tables\":[", addComma ? "," : "");
                 addComma = true;
-                for (uint32_t j = 0; j < m->table.size; j++) {
-                    this->channel->write("%" PRIu32 "%s",
-                                         m->table.entries[j].value.ref,
-                                         (j + 1) == m->table.size ? "" : ",");
-                }
-                this->channel->write("]}");  // closing table
-                break;
-            }
-            case branchingTableState: {
-                this->channel->write(
-                    R"(%s"br_table":{"size":"0x%x","labels":[)",
-                    addComma ? "," : "", BR_TABLE_SIZE);
-                for (uint32_t j = 0; j < m->table.size; j++) {
-                    StackValue *entry = &m->table.entries[j];
+                for (uint32_t tidx = 0; tidx < m->table_count; tidx++) {
+                    ASSERT(tidx < m->table_count, "table index out of bounds");
+                    Table *table = &m->tables[tidx];
 
-                    if (is_null_ref(entry)) {
-                        this->channel->write("null");
-                    } else if (entry->value_type == FUNCREF) {
-                        uint32_t fidx = (uint32_t)(uintptr_t)entry->value.ref;
-                        this->channel->write("%u", fidx);
-                    } else if (entry->value_type == EXTERNREF) {
-                        this->channel->write("\"%p\"", entry->value.ref);
-                    } else {
-                        // Unknown type, output raw
-                        this->channel->write("\"0x%" PRIx64 "\"",
-                                             entry->value.uint64);
+                    this->channel->write(
+                        R"({"index":%d,"max":%d,"init":%d,"elements":[)", tidx,
+                        table->maximum, table->initial);
+
+                    for (uint32_t j = 0; j < table->size; j++) {
+                        this->channel->write("%" PRIu32 "%s", table->entries[j],
+                                             (j + 1) == table->size ? "" : ",");
                     }
-
-                    if (j + 1 < m->table.size) {
+                    this->channel->write("]}");
+                    if (tidx + 1 < m->table_count) {
                         this->channel->write(",");
                     }
                 }
-                this->channel->write("]}");
+                this->channel->write("]");
+                break;
+            }
+            case branchingTableState: {
+                this->channel->write("%s\"br_tables\":[", addComma ? "," : "");
+                addComma = true;
+
+                for (uint32_t tidx = 0; tidx < m->table_count; tidx++) {
+                    Table *table = &m->tables[tidx];
+
+                    this->channel->write(
+                        R"({"index":%u,"size":"0x%x","labels":[)", tidx,
+                        table->size);
+
+                    for (uint32_t j = 0; j < table->size; j++) {
+                        StackValue *entry = &table->entries[j];
+
+                        if (is_null_ref(entry)) {
+                            this->channel->write("null");
+                        } else if (entry->value_type == FUNCREF) {
+                            uint32_t fidx =
+                                (uint32_t)(uintptr_t)entry->value.ref;
+                            this->channel->write("%u", fidx);
+                        } else if (entry->value_type == EXTERNREF) {
+                            this->channel->write("\"%p\"", entry->value.ref);
+                        } else {
+                            this->channel->write("\"0x%" PRIx64 "\"",
+                                                 entry->value.uint64);
+                        }
+
+                        if (j + 1 < table->size) {
+                            this->channel->write(",");
+                        }
+                    }
+
+                    this->channel->write("]}");
+
+                    if (tidx + 1 < m->table_count) {
+                        this->channel->write(",");
+                    }
+                }
+
+                this->channel->write("]");
                 break;
             }
             case memoryState: {
@@ -1132,18 +1157,22 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
             }
             case tableState: {
                 debug("receiving table info\n");
-                m->table.initial = read_B32(&first_msg);
-                m->table.maximum = read_B32(&first_msg);
+                uint32_t table_index = read_B32(&first_msg);
+                Table *table = &m->tables[table_index];
+                table->initial = read_B32(&first_msg);
+                table->maximum = read_B32(&first_msg);
                 uint32_t size = read_B32(&first_msg);
-                debug("init %d max %d size %d\n", m->table.initial,
-                      m->table.maximum, size);
-                if (m->table.size != size) {
-                    debug("old table size %d\n", m->table.size);
-                    if (m->table.size != 0) free(m->table.entries);
-                    m->table.entries = static_cast<StackValue *>(acalloc(
-                        size, sizeof(StackValue), "Module->table.entries"));
+                debug("table[%u] init %d max %d size %d\n", table_index,
+                      table->initial, table->maximum, size);
+                if (table->size != size) {
+                    debug("old table[%u] size %d\n", table_index, table->size);
+                    if (table->entries != nullptr) {
+                        free(table->entries);
+                    }
+                    table->entries = static_cast<StackValue *>(
+                        acalloc(size, sizeof(StackValue), "Table.entries"));
                 }
-                m->table.size = 0;  // allows to accumulatively add entries
+                table->size = 0;
                 break;
             }
             case memoryState: {
@@ -1287,35 +1316,36 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 break;
             }
             case tableState: {
+                uint32_t table_index = read_B32(&program_state);
+                Table *table = &m->tables[table_index];
+
                 uint32_t quantity = read_B32(&program_state);
+
                 for (size_t i = 0; i < quantity; i++) {
-                    if (m->table.size >= m->table.maximum) {
+                    if (table->size >= table->maximum) {
                         FATAL("table overflow during restoration\n");
                     }
 
                     uint8_t entry_type = *program_state++;
 
-                    if (entry_type != m->table.elem_type) {
+                    if (entry_type != table->elem_type) {
                         debug("warning: entry type mismatch at index %u\n", i);
                     }
 
-                    StackValue *entry = &m->table.entries[m->table.size];
+                    StackValue *entry = &table->entries[table->size];
                     entry->value_type = entry_type;
 
                     if (entry_type == FUNCREF) {
                         uint32_t fidx = read_B32(&program_state);
                         entry->value.ref = (void *)(uintptr_t)fidx;
-                        debug("funcref entry with fidx %" PRIu32 "\n", fidx);
                     } else if (entry_type == EXTERNREF) {
-                        // TODO: not storing the actual externref value, we set it to null
                         set_null_ref(entry, EXTERNREF);
                         program_state += sizeof(void *);
-                        debug("externref entry (null)\n");
                     } else {
                         FATAL("unknown table entry type 0x%02x\n", entry_type);
                     }
 
-                    m->table.size++;
+                    table->size++;
                 }
                 break;
             }

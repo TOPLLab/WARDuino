@@ -116,22 +116,22 @@ uint64_t get_type_mask(Type *type) {
     return mask;
 }
 
-void parse_table_type(Module *m, uint8_t **pos) {
-    m->table.elem_type = read_LEB(pos, 7);
-    ASSERT(m->table.elem_type == ANYFUNC || m->table.elem_type == EXTERNREF ||
-               m->table.elem_type == FUNCREF,
-           "Table elem_type 0x%x unsupported", m->table.elem_type);
+void parse_table_type(Table *table, uint8_t **pos) {
+    table->elem_type = read_LEB(pos, 7);
+    ASSERT(table->elem_type == FUNCREF || table->elem_type == EXTERNREF,
+           "Table elem_type 0x%x unsupported", table->elem_type);
 
     uint32_t flags = read_LEB_32(pos);
-    uint32_t tsize = read_LEB_32(pos);  // Initial size
-    m->table.initial = tsize;
-    m->table.size = tsize;
+    uint32_t tsize = read_LEB_32(pos);
+    table->initial = tsize;
+    table->size = tsize;
+
     // Limit maximum to 64K
     if (flags & 0x1u) {
-        tsize = read_LEB_32(pos);  // Max size
-        m->table.maximum = 0x10000 < tsize ? 0x10000 : tsize;
+        tsize = read_LEB_32(pos);
+        table->maximum = 0x10000 < tsize ? 0x10000 : tsize;
     } else {
-        m->table.maximum = 0x10000;
+        table->maximum = 0x10000;
     }
     debug("  table size: %d\n", tsize);
 }
@@ -452,7 +452,12 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             type_index = read_LEB_32(&pos);
                             break;
                         case 0x01:  // Table
-                            parse_table_type(m, &pos);
+                            m->table_count++;
+                            m->tables = (Table *)arecalloc(
+                                m->tables, m->table_count - 1, m->table_count,
+                                sizeof(Table), "tables");
+                            parse_table_type(&m->tables[m->table_count - 1],
+                                             &pos);
                             break;
                         case 0x02:  // Memory
                             parse_memory_type(m, &pos);
@@ -545,16 +550,16 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         }
                         case 0x01:  // Table
                         {
-                            ASSERT(!m->table.entries,
-                                   "More than 1 table not supported\n");
+                            // TODO: check correctness
                             auto *tval = (Table *)val;
-                            ASSERT(m->table.initial <= tval->maximum,
-                                   "Imported table is not large enough\n");
-                            dbg_warn("  setting table.refs to: %p\n",
-                                     *(uint32_t **)val);
-                            m->table.size = tval->size;
-                            m->table.maximum = tval->maximum;
-                            m->table.entries = tval->entries;
+                            ASSERT(m->tables[m->table_count - 1].elem_type ==
+                                       tval->elem_type,
+                                   "Imported table elem_type mismatch\n");
+                            m->tables[m->table_count - 1].size = tval->size;
+                            m->tables[m->table_count - 1].maximum =
+                                tval->maximum;
+                            m->tables[m->table_count - 1].entries =
+                                tval->entries;
                             break;
                         }
                         case 0x02:  // Memory
@@ -626,21 +631,25 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
             }
             case 4: {
                 dbg_warn("Parsing Table(4) section\n");
-                m->table_count = read_LEB_32(&pos);
-                debug("  table count: 0x%x\n", m->table_count);
-                ASSERT(m->table_count == 1, "More than 1 table not supported");
-                // Allocate the table
-                // for (uint32_t c=0; c<table_count; c++) {
-                parse_table_type(m, &pos);
-                // If it's not imported then don't mangle it
-                m->options.mangle_table_index = false;
-                m->table.entries = (StackValue *)acalloc(
-                    m->table.size, sizeof(StackValue), "table.entries");
-                // Initialize all entries to null
-                for (uint32_t i = 0; i < m->table.size; i++) {
-                    set_null_ref(&m->table.entries[i], m->table.elem_type);
+                uint32_t table_count = read_LEB_32(&pos);
+                debug("  table count: 0x%x\n", table_count);
+
+                for (uint32_t t = 0; t < table_count; t++) {
+                    m->table_count++;
+                    m->tables = (Table *)arecalloc(
+                        m->tables, m->table_count - 1, m->table_count,
+                        sizeof(Table), "tables");
+                    Table *table = &m->tables[m->table_count - 1];
+                    parse_table_type(table, &pos);
+                    // If it's not imported then don't mangle it
+                    m->options.mangle_table_index = false;
+                    table->entries =
+                        (StackValue *)acalloc(table->size, sizeof(StackValue),
+                                              "module->tables[].entries");
+                    for (uint32_t i = 0; i < table->size; i++) {
+                        set_null_ref(&table->entries[i], FUNCREF);
+                    }
                 }
-                //}
                 break;
             }
             case 5: {
@@ -727,87 +736,118 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
             case 9: {
                 dbg_warn("Parsing Element(9) section (length: 0x%x)\n",
                          section_len);
-                uint32_t element_count = read_LEB_32(&pos);
+                uint32_t element_count =
+                    read_LEB_32(&pos);  // number of element segments
+
+                m->elem_count = element_count;
+                // maybe not the best idea to have an ElemSegment also for
+                // active ones ...
+                m->elems =
+                    (ElemSegment *)calloc(element_count, sizeof(ElemSegment));
+
+                //                 | Flag | Meaning                    |
+                // | ---- | -------------------------- |
+                // | 0    | active, funcidx            |
+                // | 1    | passive, funcidx           |
+                // | 2    | active + tableidx, funcidx |
+                // | 3    | declarative, funcidx       |
+                // | 4    | active, expr               |
+                // | 5    | passive, expr              |
+                // | 6    | active + tableidx, expr    |
+                // | 7    | declarative, expr          |
 
                 for (uint32_t c = 0; c < element_count; c++) {
+                    ElemSegment *seg = &m->elems[c];
+
                     uint32_t flags = read_LEB_32(&pos);
 
-                    // bit 0: passive/declarative vs active
-                    // bit 1: explicit tableidx (active) or passive vs declarative
-                    // bit 2: use reftype + vec(expr) instead of elemkind + vec(funcidx)
-                    bool is_active      = (flags & 0x01) == 0;
-                    bool is_declarative = (flags == 0x03 || flags == 0x07);
-                    bool use_expr_elems = (flags & 0x04) != 0;
-                    bool has_explicit_table = (flags == 0x02 || flags == 0x06);
+                    bool is_active =
+                        (flags & 0x01) == 0;  // flag = 0 | 2 | 4 | 6
+                    bool is_declarative =
+                        (flags == 0x03 || flags == 0x07);  // flag = 3 | 7
+                    bool use_expr_elems =
+                        (flags & 0x04) != 0;  // flag = 4 | 5 | 6 | 7
+                    bool has_explicit_table =
+                        (flags == 0x02 || flags == 0x06);  // flag = 2 | 6
 
                     uint32_t tableidx = 0;
-                    uint8_t elem_type = FUNCREF;
+                    seg->elem_type = FUNCREF;
 
-                    // flags 2 and 6: explicit tableidx before offset expr
                     if (has_explicit_table) {
                         tableidx = read_LEB_32(&pos);
                     }
+                    Table *table = &m->tables[tableidx];
 
-                    // active segments have an offset init_expr
                     uint32_t offset = 0;
                     if (is_active) {
                         run_init_expr(m, I32, &pos);
                         offset = m->stack[m->sp--].value.uint32;
-                        if (m->options.mangle_table_index) {
-                            offset -= (uint32_t)((uintptr_t)m->table.entries);
-                        }
+                        // TODO: readd
+                        // if (m->options.mangle_table_index) {
+                        //     offset -=
+                        //     (uint32_t)((uintptr_t)m->table.entries);
+                        // }
                     }
 
-                    // elemkind or reftype comes after offset (or after flags for passive/declarative)
-                    // flags 0 and 4: implicit funcref, nothing to read
-                    // flags 1,2,3: elemkind byte (must be 0x00 = funcref)
-                    // flags 5,6,7: reftype byte
+                    // element type infromation:
+                    // flags 0, 4 :     implicit funcref
                     if (flags != 0x00 && flags != 0x04) {
+                        // flags 5, 6, 7 :  reftype (0x70 = funcref, 0x71 =
+                        // externref)
                         if (use_expr_elems) {
-                            // flags 5,6,7: explicit reftype
-                            elem_type = read_LEB(&pos, 7);
+                            seg->elem_type = read_LEB(&pos, 7);
                         } else {
-                            // flags 1,2,3: elemkind (0x00 = ref func)
+                            // flags 1, 2, 3 :  elemkind, must be 0x00 for
+                            // funcref
                             uint8_t elemkind = read_LEB(&pos, 7);
-                            ASSERT(elemkind == 0x00,
-                                "unsupported elemkind 0x%x in element segment", elemkind);
-                            elem_type = FUNCREF;
+                            ASSERT(
+                                elemkind == 0x00,
+                                "unsupported elemkind 0x%x in element segment",
+                                elemkind);
+                            seg->elem_type = FUNCREF;
                         }
                     }
 
-                    uint32_t num_elem = read_LEB_32(&pos);
+                    // number of elements in the segment
+                    seg->count = read_LEB_32(&pos);
 
-                    for (uint32_t n = 0; n < num_elem; n++) {
+                    if (!is_active && !is_declarative) {
+                        seg->elems = (StackValue *)calloc(seg->count,
+                                                          sizeof(StackValue));
+                    }
+
+                    for (uint32_t i = 0; i < seg->count; i++) {
+                        StackValue val;
+
                         if (use_expr_elems) {
-                            // flags 4, 5, 6, 7: each element is a full init_expr
-                            run_init_expr(m, elem_type, &pos);
-                            StackValue val = m->stack[m->sp--];
-                            if (is_active) {
-                                uint32_t idx = offset + n;
-                                if (idx >= m->table.size) {
-                                    FATAL("element segment out of table bounds at index %u\n", idx);
-                                }
-                                m->table.entries[idx] = val;
-                            }
-                            // passive: would need to store in elem segment for table.init
-                            // declarative: discard
-                        } else {
-                            // flags 0, 1 ,2 ,3: each element is a funcidx
-                            uint32_t fidx = read_LEB_32(&pos);
-                            if (is_active) {
-                                uint32_t idx = offset + n;
-                                if (idx >= m->table.size) {
-                                    FATAL("element segment out of table bounds at index %u\n", idx);
-                                }
-                                m->table.entries[idx].value_type = FUNCREF;
-                                m->table.entries[idx].value.ref  = (void *)(uintptr_t)fidx;
-                            }
-                            // passive/declarative: discard (-> no table.init support yet)
-                        }
-                    }
+                            run_init_expr(m, seg->elem_type, &pos);
+                            val = m->stack[m->sp--];
 
-                    (void)tableidx;  // only a single m->table supported currently
-                    (void)is_declarative;
+                        } else {
+                            uint32_t fidx = read_LEB_32(&pos);
+
+                            val.value_type = FUNCREF;
+                            val.value.ref = (void *)(uintptr_t)fidx;
+                        }
+
+                        // active: write directly to table
+                        if (is_active) {
+                            uint32_t idx = offset + i;
+
+                            ASSERT(idx < table->size,
+                                   "element out of bounds (table %u idx %u)",
+                                   tableidx, idx);
+
+                            table->entries[idx] = val;
+                        }
+
+                        // passive: store for table.init
+                        else if (!is_declarative) {
+                            seg->elems[i] = val;
+                        }
+
+                        // discard declaratice
+                    }
                 }
                 pos = start_pos + section_len;
                 break;
@@ -1051,21 +1091,16 @@ void WARDuino::free_module_state(Module *m) {
         m->globals = nullptr;
     }
 
-    if (m->table.entries != nullptr) {
-        free(m->table.entries);
-        m->table.entries = nullptr;
+    for (uint32_t t = 0; t < m->table_count; t++) {
+        if (m->tables[t].entries != nullptr) {
+            free(m->tables[t].entries);
+            m->tables[t].entries = nullptr;
+        }
     }
-
-    // if (m->tables != nullptr) {
-    //     for (uint32_t i = 0; i < m->table_count; i++) {
-    //         if (m->tables[i].entries != nullptr) {
-    //             free(m->tables[i].entries);
-    //             m->tables[i].entries = nullptr;
-    //         }
-    //     }
-    //     free(m->tables);
-    //     m->tables = nullptr;
-    // }
+    if (m->tables != nullptr) {
+        free(m->tables);
+        m->tables = nullptr;
+    }
     m->table_count = 0;
 
     if (m->memory.bytes != nullptr) {
@@ -1113,10 +1148,8 @@ void WARDuino::free_module_state(Module *m) {
     m->memory.pages = 0;
     m->memory.initial = 0;
     m->memory.maximum = 0;
-    m->table.elem_type = 0;
-    m->table.initial = 0;
-    m->table.maximum = 0;
-    m->table.size = 0;
+    m->table_count = 0;
+    m->tables = nullptr;
 
     m->block_lookup.clear();
 }
