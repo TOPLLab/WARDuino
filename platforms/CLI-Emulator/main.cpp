@@ -452,7 +452,7 @@ struct Model {
         }
     }
 
-    std::string to_string(size_t depth) {
+    [[nodiscard]] std::string to_string(size_t depth) const {
         std::string str = "";
         if (depth == 0) {
             str += "*\n";
@@ -626,9 +626,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     std::vector<std::unordered_map<std::string, SymbolicValueMapping>> models;
     Model graph = Model({}, m->ctx.bool_val(true));
     while (max_iterations < 0 || iteration_index < max_iterations) {
-        std::cout << std::endl
-                  << "=== CONCOLIC ITERATION " << iteration_index
-                  << " ===" << std::endl;
+        dbg_info("=== CONCOLIC ITERATION %d ===\n", iteration_index);
         m->symbolic_variable_count = 0;
         m->path_condition = m->ctx.bool_val(true);
         m->instructions_executed = 0;
@@ -764,7 +762,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
 
     std::cout << "Total amount of instructions executed: " << total_instructions_executed << std::endl;
     std::cout << "Models found:" << std::endl;
-    std::cout << graph.to_string(0) << std::endl;
+    dbg_info(graph.to_string(0).c_str());
     std::cout << graph.to_json() << std::endl;
     //std::cout << uint128_to_string(graph.max_states()) << " & " << graph.count_leaf_nodes() << " & " << " & " << graph.max_fanout() << " & " << elapsed_seconds.count() << " \\\\" << std::endl;
     std::cout << graph.max_states() << " & " << graph.count_leaf_nodes() << " & " << graph.max_fanout() << " & " <<
