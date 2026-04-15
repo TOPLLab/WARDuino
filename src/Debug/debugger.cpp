@@ -1024,7 +1024,17 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         this->channel->write("\n");
     } else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
         if (instructions_executed >= checkpointInterval || fidx_called) {
-            checkpoint(m);
+            if (min_return_values == 0) {
+                checkpoint(m);
+            }
+            else {
+                if (fidx_called) {
+                    const Type *type = m->functions[*fidx_called].type;
+                    if (type->result_count >= min_return_values) {
+                        checkpoint(m);
+                    }
+                }
+            }
         }
         instructions_executed++;
 
@@ -1044,19 +1054,6 @@ void Debugger::handleSnapshotPolicy(Module *m) {
 void Debugger::checkpoint(Module *m, const bool force) {
     if (instructions_executed == 0 && !force) {
         return;
-    }
-
-    if (min_return_values != 0) {
-        if (!fidx_called) {
-            // Tracing mode is on, but no primitive was called.
-            return;
-        }
-
-        const Type *type = m->functions[*fidx_called].type;
-        if (type->result_count < min_return_values) {
-            // Primitive was called but did not have the required return values.
-            return;
-        }
     }
 
     this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, )",
