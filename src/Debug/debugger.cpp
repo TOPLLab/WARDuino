@@ -1610,10 +1610,11 @@ bool Debugger::handleUpdateStackValue(const Module *m, uint8_t *bytes) const {
     return true;
 }
 
-bool Debugger::reset(Module *m) const {
+bool Debugger::reset(Module *m) {
     auto *wasm =
         static_cast<uint8_t *>(malloc(sizeof(uint8_t) * m->byte_count));
     memcpy(wasm, m->bytes, m->byte_count);
+    instructions_executed = 0;
     m->warduino->update_module(m, wasm, m->byte_count);
     this->channel->write("Reset WARDuino.\n");
     return true;
