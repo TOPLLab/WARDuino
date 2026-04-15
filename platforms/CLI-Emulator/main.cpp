@@ -512,6 +512,7 @@ struct Model {
         if (prim == "chip_digital_read") {
             return 2;
         }
+        return -1;
     }
 
     BigInt::bigint max_states() {
@@ -766,9 +767,9 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     std::cout << graph.to_json() << std::endl;
     //std::cout << uint128_to_string(graph.max_states()) << " & " << graph.count_leaf_nodes() << " & " << " & " << graph.max_fanout() << " & " << elapsed_seconds.count() << " \\\\" << std::endl;
     std::cout << graph.max_states() << " & " << graph.count_leaf_nodes() << " & " << graph.max_fanout() << " & " <<
-        (max_instructions < 0 ? "$\\infty$" : std::to_string(max_instructions)) << " & " <<
-        (max_sym_vars < 0 ? "$\\infty$" : std::to_string(max_sym_vars)) << " & " <<
-        (max_iterations < 0 ? "$\\infty$" : std::to_string(max_iterations)) << " & " <<
+        //(max_instructions < 0 ? "$\\infty$" : std::to_string(max_instructions)) << " & " <<
+        //(max_sym_vars < 0 ? "$\\infty$" : std::to_string(max_sym_vars)) << " & " <<
+        //(max_iterations < 0 ? "$\\infty$" : std::to_string(max_iterations)) << " & " <<
         std::fixed << std::setprecision(3) << elapsed_seconds.count() << " \\\\" << std::endl;
     //std::cout << uint128_to_string(graph.max_states()) << " & " << graph.count_leaf_nodes() << " & " << graph.min_fanout() << " & " << graph.max_fanout() << " & " << graph.avg_fanout() << " \\\\" << std::endl;
 
