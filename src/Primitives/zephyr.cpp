@@ -40,6 +40,20 @@
 
 int global_index = 0;
 
+double sensor_emu = 0;
+
+#define def_prim(function_name, type) \
+    Type function_name##_type = type; \
+    bool function_name(Module *m)
+
+#define def_prim_reverse(function_name)     \
+    void function_name##_reverse(Module *m, \
+                                 std::vector<IOStateElement> external_state)
+
+#define def_prim_serialize(function_name) \
+    void function_name##_serialize(       \
+        std::vector<IOStateElement *> &external_state)
+
 #define def_glob(name, type, mut, init_value)             \
     StackValue name##_sv{.value_type = type, init_value}; \
     Global name = {                                       \
@@ -137,7 +151,7 @@ def_prim(random_int, NoneToOneU32) {
 def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
-    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    std::string text = parse_utf8_string(get_ectx(m)->memory.bytes, size, addr);
     debug("EMU: print string at %i: ", addr);
     printf("%s", text.c_str());
     pop_args(2);

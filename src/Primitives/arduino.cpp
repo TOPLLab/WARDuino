@@ -134,6 +134,18 @@ int resolve_isr(int pin) {
 
 int global_index = 0;
 
+#define def_prim(function_name, type) \
+    Type function_name##_type = type; \
+    bool function_name(Module *m)
+
+#define def_prim_reverse(function_name)     \
+    void function_name##_reverse(Module *m, \
+                                 std::vector<IOStateElement> external_state)
+
+#define def_prim_serialize(function_name) \
+    void function_name##_serialize(       \
+        std::vector<IOStateElement *> &external_state)
+
 #define def_glob(name, type, mut, init_value)             \
     StackValue name##_sv{.value_type = type, init_value}; \
     Global name = {                                       \
