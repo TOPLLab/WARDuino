@@ -201,7 +201,7 @@ class Debugger {
 
     bool handleUpdateStackValue(const Module *m, uint8_t *bytes) const;
 
-    bool reset(Module *m) const;
+    bool reset(Module *m);
 
     //// Handle out-of-place debugging
 
