@@ -15,7 +15,7 @@ import Type = WASM.Type;
 import {Breakpoint} from "latch/dist/types/debug/Breakpoint";
 
 const framework = Framework.getImplementation();
-framework.style(StyleType.github);
+framework.reporter.style(StyleType.github)
 
 // TODO disclaimer: file is currently disabled until latch supports AS compilation
 
@@ -165,4 +165,4 @@ export function listen(topic: string): PureAction<Message> {
 
 comms.test(scenario);
 
-framework.run([]);
+framework.analyse([]);

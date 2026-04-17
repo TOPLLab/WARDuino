@@ -11,7 +11,7 @@ import {
 } from "latch";
 
 const framework = Framework.getImplementation();
-framework.style(StyleType.github);
+framework.reporter.style(StyleType.github)
 
 const suite = framework.suite('Specification test suite for WebAssembly');
 suite.testee('emulator [:8500]', new EmulatorSpecification(8500));
@@ -89,4 +89,4 @@ suite.test({
 
 // run tests
 
-framework.run([suite]);
+framework.analyse([suite]);
