@@ -221,8 +221,14 @@ void Callback::resolve_event(const Event &e) {
     module->stack[++module->sp].value.uint32 = payload.length();
     module->stack[module->sp].value_type = I32;
 
+    // TODO: temporary backwards comptabile fix
+    uint32_t table_idx = table_index >> 24;
+    uint32_t elem_idx = table_index & 0x00FFFFFF;
     // Setup function
-    uint32_t fidx = module->table.entries[table_index];
+    uint32_t fidx = (uint32_t)(uintptr_t)module->tables[table_idx]
+                        .entries[elem_idx]
+                        .value.ref;
+
     WARDuino::instance()->interpreter->setup_call(module, fidx);
 
     // Validate argument count

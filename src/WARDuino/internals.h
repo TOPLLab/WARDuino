@@ -26,9 +26,21 @@
 #define I64_32_s 0x73  // -0x0d
 #define I64_32_u 0x72  // -0x0e
 
+#define FUNCREF 0x70    // -0x10
+#define EXTERNREF 0x6f  // -0x11
+
 #define ANYFUNC 0x70  // -0x10
 #define FUNC 0x60     // -0x20
 #define BLOCK 0x40    // -0x40
+
+#define IS_REFTYPE(t) ((t) == FUNCREF || (t) == EXTERNREF)
+#define IS_NUMTYPE(t) ((t) >= F64 && (t) <= I32)
+#define IS_VALTYPE(t) (IS_NUMTYPE(t) || IS_REFTYPE(t))
+
+#define NULL_REF \
+    ((void *)(uintptr_t)0xFFFFFFFF)  // using nullptr / 0 as null reference
+                                     // causes conflicts with valid function
+                                     // index 0
 
 // Structures
 typedef struct Type {
@@ -71,6 +83,12 @@ typedef union FuncPtr {
     void (*void_f64)(double);
 
     double (*f64_f64)(double);
+
+    void (*void_ref)(void *);
+
+    void *(*ref_void)();
+
+    void *(*ref_ref)(void *);
 } FuncPtr;
 
 ///
@@ -83,6 +101,7 @@ typedef struct StackValue {
         int64_t int64;
         float f32;
         double f64;
+        void *ref;
     } value;
 } StackValue;
 
@@ -97,11 +116,11 @@ typedef struct Frame {
 ///
 
 typedef struct Table {
-    uint8_t elem_type = 0;  // type of entries (only ANYFUNC in MVP)
+    uint8_t elem_type = 0;  // type of entries (FUNCREF or EXTERNREF)
     uint32_t initial = 0;   // initial table size
     uint32_t maximum = 0;   // maximum table size
     uint32_t size = 0;      // current table size
-    uint32_t *entries = nullptr;
+    StackValue *entries = nullptr;
 } Table;
 
 typedef struct Memory {
@@ -118,6 +137,12 @@ typedef struct Global {
     bool mutability;      // 0: immutable, 1: mutable
     StackValue *value;    // current value
 } Global;
+
+typedef struct ElemSegment {
+    uint8_t elem_type;
+    uint32_t count;
+    StackValue *elems;
+} ElemSegment;
 
 typedef struct Options {
     // when true: host memory addresses will be outside allocated memory area
@@ -152,10 +177,14 @@ typedef struct Module {
         block_lookup;  // map of module byte position to Blocks
     // same length as byte_count
     uint32_t start_function = -1;  // function to run on module load
-    Table table;
+
+    uint32_t table_count = 0;  // number of tables
+    Table *tables = nullptr;   // array of tables
     Memory memory;
-    uint32_t global_count = 0;   // number of globals
-    Global **globals = nullptr;  // globals
+    uint32_t global_count = 0;     // number of globals
+    Global **globals = nullptr;    // globals
+    uint32_t elem_count = 0;       // number of element segments
+    ElemSegment *elems = nullptr;  // element segments
     // Runtime state
     uint8_t *pc_ptr = nullptr;     // program counter
     int sp = -1;                   // operand stack pointer
@@ -183,3 +212,12 @@ typedef struct PrimitiveEntry {
     void (*f_serialize_state)(std::vector<IOStateElement *> &);
     Type *t;
 } PrimitiveEntry;
+
+inline bool is_null_ref(const StackValue *v) {
+    return IS_REFTYPE(v->value_type) && v->value.ref == NULL_REF;
+}
+
+inline void set_null_ref(StackValue *v, uint8_t reftype) {
+    v->value_type = reftype;
+    v->value.ref = NULL_REF;
+}

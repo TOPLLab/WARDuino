@@ -82,9 +82,8 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
 
 #if TRACE
     dbg_warn("  >> fn0x%x(%d) %s(", fidx, fidx,
-             func->export_name
-                 ? func->export_name
-                 : "") for (int p = ((int)type->param_count) - 1; p >= 0; p--) {
+             func->export_name ? func->export_name : "");
+    for (int p = ((int)type->param_count) - 1; p >= 0; p--) {
         dbg_warn("%s%s", value_repr(&m->stack[m->sp - p]), p ? " " : "");
     }
     dbg_warn("), %d locals, %d results\n", func->local_count,
@@ -95,7 +94,7 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
     m->fp = m->sp - ((int)type->param_count) + 1;
     // TODO: validate arguments vs formal params
 
-    // Push function locals
+    // Push function locals with proper initialization
     for (uint32_t lidx = 0; lidx < func->local_count; lidx++) {
         m->sp += 1;
 #if DEBUG || TRACE || WARN || INFO
@@ -105,11 +104,43 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
         }
 #endif
         memset(&m->stack[m->sp], 0, sizeof(StackValue));
-        m->stack[m->sp].value_type = func->local_value_type[lidx];
+        uint8_t local_type = func->local_value_type[lidx];
+        m->stack[m->sp].value_type = local_type;
+
+        // initialize reference types to null
+        if (IS_REFTYPE(local_type)) {
+            set_null_ref(&m->stack[m->sp], local_type);
+        }
     }
 
     // Set program counter to start of function
     m->pc_ptr = func->start_ptr;
+}
+
+bool i_instr_table_init_indexed(Module *m) {
+    uint32_t tableidx = read_LEB_32(&m->pc_ptr);
+    uint32_t elemidx = read_LEB_32(&m->pc_ptr);
+
+    if (tableidx >= m->table_count && tableidx != 0) {
+        sprintf(exception, "table.init: invalid table index %" PRIu32,
+                tableidx);
+        return false;
+    }
+
+    Table *table = &m->tables[tableidx];
+
+    uint32_t n = m->stack[m->sp--].value.uint32;
+    uint32_t s = m->stack[m->sp--].value.uint32;
+    uint32_t d = m->stack[m->sp--].value.uint32;
+
+    // TODO: Implement element segment copying
+
+#if TRACE
+    debug("      - table.init table=%d elem=%d d=%d s=%d n=%d\n", tableidx,
+          elemidx, d, s, n);
+#endif
+
+    return true;
 }
 
 uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4};
@@ -440,6 +471,69 @@ bool Interpreter::interpret(Module *m, bool waiting) {
             case 0xc0 ... 0xc4:
                 success &= i_instr_extension(m, opcode);
                 continue;
+
+                //
+                // Reference type instructions
+                //
+
+                // select with type immediate
+            case 0x1c:
+                success &= i_instr_select_t(m);
+                continue;
+
+                // ref.null
+            case 0xd0:
+                success &= i_instr_ref_null(m);
+                continue;
+                // ref.is_null
+            case 0xd1:
+                success &= i_instr_ref_is_null(m);
+                continue;
+
+                // ref.func
+            case 0xd2:
+                success &= i_instr_ref_func(m);
+                continue;
+
+                // table.get
+            case 0x25:
+                success &= i_instr_table_get(m);
+                continue;
+
+                // table.set
+            case 0x26:
+                success &= i_instr_table_set(m);
+                continue;
+
+            case 0xfc: {
+                uint32_t sub_opcode = read_LEB_32(&m->pc_ptr);
+                switch (sub_opcode) {
+                    case 0x0c:  // table.init
+                        success &= i_instr_table_init_indexed(m);
+                        continue;
+                    case 0x0e:  // table.copy
+                        // success &= i_instr_table_copy(m);
+                        // continue;
+
+                        // TODO: unsupported for now (currently only 1 table)
+                        sprintf(exception, "unrecognized 0xfc sub-opcode 0x%x",
+                                sub_opcode);
+                        return false;
+                    case 0x0f:  // table.grow
+                        success &= i_instr_table_grow(m);
+                        continue;
+                    case 0x10:  // table.size
+                        success &= i_instr_table_size(m);
+                        continue;
+                    case 0x11:  // table.fill
+                        success &= i_instr_table_fill(m);
+                        continue;
+                    default:
+                        sprintf(exception, "unrecognized 0xfc sub-opcode 0x%x",
+                                sub_opcode);
+                        return false;
+                }
+            }
 
                 // callback operations
             case 0xe0 ... 0xe3:
