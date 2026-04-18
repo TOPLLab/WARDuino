@@ -558,6 +558,12 @@ void Debugger::dumpFunctions(Module *m) const {
 void Debugger::dumpCallstack(Module *m) const {
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("\"callstack\":[");
+
+    if (m->csp < 0) {
+        this->channel->write("]");
+        return;
+    }
+
     for (int i = 0; i <= m->csp; i++) {
         const Frame *f = &m->callstack[i];
         int callsite_retaddr = -1;
@@ -582,6 +588,12 @@ void Debugger::dumpCallstack(Module *m) const {
 void Debugger::dumpLocals(const Module *m) const {
     //    fflush(stdout);
     int firstFunFramePtr = m->csp;
+
+    if (firstFunFramePtr < 0) {
+        this->channel->write("[]");
+        return;
+    }
+
     while (m->callstack[firstFunFramePtr].block->block_type != 0) {
         firstFunFramePtr--;
         if (firstFunFramePtr < 0) {
