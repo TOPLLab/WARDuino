@@ -5,7 +5,7 @@ interface Cursor {
     value: number;
 }
 
-export function parseResult(input: string): WASM.Value | undefined {
+export function parseResult(input: string): WASM.Value<WASM.Type> | undefined {
     let cursor = 0;
     let delta: number = consume(input, cursor, /\(/d);
     if (delta === 0) {
@@ -14,13 +14,13 @@ export function parseResult(input: string): WASM.Value | undefined {
     cursor += delta;
 
     delta = consume(input, cursor, /^[^.)]*/d);
-    const type: WASM.Type = WASM.typing.get(input.slice(cursor, cursor + delta)) ?? WASM.Type.i64;
+    const type: WASM.Type = WASM.typing.get(input.slice(cursor, cursor + delta)) ?? WASM.Integer.i64;
 
     cursor += delta + consume(input, cursor + delta);
 
     let value;
     delta = consume(input, cursor, /^[^)]*/d);
-    if (type === WASM.Type.f32 || type === WASM.Type.f64) {
+    if (type === WASM.Float.f32 || type === WASM.Float.f64) {
         value = parseHexFloat(input.slice(cursor, cursor + delta));
     } else {
         value = parseInteger(input.slice(cursor, cursor + delta));
@@ -33,8 +33,8 @@ export function parseResult(input: string): WASM.Value | undefined {
     return {type, value};
 }
 
-export function parseArguments(input: string, index: Cursor): WASM.Value[] {
-    const args: WASM.Value[] = [];
+export function parseArguments(input: string, index: Cursor): WASM.Value<WASM.Type>[] {
+    const args: WASM.Value<WASM.Type>[] = [];
 
     let cursor: number = consume(input, 0, /invoke "[^"]+"/d);
     while (cursor < input.length) {
@@ -45,12 +45,12 @@ export function parseArguments(input: string, index: Cursor): WASM.Value[] {
         cursor += delta;
 
         delta = consume(input, cursor, /^[^.)]*/d);
-        const type: WASM.Type = WASM.typing.get(input.slice(cursor + delta - 3, cursor + delta)) ?? WASM.Type.i64;
+        const type: WASM.Type = WASM.typing.get(input.slice(cursor + delta - 3, cursor + delta)) ?? WASM.Integer.i64;
 
         cursor += delta + consume(input, cursor + delta, /^[^)]*const /d);
         delta = consume(input, cursor, /^[^)]*/d);
         let maybe: number | undefined;
-        if (type === WASM.Type.f32 || type === WASM.Type.f64) {
+        if (type === WASM.Float.f32 || type === WASM.Float.f64) {
             maybe = parseHexFloat(input.slice(cursor, cursor + delta));
         } else {
             maybe = parseInteger(input.slice(cursor, cursor + delta));
