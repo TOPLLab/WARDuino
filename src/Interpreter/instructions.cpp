@@ -130,9 +130,9 @@ bool i_instr_if(Module *m, uint8_t *block_ptr) {
         sprintf(exception, "call stack exhausted");
         return false;
     }
+    uint32_t cond = m->stack[m->sp--].value.uint32;
     m->warduino->interpreter->push_block(m, block, m->sp);
 
-    uint32_t cond = m->stack[m->sp--].value.uint32;
     if (cond == 0) {  // if false (I32)
         // branch to else block or after end of if
         if (block->else_ptr == nullptr) {
