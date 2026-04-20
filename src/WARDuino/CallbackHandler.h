@@ -4,18 +4,27 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct Module;
 
 class Callback;
 
+enum EventGroup : uint8_t {
+    DEBUGGER = 0,
+    INTERRUPT = 1,
+    PROXY = 2,
+    MQTT = 3,
+};
+
 class Event {
    public:
     std::string topic;
+    EventGroup group;
     std::string payload;
 
-    Event(std::string topic, std::string payload);
+    Event(std::string topic, EventGroup group, std::string payload);
 
     std::string serialized() const;
 };
@@ -23,6 +32,9 @@ class Event {
 class CallbackHandler {
    private:
     static std::unordered_map<std::string, std::vector<Callback> *> *callbacks;
+    static uint32_t interrupt_mask_fresh_key;
+    static std::unordered_map<EventGroup, std::unordered_set<uint32_t>>
+        *event_group_to_keys;
     static std::deque<Event> *events;
 
     CallbackHandler() = default;  // Disallow creation
@@ -42,12 +54,15 @@ class CallbackHandler {
     static std::string dump_callbacks();
     static std::string dump_callbacksV2(bool includeOuterCurlyBraces = true);
     static size_t callback_count(const std::string &topic);
-    static void push_event(std::string topic, const char *payload,
-                           unsigned int length);
+    static void push_event(std::string topic, EventGroup group,
+                           const char *payload, unsigned int length);
     static void push_event(Event *event);
     static bool resolve_event(bool force = false);
 
     static bool manual_event_resolution;  // do not resolve event automatically
+
+    static uint32_t mask_interrupt(EventGroup group, bool discard);
+    static void unmask_interrupt(uint32_t key);
 };
 
 class Callback {

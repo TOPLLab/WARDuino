@@ -26,7 +26,7 @@
 #include "../WARDuino/CallbackHandler.h"
 #include "primitives.h"
 
-#define NUM_GLOBALS 0
+#define NUM_GLOBALS 5
 #define ALL_GLOBALS NUM_GLOBALS
 
 int global_index = 0;
@@ -103,8 +103,8 @@ def_prim(test, oneToNoneU32) {
     Callback c = Callback(m, topic, fidx);
     CallbackHandler::add_callback(c);
     auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
-    CallbackHandler::push_event(topic, reinterpret_cast<const char *>(payload),
-                                11);
+    CallbackHandler::push_event(topic, EventGroup::INTERRUPT,
+                                reinterpret_cast<const char *>(payload), 11);
     pop_args(1);
     return true;
 }
@@ -462,6 +462,33 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     return true;
 }
 
+// Interrupt masking
+
+def_prim(mask_interrupts, twoToNoneU32) {
+    uint8_t discard = arg0.uint32;
+    uint8_t group = arg1.uint32;
+    debug("EMU: mask_interrupt(%u, %u) \n", discard, group);
+    pop_args(2);
+    uint32_t key = CallbackHandler::mask_interrupt(
+        static_cast<EventGroup>(group), discard);
+    pushUInt32(key);
+    return true;
+}
+
+def_prim(unmask_interrupts, oneToNoneU32) {
+    uint8_t key = arg0.uint32;
+    debug("EMU: unmask_interrupt(%u) \n", key);
+    pop_args(1);
+    CallbackHandler::unmask_interrupt(key);
+    return true;
+}
+
+def_glob(event_groups_all, I32, false, 0xffffffff);
+def_glob(event_group_debugger, I32, false, EventGroup::DEBUGGER);
+def_glob(event_group_interrupt, I32, false, EventGroup::INTERRUPT);
+def_glob(event_group_proxy, I32, false, EventGroup::PROXY);
+def_glob(event_group_mqtt, I32, false, EventGroup::MQTT);
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -516,6 +543,17 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(read_uart_sensor);
     install_primitive(nxt_touch_sensor);
     install_primitive(ev3_touch_sensor);
+
+    // Interrupt masking & disabling
+    install_primitive(mask_interrupts);
+    install_primitive(unmask_interrupts);
+    install_primitive(test);
+
+    install_global(event_groups_all);
+    install_global(event_group_debugger);
+    install_global(event_group_interrupt);
+    install_global(event_group_proxy);
+    install_global(event_group_mqtt);
 }
 
 Memory external_mem{};

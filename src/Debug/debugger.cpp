@@ -769,7 +769,8 @@ bool Debugger::handlePushedEvent(char *bytes) const {
     if (*bytes != interruptPUSHEvent) return false;
     auto parsed = nlohmann::json::parse(bytes + 1);
     debug("handle pushed event: %s\n", bytes + 1);
-    auto *event = new Event(*parsed.find("topic"), *parsed.find("payload"));
+    auto *event = new Event(*parsed.find("topic"), *parsed.find("group"),
+                            *parsed.find("payload"));
     CallbackHandler::push_event(event);
     this->notifyPushedEvent();
     return true;
@@ -1417,7 +1418,9 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     payload[payloadSize] = '\0';
                     program_state += payloadSize;
 
-                    CallbackHandler::push_event(topic, payload, payloadSize);
+                    CallbackHandler::push_event(
+                        topic, EventGroup::DEBUGGER,  // TODO: fix group !!!!!
+                        payload, payloadSize);
                     free(topic);
                 }
                 break;

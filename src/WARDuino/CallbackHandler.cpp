@@ -67,12 +67,47 @@ size_t CallbackHandler::callback_count(const std::string &topic) {
     return callbacks->find(topic)->second->size();
 }
 
+// key counter starts at 1
+// reset every time the interrupt_mask_topic_to_keys is emptied
+uint32_t CallbackHandler::interrupt_mask_fresh_key = 1;
+
+std::unordered_map<EventGroup, std::unordered_set<uint32_t>>
+    *CallbackHandler::event_group_to_keys =
+        new std::unordered_map<EventGroup, std::unordered_set<uint32_t>>();
+
+uint32_t CallbackHandler::mask_interrupt(EventGroup group, bool discard) {
+    uint32_t key = CallbackHandler::interrupt_mask_fresh_key++;
+    (*event_group_to_keys)[group].insert(key);
+    debug("Masked interrupt with group %u using key %u (discard: %u)\n", group,
+          key, discard);
+    return key;
+}
+
+void CallbackHandler::unmask_interrupt(uint32_t key) {
+    for (auto &[group, keys] : *event_group_to_keys) {
+        if (keys.find(key) != keys.end()) {
+            keys.erase(key);
+            debug("Unmasked interrupt with key %u for group %u\n", key, group);
+            if (keys.empty()) {  // no more masked interrupts in this group
+                event_group_to_keys->erase(group);
+                debug("No more masked interrupts for group %u. Erased group.\n",
+                      group);
+            }
+            break;
+        }
+    }
+    if (event_group_to_keys->empty()) {
+        CallbackHandler::interrupt_mask_fresh_key = 1;  // reset key counter
+    }
+}
+
 // WARNING: Push event functions should not use IO functions, since they can be
 // called from ISR callbacks
-void CallbackHandler::push_event(std::string topic, const char *payload,
+void CallbackHandler::push_event(std::string topic, EventGroup group,
+                                 const char *payload,
                                  const unsigned int length) {
     CallbackHandler::push_event(
-        new Event(std::move(topic), std::string(payload, length)));
+        new Event(std::move(topic), group, std::string(payload, length)));
 }
 
 void CallbackHandler::push_event(Event *event) {
@@ -92,6 +127,18 @@ bool CallbackHandler::resolve_event(bool force) {
         return false;
     }
     Event event = CallbackHandler::events->front();
+    auto entry = event_group_to_keys->find(event.group);
+    auto keys = entry != event_group_to_keys->end() ? &entry->second : nullptr;
+    if (keys != nullptr &&
+        !keys->empty()) {  // second check is acutally redundant
+        debug("Event with topic %s and group %u is masked by keys: ",
+              event.topic.c_str(), event.group);
+        for (auto key : *keys) {
+            debug("%u ", key);
+        }
+        debug("\n");
+        return false;
+    }
 
     if (should_push_event()) {
         Event e = CallbackHandler::events->at(CallbackHandler::pushed_cursor++);
@@ -238,12 +285,14 @@ Callback::Callback(const Callback &c) {
 
 // Event class
 
-Event::Event(std::string topic, std::string payload) {
+Event::Event(std::string topic, EventGroup group, std::string payload) {
     this->topic = topic;
+    this->group = group;
     this->payload = payload;
 }
 
 std::string Event::serialized() const {
-    return R"({"topic": ")" + this->topic + R"(", "payload": ")" +
-           this->payload + R"("})";
+    return R"({"topic": ")" + this->topic + R"(", "group": ")" +
+           std::to_string(static_cast<uint8_t>(this->group)) +
+           R"(", "payload": ")" + this->payload + R"("})";
 }

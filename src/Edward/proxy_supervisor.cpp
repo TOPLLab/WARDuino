@@ -50,7 +50,7 @@ Event *parseJSON(char *buff) {
     nlohmann::basic_json<> parsed = nlohmann::json::parse(buff);
     printf("parseJSON: %s\n", parsed.dump().c_str());
     std::string payload = *parsed.find("payload");
-    return new Event(*parsed.find("topic"), payload);
+    return new Event(*parsed.find("topic"), *parsed.find("group"), payload);
 }
 
 ProxySupervisor::ProxySupervisor(Channel *duplex, warduino::mutex *mutex) {
@@ -106,8 +106,9 @@ void ProxySupervisor::listenToSocket() {
                 debug("parseJSON: %s\n", parsed.dump().c_str());
 
                 if (isEvent(parsed)) {
-                    CallbackHandler::push_event(new Event(
-                        *parsed.find("topic"), *parsed.find("payload")));
+                    CallbackHandler::push_event(
+                        new Event(*parsed.find("topic"), *parsed.find("group"),
+                                  *parsed.find("payload")));
                     WARDuino::instance()->debugger->notifyPushedEvent();
                 }
 

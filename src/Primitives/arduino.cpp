@@ -82,9 +82,10 @@ int isr_index = 0;
 #define INTERRUPT_TOPIC_PREFIX "interrupt_"
 
 /* Private macro to create an ISR for a specific pin*/
-#define def_isr(pin)                                                     \
-    void isr_##pin() {                                                   \
-        CallbackHandler::push_event(INTERRUPT_TOPIC_PREFIX #pin, "", 0); \
+#define def_isr(pin)                                               \
+    void isr_##pin() {                                             \
+        CallbackHandler::push_event(INTERRUPT_TOPIC_PREFIX #pin,   \
+                                    EventGroup::INTERRUPT, "", 0); \
     }
 
 /* Common GPIO pins on ESP32 devices:*/
@@ -129,7 +130,7 @@ int resolve_isr(int pin) {
     return -1;
 }
 
-#define NUM_GLOBALS 0
+#define NUM_GLOBALS 5
 #define ALL_GLOBALS NUM_GLOBALS
 
 int global_index = 0;
@@ -523,6 +524,33 @@ def_prim(unsubscribe_interrupt, oneToNoneU32) {
     return true;
 }
 
+// Interrupt masking
+
+def_prim(mask_interrupts, twoToNoneU32) {
+    uint8_t discard = arg0.uint32;
+    uint8_t group = arg1.uint32;
+    debug("EMU: mask_interrupt(%u, %u) \n", discard, group);
+    pop_args(2);
+    uint32_t key = CallbackHandler::mask_interrupt(
+        static_cast<EventGroup>(group), discard);
+    pushUInt32(key);
+    return true;
+}
+
+def_prim(unmask_interrupts, oneToNoneU32) {
+    uint8_t key = arg0.uint32;
+    debug("EMU: unmask_interrupt(%u) \n", key);
+    pop_args(1);
+    CallbackHandler::unmask_interrupt(key);
+    return true;
+}
+
+def_glob(event_groups_all, I32, false, 0xffffffff);
+def_glob(event_group_debugger, I32, false, EventGroup::DEBUGGER);
+def_glob(event_group_interrupt, I32, false, EventGroup::INTERRUPT);
+def_glob(event_group_proxy, I32, false, EventGroup::PROXY);
+def_glob(event_group_mqtt, I32, false, EventGroup::MQTT);
+
 // MQTT MODULE
 
 #include <PubSubClient.h>
@@ -541,7 +569,8 @@ def_prim(mqtt_init, threeToNoneU32) {
     mqttClient.setServer(server, port);
     mqttClient.setCallback([](const char *topic, const unsigned char *payload,
                               unsigned int length) {
-        CallbackHandler::push_event(topic, (const char *)payload, length);
+        CallbackHandler::push_event(topic, EventGroup::MQTT,
+                                    (const char *)payload, length);
     });
 
 #if DEBUG
@@ -862,6 +891,15 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_attach);
     install_primitive(chip_ledc_set_duty);
+
+    install_primitive(mask_interrupts);
+    install_primitive(unmask_interrupts);
+
+    install_global(event_groups_all);
+    install_global(event_group_debugger);
+    install_global(event_group_interrupt);
+    install_global(event_group_proxy);
+    install_global(event_group_mqtt);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();
