@@ -71,29 +71,40 @@ size_t CallbackHandler::callback_count(const std::string &topic) {
 // reset every time the interrupt_mask_topic_to_keys is emptied
 uint32_t CallbackHandler::interrupt_mask_fresh_key = 1;
 
-std::unordered_map<EventGroup, std::unordered_set<uint32_t>>
+std::unordered_map<EventGroup, std::pair<std::unordered_set<uint32_t>,
+                                         std::unordered_set<uint32_t>>>
     *CallbackHandler::event_group_to_keys =
-        new std::unordered_map<EventGroup, std::unordered_set<uint32_t>>();
+        new std::unordered_map<EventGroup,
+                               std::pair<std::unordered_set<uint32_t>,
+                                         std::unordered_set<uint32_t>>>();
 
 uint32_t CallbackHandler::mask_interrupt(EventGroup group, bool discard) {
     uint32_t key = CallbackHandler::interrupt_mask_fresh_key++;
-    (*event_group_to_keys)[group].insert(key);
+    std::unordered_set<uint32_t> event_keys =
+        discard ? (*event_group_to_keys)[group].second
+                : (*event_group_to_keys)[group].first;
+    event_keys.insert(key);
     debug("Masked interrupt with group %u using key %u (discard: %u)\n", group,
           key, discard);
     return key;
 }
 
 void CallbackHandler::unmask_interrupt(uint32_t key) {
-    for (auto &[group, keys] : *event_group_to_keys) {
-        if (keys.find(key) != keys.end()) {
-            keys.erase(key);
-            debug("Unmasked interrupt with key %u for group %u\n", key, group);
-            if (keys.empty()) {  // no more masked interrupts in this group
-                event_group_to_keys->erase(group);
-                debug("No more masked interrupts for group %u. Erased group.\n",
+    for (auto &[group, pair] : *event_group_to_keys) {
+        for (std::unordered_set<uint32_t> *keys : {&pair.first, &pair.second}) {
+            if (keys->find(key) != keys->end()) {
+                keys->erase(key);
+                debug("Unmasked interrupt with key %u for group %u\n", key,
                       group);
+                if (keys->empty()) {  // no more masked interrupts in this group
+                    event_group_to_keys->erase(group);
+                    debug(
+                        "No more masked interrupts for group %u. Erased "
+                        "group.\n",
+                        group);
+                }
+                break;
             }
-            break;
         }
     }
     if (event_group_to_keys->empty()) {
@@ -111,6 +122,20 @@ void CallbackHandler::push_event(std::string topic, EventGroup group,
 }
 
 void CallbackHandler::push_event(Event *event) {
+    auto entry = CallbackHandler::event_group_to_keys->find(event->group);
+    auto keys = entry != CallbackHandler::event_group_to_keys->end()
+                    ? &entry->second.first
+                    : nullptr;
+    if (keys != nullptr &&
+        !keys->empty()) {  // first check is actually redundant
+        debug("Not pushing event with topic %s and group %u, because of keys: ",
+              event->topic.c_str(), event->group);
+        for (auto key : *keys) {
+            debug("%u ", key);
+        }
+        debug("\n");
+        return;
+    }
     if (events->size() < EVENTS_SIZE) {
         events->push_back(*event);
     }
@@ -128,7 +153,8 @@ bool CallbackHandler::resolve_event(bool force) {
     }
     Event event = CallbackHandler::events->front();
     auto entry = event_group_to_keys->find(event.group);
-    auto keys = entry != event_group_to_keys->end() ? &entry->second : nullptr;
+    auto keys =
+        entry != event_group_to_keys->end() ? &entry->second.second : nullptr;
     if (keys != nullptr &&
         !keys->empty()) {  // second check is acutally redundant
         debug("Event with topic %s and group %u is masked by keys: ",

@@ -33,7 +33,9 @@ class CallbackHandler {
    private:
     static std::unordered_map<std::string, std::vector<Callback> *> *callbacks;
     static uint32_t interrupt_mask_fresh_key;
-    static std::unordered_map<EventGroup, std::unordered_set<uint32_t>>
+    static std::unordered_map<
+        EventGroup,
+        std::pair<std::unordered_set<uint32_t>, std::unordered_set<uint32_t>>>
         *event_group_to_keys;
     static std::deque<Event> *events;
 
