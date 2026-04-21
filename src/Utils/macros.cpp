@@ -7,7 +7,7 @@ void end() {
     };
 }
 
-#if DEBUG || TRACE || WARN || INFO
+#if DEBUG || TRACE || WARN || INFO || 1
 char _value_str[256];
 
 const char *debug_opcodes[] = {"0x00 unreachable",
@@ -38,7 +38,7 @@ const char *debug_opcodes[] = {"0x00 unreachable",
                                "0x19 UNDEFINED",
                                "0x1a drop",
                                "0x1b select",
-                               "0x1c UNDEFINED",
+                               "0x1c select_t",
                                "0x1d UNDEFINED",
                                "0x1e UNDEFINED",
                                "0x1f UNDEFINED",
@@ -47,8 +47,8 @@ const char *debug_opcodes[] = {"0x00 unreachable",
                                "0x22 tee_local",
                                "0x23 get_global",
                                "0x24 set_global",
-                               "0x25 UNDEFINED",
-                               "0x26 UNDEFINED",
+                               "0x25 table.get",
+                               "0x26 table.set",
                                "0x27 UNDEFINED",
                                "0x28 i32.load",
                                "0x29 i64.load",
@@ -201,10 +201,29 @@ const char *debug_opcodes[] = {"0x00 unreachable",
                                "0xbc i32.reinterpret/f32",
                                "0xbd i64.reinterpret/f64",
                                "0xbe f32.reinterpret/i32",
-                               "0xbf f64.reinterpret/i64"};
+                               "0xbf f64.reinterpret/i64",
+                               "0xc0 UNDEFINED",
+                               "0xc1 UNDEFINED",
+                               "0xc2 UNDEFINED",
+                               "0xc3 UNDEFINED",
+                               "0xc4 UNDEFINED",
+                               "0xc5 UNDEFINED",
+                               "0xc6 UNDEFINED",
+                               "0xc7 UNDEFINED",
+                               "0xc8 UNDEFINED",
+                               "0xc9 UNDEFINED",
+                               "0xca UNDEFINED",
+                               "0xcb UNDEFINED",
+                               "0xcc UNDEFINED",
+                               "0xcd UNDEFINED",
+                               "0xce UNDEFINED",
+                               "0xcf UNDEFINED",
+                               "0xd0 ref.null",
+                               "0xd1 ref.is_null",
+                               "0xd2 ref.func"};
 
 const char *opcode_repr(uint8_t opcode) {
-    if (opcode < 192) {
+    if (opcode < 0xd3) {
         return debug_opcodes[opcode];
     } else {
         return "OPCODE out of bounds";
@@ -224,6 +243,21 @@ char *value_repr(StackValue *v) {
             break;
         case F64:
             snprintf(_value_str, 255, "%.7g:f64", v->value.f64);
+            break;
+        case FUNCREF:
+            if (is_null_ref(v)) {
+                snprintf(_value_str, 255, "null:funcref");
+            } else {
+                uint32_t fidx = (uint32_t)(uintptr_t)v->value.ref;
+                snprintf(_value_str, 255, "0x%x:funcref", fidx);
+            }
+            break;
+        case EXTERNREF:
+            if (is_null_ref(v)) {
+                snprintf(_value_str, 255, "null:externref");
+            } else {
+                snprintf(_value_str, 255, "%p:externref", v->value.ref);
+            }
             break;
         default:
             snprintf(_value_str, 255, "BAD ENCODING %" PRIx64 ":%02x",

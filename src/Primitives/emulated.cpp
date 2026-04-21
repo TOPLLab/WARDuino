@@ -116,6 +116,17 @@ def_prim(print_int, oneToNoneU32) {
     return true;
 }
 
+def_prim(print_ref, oneToNoneU32) {
+    debug("EMU: print ref ");
+    if (is_null_ref(reinterpret_cast<const StackValue *>(&arg0))) {
+        printf("null\n");
+    } else {
+        printf("ref %p\n", arg0.ref);
+    }
+    pop_args(1);
+    return true;
+}
+
 def_prim(print_string, twoToNoneU32) {
     uint32_t addr = arg1.uint32;
     uint32_t size = arg0.uint32;
@@ -413,22 +424,40 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
 }
 
 def_prim(subscribe_interrupt, threeToNoneU32) {
-    uint8_t pin = arg2.uint32;   // GPIOPin
-    uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
+    uint8_t pin = arg2.uint32;      // GPIOPin
+    uint8_t encoded = arg1.uint32;  // (table_index << 24) | element_index
     [[maybe_unused]] uint8_t mode =
         arg0.uint32;  // Not used by emulator only printed
 
     debug("EMU: subscribe_interrupt(%u, %u, %u) \n", pin, tidx, mode);
 
-    if (m->table.size < tidx) {
-        debug("subscribe_interrupt: out of range table index %i\n", tidx);
+    // Temporary fix: backwards compatible encoding of table index and element
+    // index in tidx
+    // TODO
+    uint32_t table_index = encoded >> 24;
+    uint32_t elem_idx = encoded & 0x00FFFFFFu;
+
+    if (table_index >= m->table_count) {
+        debug("subscribe_interrupt: invalid table_id %u (max %u)\n",
+              table_index, m->table_count);
+        table_index = 0;  // fallback
+    }
+
+    Table *table = &m->tables[table_index];
+
+    if (elem_idx >= table->size) {
+        debug(
+            "subscribe_interrupt: element index %u out of bounds in table %u "
+            "(size=%u)\n",
+            elem_idx, table_index, table->size);
+        pop_args(3);
         return false;
     }
 
     std::string topic = "interrupt_";
     topic.append(std::to_string(pin));
 
-    Callback c = Callback(m, topic, tidx);
+    Callback c = Callback(m, topic, encoded);
     CallbackHandler::add_callback(c);
     pop_args(3);
     return true;
@@ -473,6 +502,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(micros);
 
     install_primitive(print_int);
+    install_primitive(print_ref);
     install_primitive(print_string);
 
     install_primitive(wifi_connect);

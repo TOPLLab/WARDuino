@@ -139,6 +139,11 @@ bool deserialiseStackValue(uint8_t *input, bool decodeType, StackValue *value) {
         case F64:
             memcpy(&value->value.uint64, input, 8);
             break;
+        case FUNCREF:
+        case EXTERNREF:
+            memcpy(&value->value.ref, input, sizeof(void *));
+            input += sizeof(void *);
+            break;
         default:
             return false;
     }
