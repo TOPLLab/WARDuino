@@ -117,32 +117,6 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
     m->pc_ptr = func->start_ptr;
 }
 
-bool i_instr_table_init_indexed(Module *m) {
-    uint32_t tableidx = read_LEB_32(&m->pc_ptr);
-    uint32_t elemidx = read_LEB_32(&m->pc_ptr);
-
-    if (tableidx >= m->table_count && tableidx != 0) {
-        sprintf(exception, "table.init: invalid table index %" PRIu32,
-                tableidx);
-        return false;
-    }
-
-    Table *table = &m->tables[tableidx];
-
-    uint32_t n = m->stack[m->sp--].value.uint32;
-    uint32_t s = m->stack[m->sp--].value.uint32;
-    uint32_t d = m->stack[m->sp--].value.uint32;
-
-    // TODO: Implement element segment copying
-
-#if TRACE
-    debug("      - table.init table=%d elem=%d d=%d s=%d n=%d\n", tableidx,
-          elemidx, d, s, n);
-#endif
-
-    return true;
-}
-
 uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4};
 uint32_t LOAD_TYPES[] = {I32, I64, F32, F64, I32, I32, I32,
                          I32, I64, I64, I64, I64, I64, I64};
@@ -509,7 +483,7 @@ bool Interpreter::interpret(Module *m, bool waiting) {
                 uint32_t sub_opcode = read_LEB_32(&m->pc_ptr);
                 switch (sub_opcode) {
                     case 0x0c:  // table.init
-                        success &= i_instr_table_init_indexed(m);
+                        success &= i_instr_table_init(m);
                         continue;
                     case 0x0e:  // table.copy
                         // success &= i_instr_table_copy(m);

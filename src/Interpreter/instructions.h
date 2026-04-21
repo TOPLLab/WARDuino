@@ -86,6 +86,8 @@ bool i_instr_table_get(Module *m);
 
 bool i_instr_table_set(Module *m);
 
+bool i_instr_table_init(Module *m);
+
 bool i_instr_table_fill(Module *m);
 
 // bool i_instr_table_copy(Module *m);

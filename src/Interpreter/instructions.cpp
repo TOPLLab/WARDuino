@@ -1450,6 +1450,33 @@ bool i_instr_table_set(Module *m) {
 }
 
 /**
+ * 0xFC 0x0C table.init
+ * Initializes a range in a table with elements from an element segment
+ */
+bool i_instr_table_init(Module *m) {
+    uint32_t tableidx = read_LEB_32(&m->pc_ptr);
+    uint32_t elemidx = read_LEB_32(&m->pc_ptr);
+
+    uint32_t n = m->stack[m->sp--].value.uint32;
+    uint32_t src_idx = m->stack[m->sp--].value.uint32;
+    uint32_t dst_idx = m->stack[m->sp--].value.uint32;
+
+    Table *table = &m->tables[tableidx];
+    ElemSegment *elem = &m->elems[elemidx];
+
+    for (uint32_t i = 0; i < n; i++) {
+        table->entries[dst_idx + i] = elem->elems[src_idx + i];
+    }
+
+#if TRACE
+    debug("      - table.init table=%d elem=%d d=%d s=%d n=%d\n", tableidx,
+          elemidx, dst_idx, src_idx, n);
+#endif
+
+    return true;
+}
+
+/**
  * 0xFC 0x10 table.size
  * Returns the current size of a table
  */
