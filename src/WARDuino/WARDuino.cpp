@@ -920,9 +920,8 @@ WARDuino::WARDuino() {
 }
 
 // Return value of false means exception occurred
-bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
-                      StackValue *args, uint32_t max_results,
-                      StackValue *out_results, uint32_t *out_result_count) {
+std::vector<StackValue> WARDuino::invoke(Module *m, uint32_t fidx,
+                                         uint32_t arity, StackValue *args) {
     bool result;
     m->sp = -1;
     m->fp = -1;
@@ -942,23 +941,16 @@ bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
     dbg_dump_stack(m);
 
     if (!result) {
-        if (out_result_count) *out_result_count = 0;
-        return false;
+        return {};
     }
 
     uint32_t rescount = 0;
     Type *ftype = m->functions[fidx].type;
     rescount = ftype->result_count;
-
-    if (out_result_count) {
-        *out_result_count = rescount > max_results ? max_results : rescount;
-
-        for (uint32_t i = 0; i < *out_result_count; ++i) {
-            out_results[i] = m->stack[m->sp - (rescount - 1) + i];
-        }
-    }
-
-    return true;
+    std::vector<StackValue> out(rescount);
+    for (uint32_t i = 0; i < rescount; ++i)
+        out[i] = m->stack[m->sp - (rescount - 1) + i];
+    return out;
 }
 
 void WARDuino::setInterpreter(Interpreter *interpreter) {
@@ -970,13 +962,9 @@ int WARDuino::run_module(Module *m) {
 
     // execute main
     if (fidx != UNDEF) {
-        StackValue outputs[8];
-        uint32_t out_count = 0;
-        bool ok = this->invoke(m, fidx, 0, nullptr, 8, outputs, &out_count);
-        if (!ok) {
-            return 0;
-        }
-        return (int)outputs[0].value.uint32;
+        auto results = this->invoke(m, fidx);
+        if (results.empty()) return 0;
+        return (int)results[0].value.uint32;
     }
     fflush(stdout);
 
