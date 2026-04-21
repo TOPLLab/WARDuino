@@ -486,13 +486,8 @@ bool Interpreter::interpret(Module *m, bool waiting) {
                         success &= i_instr_table_init(m);
                         continue;
                     case 0x0e:  // table.copy
-                        // success &= i_instr_table_copy(m);
-                        // continue;
-
-                        // TODO: unsupported for now (currently only 1 table)
-                        sprintf(exception, "unrecognized 0xfc sub-opcode 0x%x",
-                                sub_opcode);
-                        return false;
+                        success &= i_instr_table_copy(m);
+                        continue;
                     case 0x0f:  // table.grow
                         success &= i_instr_table_grow(m);
                         continue;

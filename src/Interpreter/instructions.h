@@ -90,7 +90,7 @@ bool i_instr_table_init(Module *m);
 
 bool i_instr_table_fill(Module *m);
 
-// bool i_instr_table_copy(Module *m);
+bool i_instr_table_copy(Module *m);
 
 bool i_instr_table_grow(Module *m);
 

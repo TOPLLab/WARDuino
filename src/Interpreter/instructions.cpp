@@ -1596,54 +1596,35 @@ bool i_instr_table_fill(Module *m) {
  * 0xFC 0x0E table.copy
  * Copies elements from one table to another
  */
-// bool i_instr_table_copy(Module *m) {
-//     uint32_t dst_tableidx = read_LEB_32(&m->pc_ptr);
-//     uint32_t src_tableidx = read_LEB_32(&m->pc_ptr);
+bool i_instr_table_copy(Module *m) {
+    uint32_t dst_table_idx = read_LEB_32(&m->pc_ptr);
+    uint32_t src_table_idx = read_LEB_32(&m->pc_ptr);
 
-//     if (dst_tableidx >= m->table_count || src_tableidx >= m->table_count) {
-//         sprintf(exception, "table.copy: invalid table index");
-//         return false;
-//     }
+    uint32_t n = m->stack[m->sp--].value.uint32;
+    uint32_t src_idx = m->stack[m->sp--].value.uint32;
+    uint32_t dst_idx = m->stack[m->sp--].value.uint32;
 
-//     uint32_t n = m->stack[m->sp--].value.uint32;
-//     uint32_t s = m->stack[m->sp--].value.uint32;
-//     uint32_t d = m->stack[m->sp--].value.uint32;
+    Table *dst_table = &m->tables[dst_table_idx];
+    Table *src_table = &m->tables[src_table_idx];
 
-//     Table *dst_table = &m->tables[dst_tableidx];
-//     Table *src_table = &m->tables[src_tableidx];
-
-//     // Check bounds
-//     if (s + n > src_table->size || d + n > dst_table->size) {
-//         sprintf(exception, "table.copy: out of bounds");
-//         return false;
-//     }
-
-//     // Check type compatibility (source type must be subtype of dest type)
-//     // For now, require exact match
-//     if (src_table->elem_type != dst_table->elem_type) {
-//         sprintf(exception, "table.copy: incompatible table types");
-//         return false;
-//     }
-
-//     // Handle overlapping ranges correctly
-//     if (dst_tableidx == src_tableidx && d > s && d < s + n) {
-//         // Overlapping, copy backwards
-//         for (uint32_t i = n; i > 0; i--) {
-//             dst_table->entries[d + i - 1] = src_table->entries[s + i - 1];
-//         }
-//     } else {
-//         // Non-overlapping or forward copy is safe
-//         for (uint32_t i = 0; i < n; i++) {
-//             dst_table->entries[d + i] = src_table->entries[s + i];
-//         }
-//     }
-
-// #if TRACE
-//     debug("      - table.copy dst=%d src=%d d=%d s=%d n=%d\n", dst_tableidx,
-//           src_tableidx, d, s, n);
-// #endif
-//     return true;
-// }
+    if (dst_idx <= src_idx) {
+        for (uint32_t i = 0; i < n; i++) {
+            dst_table->entries[dst_idx + i] = src_table->entries[src_idx + i];
+        }
+    } else {
+        for (uint32_t i = n; i > 0; i--) {
+            dst_table->entries[dst_idx + i - 1] =
+                src_table->entries[src_idx + i - 1];
+        }
+    }
+#if TRACE
+    debug(
+        "      - table.copy dst_table=%d src_table=%d dst_idx=%d src_idx=%d "
+        "n=%d\n",
+        dst_table_idx, src_table_idx, dst_idx, src_idx, n);
+#endif
+    return true;
+}
 
 /**
  * 0xe0 ... 0xe3 callback operations
