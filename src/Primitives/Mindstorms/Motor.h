@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 
 class MotorEncoder {
     static void encoder_pin6_edge_rising(const struct device *dev,
@@ -33,7 +34,13 @@ class MotorEncoder {
                 encoder->angle++;
             }
         }
-        encoder->last_update = k_uptime_get();
+        int64_t t = k_uptime_get();
+        //printf("measured speed = %f\n", encoder->speed);
+        //encoder->speed = 1.0f / (t - encoder->last_update);
+        //encoder->speed = 0.2f * encoder->speed + 0.8f * (1.0f / (t - encoder->last_update));
+        //printf("measured speed after = %f\n", encoder->speed);
+        encoder->last_update = t;
+        encoder->ticks++;
     }
 
    public:
@@ -52,6 +59,10 @@ class MotorEncoder {
         this->target_angle = new_target_angle;
     }
 
+    inline float get_speed() {
+        return speed;
+    }
+
     [[nodiscard]] inline int64_t get_last_update() const { return last_update; }
 
    private:
@@ -62,8 +73,11 @@ class MotorEncoder {
     volatile int angle;
     int target_angle;
 
-   public:
     volatile int64_t last_update;
+   public:
+
+    volatile float speed;
+    volatile int ticks;
 };
 
 class Motor {

@@ -313,6 +313,19 @@ void heartbeat_timer_func(struct k_timer *timer_id) {
     }
 }
 
+struct k_timer motor_timer;
+void motor_timer_func(struct k_timer *timer_id) {
+    //for (int motor_index = 0; motor_index < 4; motor_index++) {
+    for (int motor_index = 0; motor_index < 1; motor_index++) {
+        if (auto motor = get_motor(motor_index)) {
+            printf("Timer, ticks = %d motor = %d, speed = %f\n", motor.value().encoder->ticks, motor_index, motor.value().encoder->speed);
+            float current_speed = motor.value().encoder->speed;
+            motor.value().encoder->speed = current_speed * 0.2f + 0.8f * ((float) (motor.value().encoder->ticks) / 0.005f); // Convert to degrees per second
+            motor.value().encoder->ticks = 0;
+        }
+    }
+}
+
 int16_t read_value(int c, int *channels) {
     int16_t buf = -1;
     int channel = channels[c];
@@ -530,6 +543,9 @@ void install_primitives(Interpreter *interpreter) {
 
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(500), K_MSEC(500));
+
+    k_timer_init(&motor_timer, motor_timer_func, nullptr);
+    k_timer_start(&motor_timer, K_MSEC(5), K_MSEC(5));
 #endif
 
 #if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)

@@ -9,7 +9,7 @@ MotorEncoder::MotorEncoder(gpio_dt_spec pin5_encoder_spec,
       pin6_encoder_spec(pin6_encoder_spec),
       angle(0),
       target_angle(0),
-      last_update(0) {
+      last_update(0), speed(0.0f), ticks(0) {
     if (gpio_pin_configure_dt(&pin5_encoder_spec, GPIO_INPUT)) {
         FATAL("Failed to configure GPIO encoder pin5\n");
     }
@@ -73,10 +73,64 @@ bool Motor::set_speed(float speed) {
     return drive_pwm(pwm1_spec, pwm2_spec, pwm1, pwm2);
 }
 
-void Motor::drive_to_target(int32_t speed) {
+float Kp = 2.0f;
+float Kd = 1.0f;
+float Ki = 0.5f;
+//float Ki = 0.01f;
+//float Kd = 0.2f;
+
+float clamp(float v, float min, float max) {
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
+}
+
+void Motor::drive_to_target(int32_t max_speed) {
     printf("drift = %d\n", abs(get_drift()));
 
-    int drift = get_drift();
+    float integral = 0.0f;
+    float prev_error = 0.0f;
+
+    float dt = 0.01f;
+
+    float speed = 35.0f;
+
+    while (true) {
+        // 1. Read error (target - current)
+        float encoder_speed = encoder->get_speed();
+        float error = speed - encoder_speed;
+
+        // 2. Integral (accumulated error)
+        integral += error * dt;
+
+        // anti-windup clamp (important)
+        integral = clamp(integral, -20000.0f, 20000.0f);
+
+        // 3. Derivative (rate of change)
+        float derivative = (error - prev_error) / dt;
+
+        // 4. PID output
+        float output =
+            Kp * error +
+            Ki * integral +
+            Kd * derivative;
+
+        prev_error = error;
+
+        // 5. Convert to motor command
+        // Assume output is signed: negative = reverse, positive = forward
+
+        float speed = clamp(output, -10000.0f, 10000.0f);
+
+        // Convert to normalized range
+        float normalized_speed = speed / 10000.0f;
+
+        //printf("error = %f, speed = %f, integral = %f, derivative = %f, encoder_speed = %f\n", error, speed, integral, derivative, encoder_speed);
+        set_speed(normalized_speed);
+    }
+    halt();
+
+    /*int drift = get_drift();
     // Reset stall timer, otherwise it will instantly think it's not moving.
     encoder->last_update = k_uptime_get();
     while (abs(drift) > 0) {
@@ -108,7 +162,7 @@ void Motor::drive_to_target(int32_t speed) {
         drift = get_drift();
         printf("drift = %d, speed = %d\n", drift, speed);
         speed = 800;
-    }
+    }*/
 }
 
 int Motor::get_drift() {
@@ -116,6 +170,7 @@ int Motor::get_drift() {
 }
 
 void Motor::drive_to_angle(int32_t speed, int32_t degrees) {
+    printf("Drive to angle %d\n", degrees);
     encoder->set_target_angle(degrees);
     drive_to_target(speed);
 }
