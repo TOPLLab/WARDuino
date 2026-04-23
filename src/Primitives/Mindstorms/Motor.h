@@ -24,14 +24,18 @@ class MotorEncoder {
         if (rising) {
             if (pin5) {
                 encoder->angle++;
+                encoder->ticks++;
             } else {
                 encoder->angle--;
+                encoder->ticks--;
             }
         } else {
             if (pin5) {
                 encoder->angle--;
+                encoder->ticks--;
             } else {
                 encoder->angle++;
+                encoder->ticks++;
             }
         }
         int64_t t = k_uptime_get();
@@ -40,7 +44,7 @@ class MotorEncoder {
         //encoder->speed = 0.2f * encoder->speed + 0.8f * (1.0f / (t - encoder->last_update));
         //printf("measured speed after = %f\n", encoder->speed);
         encoder->last_update = t;
-        encoder->ticks++;
+        //encoder->ticks++;
     }
 
    public:
