@@ -315,8 +315,7 @@ void heartbeat_timer_func(struct k_timer *timer_id) {
 
 struct k_timer motor_timer;
 void motor_timer_func(struct k_timer *timer_id) {
-    //for (int motor_index = 0; motor_index < 4; motor_index++) {
-    for (int motor_index = 0; motor_index < 1; motor_index++) {
+    for (int motor_index = 0; motor_index < 4; motor_index++) {
         if (auto motor = get_motor(motor_index)) {
             //printf("Timer, ticks = %d motor = %d, speed = %f\n", motor.value().encoder->ticks, motor_index, motor.value().encoder->speed);
             float current_speed = motor.value().encoder->speed;
