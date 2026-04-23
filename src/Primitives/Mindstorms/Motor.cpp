@@ -118,29 +118,35 @@ void Motor::drive_to_target(int32_t _s) {
 
     // ev3 has rpm of 160-170
     // so maximum around a 1000 degrees per second
-    float max_speed = 250.0f; // Degrees per second
+    float max_speed = 350.0f; // Degrees per second
     float target_speed = max_speed; // Degrees per second
 
-    PID pid(1.0f, 0.05f, 0.2f);
-    PID position_pid(1.0f, 0.05f, 0.2f);
+    PID speed_pid(1.0f, 0.05f, 0.2f);
+    PID position_pid(2.5f, 0.002f, 0.09f);
 
     while (true) {
         // Control speed.
         float encoder_speed = encoder->get_speed();
         float error = target_speed - encoder_speed;
 
-        float output = pid.update(error);
+        float output = speed_pid.update(error);
 
         float speed = clamp(output, -10000.0f, 10000.0f);
         float normalized_speed = speed / 10000.0f;
         set_speed(normalized_speed);
 
         // Control position.
-        /*error = static_cast<float>(get_drift());
+        error = static_cast<float>(get_drift());
         output = position_pid.update(error);
-        target_speed = clamp(output, -max_speed, -max_speed);*/
+        target_speed = clamp(output, -max_speed, max_speed);
+
+        printf("position error = %f\n", error);
 
         //printf("error = %f, speed = %f, integral = %f, derivative = %f, encoder_speed = %f\n", error, speed, integral, derivative, encoder_speed);
+
+        if (error == 0.0f && position_pid.prev_error == 0.0f) {
+            break;
+        }
     }
     halt();
 

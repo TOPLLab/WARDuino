@@ -318,7 +318,7 @@ void motor_timer_func(struct k_timer *timer_id) {
     //for (int motor_index = 0; motor_index < 4; motor_index++) {
     for (int motor_index = 0; motor_index < 1; motor_index++) {
         if (auto motor = get_motor(motor_index)) {
-            printf("Timer, ticks = %d motor = %d, speed = %f\n", motor.value().encoder->ticks, motor_index, motor.value().encoder->speed);
+            //printf("Timer, ticks = %d motor = %d, speed = %f\n", motor.value().encoder->ticks, motor_index, motor.value().encoder->speed);
             float current_speed = motor.value().encoder->speed;
             motor.value().encoder->speed = current_speed * 0.2f + 0.8f * ((float) (motor.value().encoder->ticks) / 0.005f); // Convert to degrees per second
             motor.value().encoder->ticks = 0;
