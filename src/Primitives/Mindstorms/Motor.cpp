@@ -73,9 +73,9 @@ bool Motor::set_speed(float speed) {
     return drive_pwm(pwm1_spec, pwm2_spec, pwm1, pwm2);
 }
 
-float Kp = 2.0f;
-float Kd = 1.0f;
-float Ki = 0.5f;
+float Kp = 1.0f;
+float Kd = 0.2f;
+float Ki = 0.05f;
 //float Ki = 0.01f;
 //float Kd = 0.2f;
 
@@ -85,48 +85,54 @@ float clamp(float v, float min, float max) {
     return v;
 }
 
+struct PID {
+    float Kp;
+    float Kd;
+    float Ki;
+
+    float integral;
+    float prev_error;
+    float dt;
+
+    PID(const float Kp, const float Ki, const float Kd) :
+        Kp(Kp), Kd(Kd), Ki(Ki), integral(0.0f), prev_error(0.0f), dt(0.01f)  {}
+
+    float update(const float error) {
+        integral += error * dt;
+        integral = clamp(integral, -20000.0f, 20000.0f);
+
+        const float derivative = (error - prev_error) / dt;
+
+        const float output =
+            Kp * error + // Proportional
+            Ki * integral + // Integral
+            Kd * derivative; // Derivative
+
+        prev_error = error;
+        return output;
+    }
+};
+
 void Motor::drive_to_target(int32_t max_speed) {
     printf("drift = %d\n", abs(get_drift()));
 
-    float integral = 0.0f;
-    float prev_error = 0.0f;
+    // ev3 has rpm of 160-170
+    // so maximum around a 1000 degrees per second
+    float target_speed = 250.0f; // Degrees per second
 
-    float dt = 0.01f;
-
-    float speed = 35.0f;
+    PID pid(1.0f, 0.05f, 0.2f);
 
     while (true) {
-        // 1. Read error (target - current)
         float encoder_speed = encoder->get_speed();
-        float error = speed - encoder_speed;
+        float error = target_speed - encoder_speed;
 
-        // 2. Integral (accumulated error)
-        integral += error * dt;
-
-        // anti-windup clamp (important)
-        integral = clamp(integral, -20000.0f, 20000.0f);
-
-        // 3. Derivative (rate of change)
-        float derivative = (error - prev_error) / dt;
-
-        // 4. PID output
-        float output =
-            Kp * error +
-            Ki * integral +
-            Kd * derivative;
-
-        prev_error = error;
-
-        // 5. Convert to motor command
-        // Assume output is signed: negative = reverse, positive = forward
+        float output = pid.update(error);
 
         float speed = clamp(output, -10000.0f, 10000.0f);
-
-        // Convert to normalized range
         float normalized_speed = speed / 10000.0f;
+        set_speed(normalized_speed);
 
         //printf("error = %f, speed = %f, integral = %f, derivative = %f, encoder_speed = %f\n", error, speed, integral, derivative, encoder_speed);
-        set_speed(normalized_speed);
     }
     halt();
 
