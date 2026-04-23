@@ -122,7 +122,7 @@ void Motor::drive_to_target(int32_t _s) {
     float target_speed = max_speed; // Degrees per second
 
     PID speed_pid(1.0f, 0.05f, 0.2f);
-    PID position_pid(2.5f, 0.002f, 0.09f);
+    PID position_pid(2.5f, 0.004f, 0.09f);
 
     while (true) {
         // Control speed.
