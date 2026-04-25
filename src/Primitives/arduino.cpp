@@ -692,6 +692,11 @@ def_prim(mqtt_loop, NoneToOneU32) {
     return true;
 }
 
+def_prim(heap_used, zeroToOneU32) {
+    pushUInt32(m->warduino->get_heap_used());
+    return true;
+}
+
 //------------------------------------------------------
 // Util functions
 //------------------------------------------------------
@@ -862,6 +867,8 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_attach);
     install_primitive(chip_ledc_set_duty);
+
+    install_primitive(heap_used);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();
