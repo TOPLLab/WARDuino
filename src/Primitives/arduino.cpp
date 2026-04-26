@@ -894,9 +894,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(unmask_interrupts);
 
     install_global(event_groups_all);
-    install_global(event_group_debugger);
     install_global(event_group_interrupt);
-    install_global(event_group_proxy);
     install_global(event_group_mqtt);
 
     dbg_info("INSTALLING ISRs\n");
