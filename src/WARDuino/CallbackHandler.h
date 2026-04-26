@@ -12,10 +12,8 @@ struct Module;
 class Callback;
 
 enum EventGroup : uint8_t {
-    DEBUGGER = 0,
-    INTERRUPT = 1,
-    PROXY = 2,
-    MQTT = 3,
+    INTERRUPT = 0,
+    MQTT = 1,
 };
 
 class Event {

@@ -546,9 +546,7 @@ def_prim(unmask_interrupts, oneToNoneU32) {
 }
 
 def_glob(event_groups_all, I32, false, 0xffffffff);
-def_glob(event_group_debugger, I32, false, EventGroup::DEBUGGER);
 def_glob(event_group_interrupt, I32, false, EventGroup::INTERRUPT);
-def_glob(event_group_proxy, I32, false, EventGroup::PROXY);
 def_glob(event_group_mqtt, I32, false, EventGroup::MQTT);
 
 // MQTT MODULE
