@@ -653,8 +653,9 @@ void Debugger::dumpEvents(long start, long size) const {
                   CallbackHandler::event_begin() + end,
                   [this, &index, &end](const Event &e) {
                       this->channel->write(
-                          R"({"topic": "%s", "payload": "%s"})",
-                          e.topic.c_str(), e.payload.c_str());
+                          R"({"topic": "%s", "group": %d, "payload": "%s"})",
+                          e.topic.c_str(), static_cast<int>(e.group),
+                          e.payload.c_str());
                       if (++index < end) {
                           this->channel->write(", ");
                       }
@@ -1410,6 +1411,10 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     topic[topicSize] = '\0';
                     program_state += topicSize;
 
+                    // read group
+                    uint8_t group_idx = read_B32(&program_state);
+                    EventGroup group = static_cast<EventGroup>(group_idx);
+
                     // read payload
                     uint32_t payloadSize = read_B32(&program_state);
                     auto *payload =
@@ -1418,9 +1423,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     payload[payloadSize] = '\0';
                     program_state += payloadSize;
 
-                    CallbackHandler::push_event(
-                        topic, EventGroup::DEBUGGER,  // TODO: fix group !!!!!
-                        payload, payloadSize);
+                    CallbackHandler::push_event(topic, group, payload,
+                                                payloadSize);
                     free(topic);
                 }
                 break;
