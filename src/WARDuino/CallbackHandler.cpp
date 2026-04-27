@@ -71,6 +71,7 @@ size_t CallbackHandler::callback_count(const std::string &topic) {
 // reset every time the interrupt_mask_topic_to_keys is emptied
 uint32_t CallbackHandler::interrupt_mask_fresh_key = 1;
 
+// map of < event group , ( set of disable keys , set of discard keys ) >
 std::unordered_map<EventGroup, std::pair<std::unordered_set<uint32_t>,
                                          std::unordered_set<uint32_t>>>
     *CallbackHandler::event_group_to_keys =
@@ -78,19 +79,38 @@ std::unordered_map<EventGroup, std::pair<std::unordered_set<uint32_t>,
                                std::pair<std::unordered_set<uint32_t>,
                                          std::unordered_set<uint32_t>>>();
 
+// ( set of disable keys , set of discard keys ) that impact ALL events
+std::pair<std::unordered_set<uint32_t>, std::unordered_set<uint32_t>>
+    *CallbackHandler::all_event_groups_keys =
+        new std::pair<std::unordered_set<uint32_t>,
+                      std::unordered_set<uint32_t>>();
+
 uint32_t CallbackHandler::mask_interrupt(EventGroup group, bool discard) {
     uint32_t key = CallbackHandler::interrupt_mask_fresh_key++;
-    std::unordered_set<uint32_t> event_keys =
-        discard ? (*event_group_to_keys)[group].second
-                : (*event_group_to_keys)[group].first;
+    bool all_events = static_cast<uint8_t>(group) == 0xff;
+    auto &pair_of_keys =
+        all_events ? *all_event_groups_keys : (*event_group_to_keys)[group];
+    std::unordered_set<uint32_t> &event_keys =
+        discard ? pair_of_keys.second : pair_of_keys.first;
     event_keys.insert(key);
-    debug("Masked interrupt with group %u using key %u (discard: %u)\n", group,
-          key, discard);
+    printf("Masked interrupt with group %u using key %u (discard: %u)\n", group,
+           key, discard);
+    printf(
+        "All event groups keys now has %zu disable keys and %zu discard keys\n",
+        all_event_groups_keys->first.size(),
+        all_event_groups_keys->second.size());
     return key;
 }
 
 void CallbackHandler::unmask_interrupt(uint32_t key) {
     std::vector<EventGroup> groups_to_remove;
+
+    for (auto *keys :
+         {&all_event_groups_keys->first, &all_event_groups_keys->second}) {
+        if (keys->erase(key)) {
+            return;
+        }
+    }
 
     for (auto &[group, pair] : *event_group_to_keys) {
         for (auto *keys : {&pair.first, &pair.second}) {
@@ -118,16 +138,28 @@ void CallbackHandler::push_event(std::string topic, EventGroup group,
 }
 
 void CallbackHandler::push_event(Event *event) {
+    // check if discarded for all events
+    auto &disable_all_groups_keys = all_event_groups_keys->second;
+    if (disable_all_groups_keys.size()) {
+        printf("Not pushing event with topic %s and group %u\n",
+               event->topic.c_str(), event->group);
+        return;
+    }
+
+    // check if discarded for event group
+    auto &all_discard_keys = all_event_groups_keys->second;
     auto entry = CallbackHandler::event_group_to_keys->find(event->group);
     auto keys = entry != CallbackHandler::event_group_to_keys->end()
                     ? &entry->second.second
                     : nullptr;
     if (keys != nullptr &&
-        !keys->empty()) {  // first check is actually redundant
+        !keys->empty()) {  // second check is actually redundant
         debug("Not pushing event with topic %s and group %u\n",
               event->topic.c_str(), event->group);
         return;
     }
+
+    // push the event if not discarded
     if (events->size() < EVENTS_SIZE) {
         events->push_back(*event);
     }
@@ -143,6 +175,19 @@ bool CallbackHandler::resolve_event(bool force) {
         }
         return false;
     }
+
+    // check if masked for all events
+    auto &disable_all_groups_keys = all_event_groups_keys->first;
+    if (disable_all_groups_keys.size()) {
+        debug(
+            "Event with topic %s and group %u is masked for all event "
+            "groups.\n",
+            CallbackHandler::events->front().topic.c_str(),
+            CallbackHandler::events->front().group);
+        return false;
+    }
+
+    // check if masked for event group
     Event event = CallbackHandler::events->front();
     auto entry = event_group_to_keys->find(event.group);
     auto keys =

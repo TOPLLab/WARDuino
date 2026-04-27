@@ -10,8 +10,7 @@
   (func $main (export "main")
     (local $key i32)
     (local $i i32)
-    ;; mask interrupt with discarding and all event groups
-    ;; NOTE/TODO: currently, temporarily disabling the interrupts returns in an error when resolving the event pushed by the test interrupt
+    ;; mask interrupt with discarding and only the events grouped as interrupt
     (local.set $key (call $mask_interrupts (global.get $event_group_interrupt) (i32.const 1)))
 
     ;; 20 loops: in each iteration the interrupt is triggered, but discarded because of the discarding mask

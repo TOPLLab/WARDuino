@@ -15,6 +15,8 @@ enum EventGroup : uint8_t {
     // do not rename to INTERRUPT (ESP32 headers define an INTERRUPT macro)
     INTERRUPT_EVENT = 0,
     MQTT_EVENT = 1,
+
+    // 0xff is reserved (to denote all eventgroups), do not use
 };
 
 class Event {
@@ -36,6 +38,8 @@ class CallbackHandler {
         EventGroup,
         std::pair<std::unordered_set<uint32_t>, std::unordered_set<uint32_t>>>
         *event_group_to_keys;
+    static std::pair<std::unordered_set<uint32_t>, std::unordered_set<uint32_t>>
+        *all_event_groups_keys;
     static std::deque<Event> *events;
 
     CallbackHandler() = default;  // Disallow creation
