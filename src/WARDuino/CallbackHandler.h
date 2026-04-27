@@ -12,8 +12,9 @@ struct Module;
 class Callback;
 
 enum EventGroup : uint8_t {
-    INTERRUPT = 0,
-    MQTT = 1,
+    // do not rename to INTERRUPT (ESP32 headers define an INTERRUPT macro)
+    INTERRUPT_EVENT = 0,
+    MQTT_EVENT = 1,
 };
 
 class Event {

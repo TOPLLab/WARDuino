@@ -103,7 +103,7 @@ def_prim(test, oneToNoneU32) {
     Callback c = Callback(m, topic, fidx);
     CallbackHandler::add_callback(c);
     auto *payload = reinterpret_cast<const unsigned char *>("TestPayload");
-    CallbackHandler::push_event(topic, EventGroup::INTERRUPT,
+    CallbackHandler::push_event(topic, EventGroup::INTERRUPT_EVENT,
                                 reinterpret_cast<const char *>(payload), 11);
     pop_args(1);
     return true;
@@ -484,8 +484,8 @@ def_prim(unmask_interrupts, oneToNoneU32) {
 }
 
 def_glob(event_groups_all, I32, false, 0xffffffff);
-def_glob(event_group_interrupt, I32, false, EventGroup::INTERRUPT);
-def_glob(event_group_mqtt, I32, false, EventGroup::MQTT);
+def_glob(event_group_interrupt, I32, false, EventGroup::INTERRUPT_EVENT);
+def_glob(event_group_mqtt, I32, false, EventGroup::MQTT_EVENT);
 
 //------------------------------------------------------
 // Installing all the primitives

@@ -85,7 +85,7 @@ int isr_index = 0;
 #define def_isr(pin)                                               \
     void isr_##pin() {                                             \
         CallbackHandler::push_event(INTERRUPT_TOPIC_PREFIX #pin,   \
-                                    EventGroup::INTERRUPT, "", 0); \
+                                    EventGroup::INTERRUPT_EVENT, "", 0); \
     }
 
 /* Common GPIO pins on ESP32 devices:*/
@@ -546,8 +546,8 @@ def_prim(unmask_interrupts, oneToNoneU32) {
 }
 
 def_glob(event_groups_all, I32, false, 0xffffffff);
-def_glob(event_group_interrupt, I32, false, EventGroup::INTERRUPT);
-def_glob(event_group_mqtt, I32, false, EventGroup::MQTT);
+def_glob(event_group_interrupt, I32, false, EventGroup::INTERRUPT_EVENT);
+def_glob(event_group_mqtt, I32, false, EventGroup::MQTT_EVENT);
 
 // MQTT MODULE
 
@@ -567,7 +567,7 @@ def_prim(mqtt_init, threeToNoneU32) {
     mqttClient.setServer(server, port);
     mqttClient.setCallback([](const char *topic, const unsigned char *payload,
                               unsigned int length) {
-        CallbackHandler::push_event(topic, EventGroup::MQTT,
+        CallbackHandler::push_event(topic, EventGroup::MQTT_EVENT,
                                     (const char *)payload, length);
     });
 

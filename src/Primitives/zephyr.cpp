@@ -524,8 +524,8 @@ def_prim(unmask_interrupts, oneToNoneU32) {
 }
 
 def_glob(event_groups_all, I32, false, 0xffffffff);
-def_glob(event_group_interrupt, I32, false, EventGroup::INTERRUPT);
-def_glob(event_group_mqtt, I32, false, EventGroup::MQTT);
+def_glob(event_group_interrupt, I32, false, EventGroup::INTERRUPT_EVENT);
+def_glob(event_group_mqtt, I32, false, EventGroup::MQTT_EVENT);
 
 //------------------------------------------------------
 // Installing all the primitives
