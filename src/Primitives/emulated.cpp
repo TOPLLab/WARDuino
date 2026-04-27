@@ -35,11 +35,11 @@ double sensor_emu = 0;
 
 #define def_glob(name, type, mut, init_val)                           \
     StackValue name##_sv = {.value_type = type, .value = {init_val}}; \
-    Global name##_g = {.export_name = nullptr,                        \
-                       .import_module = nullptr,                      \
-                       .import_field = #name,                         \
-                       .mutability = mut,                             \
-                       .value = &name##_sv};
+    Global name = {.export_name = nullptr,                            \
+                   .import_module = nullptr,                          \
+                   .import_field = #name,                             \
+                   .mutability = mut,                                 \
+                   .value = &name##_sv};
 
 #define install_global(global_name)                        \
     {                                                      \
