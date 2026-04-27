@@ -147,7 +147,6 @@ void CallbackHandler::push_event(Event *event) {
     }
 
     // check if discarded for event group
-    auto &all_discard_keys = all_event_groups_keys->second;
     auto entry = CallbackHandler::event_group_to_keys->find(event->group);
     auto keys = entry != CallbackHandler::event_group_to_keys->end()
                     ? &entry->second.second
