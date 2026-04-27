@@ -24,6 +24,7 @@
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "../WARDuino/CallbackHandler.cpp"
 #include "driver/gpio.h"
 #include "primitives.h"
 

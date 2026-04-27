@@ -124,12 +124,8 @@ void CallbackHandler::push_event(Event *event) {
                     : nullptr;
     if (keys != nullptr &&
         !keys->empty()) {  // first check is actually redundant
-        debug("Not pushing event with topic %s and group %u, because of keys: ",
+        debug("Not pushing event with topic %s and group %u\n",
               event->topic.c_str(), event->group);
-        for (auto key : *keys) {
-            debug("%u ", key);
-        }
-        debug("\n");
         return;
     }
     if (events->size() < EVENTS_SIZE) {
@@ -153,12 +149,8 @@ bool CallbackHandler::resolve_event(bool force) {
         entry != event_group_to_keys->end() ? &entry->second.first : nullptr;
     if (keys != nullptr &&
         !keys->empty()) {  // second check is acutally redundant
-        debug("Event with topic %s and group %u is masked by keys: ",
+        debug("Event with topic %s and group %u is masked.\n",
               event.topic.c_str(), event.group);
-        for (auto key : *keys) {
-            debug("%u ", key);
-        }
-        debug("\n");
         return false;
     }
 
