@@ -121,8 +121,8 @@ void Motor::drive_to_target(int32_t input_speed) {
     float max_speed = (float) input_speed; // Degrees per second
     float target_speed = max_speed; // Degrees per second
 
-    PID speed_pid(1.0f, 0.05f, 0.2f);
-    PID position_pid(2.5f, 0.004f, 0.09f);
+    PID speed_pid(20.0f, 0.05f, 0.4f);
+    PID position_pid(50.0f, 0.02f, 0.1f);
 
     while (true) {
         // Control speed.
@@ -140,11 +140,11 @@ void Motor::drive_to_target(int32_t input_speed) {
         output = position_pid.update(error);
         target_speed = clamp(output, -max_speed, max_speed);
 
-        printf("position error = %f, speed = %f\n", error, encoder_speed);
+        printf("position error = %f, speed = %f target_speed = %f\n", error, encoder_speed, target_speed);
 
         //printf("error = %f, speed = %f, integral = %f, derivative = %f, encoder_speed = %f\n", error, speed, integral, derivative, encoder_speed);
 
-        if (error == 0.0f && position_pid.prev_error == 0.0f) {
+        if (error == 0.0f && position_pid.prev_error == 0.0f) { // && encoder_speed == 0.0f
             break;
         }
     }
