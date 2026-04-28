@@ -113,12 +113,12 @@ struct PID {
     }
 };
 
-void Motor::drive_to_target(int32_t _s) {
+void Motor::drive_to_target(int32_t input_speed) {
     printf("drift = %d\n", abs(get_drift()));
 
     // ev3 has rpm of 160-170
     // so maximum around a 1000 degrees per second
-    float max_speed = 350.0f; // Degrees per second
+    float max_speed = (float) input_speed; // Degrees per second
     float target_speed = max_speed; // Degrees per second
 
     PID speed_pid(1.0f, 0.05f, 0.2f);
@@ -140,7 +140,7 @@ void Motor::drive_to_target(int32_t _s) {
         output = position_pid.update(error);
         target_speed = clamp(output, -max_speed, max_speed);
 
-        printf("position error = %f\n", error);
+        printf("position error = %f, speed = %f\n", error, encoder_speed);
 
         //printf("error = %f, speed = %f, integral = %f, derivative = %f, encoder_speed = %f\n", error, speed, integral, derivative, encoder_speed);
 
