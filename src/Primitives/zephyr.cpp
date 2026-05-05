@@ -185,6 +185,9 @@ def_prim(drive_motor, twoToNoneU32) {
 
     if (auto motor = get_motor(motor_index)) {
         motor.value().set_speed(speed / 10000.0f);
+
+        // Reset motor target angle after moving.
+        motor.value().encoder->set_target_angle(motor.value().encoder->get_angle());
         return true;
     }
 
@@ -198,6 +201,9 @@ def_prim(stop_motor, oneToNoneU32) {
 
     if (auto motor = get_motor(motor_index)) {
         motor.value().halt();
+
+        // Reset motor target angle after moving.
+        motor.value().encoder->set_target_angle(motor.value().encoder->get_angle());
         return true;
     }
 
@@ -216,6 +222,9 @@ def_prim(drive_motor_ms, threeToNoneU32) {
         motor.value().set_speed(speed / 10000.0f);
         k_msleep(time);
         motor.value().halt();
+
+        // Reset motor target angle after moving.
+        motor.value().encoder->set_target_angle(motor.value().encoder->get_angle());
         return true;
     }
 
@@ -267,7 +276,7 @@ def_prim_reverse(drive_motor_degrees) {
 }
 
 def_prim_serialize(drive_motor_degrees) {
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         IOStateElement *state = new IOStateElement();
         state->output = true;
         state->key = "e" + std::to_string(i);
