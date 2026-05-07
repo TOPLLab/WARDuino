@@ -347,6 +347,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
     execution_context->current_module = m;
 
+    uint32_t declared_data_count = -1;
+
     while (pos < bytes_end) {
         uint32_t id = read_LEB(&pos, 7);
         uint32_t section_len = read_LEB_32(&pos);
@@ -816,6 +818,11 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 dbg_warn("Parsing Data(11) section (length: 0x%x)\n",
                          section_len);
                 uint32_t seg_count = read_LEB_32(&pos);
+                ASSERT(declared_data_count == static_cast<uint32_t>(-1) ||
+                           seg_count == declared_data_count,
+                       "data segment count mismatch: DataCount declares "
+                       "%" PRIu32 " but Data section contains %" PRIu32,
+                       declared_data_count, seg_count);
                 for (uint32_t s = 0; s < seg_count; s++) {
                     uint32_t midx = read_LEB_32(&pos);
                     ASSERT(midx == 0, "Only 1 default memory in MVP");
@@ -894,6 +901,15 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                            "Code section did not end with 0x0b\n");
                     pos = function->end_ptr + 1;
                 }
+                break;
+            }
+            case 12: {
+                dbg_warn("Parsing DataCount(12) section (length: 0x%x)\n",
+                         section_len);
+                ASSERT(declared_data_count == static_cast<uint32_t>(-1),
+                       "Malformed module: multiple DataCount sections are not "
+                       "allowed");
+                declared_data_count = read_LEB_32(&pos);
                 break;
             }
             default:
