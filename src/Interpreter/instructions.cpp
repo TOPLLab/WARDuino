@@ -608,7 +608,6 @@ bool i_instr_grow_memory(Module *m) {
         m->stack[m->sp].value.uint32 = static_cast<uint32_t>(-1);
         return true;
     }
-    FATAL("Only one memory page allowed");
     m->memory.pages += delta;
     m->memory.bytes = (uint8_t *)arecalloc(
         m->memory.bytes, prev_pages * PAGE_SIZE, m->memory.pages * PAGE_SIZE,

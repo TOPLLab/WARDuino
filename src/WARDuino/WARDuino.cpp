@@ -14,7 +14,6 @@
 #define UNDEF (uint32_t)(-1)
 #define pushUInt32(m, arg) m->stack[++(m)->sp].value.uint32 = arg
 
-uint8_t MEMORY_PAGE[PAGE_SIZE] = {0x00};
 StackValue STACK[STACK_SIZE] = {};
 Frame CALLSTACK[CALLSTACK_SIZE] = {};
 uint32_t BR_TABLE[BR_TABLE_SIZE] = {};
@@ -627,7 +626,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 // Allocate memory
                 // for (uint32_t c=0; c<memory_count; c++) {
                 parse_memory_type(m, &pos);
-                m->memory.bytes = MEMORY_PAGE;
+                m->memory.bytes = (uint8_t *)acalloc(
+                    m->memory.pages * PAGE_SIZE, 1,  // sizeof(uint32_t),
+                    "Module->memory.bytes");
                 break;
             }
             case 6: {
@@ -986,7 +987,7 @@ void WARDuino::free_module_state(Module *m) {
     }
 
     if (m->memory.bytes != nullptr) {
-        memset(m->memory.bytes, 0, PAGE_SIZE);
+        free(m->memory.bytes);
         m->memory.bytes = nullptr;
     }
 
