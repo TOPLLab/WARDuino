@@ -122,14 +122,20 @@ jobs:
         needs: formatting-check
         runs-on: ubuntu-latest
 
-        container:
-          image: zephyrprojectrtos/ci:v0.29.2
-
         steps:
+          - name: Install dependencies
+            run: |
+              sudo apt update
+              sudo apt install --no-install-recommends git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-venv python3-tk xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
+              sudo apt install xxd
 
-          - name: Initialize west workspace
+          - name: Install Zephyr
             working-directory: ${{ github.workspace }}
             run: |
+              python3 -m venv zephyrproject/.venv
+              source zephyrproject/.venv/bin/activate
+              pip install west
+
               mkdir -p zephyrproject
               cd zephyrproject
 
@@ -151,11 +157,11 @@ jobs:
           - name: Setup upload.wasm
             working-directory: ${{ github.workspace }}/zephyrproject/WARDuino
             run: |
-              apt update
-              apt install xxd
               cp tests/compilation/esp32/upload.wasm platforms/Zephyr/upload.wasm
 
           - name: Build ESP32 target
-            working-directory: ${{ github.workspace }}/zephyrproject/WARDuino/platforms/Zephyr
+            working-directory: ${{ github.workspace }}/zephyrproject/WARDuino
             run: |
+              source ../.venv/bin/activate
+              cd platforms/Zephyr
               west build -b esp32_devkitc_wroom/esp32/procpu
