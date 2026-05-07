@@ -117,3 +117,45 @@ jobs:
                   command: idf.py build -DBUILD_ESP=ON
                   path: .
 
+    build-zephyr:
+        name: (Zephyr) Compile for ESP32
+        needs: formatting-check
+        runs-on: ubuntu-latest
+
+        container:
+          image: zephyrprojectrtos/ci:v0.29.2
+
+        steps:
+
+          - name: Initialize west workspace
+            working-directory: ${{ github.workspace }}
+            run: |
+              mkdir -p zephyrproject
+              cd zephyrproject
+
+              west init
+              west update
+              west zephyr-export
+
+              west packages pip --install
+
+              cd zephyr
+              west sdk install
+
+          - name: Checkout repository
+            uses: actions/checkout@v6
+            with:
+              path: zephyrproject/WARDuino
+              submodules: 'recursive'
+
+          - name: Setup upload.wasm
+            working-directory: ${{ github.workspace }}/zephyrproject/WARDuino
+            run: |
+              apt update
+              apt install xxd
+              cp tests/compilation/esp32/upload.wasm platforms/Zephyr/upload.wasm
+
+          - name: Build ESP32 target
+            working-directory: ${{ github.workspace }}/zephyrproject/WARDuino/platforms/Zephyr
+            run: |
+              west build -b esp32_devkitc_wroom/esp32/procpu
