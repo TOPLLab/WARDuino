@@ -48,7 +48,7 @@ int war_console_init(void) {
     tty_set_tx_buf(&console_serial, console_txbuf, sizeof(console_txbuf));
     tty_set_rx_buf(&console_serial, console_rxbuf, sizeof(console_rxbuf));
 
-    console_serial.rx_timeout = 200;
+    console_serial.rx_timeout = K_MSEC(200);
 
     return 0;
 }

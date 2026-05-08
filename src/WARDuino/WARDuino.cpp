@@ -1102,6 +1102,19 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
 #define TOTAL_MALLOC                                \
     (heap_caps_get_total_size(MALLOC_CAP_DEFAULT) - \
      heap_caps_get_free_size(MALLOC_CAP_DEFAULT))
+#elif defined(__ZEPHYR__)
+#include <zephyr/kernel.h>
+#include <zephyr/sys/sys_heap.h>
+
+extern struct sys_heap _system_heap;
+
+struct sys_memory_stats stats;
+
+#define TOTAL_MALLOC                                       \
+    ({                                                     \
+        sys_heap_runtime_stats_get(&_system_heap, &stats); \
+        stats.allocated_bytes;                             \
+    })
 #elif defined(__APPLE__)
 #include <malloc/malloc.h>
 #define TOTAL_MALLOC mstats().bytes_used
