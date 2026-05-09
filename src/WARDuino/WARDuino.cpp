@@ -714,7 +714,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     // Run the init_expr to get global value
                     run_init_expr(m, type, &pos);
 
-                    *(m->globals[gidx]->value) = execution_context->stack[execution_context->sp--];
+                    *(m->globals[gidx]->value) =
+                        execution_context->stack[execution_context->sp--];
                     m->globals[gidx]->mutability = mutability;
                 }
                 pos = start_pos + section_len;
