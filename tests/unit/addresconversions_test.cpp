@@ -25,7 +25,7 @@ class ConversionFixture : public ::testing::Test {
 
     void TearDown() override {
         wasm_module->warduino = nullptr;
-        warduino->free_module_state(wasm_module);
+        warduino->shutdown();
         this->wasm_module = nullptr;
         delete wasm_module;
     }

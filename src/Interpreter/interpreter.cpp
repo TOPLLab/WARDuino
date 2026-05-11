@@ -10,15 +10,20 @@
 #include "instructions.h"
 
 void Interpreter::push_block(Module *m, Block *block, int sp) {
-    m->csp += 1;
-    m->callstack[m->csp].block = block;
-    m->callstack[m->csp].sp = sp;
-    m->callstack[m->csp].fp = m->fp;
-    m->callstack[m->csp].ra_ptr = m->pc_ptr;
+    ExecutionContext *ectx = m->warduino->execution_context;
+
+    ectx->csp += 1;
+    ectx->callstack[ectx->csp].block = block;
+    ectx->callstack[ectx->csp].sp = sp;
+    ectx->callstack[ectx->csp].fp = ectx->fp;
+    ectx->callstack[ectx->csp].ra_ptr = ectx->pc_ptr;
+
+    ectx->callstack[ectx->csp].module = m;
 }
 
 Block *Interpreter::pop_block(Module *m) {
-    Frame *frame = &m->callstack[m->csp--];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    Frame *frame = &ectx->callstack[ectx->csp--];
     Type *t = frame->block->type;
 
     if (frame->block->block_type == 0xff) {
@@ -26,7 +31,7 @@ Block *Interpreter::pop_block(Module *m) {
         // free if event guard
         free(frame->block);
         frame->block = nullptr;
-        frame = &m->callstack[m->csp--];
+        frame = &ectx->callstack[ectx->csp--];
         t = frame->block->type;
     }
 
@@ -36,17 +41,17 @@ Block *Interpreter::pop_block(Module *m) {
         // free if proxy guard
         free(frame->block);
         frame->block = nullptr;
-        frame = &m->callstack[m->csp--];
+        frame = &ectx->callstack[ectx->csp--];
         t = frame->block->type;
     }
 
     // TODO: validate return value if there is one
 
-    m->fp = frame->fp;  // Restore frame pointer
+    ectx->fp = frame->fp;  // Restore frame pointer
 
     // Validate the return value
     for (uint32_t i = 0; i < t->result_count; i++) {
-        if (m->stack[m->sp - (t->result_count - 1 - i)].value_type !=
+        if (ectx->stack[ectx->sp - (t->result_count - 1 - i)].value_type !=
             t->results[i]) {
             sprintf(exception, "call type mismatch");
             return nullptr;
@@ -55,61 +60,72 @@ Block *Interpreter::pop_block(Module *m) {
     // Restore stack pointer
     if (t->result_count > 0) {
         for (uint32_t i = 0; i < t->result_count; i++) {
-            m->stack[frame->sp + 1 + i] =
-                m->stack[m->sp - (t->result_count - 1) + i];
+            ectx->stack[frame->sp + 1 + i] =
+                ectx->stack[ectx->sp - (t->result_count - 1) + i];
         }
-        m->sp = frame->sp + t->result_count;
+        ectx->sp = frame->sp + t->result_count;
     } else {
-        if (frame->sp < m->sp) {
-            m->sp = frame->sp;
+        if (frame->sp < ectx->sp) {
+            ectx->sp = frame->sp;
         }
     }
 
     if (frame->block->block_type == 0x00) {
         // Function, set pc to return address
-        m->pc_ptr = frame->ra_ptr;
+        ectx->pc_ptr = frame->ra_ptr;
+
+        if (ectx->csp >= 0) {
+            Module *caller_module = ectx->callstack[ectx->csp].module;
+            if (caller_module != m) {
+                m->warduino->switch_to_module(caller_module);
+            }
+        }
     }
 
     return frame->block;
 }
 
 void Interpreter::setup_call(Module *m, uint32_t fidx) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     Block *func = &m->functions[fidx];
     Type *type = func->type;
 
     // Push current frame on the call stack
-    push_block(m, func, m->sp - type->param_count);
+    push_block(m, func, ectx->sp - type->param_count);
 
 #if TRACE
     dbg_warn("  >> fn0x%x(%d) %s(", fidx, fidx,
              func->export_name
                  ? func->export_name
                  : "") for (int p = ((int)type->param_count) - 1; p >= 0; p--) {
-        dbg_warn("%s%s", value_repr(&m->stack[m->sp - p]), p ? " " : "");
+        dbg_warn("%s%s", value_repr(&ectx->stack[ectx->sp - p]), p ? " " : "");
     }
     dbg_warn("), %d locals, %d results\n", func->local_count,
              type->result_count);
 #endif
 
     // Push locals (dropping extras)
-    m->fp = m->sp - ((int)type->param_count) + 1;
+    ectx->fp = ectx->sp - ((int)type->param_count) + 1;
     // TODO: validate arguments vs formal params
 
     // Push function locals
     for (uint32_t lidx = 0; lidx < func->local_count; lidx++) {
-        m->sp += 1;
+        ectx->sp += 1;
 #if DEBUG || TRACE || WARN || INFO
-        if (m->sp >= STACK_SIZE) {
-            FATAL("WebAssembly stack overflow m->sp = %d, STACK_SIZE = %d\n",
-                  m->sp, STACK_SIZE);
+        if (ectx->sp >= STACK_SIZE) {
+            FATAL("WebAssembly stack overflow ectx->sp = %d, STACK_SIZE = %d\n",
+                  ectx->sp, STACK_SIZE);
         }
 #endif
-        memset(&m->stack[m->sp], 0, sizeof(StackValue));
-        m->stack[m->sp].value_type = func->local_value_type[lidx];
+        memset(&ectx->stack[ectx->sp], 0, sizeof(StackValue));
+        ectx->stack[ectx->sp].value_type = func->local_value_type[lidx];
     }
 
     // Set program counter to start of function
-    m->pc_ptr = func->start_ptr;
+    ectx->pc_ptr = func->start_ptr;
+
+    // Store the module
+    ectx->callstack[ectx->csp].module = m;
 }
 
 uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4};
@@ -167,26 +183,28 @@ bool Interpreter::load(Module *m, uint8_t type, uint32_t addr,
         }
     }
 
-    m->stack[++m->sp].value.uint64 = 0;  // initialize to 0
+    ExecutionContext *ectx = m->warduino->execution_context;
 
-    memcpy(&m->stack[m->sp].value, maddr, size);
-    m->stack[m->sp].value_type = LOAD_TYPES[abs(type - I32)];
+    ectx->stack[++ectx->sp].value.uint64 = 0;  // initialize to 0
+
+    memcpy(&ectx->stack[ectx->sp].value, maddr, size);
+    ectx->stack[ectx->sp].value_type = LOAD_TYPES[abs(type - I32)];
 
     switch (type) {
         case I32_8_s:
-            sext_8_32(&m->stack[m->sp].value.uint32);
+            sext_8_32(&ectx->stack[ectx->sp].value.uint32);
             break;
         case I32_16_s:
-            sext_16_32(&m->stack[m->sp].value.uint32);
+            sext_16_32(&ectx->stack[ectx->sp].value.uint32);
             break;
         case I64_8_s:
-            sext_8_64(&m->stack[m->sp].value.uint64);
+            sext_8_64(&ectx->stack[ectx->sp].value.uint64);
             break;
         case I64_16_s:
-            sext_16_64(&m->stack[m->sp].value.uint64);
+            sext_16_64(&ectx->stack[ectx->sp].value.uint64);
             break;
         case I64_32_s:
-            sext_32_64(&m->stack[m->sp].value.uint64);
+            sext_32_64(&ectx->stack[ectx->sp].value.uint64);
             break;
         default:
             break;
@@ -195,6 +213,7 @@ bool Interpreter::load(Module *m, uint8_t type, uint32_t addr,
 }
 
 bool Interpreter::interpret(Module *m, bool waiting) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     uint8_t *block_ptr;
     uint8_t opcode;
 
@@ -205,6 +224,8 @@ bool Interpreter::interpret(Module *m, bool waiting) {
     bool program_done = false;
 
     while ((!program_done && success) || waiting) {
+        m = ectx->current_module;
+
         if (m->warduino->program_state == WARDUINOstep) {
             m->warduino->debugger->notifyCompleteStep(m);
             m->warduino->debugger->pauseRuntime(m);
@@ -237,11 +258,11 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         // Program state is not paused
 
         // If BP and not the one we just unpaused
-        if (m->warduino->debugger->isBreakpoint(m->pc_ptr) &&
-            m->warduino->debugger->skipBreakpoint != m->pc_ptr &&
+        if (m->warduino->debugger->isBreakpoint(ectx->pc_ptr) &&
+            m->warduino->debugger->skipBreakpoint != ectx->pc_ptr &&
             m->warduino->program_state != PROXYrun) {
             m->warduino->debugger->pauseRuntime(m);
-            m->warduino->debugger->notifyBreakpoint(m, m->pc_ptr);
+            m->warduino->debugger->notifyBreakpoint(m, ectx->pc_ptr);
             continue;
         }
         m->warduino->debugger->skipBreakpoint = nullptr;
@@ -255,16 +276,16 @@ bool Interpreter::interpret(Module *m, bool waiting) {
             m->warduino->debugger->handleSnapshotPolicy(m);
         }
 
-        opcode = *m->pc_ptr;
-        block_ptr = m->pc_ptr;
-        m->pc_ptr += 1;
+        opcode = *ectx->pc_ptr;
+        block_ptr = ectx->pc_ptr;
+        ectx->pc_ptr += 1;
 
         dbg_dump_stack(m);
-        dbg_trace(" PC: %p OPCODE: <%s> in %s\n", block_ptr,
-                  opcode_repr(opcode),
-                  m->pc_ptr > m->bytes && m->pc_ptr < m->bytes + m->byte_count
-                      ? "module"
-                      : "patch");
+        dbg_trace(
+            " PC: %p OPCODE: <%s> in %s\n", block_ptr, opcode_repr(opcode),
+            ectx->pc_ptr > m->bytes && ectx->pc_ptr < m->bytes + m->byte_count
+                ? "module"
+                : "patch");
 
         switch (opcode) {
             //
