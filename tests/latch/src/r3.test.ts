@@ -4,6 +4,7 @@ import * as path from 'path';
 
 const framework = Framework.getImplementation();
 framework.reporter.style(StyleType.github);
+framework.reporter.verbosity(Verbosity.short);
 
 // TODO disclaimer: file is currently disabled until latch supports AS compilation
 
