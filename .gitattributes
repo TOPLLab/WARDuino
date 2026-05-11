@@ -1,2 +1,4 @@
 benchmarks/*.sh linguist-vendored
 *.wast linguist-vendored
+r3/*.wat filter=lfs diff=lfs merge=lfs -text
+*.wat filter=lfs diff=lfs merge=lfs -text
