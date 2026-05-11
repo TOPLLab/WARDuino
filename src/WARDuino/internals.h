@@ -116,11 +116,11 @@ typedef struct Memory {
 } Memory;
 
 typedef struct Global {
-    char *export_name;    // export name of the global
-    char *import_module;  // import module name
-    char *import_field;   // import field name
-    bool mutability;      // 0: immutable, 1: mutable
-    StackValue *value;    // current value
+    char *export_name;         // export name of the global
+    char *import_module;       // import module name
+    const char *import_field;  // import field name
+    bool mutability;           // 0: immutable, 1: mutable
+    StackValue *value;         // current value
 } Global;
 
 typedef struct Options {
