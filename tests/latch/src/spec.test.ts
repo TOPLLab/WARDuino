@@ -16,8 +16,7 @@ import {find, parseArguments, parseAsserts, parseResult} from "./util/spec.util"
 
 // Parse tests from official suite
 
-export const CORESUITE: string = process.env.CORESUITE ?? 'core/';
-export const TARGET: string = process.env.TARGET ?? 'core-cleaned/';
+export const CORESUITE: string = process.env.CORESUITE ?? 'static/core/';
 
 const TESTFILE: string = process.env.TESTFILE ?? '';
 
