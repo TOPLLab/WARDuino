@@ -200,6 +200,8 @@ void skip_immediates(uint8_t **pos) {
             }
             read_LEB_32(pos);  // default target
             break;
+        case 0xfc:
+            read_LEB_32(pos);
         default:  // no immediates
             break;
     }

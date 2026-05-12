@@ -1393,6 +1393,73 @@ bool i_instr_extension(Module *m, uint8_t opcode) {
 }
 
 /**
+ * 0xfc misc operations for saturated arithmetic and bulk memory/tables
+ */
+bool i_instr_sat_bulk(Module *m) {
+    uint32_t opcode = read_LEB_32(&m->pc_ptr);
+    switch (opcode) {
+        case 0x00:  // i32.trunc_sat_s_f32
+            m->stack[m->sp].value.int32 = m->stack[m->sp].value.f32;
+            m->stack[m->sp].value_type = I32;
+            break;
+        case 0x01:  // i32.trunc_sat_u_f32
+            m->stack[m->sp].value.uint32 = m->stack[m->sp].value.f32;
+            m->stack[m->sp].value_type = I32;
+            break;
+        case 0x02:  // i32.trunc_sat_s_f64
+            m->stack[m->sp].value.int32 = m->stack[m->sp].value.f64;
+            m->stack[m->sp].value_type = I32;
+            break;
+        case 0x03:  // i32.trunc_sat_u_f64
+            m->stack[m->sp].value.uint32 = m->stack[m->sp].value.f64;
+            m->stack[m->sp].value_type = I32;
+            break;
+        case 0x04:  // i64.trunc_sat_s_f32
+            if (std::isnan(m->stack[m->sp].value.f32)) {
+                m->stack[m->sp].value.int64 = 0;
+            } else if (m->stack[m->sp].value.f32 <=
+                       static_cast<float>(INT64_MIN)) {
+                m->stack[m->sp].value.int64 = INT64_MIN;
+            } else if (m->stack[m->sp].value.f32 >=
+                       static_cast<float>(INT64_MAX)) {
+                m->stack[m->sp].value.int64 = INT64_MAX;
+            } else {
+                m->stack[m->sp].value.int64 = m->stack[m->sp].value.f32;
+            }
+            m->stack[m->sp].value_type = I64;
+            break;
+        case 0x05:  // i64.trunc_sat_u_f32
+            if (std::isnan(m->stack[m->sp].value.f32)) {
+                m->stack[m->sp].value.uint64 = 0;
+            } else if (m->stack[m->sp].value.f32 <= static_cast<float>(0)) {
+                m->stack[m->sp].value.uint64 = 0;
+            } else if (m->stack[m->sp].value.f32 >=
+                       static_cast<float>(UINT64_MAX)) {
+                m->stack[m->sp].value.uint64 = UINT64_MAX;
+            } else {
+                m->stack[m->sp].value.uint64 = m->stack[m->sp].value.f32;
+            }
+            m->stack[m->sp].value_type = I64;
+            break;
+        case 0x06:  // i64.trunc_sat_s_f64
+            m->stack[m->sp].value.int64 = m->stack[m->sp].value.f64;
+            m->stack[m->sp].value_type = I64;
+            break;
+        case 0x07:  // i64.trunc_sat_u_f32
+            m->stack[m->sp].value.uint64 = m->stack[m->sp].value.f64;
+            m->stack[m->sp].value_type = I64;
+            break;
+        case 0x08 ... 0x11:
+            FATAL("Bulk memory/table operations currently not supported!\n");
+            break;
+        default:
+            return false;
+    }
+
+    return true;
+}
+
+/**
  * 0xe0 ... 0xe3 callback operations
  */
 // TODO: Remove [[maybe_unused]] when implemented
