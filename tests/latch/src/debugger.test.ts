@@ -26,7 +26,7 @@ const EXAMPLES: string = `${__dirname}/../examples/`;
  */
 
 const framework = Framework.getImplementation();
-framework.style(StyleType.github);
+framework.reporter.style(StyleType.github)
 
 const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
@@ -332,4 +332,4 @@ const dumpEventsTest: TestScenario = {
 
 integration.test(dumpEventsTest);
 
-framework.run([integration]);
+framework.analyse([integration]);
