@@ -145,6 +145,12 @@ jobs:
             working-directory: ${{ github.workspace }}/zephyrproject
             run: |
               rm -rf WARDuino
+              
+              source .venv/bin/activate
+              west zephyr-export
+              
+              cd zephyr
+              west sdk install
 
           - name: Install Zephyr
             if: steps.cache-zephyr.outputs.cache-hit != 'true'
