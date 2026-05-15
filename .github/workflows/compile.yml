@@ -148,9 +148,6 @@ jobs:
               
               source .venv/bin/activate
               west zephyr-export
-              
-              cd zephyr
-              west sdk install
 
           - name: Install Zephyr
             if: steps.cache-zephyr.outputs.cache-hit != 'true'
@@ -169,8 +166,19 @@ jobs:
 
               west packages pip --install
 
-              cd zephyr
-              west sdk install
+          - name: Cache Zephyr SDK
+            id: cache-zephyr-sdk
+            uses: actions/cache@v5
+            with:
+              path: zephyr-sdk
+              key: ${{ runner.os }}-zephyr-sdk
+
+          - name: Install Zephyr SDK
+            if: steps.cache-zephyr-sdk.outputs.cache-hit != 'true'
+            working-directory: ${{ github.workspace }}/zephyrproject
+            run: |
+              source .venv/bin/activate
+              west sdk install --install-dir zephyr-sdk
 
           - name: Checkout repository
             uses: actions/checkout@v6
