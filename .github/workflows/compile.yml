@@ -197,19 +197,11 @@ jobs:
               source ../.venv/bin/activate
               cd platforms/Zephyr
 
-              {
-                echo "## Zephyr build size report"
-                echo
-                echo "### ROM"
-                echo '```text'
-                west build -d build -t rom_report
-                echo '```'
-                echo
-                echo "### RAM"
-                echo '```text'
-                west build -d build -t ram_report
-                echo '```'
-              } > build-size.md
+              echo "## Zephyr build size report" > build-size.md
+              echo "### ROM" >> build-size.md
+              echo '```text' >> build-size.md
+              echo $(west build -t rom_report | tail -n1 | tr -d " " | numfmt --to=iec --format="%.2f") >> build-size.md
+              echo '```' >> build-size.md
 
           - uses: jwalton/gh-find-current-pr@v1
             id: finder
