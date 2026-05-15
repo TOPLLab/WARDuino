@@ -205,14 +205,8 @@ jobs:
                 echo '```'
               } > build-size.md
 
-              {
-                echo "body<<EOF"
-                cat build-size.md
-                echo "EOF"
-              } >> "$GITHUB_OUTPUT"
-
           - name: Comment Zephyr size report
             uses: marocchino/sticky-pull-request-comment@v3
             with:
               header: build-size
-              message: ${{ steps.zephyr-size.outputs.body }}
+              path: zephyrproject/WARDuino/platforms/Zephyr/build-size.md
