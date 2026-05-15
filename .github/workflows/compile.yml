@@ -178,7 +178,7 @@ jobs:
             working-directory: ${{ github.workspace }}/zephyrproject
             run: |
               source .venv/bin/activate
-              west sdk install --install-dir zephyr-sdk
+              west sdk install --install-dir ${{ github.workspace }}/zephyr-sdk
 
           - name: Checkout repository
             uses: actions/checkout@v6
@@ -192,6 +192,8 @@ jobs:
               cp tests/compilation/esp32/upload.wasm platforms/Zephyr/upload.wasm
 
           - name: Build ESP32 target
+            env:
+              Zephyr-sdk_DIR: ${{ github.workspace }}/zephyr-sdk/cmake
             working-directory: ${{ github.workspace }}/zephyrproject/WARDuino
             run: |
               source ../.venv/bin/activate
