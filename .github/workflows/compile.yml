@@ -205,8 +205,12 @@ jobs:
                 echo '```'
               } > build-size.md
 
+          - uses: jwalton/gh-find-current-pr@v1
+            id: finder
+
           - name: Comment Zephyr size report
             uses: marocchino/sticky-pull-request-comment@v3
             with:
               header: build-size
+              number: ${{ steps.finder.outputs.pr }}
               path: zephyrproject/WARDuino/platforms/Zephyr/build-size.md
