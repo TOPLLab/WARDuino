@@ -1,6 +1,10 @@
 name: Build
 on: [push, pull_request]
 
+permissions:
+    contents: read
+    pull-requests: write
+
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true  # Cancel in-flight jobs for the same branch or PR
@@ -165,3 +169,36 @@ jobs:
               source ../.venv/bin/activate
               cd platforms/Zephyr
               west build -b esp32_devkitc_wroom/esp32/procpu
+
+          - name: Create ROM + RAM report
+            id: zephyr-size
+            working-directory: ${{ github.workspace }}/zephyrproject/WARDuino
+            run: |
+              source ../.venv/bin/activate
+              cd platforms/Zephyr
+
+              {
+                echo "## Zephyr build size report"
+                echo
+                echo "### ROM"
+                echo '```text'
+                west build -d build -t rom_report
+                echo '```'
+                echo
+                echo "### RAM"
+                echo '```text'
+                west build -d build -t ram_report
+                echo '```'
+              } > build-size.md
+
+              {
+                echo "body<<EOF"
+                cat build-size.md
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+
+          - name: Comment Zephyr size report
+            uses: marocchino/sticky-pull-request-comment@v3
+            with:
+              header: build-size
+              message: ${{ steps.zephyr-size.outputs.body }}
