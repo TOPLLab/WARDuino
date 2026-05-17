@@ -65,7 +65,7 @@ spec.testee('emulator [:8500]', new EmulatorSpecification(8500));
 //spec.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler());
 spec.tests(tests);
 
-framework.run([spec]);
+framework.analyse([spec]);
 
 // Helper function
 
