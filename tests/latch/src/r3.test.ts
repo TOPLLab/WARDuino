@@ -1,4 +1,4 @@
-import {EmulatorSpecification, Framework, Kind, Message, StyleType, Suite, TestScenario} from 'latch';
+import {EmulatorSpecification, Framework, Kind, Message, StyleType, Suite, TestScenario, Verbosity} from 'latch';
 import * as fs from 'fs';
 import * as path from 'path';
 
