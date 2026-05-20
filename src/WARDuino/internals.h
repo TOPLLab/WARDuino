@@ -124,8 +124,8 @@ typedef struct Global {
 } Global;
 
 typedef struct DataSegment {
-    uint32_t payload_offset = 0;  // offset in Module::bytes
-    uint32_t size = 0;            // payload size in bytes
+    uint32_t offset = 0;  // offset in Module::bytes
+    uint32_t size = 0;    // payload size in bytes
 } DataSegment;
 
 typedef struct Options {

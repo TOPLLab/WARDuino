@@ -568,6 +568,62 @@ bool i_instr_grow_memory(Module *m) {
 }
 
 /**
+ * 0xfc bulk memory / misc prefix
+ */
+bool i_instr_bulk_memory(Module *m) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint8_t opcode = read_LEB_32(&ectx->pc_ptr);
+
+    switch (opcode) {
+        case 0x08:  // memory.init
+            return i_instr_memory_init(m);
+        default:
+            sprintf(exception, "unrecognized opcode 0xfc 0x%x", opcode);
+            if (m->options.return_exception) {
+                m->exception = strdup(exception);
+            }
+            return false;
+    }
+}
+
+/**
+ * 0xfc 0x08 memory.init
+ */
+bool i_instr_memory_init(Module *m) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+
+    // immediates
+    const uint32_t memidx = read_LEB_32(&ectx->pc_ptr);
+    const uint32_t segidx = read_LEB_32(&ectx->pc_ptr);  // source segment
+    ASSERT(memidx == 0, "memory.init memidx must be 0 in MVP");
+    ASSERT(segidx < m->data_segment_count,
+           "memory.init data segment index out of bounds: %" PRIu32, segidx);
+
+    const DataSegment &source = m->passive_data_segments[segidx];
+
+    // arguments
+    const uint32_t n = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t offset = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t dst = ectx->stack[ectx->sp--].value.uint32;
+
+    // check for overflows in source
+    if ((offset > source.size || n > source.size - offset) &&
+        !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->bytes + source.offset + offset);
+    }
+    // check for overflows in destination
+    if ((m->memory.bytes + dst + n >
+         m->memory.bytes +
+             m->memory.pages * static_cast<uint32_t>(PAGE_SIZE)) &&
+        !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->memory.bytes + dst + n);
+    }
+
+    memcpy(m->memory.bytes + dst, m->bytes + source.offset + offset, n);
+    return true;
+}
+
+/**
  * 0x0d XXX
  */
 bool i_instr_mem_load(Module *m, uint8_t opcode) {
