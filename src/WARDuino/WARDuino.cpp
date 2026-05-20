@@ -823,8 +823,30 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                        "data segment count mismatch: DataCount declares "
                        "%" PRIu32 " but Data section contains %" PRIu32,
                        declared_data_count, seg_count);
+
+                m->data_segment_count = seg_count;
+                m->data_section_offset = static_cast<uint32_t>(pos - m->bytes);
+                m->passive_data_segments.assign(seg_count, DataSegment{});
+
                 for (uint32_t s = 0; s < seg_count; s++) {
-                    uint32_t midx = read_LEB_32(&pos);
+                    uint32_t flags = read_LEB_32(&pos);
+                    ASSERT(flags <= 2,
+                           "Illegal data segment flag value %" PRIu32, flags);
+
+                    if ((flags & 0x1u) != 0) {
+                        // Passive segment
+                        uint32_t size = read_LEB_32(&pos);
+                        auto payload_offset =
+                            static_cast<uint32_t>(pos - m->bytes);
+                        m->passive_data_segments[s] = {payload_offset, size};
+                        pos += size;
+                        continue;
+                    }
+
+                    uint32_t midx = 0;
+                    if ((flags & 0x2u) != 0) {
+                        midx = read_LEB_32(&pos);
+                    }
                     ASSERT(midx == 0, "Only 1 default memory in MVP");
 
                     // Run the init_expr to get the offset
@@ -1199,6 +1221,9 @@ void WARDuino::free_module_state(Module *m) {
 
     m->import_count = 0;
     m->global_count = 0;
+    m->data_segment_count = 0;
+    m->data_section_offset = 0;
+    m->passive_data_segments.clear();
 
     if (m->exception != nullptr) {
         free(m->exception);  // safe to remove?
