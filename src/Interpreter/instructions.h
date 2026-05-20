@@ -44,6 +44,10 @@ bool i_instr_bulk_memory(Module *m);
 
 bool i_instr_memory_init(Module *m);
 
+bool i_instr_data_drop(Module *m);
+
+bool i_instr_memory_copy(Module *m);
+
 bool i_instr_mem_load(Module *m, uint8_t opcode);
 
 bool i_instr_mem_store(Module *m, uint8_t opcode);
