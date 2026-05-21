@@ -582,6 +582,8 @@ bool i_instr_bulk_memory(Module *m) {
             return i_instr_data_drop(m);
         case 0x0a:
             return i_instr_memory_copy(m);
+        case 0x0b:
+            return i_instr_memory_fill(m);
         default:
             sprintf(exception, "unrecognized opcode 0xfc 0x%x", opcode);
             if (m->options.return_exception) {
@@ -666,6 +668,34 @@ bool i_instr_memory_copy(Module *m) {
     }
 
     memmove(m->memory.bytes + dst, m->memory.bytes + src, n);
+    return true;
+}
+
+/**
+ * 0xfc 0x0b memory.fill
+ */
+bool i_instr_memory_fill(Module *m) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+
+    // immediates
+    const uint32_t dstmem = read_LEB_32(&ectx->pc_ptr);
+    ASSERT(dstmem == 0, "memory.fill destination memory index must be 0");
+
+    // stack args: [..., dst, byte, n]
+    const uint32_t n = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t byte = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t dst = ectx->stack[ectx->sp--].value.uint32;
+
+    if (!m->options.disable_memory_bounds) {
+        // check for overflows in source and destination
+        if (const uint32_t mem_size = m->memory.pages * PAGE_SIZE;
+            dst > mem_size || dst + n > mem_size) {
+            Interpreter::report_overflow(m, m->memory.bytes + dst);
+            return false;
+        }
+    }
+
+    memset(m->memory.bytes + dst, static_cast<uint8_t>(byte), n);
     return true;
 }
 
