@@ -1,3 +1,5 @@
+#include <zephyr/dt-bindings/display/panel.h>
+
 #include "../app.overlay"
 
 / {
@@ -46,7 +48,7 @@
             <&gpio0 28 0>,
             <&gpio0 29 0>;
      };
-}; 
+};
 
 / {
     chosen {
@@ -66,9 +68,10 @@
             mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
             width = <240>;
             height = <320>;
-            pixel-format = <0>;
+            pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
             rotation = <0>;
             status = "okay";
+            h-mirror;
         };
     };
 };
