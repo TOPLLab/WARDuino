@@ -707,6 +707,8 @@ def_prim(serial_begin, oneToNoneU32) {
 }
 
 
+#include "../LoRaCommunication/circuit.h"
+
 //Setup
 
 //fix against memory leak (unsuccessful)
@@ -724,41 +726,14 @@ def_prim(check_initialised, NoneToOneU32) {
     return true;
 }   
 
-/** LoRa node 
-#include "LoRaHash.h"
-uint32_t nodeID = 1; //TODO: get access to MAC ID of MCU
-uint32_t position = 0; //GPS position, needed? possible?
-//TODO: generate RSA key pair for LoRaNode
-uint8_t publicKey[32] = {0};
-uint8_t privateKey[32] = {0};
-uint32_t lastUpdated = millis();
-LoRaNode node = LoRaNode(nodeID, position, lastUpdated, publicKey);
-
-LoraHashTable LoRaTable = LoraHashTable();
-*/
 
 // LoRa MODULE
 extern "C" {
-    uint32_t radio_begin_extern(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
-    uint32_t radio_transmit_extern(String);
-    uint32_t radio_startReceive_extern();
-    int radio_receive_extern(String* data, uint32_t timeout);
+    uint16_t radio_begin_extern(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    uint16_t radio_transmit_extern(String data);
+    uint16_t radio_startReceive_extern();
+    uint16_t radio_receive_extern(String data, uint32_t timeout);
 }
-
-/**
-startLoRaCommunication() {
-    LoRaTable.init(); //initialise the hash table for LoRa Peers
-    LoRaTable.addNode(nodeID, position, lastUpdated, hash); //add self to the hash table
-
-    uint32_t buffer[32]; // buffer for serialisation
-    uint32_t length = LoRaTable.serialiseSelf(buffer, sizeof(buffer)); //serialise self and store in buffer to be sent to LoRa Peers
-    radio_transmit_extern(buffer); //send information to LoRa Peers
-    
-    uint32_t receivedBuffer[32];
-    size_t receivedLength = radio_receive_extern(receivedBuffer, 2000); //wait for information from LoRa Peers
-    LoRaTable.updateTable(receivedBuffer, receivedLength); //update own hash table with information from LoRa Peers
-} 
-*/
 
 def_prim(radio_begin, sixToOneU32) {
     uint32_t frequency = arg5.uint32;
@@ -803,7 +778,7 @@ def_prim(radio_receive, twoToOneU32) {
     uint32_t size = arg0.uint32;
 
     String data;
-    int state = radio_receive_extern(&data, 2000);
+    int state = radio_receive_extern(data, 2000);
 
     //TODO: decrypt message using session key
     //String data = node.decrypt(node.sessionKey, (uint8_t*)encrypted.c_str(), encrypted.length()); //pseudocode
