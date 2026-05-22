@@ -371,6 +371,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 } else {
                     dbg_warn("Ignoring unknown custom section '%s'\n", name);
                 }
+                free(name);
                 pos = end_pos;
                 break;
             }
@@ -653,6 +654,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 if (m->import_count != 0) {
                     memcpy(functions, m->functions,
                            sizeof(Block) * m->import_count);
+                    free(m->functions);
                 }
                 m->functions = functions;
 
@@ -743,6 +745,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                 "  ignoring non-function export '%s'"
                                 " kind 0x%x index 0x%x\n",
                                 name, kind, index);
+                            free(name);
                     }
                 }
                 break;
@@ -1160,14 +1163,24 @@ void WARDuino::free_module_state(Module *m) {
     }
 
     if (m->functions != nullptr) {
-        for (uint32_t i = 0; i < m->function_count; ++i)
+        for (uint32_t i = 0; i < m->function_count; ++i) {
             if (m->functions[i].export_name != nullptr)
                 free(m->functions[i].export_name);
+            if (m->functions[i].local_count)
+                free(m->functions[i].local_value_type);
+            if (m->functions[i].import_module)
+                free(m->functions[i].import_module);
+            if (m->functions[i].import_field)
+                free(m->functions[i].import_field);
+        }
         free(m->functions);
         m->functions = nullptr;
     }
 
     if (m->globals != nullptr) {
+        for (uint32_t i = 0; i < m->global_count; ++i)
+            if (m->globals[i]->export_name != nullptr)
+                free(m->globals[i]->export_name);
         free(m->globals);
         m->globals = nullptr;
     }
@@ -1204,6 +1217,9 @@ void WARDuino::free_module_state(Module *m) {
         free(m->exception);  // safe to remove?
     }
 
+    for (std::pair<uint8_t *, Block *> block : m->block_lookup) {
+        free(block.second);
+    }
     m->block_lookup.clear();
 }
 
