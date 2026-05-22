@@ -1,3 +1,5 @@
+#include <zephyr/dt-bindings/display/panel.h>
+
 #include "../app.overlay"
 
 / {
@@ -46,4 +48,30 @@
             <&gpio0 28 0>,
             <&gpio0 29 0>;
      };
-}; 
+};
+
+/ {
+    chosen {
+        zephyr,display = &ili9341;
+    };
+    mipi_dbi {
+        compatible = "zephyr,mipi-dbi-spi";
+        spi-dev = <&spi0>;
+        dc-gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+        ili9341: ili9341@0 {
+            compatible = "ilitek,ili9341";
+            reg = <0>;
+            mipi-max-frequency = <20000000>;
+            mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+            width = <240>;
+            height = <320>;
+            pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+            rotation = <0>;
+            status = "okay";
+            h-mirror;
+        };
+    };
+};

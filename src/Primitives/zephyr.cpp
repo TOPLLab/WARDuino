@@ -439,7 +439,7 @@ def_prim(display_setup, NoneToNoneU32) {
     struct display_capabilities capabilities;
 
     if (!device_is_ready(display_dev)) {
-        printf("Device %s not found. Aborting sample.", display_dev->name);
+        printf("Device %s is not ready.", display_dev->name);
         return false;
     }
 
