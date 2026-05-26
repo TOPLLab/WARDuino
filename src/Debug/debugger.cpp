@@ -196,7 +196,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->channel->write("STOP!\n");
             this->channel->close();
             free(interruptData);
-            m->warduino->free_module_state(m);
+            delete m->warduino;
             exit(0);
         case interruptPAUSE:
             this->pauseRuntime(m);
@@ -1034,6 +1034,7 @@ void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
         checkpointInterval = read_B32(&ptr);
         checkpoint(m, true);
     }
+    printf("ack%x\n", interruptSetSnapshotPolicy);
 }
 
 std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
