@@ -73,6 +73,8 @@ class WARDuino {
 
     void unload_module(Module *m);
 
+    void reset_module(Module *m);
+
     void update_module(Module *old_module, uint8_t *wasm, uint32_t wasm_len);
 
     std::vector<StackValue> invoke(Module *m, uint32_t fidx, uint32_t arity = 0,

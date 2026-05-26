@@ -1223,6 +1223,28 @@ void WARDuino::free_module_state(Module *m) {
     m->block_lookup.clear();
 }
 
+void WARDuino::reset_module(Module *m) {
+    const uint32_t byte_count = m->byte_count;
+    free_module_state(m);  // Does not reset m->bytes
+    program_state = WARDUINOinit;
+    ExecutionContext *ectx = execution_context;
+    ectx->sp = -1;
+    ectx->fp = -1;
+    ectx->csp = -1;
+    ectx->current_module = m;
+    instantiate_module(m, m->bytes, byte_count);
+
+    uint32_t fidx = get_main_fidx(m);
+    // execute main
+    if (fidx != UNDEF) {
+        interpreter->setup_call(m, fidx);
+        program_state = WARDUINOrun;
+    }
+
+    // wait
+    debugger->pauseRuntime(m);
+}
+
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
     m->warduino->program_state = WARDUINOinit;
 
