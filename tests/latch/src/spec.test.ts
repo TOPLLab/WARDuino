@@ -58,7 +58,7 @@ if (TESTFILE.length > 0) {
 // run tests
 
 const framework = Framework.getImplementation();
-framework.style(StyleType.github);
+framework.reporter.style(StyleType.github);
 
 const spec = framework.suite('Specification test suite for WebAssembly');
 spec.testee('emulator [:8500]', new EmulatorSpecification(8500));
