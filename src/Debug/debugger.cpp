@@ -386,11 +386,11 @@ void Debugger::printValue(const StackValue *v, const uint32_t idx,
 
     switch (v->value_type) {
         case I32:
-            snprintf(buff, 255, R"("type":"i32","value":)" FMT(PRIi32),
+            snprintf(buff, 255, R"("type":"i32","value":)" FMT(PRIu32),
                      v->value.uint32);
             break;
         case I64:
-            snprintf(buff, 255, R"("type":"i64","value":)" FMT(PRIi64),
+            snprintf(buff, 255, R"("type":"i64","value":)" FMT(PRIu64),
                      v->value.uint64);
             break;
         case F32:
@@ -429,7 +429,7 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) const {
     const uint32_t fidx = read_LEB_32(&interruptData);
 
     if (fidx >= m->function_count) {
-        debug("no function available for fidx %" PRIi32 "\n", fidx);
+        debug("no function available for fidx %" PRIu32 "\n", fidx);
         return;
     }
 
@@ -619,12 +619,12 @@ void Debugger::dumpLocals(const Module *m) const {
         switch (v->value_type) {
             case I32:
                 snprintf(_value_str, 255,
-                         R"("type":"i32","value":)" FMT(PRIi32),
+                         R"("type":"i32","value":)" FMT(PRIu32),
                          v->value.uint32);
                 break;
             case I64:
                 snprintf(_value_str, 255,
-                         R"("type":"i64","value":)" FMT(PRIi64),
+                         R"("type":"i64","value":)" FMT(PRIu64),
                          v->value.uint64);
                 break;
             case F32:
@@ -637,7 +637,7 @@ void Debugger::dumpLocals(const Module *m) const {
                 break;
             default:
                 snprintf(_value_str, 255,
-                         R"("type":"%02x","value":")" FMT(PRIx64) "\"",
+                         R"("type":"%02x","value":")" FMT(PRIu64) "\"",
                          v->value_type, v->value.uint64);
         }
 
