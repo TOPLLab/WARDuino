@@ -1,15 +1,4 @@
-import {
-    ArduinoSpecification,
-    EmulatorSpecification,
-    Framework, HybridScheduler,
-    invoke,
-    Invoker,
-    StyleType,
-    returns,
-    Step,
-    TestScenario,
-    WASM
-} from 'latch';
+import {EmulatorSpecification, Framework, invoke, returns, Step, StyleType, TestScenario, WASM} from 'latch';
 import {readdirSync} from 'fs';
 import {basename} from 'path';
 import {find, parseArguments, parseAsserts, parseResult} from "./util/spec.util";
@@ -75,8 +64,8 @@ function createTest(module: string, asserts: string[]): TestScenario {
     for (const assert of asserts) {
         const cursor = {value: 0};
         const func: string = find(/invoke "([^"]+)"/, assert);
-        const args: WASM.Value[] = parseArguments(assert.replace(`(invoke "${func} "`, ''), cursor);
-        const result: WASM.Value | undefined = parseResult(assert.slice(cursor.value));
+        const args: WASM.Value<bigint | number>[] = parseArguments(assert.replace(`(invoke "${func} "`, ''), cursor);
+        const result: WASM.Value<bigint | number> | undefined = parseResult(assert.slice(cursor.value));
 
         steps.push({
             title: assert,
