@@ -5,7 +5,7 @@ interface Cursor {
     value: number;
 }
 
-export function parseResult(input: string): WASM.Value | undefined {
+export function parseResult(input: string): WASM.Value<bigint | number> | undefined {
     let cursor = 0;
     let delta: number = consume(input, cursor, /\(/d);
     if (delta === 0) {
@@ -33,8 +33,8 @@ export function parseResult(input: string): WASM.Value | undefined {
     return {type, value};
 }
 
-export function parseArguments(input: string, index: Cursor): WASM.Value[] {
-    const args: WASM.Value[] = [];
+export function parseArguments(input: string, index: Cursor): WASM.Value<bigint | number>[] {
+    const args: WASM.Value<bigint | number>[] = [];
 
     let cursor: number = consume(input, 0, /invoke "[^"]+"/d);
     while (cursor < input.length) {
@@ -49,7 +49,7 @@ export function parseArguments(input: string, index: Cursor): WASM.Value[] {
 
         cursor += delta + consume(input, cursor + delta, /^[^)]*const /d);
         delta = consume(input, cursor, /^[^)]*/d);
-        let maybe: number | undefined;
+        let maybe: bigint | number | undefined;
         if (type === WASM.Type.f32 || type === WASM.Type.f64) {
             maybe = parseHexFloat(input.slice(cursor, cursor + delta));
         } else {
@@ -131,14 +131,14 @@ function parseHexFloat(input: string): number {
     return mantissa * Math.pow(2, exponent);
 }
 
-function parseInteger(hex: string, bytes: number = 4): number {
+function parseInteger(hex: string, bytes: number = 4): bigint {
     if (!hex.includes('0x')) {
-        return parseInt(hex);
+        return BigInt(parseInt(hex));
     }
-    const mask = parseInt('0x80' + '00'.repeat(bytes - 1), 16);
-    let integer = parseInt(hex, 16);
+    const mask = BigInt(parseInt('0x80' + '00'.repeat(bytes - 1), 16));
+    let integer = BigInt(parseInt(hex, 16));
     if (integer >= mask) {
-        integer = integer - mask * 2;
+        integer = integer - mask * 2n;
     }
     return integer;
 }
