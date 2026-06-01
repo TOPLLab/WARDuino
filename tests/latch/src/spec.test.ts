@@ -64,8 +64,8 @@ function createTest(module: string, asserts: string[]): TestScenario {
     for (const assert of asserts) {
         const cursor = {value: 0};
         const func: string = find(/invoke "([^"]+)"/, assert);
-        const args: WASM.Value<bigint | number>[] = parseArguments(assert.replace(`(invoke "${func} "`, ''), cursor);
-        const result: WASM.Value<bigint | number> | undefined = parseResult(assert.slice(cursor.value));
+        const args: WASM.Value<WASM.Type>[] = parseArguments(assert.replace(`(invoke "${func} "`, ''), cursor);
+        const result: WASM.Value<WASM.Type> | undefined = parseResult(assert.slice(cursor.value));
 
         steps.push({
             title: assert,
