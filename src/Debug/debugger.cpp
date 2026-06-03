@@ -974,12 +974,23 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 this->channel->write("%s", addComma ? "," : "");
                 this->channel->write(R"("overrides": [)");
                 bool comma = false;
-                for (auto key : overrides) {
-                    for (auto argResult : key.second) {
+                for (const auto &[_, bucket] : overrides) {
+                    for (const MockItem *mock : bucket) {
                         this->channel->write("%s", comma ? ", " : "");
-                        this->channel->write(
-                            R"({"fidx": %d, "arg": %d, "return_value": %d})",
-                            key.first, argResult.first, argResult.second);
+                        this->channel->write(R"({"fidx": %d, "args": [)",
+                                             mock->key[mock->key.size() - 1]);
+
+                        if (!mock->key.empty()) {
+                            this->channel->write("%d", mock->key[0]);
+                        }
+
+                        for (uint32_t i = 1; i < mock->key.size() - 1; i++) {
+                            this->channel->write(", %d", mock->key[i]);
+                        }
+
+                        this->channel->write(R"(], "return_value": %d})",
+                                             mock->result);
+
                         comma = true;
                     }
                 }
@@ -1124,6 +1135,24 @@ void Debugger::checkpoint(Module *m, const bool force) {
     }
     this->channel->write("}\n");
     instructions_executed = 0;
+}
+
+// TODO: I should probably use uint32_t simply because most microcontrollers are
+// 32bit so it will be faster
+uint64_t FNV1a_uint32_list(const std::vector<uint32_t> &values) {
+    constexpr uint64_t FNV_offset_basis = 14695981039346656037ULL;
+    uint64_t result_hash = FNV_offset_basis;
+
+    for (const uint32_t v : values) {
+        for (int i = 0; i < 4; ++i) {
+            constexpr std::uint64_t FNV_prime = 1099511628211ULL;
+            const uint8_t byte = (v >> (i * 8)) & 0xff;
+            result_hash ^= byte;
+            result_hash *= FNV_prime;
+        }
+    }
+
+    return result_hash;
 }
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {
@@ -1482,9 +1511,19 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 uint8_t overrides_count = *program_state++;
                 for (uint32_t i = 0; i < overrides_count; i++) {
                     uint32_t fidx = read_B32(&program_state);
-                    uint32_t arg = read_B32(&program_state);
+                    uint32_t param_count = m->functions[fidx].type->param_count;
+                    std::vector<uint32_t> key(param_count + 1);
+                    for (uint32_t j = 0; j < param_count; j++) {
+                        key[j] = read_B32(&program_state);
+                    }
+                    key[param_count] = fidx;
                     uint32_t return_value = read_B32(&program_state);
-                    overrides[fidx][arg] = return_value;
+                    uint64_t key_hash = FNV1a_uint32_list(key);
+                    if (overrides[key_hash].empty()) {
+                        overrides[key_hash] = {};
+                    }
+                    overrides[key_hash].push_back(
+                        new MockItem{.key = key, .result = return_value});
                     debug("Override %d %d %d\n", fidx, arg, return_value);
                 }
                 break;
@@ -1679,21 +1718,19 @@ std::string read_string(uint8_t **pos) {
     return str;
 }
 
-// TODO: I should probably use uint32_t simply because most microcontrollers are 32bit so it will be faster
-uint64_t FNV1a_uint32_list(const std::vector<uint32_t>& values) {
-    constexpr uint64_t FNV_offset_basis = 14695981039346656037ULL;
-    uint64_t result_hash = FNV_offset_basis;
-
-    for (const uint32_t v : values) {
-        for (int i = 0; i < 4; ++i) {
-            constexpr std::uint64_t FNV_prime = 1099511628211ULL;
-            const uint8_t byte = (v >> (i * 8)) & 0xff;
-            result_hash ^= byte;
-            result_hash *= FNV_prime;
-        }
+MockItem *Debugger::getMock(uint32_t hash, const std::vector<uint32_t> &key) {
+    if (overrides.count(hash) == 0) {
+        // Not found
+        return nullptr;
     }
 
-    return result_hash;
+    for (MockItem *mock : overrides[hash]) {
+        if (mock->key == key) {
+            // Found
+            return mock;
+        }
+    }
+    return nullptr;
 }
 
 void Debugger::addOverride(Module *m, uint8_t *interruptData) {
@@ -1709,16 +1746,29 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     }
 
     uint32_t param_count = m->functions[fidx.value()].type->param_count;
-    std::vector<uint32_t> args(param_count);
-    for (int i = 0; i < param_count; i++) {
-        args[i] = read_B32(&interruptData);
-        channel->write("Arg %d\n", args[args.size() - 1]);
+    std::vector<uint32_t> key(param_count + 1);
+    for (uint32_t i = 0; i < param_count; i++) {
+        key[i] = read_B32(&interruptData);
+        channel->write("Arg %d\n", key[key.size() - 1]);
     }
-    uint64_t args_hash = FNV1a_uint32_list(args);
+    key[param_count] = fidx.value();
+
+    uint64_t key_hash = FNV1a_uint32_list(key);
     const uint32_t result = read_B32(&interruptData);
-    channel->write("Register mock %s(%d) = %d\n", primitive_name.c_str(), args_hash, result);
+    channel->write("Register mock %s(%d) = %d\n", primitive_name.c_str(),
+                   key_hash, result);
     channel->write("ack%x;1\n", interruptSetOverridePinValue);
-    overrides[fidx.value()][args_hash] = result;
+
+    MockItem *item = getMock(key_hash, key);
+    if (item) {
+        item->result = result;
+        return;
+    }
+
+    if (overrides.count(key_hash) == 0) {
+        overrides[key_hash] = {};
+    }
+    overrides[key_hash].push_back(new MockItem{.key = key, .result = result});
 }
 
 void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
@@ -1732,39 +1782,38 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     }
 
     uint32_t param_count = m->functions[fidx.value()].type->param_count;
-    std::vector<uint32_t> args(param_count);
-    for (int i = 0; i < param_count; i++) {
-        args[i] = read_B32(&interruptData);
+    std::vector<uint32_t> key(param_count + 1);
+    for (uint32_t i = 0; i < param_count; i++) {
+        key[i] = read_B32(&interruptData);
     }
-    uint64_t args_hash = FNV1a_uint32_list(args);
+    key[param_count] = fidx.value();
+    uint64_t key_hash = FNV1a_uint32_list(key);
 
-    if (overrides[fidx.value()].count(args_hash) == 0) {
-        channel->write("Mock for %s(%d) not found.\n",
-                       primitive_name.c_str(), args_hash);
+    MockItem *item = getMock(key_hash, key);
+    if (!item) {
+        channel->write("Mock for %s(%d) not found.\n", primitive_name.c_str(),
+                       key_hash);
         channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
-    channel->write("Removing mock %s(%d) = %d.\n", primitive_name.c_str(),
-                   args_hash, overrides[fidx.value()][args_hash]);
+    // TODO: This looks up the element again, maybe this can be done more
+    // efficiently
+    overrides[key_hash].remove(item);
+    free(item);
     channel->write("ack%x;1\n", interruptUnsetOverridePinValue);
-    overrides[fidx.value()].erase(args_hash);
 }
 
-bool Debugger::isMocked(uint32_t fidx, uint32_t argument) {
-    std::vector<uint32_t> args(1);
-    args[0] = argument;
-    uint64_t args_hash = FNV1a_uint32_list(args);
-    channel->write("Arg %d\n", argument);
-    channel->write("Arg hash %d\n", args_hash);
-    return overrides.count(fidx) > 0 && overrides[fidx].count(args_hash) > 0;
-}
-
-uint32_t Debugger::getMockedValue(uint32_t fidx, uint32_t argument) {
-    std::vector<uint32_t> args(1);
-    args[0] = argument;
-    uint64_t args_hash = FNV1a_uint32_list(args);
-    return overrides[fidx][args_hash];
+MockItem *Debugger::getMockForArgs(Module *m, uint32_t fidx) {
+    uint32_t param_count = m->functions[fidx].type->param_count;
+    std::vector<uint32_t> key(param_count + 1);
+    const ExecutionContext *ectx = m->warduino->execution_context;
+    for (uint32_t i = 0; i < param_count; i++) {
+        key[i] = ectx->stack[ectx->sp - i].value.uint32;
+    }
+    key[param_count] = fidx;
+    const uint64_t hash = FNV1a_uint32_list(key);
+    return getMock(hash, key);
 }
 
 bool Debugger::handleContinueFor(Module *m) {

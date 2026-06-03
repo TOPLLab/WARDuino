@@ -3,6 +3,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <list>
 #include <mutex>
 #include <optional>
 #include <queue>  // std::queue
@@ -110,6 +111,11 @@ enum class SnapshotPolicy : int {
                          // points where primitives are used.
 };
 
+struct MockItem {
+    std::vector<uint32_t> key;  // key = args + fidx
+    uint32_t result;
+};
+
 class Debugger {
    private:
     std::deque<uint8_t *> debugMessages = {};
@@ -130,8 +136,7 @@ class Debugger {
     warduino::mutex *supervisor_mutex;
 
     // Mocking
-    std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
-        overrides;
+    std::unordered_map<uint32_t, std::list<MockItem *>> overrides;
 
     // Checkpointing
     SnapshotPolicy snapshotPolicy;
@@ -205,6 +210,12 @@ class Debugger {
     bool handleUpdateStackValue(const Module *m, uint8_t *bytes) const;
 
     bool reset(Module *m);
+
+    //// Handle mocking
+
+    MockItem *getMock(uint32_t hash, const std::vector<uint32_t> &key);
+    void addOverride(Module *m, uint8_t *interruptData);
+    void removeOverride(Module *m, uint8_t *interruptData);
 
     //// Handle out-of-place debugging
 
@@ -308,11 +319,7 @@ class Debugger {
     bool handlePushedEvent(char *bytes) const;
 
     // Concolic Multiverse Debugging
-    bool isMocked(uint32_t fidx, uint32_t argument);
-    uint32_t getMockedValue(uint32_t fidx, uint32_t argument);
-
-    void addOverride(Module *m, uint8_t *interruptData);
-    void removeOverride(Module *m, uint8_t *interruptData);
+    MockItem *getMockForArgs(Module *m, uint32_t fidx);
 
     // Checkpointing
     void checkpoint(Module *m, bool force = false);
