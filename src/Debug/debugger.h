@@ -308,12 +308,8 @@ class Debugger {
     bool handlePushedEvent(char *bytes) const;
 
     // Concolic Multiverse Debugging
-    inline bool isMocked(uint32_t fidx, uint32_t argument) {
-        return overrides.count(fidx) > 0 && overrides[fidx].count(argument) > 0;
-    }
-    inline uint32_t getMockedValue(uint32_t fidx, uint32_t argument) {
-        return overrides[fidx][argument];
-    }
+    bool isMocked(uint32_t fidx, uint32_t argument);
+    uint32_t getMockedValue(uint32_t fidx, uint32_t argument);
 
     void addOverride(Module *m, uint8_t *interruptData);
     void removeOverride(Module *m, uint8_t *interruptData);

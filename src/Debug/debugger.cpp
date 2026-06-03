@@ -1679,27 +1679,50 @@ std::string read_string(uint8_t **pos) {
     return str;
 }
 
+// TODO: I should probably use uint32_t simply because most microcontrollers are 32bit so it will be faster
+uint64_t FNV1a_uint32_list(const std::vector<uint32_t>& values) {
+    constexpr uint64_t FNV_offset_basis = 14695981039346656037ULL;
+    uint64_t result_hash = FNV_offset_basis;
+
+    for (const uint32_t v : values) {
+        for (int i = 0; i < 4; ++i) {
+            constexpr std::uint64_t FNV_prime = 1099511628211ULL;
+            const uint8_t byte = (v >> (i * 8)) & 0xff;
+            result_hash ^= byte;
+            result_hash *= FNV_prime;
+        }
+    }
+
+    return result_hash;
+}
+
 void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     std::string primitive_name = read_string(&interruptData);
-    uint32_t arg = read_B32(&interruptData);
-    uint32_t result = read_B32(&interruptData);
 
     std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
     if (!fidx) {
         channel->write(
             "Cannot override the result for unknown function \"%s\".\n",
             primitive_name.c_str());
+        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
-    channel->write("Override %s(%d) = %d.\n", primitive_name.c_str(), arg,
-                   result);
-    overrides[fidx.value()][arg] = result;
+    uint32_t param_count = m->functions[fidx.value()].type->param_count;
+    std::vector<uint32_t> args(param_count);
+    for (int i = 0; i < param_count; i++) {
+        args[i] = read_B32(&interruptData);
+        channel->write("Arg %d\n", args[args.size() - 1]);
+    }
+    uint64_t args_hash = FNV1a_uint32_list(args);
+    const uint32_t result = read_B32(&interruptData);
+    channel->write("Register mock %s(%d) = %d\n", primitive_name.c_str(), args_hash, result);
+    channel->write("ack%x;1\n", interruptSetOverridePinValue);
+    overrides[fidx.value()][args_hash] = result;
 }
 
 void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     std::string primitive_name = read_string(&interruptData);
-    uint32_t arg = read_B32(&interruptData);
 
     std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
     if (!fidx) {
@@ -1708,15 +1731,40 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
         return;
     }
 
-    if (overrides[fidx.value()].count(arg) == 0) {
-        channel->write("Override for %s(%d) not found.\n",
-                       primitive_name.c_str(), arg);
+    uint32_t param_count = m->functions[fidx.value()].type->param_count;
+    std::vector<uint32_t> args(param_count);
+    for (int i = 0; i < param_count; i++) {
+        args[i] = read_B32(&interruptData);
+    }
+    uint64_t args_hash = FNV1a_uint32_list(args);
+
+    if (overrides[fidx.value()].count(args_hash) == 0) {
+        channel->write("Mock for %s(%d) not found.\n",
+                       primitive_name.c_str(), args_hash);
+        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
-    channel->write("Removing override %s(%d) = %d.\n", primitive_name.c_str(),
-                   arg, overrides[fidx.value()][arg]);
-    overrides[fidx.value()].erase(arg);
+    channel->write("Removing mock %s(%d) = %d.\n", primitive_name.c_str(),
+                   args_hash, overrides[fidx.value()][args_hash]);
+    channel->write("ack%x;1\n", interruptUnsetOverridePinValue);
+    overrides[fidx.value()].erase(args_hash);
+}
+
+bool Debugger::isMocked(uint32_t fidx, uint32_t argument) {
+    std::vector<uint32_t> args(1);
+    args[0] = argument;
+    uint64_t args_hash = FNV1a_uint32_list(args);
+    channel->write("Arg %d\n", argument);
+    channel->write("Arg hash %d\n", args_hash);
+    return overrides.count(fidx) > 0 && overrides[fidx].count(args_hash) > 0;
+}
+
+uint32_t Debugger::getMockedValue(uint32_t fidx, uint32_t argument) {
+    std::vector<uint32_t> args(1);
+    args[0] = argument;
+    uint64_t args_hash = FNV1a_uint32_list(args);
+    return overrides[fidx][args_hash];
 }
 
 bool Debugger::handleContinueFor(Module *m) {
