@@ -1804,8 +1804,9 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
         return;
     }
 
-    overrides[key_hash].erase(it);
-    delete *it;
+    const MockItem *item = *it;
+    overrides[key_hash].erase(it); // Invalidates it
+    delete item;
     channel->write("ack%x;1\n", interruptUnsetOverridePinValue);
 }
 
