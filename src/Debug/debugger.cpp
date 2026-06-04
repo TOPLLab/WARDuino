@@ -1137,15 +1137,16 @@ void Debugger::checkpoint(Module *m, const bool force) {
     instructions_executed = 0;
 }
 
-// TODO: I should probably use uint32_t simply because most microcontrollers are
-// 32bit so it will be faster
-uint64_t FNV1a_uint32_list(const std::vector<uint32_t> &values) {
-    constexpr uint64_t FNV_offset_basis = 14695981039346656037ULL;
-    uint64_t result_hash = FNV_offset_basis;
+/*
+ * FNV-1a 32bit, https://datatracker.ietf.org/doc/html/draft-eastlake-fnv-17.html
+ */
+uint32_t FNV1a_uint32_list(const std::vector<uint32_t> &values) {
+    constexpr uint32_t FNV_offset_basis = 0x811C9DC5;
+    uint32_t result_hash = FNV_offset_basis;
 
     for (const uint32_t v : values) {
         for (int i = 0; i < 4; ++i) {
-            constexpr std::uint64_t FNV_prime = 1099511628211ULL;
+            constexpr uint32_t FNV_prime = 0x01000193;
             const uint8_t byte = (v >> (i * 8)) & 0xff;
             result_hash ^= byte;
             result_hash *= FNV_prime;
