@@ -974,25 +974,16 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 this->channel->write("%s", addComma ? "," : "");
                 this->channel->write(R"("overrides": [)");
                 bool comma = false;
-                for (const auto &[_, bucket] : overrides) {
-                    for (const MockItem *mock : bucket) {
-                        this->channel->write("%s", comma ? ", " : "");
-                        this->channel->write(R"({"fidx": %d, "args": [)",
-                                             mock->key[mock->key.size() - 1]);
-
-                        if (!mock->key.empty()) {
-                            this->channel->write("%d", mock->key[0]);
-                        }
-
-                        for (uint32_t i = 1; i < mock->key.size() - 1; i++) {
-                            this->channel->write(", %d", mock->key[i]);
-                        }
-
-                        this->channel->write(R"(], "return_value": %d})",
-                                             mock->result);
-
-                        comma = true;
+                for (const auto &[key, return_value] : overrides) {
+                    this->channel->write("%s", comma ? ", " : "");
+                    const uint32_t fidx = key[key.size() - 1];
+                    this->channel->write(R"({"fidx": %d, "args": [)", fidx);
+                    for (uint32_t i = 0; i < key.size() - 1; i++) {
+                        this->channel->write("%s%d", i > 0 ? ", " : "", key[i]);
                     }
+                    this->channel->write(R"(], "return_value": %d})",
+                                         return_value);
+                    comma = true;
                 }
                 this->channel->write("]");
                 addComma = true;
@@ -1135,26 +1126,6 @@ void Debugger::checkpoint(Module *m, const bool force) {
     }
     this->channel->write("}\n");
     instructions_executed = 0;
-}
-
-/*
- * FNV-1a 32bit:
- * https://datatracker.ietf.org/doc/html/draft-eastlake-fnv-17.html
- */
-uint32_t FNV1a_uint32_list(const std::vector<uint32_t> &values) {
-    constexpr uint32_t FNV_offset_basis = 0x811C9DC5;
-    uint32_t result_hash = FNV_offset_basis;
-
-    for (const uint32_t v : values) {
-        for (int i = 0; i < 4; ++i) {
-            constexpr uint32_t FNV_prime = 0x01000193;
-            const uint8_t byte = (v >> (i * 8)) & 0xff;
-            result_hash ^= byte;
-            result_hash *= FNV_prime;
-        }
-    }
-
-    return result_hash;
 }
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {
@@ -1520,13 +1491,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     }
                     key[param_count] = fidx;
                     uint32_t return_value = read_B32(&program_state);
-                    uint64_t key_hash = FNV1a_uint32_list(key);
-                    if (overrides[key_hash].empty()) {
-                        overrides[key_hash] = {};
-                    }
-                    overrides[key_hash].push_back(
-                        new MockItem{.key = key, .result = return_value});
-                    debug("Override %d %d %d\n", fidx, arg, return_value);
+                    overrides[key] = return_value;
                 }
                 break;
             }
@@ -1720,30 +1685,6 @@ std::string read_string(uint8_t **pos) {
     return str;
 }
 
-bool Debugger::getMockIterator(const uint32_t hash,
-                               const std::vector<uint32_t> &key,
-                               std::list<MockItem *>::iterator &iter) {
-    if (overrides.count(hash) == 0) {
-        return false;
-    }
-
-    std::list<MockItem *> &bucket = overrides[hash];
-    iter = bucket.begin();
-    while (iter != bucket.end() && (*iter)->key != key) {
-        ++iter;
-    }
-    return iter != bucket.end();
-}
-
-MockItem *Debugger::getMock(const uint32_t hash,
-                            const std::vector<uint32_t> &key) {
-    std::list<MockItem *>::iterator it;
-    if (!getMockIterator(hash, key, it)) {
-        return nullptr;
-    }
-    return *it;
-}
-
 void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     const std::string primitive_name = read_string(&interruptData);
     const std::optional<uint32_t> fidx =
@@ -1763,20 +1704,9 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     }
     key[param_count] = fidx.value();
 
-    const uint64_t key_hash = FNV1a_uint32_list(key);
     const uint32_t result = read_B32(&interruptData);
     channel->write("ack%x;1\n", interruptSetOverridePinValue);
-
-    MockItem *item = getMock(key_hash, key);
-    if (item) {
-        item->result = result;
-        return;
-    }
-
-    if (overrides.count(key_hash) == 0) {
-        overrides[key_hash] = {};
-    }
-    overrides[key_hash].push_back(new MockItem{.key = key, .result = result});
+    overrides[key] = result;
 }
 
 void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
@@ -1796,30 +1726,28 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
         key[i] = read_B32(&interruptData);
     }
     key[param_count] = fidx.value();
-    const uint64_t key_hash = FNV1a_uint32_list(key);
 
-    std::list<MockItem *>::iterator it;
-    if (!getMockIterator(key_hash, key, it)) {
+    if (overrides.erase(key) == 0) {
         channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
-
-    const MockItem *item = *it;
-    overrides[key_hash].erase(it); // Invalidates it
-    delete item;
     channel->write("ack%x;1\n", interruptUnsetOverridePinValue);
 }
 
-MockItem *Debugger::getMockForArgs(Module *m, uint32_t fidx) {
-    uint32_t param_count = m->functions[fidx].type->param_count;
+bool Debugger::getMockForArgs(Module *m, uint32_t fidx, uint32_t &result) {
+    const uint32_t param_count = m->functions[fidx].type->param_count;
     std::vector<uint32_t> key(param_count + 1);
     const ExecutionContext *ectx = m->warduino->execution_context;
     for (uint32_t i = 0; i < param_count; i++) {
         key[i] = ectx->stack[ectx->sp - (param_count - i - 1)].value.uint32;
     }
     key[param_count] = fidx;
-    const uint64_t hash = FNV1a_uint32_list(key);
-    return getMock(hash, key);
+    const auto it = overrides.find(key);
+    if (it == overrides.end()) {
+        return false;
+    }
+    result = it->second;
+    return true;
 }
 
 bool Debugger::handleContinueFor(Module *m) {

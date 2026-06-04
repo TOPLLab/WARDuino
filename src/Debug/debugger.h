@@ -3,7 +3,6 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
-#include <list>
 #include <mutex>
 #include <optional>
 #include <queue>  // std::queue
@@ -111,9 +110,24 @@ enum class SnapshotPolicy : int {
                          // points where primitives are used.
 };
 
-struct MockItem {
-    std::vector<uint32_t> key;  // key = args + fidx
-    uint32_t result;
+/*
+ * FNV-1a 32bit:
+ * https://datatracker.ietf.org/doc/html/draft-eastlake-fnv-17.html
+ */
+struct FNV1aVectorHash {
+    size_t operator()(const std::vector<uint32_t> &values) const {
+        constexpr uint32_t FNV_offset_basis = 0x811c9dc5;
+        uint32_t result_hash = FNV_offset_basis;
+        for (const uint32_t v : values) {
+            for (int i = 0; i < 4; ++i) {
+                constexpr uint32_t FNV_prime = 0x01000193;
+                const uint8_t byte = (v >> (i * 8)) & 0xff;
+                result_hash ^= byte;
+                result_hash *= FNV_prime;
+            }
+        }
+        return result_hash;
+    }
 };
 
 class Debugger {
@@ -136,7 +150,8 @@ class Debugger {
     warduino::mutex *supervisor_mutex;
 
     // Mocking
-    std::unordered_map<uint32_t, std::list<MockItem *>> overrides;
+    std::unordered_map<std::vector<uint32_t>, uint32_t, FNV1aVectorHash>
+        overrides;
 
     // Checkpointing
     SnapshotPolicy snapshotPolicy;
@@ -213,9 +228,6 @@ class Debugger {
 
     //// Handle mocking
 
-    bool getMockIterator(uint32_t hash, const std::vector<uint32_t> &key,
-                         std::list<MockItem *>::iterator &iter);
-    MockItem *getMock(uint32_t hash, const std::vector<uint32_t> &key);
     void addOverride(Module *m, uint8_t *interruptData);
     void removeOverride(Module *m, uint8_t *interruptData);
 
@@ -321,7 +333,7 @@ class Debugger {
     bool handlePushedEvent(char *bytes) const;
 
     // Concolic Multiverse Debugging
-    MockItem *getMockForArgs(Module *m, uint32_t fidx);
+    bool getMockForArgs(Module *m, uint32_t fidx, uint32_t &result);
 
     // Checkpointing
     void checkpoint(Module *m, bool force = false);
