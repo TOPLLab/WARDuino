@@ -1,6 +1,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
+#include <cmath>
+
 #include "../../src/Utils/util.h"
 
 TEST_CASE("Test: leb128 unsigned encoding") {
@@ -39,4 +41,25 @@ TEST_CASE("Test: leb128 signed encoding") {
         CHECK(read_LEB_signed(&pos, 32) == -1);
         CHECK(pos == bytes + 2);
     }
+}
+
+
+TEST_CASE("Test: wasm args parsing") {
+    uint32_t params[] = {F32, F32};
+    uint32_t results[] = {I32};
+    Type function_type = {FUNC, 2, params, 1, results, 0};
+
+    // 01 00 80 7f -> NaN (0x7f800001), 00 00 80 7f -> +Infinity
+    uint8_t data[] = {0x01, 0x00, 0x80, 0x7f, 0x00, 0x00, 0x80, 0x7f};
+
+    StackValue *args = readWasmArgs(function_type, data);
+
+    REQUIRE(args != nullptr);
+    CHECK(args[0].value_type == F32);
+    CHECK(std::isnan(args[0].value.f32));
+
+    CHECK(args[1].value_type == F32);
+    CHECK(std::isinf(args[1].value.f32));
+
+    delete[] args;
 }
