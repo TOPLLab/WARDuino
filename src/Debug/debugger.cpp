@@ -1709,7 +1709,7 @@ std::optional<uint32_t> resolve_imported_function(Module *m,
 }
 
 std::string read_string(uint8_t **pos) {
-    std::string str = "";
+    std::string str;
     char c = *(*pos)++;
     while (c != '\0') {
         str += c;
@@ -1734,9 +1734,8 @@ MockItem *Debugger::getMock(uint32_t hash, const std::vector<uint32_t> &key) {
 }
 
 void Debugger::addOverride(Module *m, uint8_t *interruptData) {
-    std::string primitive_name = read_string(&interruptData);
-
-    std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
+    const std::string primitive_name = read_string(&interruptData);
+    const std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
     if (!fidx) {
         channel->write(
             "Cannot override the result for unknown function \"%s\".\n",
@@ -1745,7 +1744,7 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
         return;
     }
 
-    uint32_t param_count = m->functions[fidx.value()].type->param_count;
+    const uint32_t param_count = m->functions[fidx.value()].type->param_count;
     std::vector<uint32_t> key(param_count + 1);
     for (uint32_t i = 0; i < param_count; i++) {
         key[i] = read_B32(&interruptData);
@@ -1753,7 +1752,7 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     }
     key[param_count] = fidx.value();
 
-    uint64_t key_hash = FNV1a_uint32_list(key);
+    const uint64_t key_hash = FNV1a_uint32_list(key);
     const uint32_t result = read_B32(&interruptData);
     channel->write("Register mock %s(%d) = %d\n", primitive_name.c_str(),
                    key_hash, result);
@@ -1772,22 +1771,21 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
 }
 
 void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
-    std::string primitive_name = read_string(&interruptData);
-
-    std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
+    const std::string primitive_name = read_string(&interruptData);
+    const std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
     if (!fidx) {
         channel->write("Cannot remove override for unknown function \"%s\".\n",
                        primitive_name.c_str());
         return;
     }
 
-    uint32_t param_count = m->functions[fidx.value()].type->param_count;
+    const uint32_t param_count = m->functions[fidx.value()].type->param_count;
     std::vector<uint32_t> key(param_count + 1);
     for (uint32_t i = 0; i < param_count; i++) {
         key[i] = read_B32(&interruptData);
     }
     key[param_count] = fidx.value();
-    uint64_t key_hash = FNV1a_uint32_list(key);
+    const uint64_t key_hash = FNV1a_uint32_list(key);
 
     MockItem *item = getMock(key_hash, key);
     if (!item) {
