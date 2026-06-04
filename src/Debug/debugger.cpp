@@ -1758,14 +1758,11 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     std::vector<uint32_t> key(param_count + 1);
     for (uint32_t i = 0; i < param_count; i++) {
         key[i] = read_B32(&interruptData);
-        channel->write("Arg %d\n", key[key.size() - 1]);
     }
     key[param_count] = fidx.value();
 
     const uint64_t key_hash = FNV1a_uint32_list(key);
     const uint32_t result = read_B32(&interruptData);
-    channel->write("Register mock %s(%d) = %d\n", primitive_name.c_str(),
-                   key_hash, result);
     channel->write("ack%x;1\n", interruptSetOverridePinValue);
 
     MockItem *item = getMock(key_hash, key);
@@ -1787,6 +1784,7 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     if (!fidx) {
         channel->write("Cannot remove override for unknown function \"%s\".\n",
                        primitive_name.c_str());
+        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
@@ -1800,8 +1798,6 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
 
     std::list<MockItem *>::iterator it;
     if (!getMockIterator(key_hash, key, it)) {
-        channel->write("Mock for %s(%d) not found.\n", primitive_name.c_str(),
-                       key_hash);
         channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
