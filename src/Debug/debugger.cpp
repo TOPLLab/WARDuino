@@ -196,6 +196,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->channel->write("STOP!\n");
             this->channel->close();
             free(interruptData);
+            delete m->warduino;
             exit(0);
         case interruptPAUSE:
             this->pauseRuntime(m);
@@ -1033,6 +1034,7 @@ void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
         checkpointInterval = read_B32(&ptr);
         checkpoint(m, true);
     }
+    printf("ack%x\n", interruptSetSnapshotPolicy);
 }
 
 std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
@@ -1651,11 +1653,8 @@ bool Debugger::handleUpdateStackValue(const Module *m, uint8_t *bytes) const {
 }
 
 bool Debugger::reset(Module *m) {
-    auto *wasm =
-        static_cast<uint8_t *>(malloc(sizeof(uint8_t) * m->byte_count));
-    memcpy(wasm, m->bytes, m->byte_count);
+    m->warduino->reset_module(m);
     instructions_executed = 0;
-    m->warduino->update_module(m, wasm, m->byte_count);
     this->channel->write("Reset WARDuino.\n");
     return true;
 }
