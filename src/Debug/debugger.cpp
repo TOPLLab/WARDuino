@@ -1718,24 +1718,34 @@ std::string read_string(uint8_t **pos) {
     return str;
 }
 
-MockItem *Debugger::getMock(uint32_t hash, const std::vector<uint32_t> &key) {
+bool Debugger::getMockIterator(const uint32_t hash,
+                               const std::vector<uint32_t> &key,
+                               std::list<MockItem *>::iterator &iter) {
     if (overrides.count(hash) == 0) {
-        // Not found
-        return nullptr;
+        return false;
     }
 
-    for (MockItem *mock : overrides[hash]) {
-        if (mock->key == key) {
-            // Found
-            return mock;
-        }
+    std::list<MockItem *> &bucket = overrides[hash];
+    iter = bucket.begin();
+    while (iter != bucket.end() && (*iter)->key != key) {
+        ++iter;
     }
-    return nullptr;
+    return iter != bucket.end();
+}
+
+MockItem *Debugger::getMock(const uint32_t hash,
+                            const std::vector<uint32_t> &key) {
+    std::list<MockItem *>::iterator it;
+    if (!getMockIterator(hash, key, it)) {
+        return nullptr;
+    }
+    return *it;
 }
 
 void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     const std::string primitive_name = read_string(&interruptData);
-    const std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
+    const std::optional<uint32_t> fidx =
+        resolve_imported_function(m, primitive_name);
     if (!fidx) {
         channel->write(
             "Cannot override the result for unknown function \"%s\".\n",
@@ -1772,7 +1782,8 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
 
 void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     const std::string primitive_name = read_string(&interruptData);
-    const std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
+    const std::optional<uint32_t> fidx =
+        resolve_imported_function(m, primitive_name);
     if (!fidx) {
         channel->write("Cannot remove override for unknown function \"%s\".\n",
                        primitive_name.c_str());
@@ -1787,18 +1798,16 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     key[param_count] = fidx.value();
     const uint64_t key_hash = FNV1a_uint32_list(key);
 
-    MockItem *item = getMock(key_hash, key);
-    if (!item) {
+    std::list<MockItem *>::iterator it;
+    if (!getMockIterator(key_hash, key, it)) {
         channel->write("Mock for %s(%d) not found.\n", primitive_name.c_str(),
                        key_hash);
         channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
-    // TODO: This looks up the element again, maybe this can be done more
-    // efficiently
-    overrides[key_hash].remove(item);
-    delete item;
+    overrides[key_hash].erase(it);
+    delete *it;
     channel->write("ack%x;1\n", interruptUnsetOverridePinValue);
 }
 

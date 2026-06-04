@@ -213,6 +213,8 @@ class Debugger {
 
     //// Handle mocking
 
+    bool getMockIterator(uint32_t hash, const std::vector<uint32_t> &key,
+                         std::list<MockItem *>::iterator &iter);
     MockItem *getMock(uint32_t hash, const std::vector<uint32_t> &key);
     void addOverride(Module *m, uint8_t *interruptData);
     void removeOverride(Module *m, uint8_t *interruptData);
