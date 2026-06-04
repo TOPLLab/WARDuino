@@ -276,6 +276,21 @@ StackValue parseParameter(const char *input, uint8_t value_type) {
     return value;
 }
 
+const char *valueTypeToString(uint8_t value_type) {
+    switch (value_type) {
+        case I32:
+            return "i32";
+        case I64:
+            return "i64";
+        case F32:
+            return "f32";
+        case F64:
+            return "f64";
+        default:
+            return "unknown";
+    }
+}
+
 int main(int argc, const char *argv[]) {
     ARGV_SHIFT();  // Skip command name
 
@@ -457,11 +472,36 @@ int main(int argc, const char *argv[]) {
             json["primitive_calls"] = primitive_calls;
             json["after_primitive_calls"] = after_primitive_calls;
 
-            std::vector<std::string> fidx_mapping = std::vector<std::string>();
+            auto primitives = nlohmann::json::array();
             for (uint32_t fidx = 0; fidx < m->import_count; fidx++) {
-                fidx_mapping.emplace_back(m->functions[fidx].import_field);
+                Block &primitive = m->functions[fidx];
+                auto primitive_json = nlohmann::json();
+                primitive_json["fidx"] = fidx;
+                primitive_json["name"] = primitive.import_field;
+                primitive_json["module"] = primitive.import_module;
+
+                auto arg_types = nlohmann::json::array();
+                if (primitive.type) {
+                    for (uint32_t i = 0; i < primitive.type->param_count; i++) {
+                        arg_types.push_back(valueTypeToString(
+                            static_cast<uint8_t>(primitive.type->params[i])));
+                    }
+                }
+                primitive_json["arg_types"] = arg_types;
+
+                auto return_types = nlohmann::json::array();
+                if (primitive.type) {
+                    for (uint32_t i = 0; i < primitive.type->result_count;
+                         i++) {
+                        return_types.push_back(valueTypeToString(
+                            static_cast<uint8_t>(primitive.type->results[i])));
+                    }
+                }
+                primitive_json["return_types"] = return_types;
+
+                primitives.push_back(primitive_json);
             }
-            json["primitive_fidx_mapping"] = fidx_mapping;
+            json["primitives"] = primitives;
 
             std::cout << json << std::endl;
             for (auto mod : loaded_modules) wac->unload_module(mod);
