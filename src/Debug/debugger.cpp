@@ -1138,7 +1138,8 @@ void Debugger::checkpoint(Module *m, const bool force) {
 }
 
 /*
- * FNV-1a 32bit, https://datatracker.ietf.org/doc/html/draft-eastlake-fnv-17.html
+ * FNV-1a 32bit:
+ * https://datatracker.ietf.org/doc/html/draft-eastlake-fnv-17.html
  */
 uint32_t FNV1a_uint32_list(const std::vector<uint32_t> &values) {
     constexpr uint32_t FNV_offset_basis = 0x811C9DC5;
@@ -1813,7 +1814,7 @@ MockItem *Debugger::getMockForArgs(Module *m, uint32_t fidx) {
     std::vector<uint32_t> key(param_count + 1);
     const ExecutionContext *ectx = m->warduino->execution_context;
     for (uint32_t i = 0; i < param_count; i++) {
-        key[i] = ectx->stack[ectx->sp - i].value.uint32;
+        key[i] = ectx->stack[ectx->sp - (param_count - i - 1)].value.uint32;
     }
     key[param_count] = fidx;
     const uint64_t hash = FNV1a_uint32_list(key);
