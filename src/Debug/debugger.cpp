@@ -1800,7 +1800,7 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     // TODO: This looks up the element again, maybe this can be done more
     // efficiently
     overrides[key_hash].remove(item);
-    free(item);
+    delete item;
     channel->write("ack%x;1\n", interruptUnsetOverridePinValue);
 }
 
