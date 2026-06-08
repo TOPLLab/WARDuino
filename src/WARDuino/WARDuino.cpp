@@ -4,6 +4,9 @@
 #include <cmath>
 #include <cstring>
 
+#ifdef EMULATOR
+#include "../Interpreter/concolic_interpreter.h"
+#endif
 #include "../Interpreter/interpreter.h"
 #include "../Memory/mem.h"
 #include "../Primitives/primitives.h"
@@ -11,17 +14,18 @@
 #include "../Utils/util.h"
 
 #define UNDEF (uint32_t)(-1)
+#define pushUInt32(m, arg) m->stack[++(m)->sp].value.uint32 = arg
 
 char exception[512];
 
 // UTIL
-bool resolvesym(Interpreter *interpreter, char *filename, char *symbol,
-                uint8_t external_kind, void **val, char **err) {
+bool resolvesym(char *filename, char *symbol, uint8_t external_kind, void **val,
+                char **err) {
     if (nullptr != filename && !strcmp(filename, "env")) {
         switch (external_kind) {
             case 0x00:  // Function
             {
-                return interpreter->resolve_primitive(symbol, (Primitive *)val);
+                return resolve_primitive(symbol, (Primitive *)val);
                 break;
             }
             case 0x01:  // Table
@@ -35,7 +39,8 @@ bool resolvesym(Interpreter *interpreter, char *filename, char *symbol,
             }
             case 0x03:  // Global
             {
-                return resolve_external_global(symbol, (Global **)val);
+                *err = (char *)"Unsupported type of import: global (0x03)";
+                return false;
             }
             default:
                 *err = (char *)"Unsupported type of import";
@@ -72,33 +77,21 @@ void initTypes() {
     block_types[4].results = block_type_results[3];
 }
 
-Type *get_block_type(Module *m, uint8_t type) {
-    uint8_t *pos = &type;
-    int64_t type_s = read_LEB_signed(&pos, 33);
-
-    if (type_s < 0) {
-        switch (type) {
-            case 0x40:
-                return &block_types[0];  // empty
-            case I32:
-                return &block_types[1];
-            case I64:
-                return &block_types[2];
-            case F32:
-                return &block_types[3];
-            case F64:
-                return &block_types[4];
-            default:
-                FATAL("invalid block_type value_type: %d\n", type);
-                return nullptr;
-        }
-    } else {
-        if ((uint32_t)type_s >= m->type_count) {
-            FATAL("block_type index out of bounds: %lld >= %u\n",
-                  (long long)type_s, (unsigned int)m->type_count);
+Type *get_block_type(uint8_t value_type) {
+    switch (value_type) {
+        case 0x40:
+            return &block_types[0];
+        case I32:
+            return &block_types[1];
+        case I64:
+            return &block_types[2];
+        case F32:
+            return &block_types[3];
+        case F64:
+            return &block_types[4];
+        default:
+            FATAL("invalid block_type value_type: %d\n", value_type);
             return nullptr;
-        }
-        return &m->types[type_s];
     }
 }
 
@@ -169,7 +162,7 @@ void skip_immediates(uint8_t **pos) {
         case 0x11:  // call_indirect
             // encoding: 0x11 x 0x00
             read_LEB_32(pos);  // read x
-            read_LEB_32(pos);  // 0x00 byte
+            read_LEB(pos, 7);  // 0x00 byte
             break;
             // varint64
         case 0x42:  // i64.const
@@ -225,7 +218,7 @@ void find_blocks(Module *m) {
                 case 0x04:     // if
                     block = (Block *)acalloc(1, sizeof(Block), "Block");
                     block->block_type = opcode;
-                    block->type = get_block_type(m, *(pos + 1));
+                    block->type = get_block_type(*(pos + 1));
                     block->start_ptr = pos;
                     blockstack[++top] = block;
                     m->block_lookup[pos] = block;
@@ -265,27 +258,27 @@ void find_blocks(Module *m) {
 }
 // End Control Instructions
 
-void WARDuino::run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
+void run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     // Run the init_expr
-    ExecutionContext *ectx = execution_context;
-    RunningState current = instance()->program_state;
+    RunningState current = WARDuino::instance()->program_state;
     WARDuino::instance()->program_state = WARDUINOinit;
     Block block;
     block.block_type = 0x01;
-    block.type = get_block_type(m, type);
+    block.type = get_block_type(type);
     block.start_ptr = *pc;
 
-    ectx->pc_ptr = *pc;
-    interpreter->push_block(m, &block, ectx->sp);
+    m->pc_ptr = *pc;
+    Interpreter *interpreter = WARDuino::instance()->interpreter;
+    interpreter->push_block(m, &block, m->sp);
     // WARNING: running code here to get initial value!
-    dbg_info("  running init_expr at 0x%p: %s\n", ectx->pc_ptr,
+    dbg_info("  running init_expr at 0x%p: %s\n", m->pc_ptr,
              block_repr(&block));
     interpreter->interpret(m);
-    *pc = ectx->pc_ptr;
+    *pc = m->pc_ptr;
 
-    ASSERT(ectx->stack[ectx->sp].value_type == type,
-           "init_expr type mismatch 0x%x != 0x%x",
-           ectx->stack[ectx->sp].value_type, type);
+    ASSERT(m->stack[m->sp].value_type == type,
+           "init_expr type mismatch 0x%x != 0x%x", m->stack[m->sp].value_type,
+           type);
     WARDuino::instance()->program_state = current;
 }
 
@@ -306,29 +299,24 @@ uint32_t WARDuino::get_export_fidx(Module *m, const char *name) {
     return static_cast<uint32_t>(-1);
 }
 
-uint32_t WARDuino::get_export_global_idx(Module *m, const char *name) {
-    // Find name global index
-    for (uint32_t g = 0; g < m->global_count; g++) {
-        char *gname = m->globals[g]->export_name;
-        if (!gname) {
-            continue;
-        }
-        if (strncmp(name, gname, 1024) == 0) {
-            return g;
-        }
-    }
-    return static_cast<uint32_t>(-1);
-}
-
 void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                   uint32_t byte_count) {
     uint32_t word;
     uint8_t valueType;
 
+    // Allocate stacks
+    m->stack = (StackValue *)acalloc(STACK_SIZE, sizeof(StackValue), "Stack");
+    m->callstack = (Frame *)acalloc(CALLSTACK_SIZE, sizeof(Frame), "Callstack");
+    m->br_table =
+        (uint32_t *)acalloc(BR_TABLE_SIZE, sizeof(uint32_t), "Branch table");
+
+    // Empty stacks
+    m->sp = -1;
+    m->fp = -1;
+    m->csp = -1;
+
     m->bytes = bytes;
     m->byte_count = byte_count;
-    // run constructor with already allocated memory
-    new (&m->block_lookup) std::map<uint8_t *, Block *>;
     m->start_function = UNDEF;
 
     // Check the module
@@ -344,10 +332,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     // Needed for run_init_expr
     RunningState oldState = this->program_state;
     this->program_state = WARDUINOrun;
-
-    execution_context->current_module = m;
-
-    uint32_t declared_data_count = -1;
 
     while (pos < bytes_end) {
         uint32_t id = read_LEB(&pos, 7);
@@ -371,7 +355,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 } else {
                     dbg_warn("Ignoring unknown custom section '%s'\n", name);
                 }
-                free(name);
                 pos = end_pos;
                 break;
             }
@@ -426,7 +409,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                           import_field);
 
                     uint32_t type_index = 0, fidx;
-                    uint8_t content_type = 0, mutability = 0;
+                    uint8_t content_type = 0, mutability;
 
                     switch (
                         external_kind) {  // NOLINT(hicpp-multiway-paths-covered)
@@ -441,96 +424,62 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             break;
                         case 0x03:  // Global
                             content_type = read_LEB(&pos, 7);
+                            // TODO: use mutability
                             mutability = read_LEB(&pos, 1);
+                            (void)mutability;
                             break;
                     }
 
                     void *val;
                     char *err,
-                        *sym = (char *)malloc(module_len + field_len + 5);
+                        //*sym = (char *)malloc(module_len + field_len + 5);
+                        *sym = (char *)acalloc(module_len + field_len + 5,
+                                               sizeof(char), "import symbol");
 
-                    if (strcmp(import_module, "env") == 0) {
-                        // TODO add special case form primitives with
-                        // resolvePrim
-                        do {
-                            // Try using module as handle filename
-                            if (resolvesym(m->warduino->interpreter,
-                                           import_module, import_field,
-                                           external_kind, &val, &err)) {
-                                break;
-                            }
+                    // TODO add special case form primitives with resolvePrim
+                    do {
+                        // Try using module as handle filename
+                        if (resolvesym(import_module, import_field,
+                                       external_kind, &val, &err)) {
+                            break;
+                        }
 
-                            // Try concatenating module and field using
-                            // underscores Also, replace '-' with '_'
-                            sprintf(sym, "_%s__%s_", import_module,
-                                    import_field);
-                            int sidx = -1;
-                            while (sym[++sidx]) {
-                                if (sym[sidx] == '-') {
-                                    sym[sidx] = '_';
-                                }
-                            }
-                            if (resolvesym(m->warduino->interpreter, nullptr,
-                                           sym, external_kind, &val, &err)) {
-                                break;
-                            }
-
-                            // If enabled, try without the leading underscore
-                            // (added by emscripten for external symbols)
-                            if (m->options.dlsym_trim_underscore &&
-                                (strncmp("env", import_module, 4) == 0) &&
-                                (strncmp("_", import_field, 1) == 0)) {
-                                sprintf(sym, "%s", import_field + 1);
-                                if (resolvesym(m->warduino->interpreter,
-                                               nullptr, sym, external_kind,
-                                               &val, &err)) {
-                                    break;
-                                }
-                            }
-
-                            // Try the plain symbol by itself with module
-                            // name/handle
-                            sprintf(sym, "%s", import_field);
-                            if (resolvesym(m->warduino->interpreter, nullptr,
-                                           sym, external_kind, &val, &err)) {
-                                break;
-                            }
-                            FATAL("Error: %s\n", err);
-                        } while (false);
-                    } else {
-                        Module *target_mod = this->get_module(import_module);
-                        if (target_mod) {
-                            switch (external_kind) {
-                                case 0x00:  // Function
-                                {
-                                    uint32_t tfidx = get_export_fidx(
-                                        target_mod, import_field);
-                                    if (tfidx != (uint32_t)-1) {
-                                        val =
-                                            (void *)target_mod->functions[tfidx]
-                                                .func_ptr;
-                                    }
-                                } break;
-                                case 0x01:  // Table (Shared Table)
-                                    val = (void *)&target_mod->table;
-                                    break;
-                                case 0x02:  // Memory (Shared Memory)
-                                    val = (void *)&target_mod->memory;
-                                    break;
-                                case 0x03:  // Global
-                                    uint32_t gidx = get_export_global_idx(
-                                        target_mod, import_field);
-                                    if (gidx != (uint32_t)-1) {
-                                        val = (void *)target_mod->globals[gidx];
-                                    } else {
-                                        FATAL(
-                                            "Global import not found: %s.%s\n",
-                                            import_module, import_field);
-                                    }
-                                    break;
+                        // Try concatenating module and field using underscores
+                        // Also, replace '-' with '_'
+                        sprintf(sym, "_%s__%s_", import_module, import_field);
+                        int sidx = -1;
+                        while (sym[++sidx]) {
+                            if (sym[sidx] == '-') {
+                                sym[sidx] = '_';
                             }
                         }
-                    }
+                        if (resolvesym(nullptr, sym, external_kind, &val,
+                                       &err)) {
+                            break;
+                        }
+
+                        // If enabled, try without the leading underscore (added
+                        // by emscripten for external symbols)
+                        if (m->options.dlsym_trim_underscore &&
+                            (strncmp("env", import_module, 4) == 0) &&
+                            (strncmp("_", import_field, 1) == 0)) {
+                            sprintf(sym, "%s", import_field + 1);
+                            if (resolvesym(nullptr, sym, external_kind, &val,
+                                           &err)) {
+                                break;
+                            }
+                        }
+
+                        // Try the plain symbol by itself with module
+                        // name/handle
+                        sprintf(sym, "%s", import_field);
+                        if (resolvesym(nullptr, sym, external_kind, &val,
+                                       &err)) {
+                            break;
+                        }
+
+                        FATAL("Error: %s\n", err);
+                    } while (false);
 
                     debug("  found '%s.%s' as symbol '%s' at address %p\n",
                           import_module, import_field, sym, val);
@@ -544,10 +493,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             m->import_count += 1;
                             m->function_count += 1;
                             m->functions = (Block *)arecalloc(
-                                m->functions, fidx, m->import_count,
-                                sizeof(Block), "Block(imports)");
+                                m->functions, m->function_count - 1,
+                                m->function_count, sizeof(Block), "functions");
 
-                            Block *func = &m->functions[fidx];
+                            auto *func = &m->functions[fidx];
                             func->import_module = import_module;
                             func->import_field = import_field;
                             func->type = &m->types[type_index];
@@ -562,76 +511,65 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         }
                         case 0x01:  // Table
                         {
-                            m->table.imported = true;
-                            if (strcmp(import_module, "env") != 0) {
-                                Table *shared_table = (Table *)val;
-                                m->table.entries = shared_table->entries;
-                                m->table.size = shared_table->size;
-                                m->table.maximum = shared_table->maximum;
-                                m->table.owner = shared_table->owner;
-                                // We share the underlying array
-                            } else {
-                                ASSERT(!m->table.entries,
-                                       "More than 1 table not supported\n");
-                                auto *tval = (Table *)val;
-                                m->table.entries = (uint32_t *)val;
-                                ASSERT(m->table.initial <= tval->maximum,
-                                       "Imported table is not large enough\n");
-                                dbg_warn("  setting table.entries to: %p\n",
-                                         *(uint32_t **)val);
-                                m->table.entries = *(uint32_t **)val;
-                                m->table.size = tval->size;
-                                m->table.maximum = tval->maximum;
-                                m->table.entries = tval->entries;
-                            };
+                            ASSERT(!m->table.entries,
+                                   "More than 1 table not supported\n");
+                            auto *tval = (Table *)val;
+                            m->table.entries = (uint32_t *)val;
+                            ASSERT(m->table.initial <= tval->maximum,
+                                   "Imported table is not large enough\n");
+                            dbg_warn("  setting table.entries to: %p\n",
+                                     *(uint32_t **)val);
+                            m->table.entries = *(uint32_t **)val;
+                            m->table.size = tval->size;
+                            m->table.maximum = tval->maximum;
+                            m->table.entries = tval->entries;
                             break;
                         }
                         case 0x02:  // Memory
                         {
-                            m->memory.imported = true;
-                            if (strcmp(import_module, "env") != 0) {
-                                Memory *shared_mem = (Memory *)val;
-                                m->memory.bytes = shared_mem->bytes;
-                                m->memory.pages = shared_mem->pages;
-                                m->memory.maximum = shared_mem->maximum;
-                                // We share the underlying byte array
-                            } else {
-                                ASSERT(!m->memory.bytes,
-                                       "More than 1 memory not supported\n");
-                                auto *mval = (Memory *)val;
-                                ASSERT(m->memory.initial <= mval->maximum,
-                                       "Imported memory is not large enough\n");
-                                dbg_warn(
-                                    "  setting memory pages: %d, max: %d, "
-                                    "bytes: "
-                                    "%p\n",
-                                    mval->pages, mval->maximum, mval->bytes);
-                                m->memory.pages = mval->pages;
-                                m->memory.maximum = mval->maximum;
-                                m->memory.bytes = mval->bytes;
-                            };
+                            ASSERT(m->memory.bytes == nullptr,
+                                   "More than 1 memory not supported\n");
+                            auto *mval = (Memory *)val;
+                            ASSERT(m->memory.initial <= mval->maximum,
+                                   "Imported memory is not large enough\n");
+                            dbg_warn(
+                                "  setting memory pages: %d, max: %d, bytes: "
+                                "%p\n",
+                                mval->pages, mval->maximum, mval->bytes);
+                            m->memory.pages = mval->pages;
+                            m->memory.maximum = mval->maximum;
+                            m->memory.bytes = mval->bytes;
                             break;
                         }
                         case 0x03:  // Global
                         {
-                            auto *gval = (Global *)val;
-                            ASSERT(gval->mutability == mutability,
-                                   "Imported global mutability mismatch: "
-                                   "imported=%d, expected=%d",
-                                   gval->mutability, mutability);
-                            ASSERT(gval->value->value_type == content_type,
-                                   "Imported global type mismatch\n");
                             m->global_count += 1;
-                            m->globals = (Global **)arecalloc(
+                            m->globals = (StackValue *)arecalloc(
                                 m->globals, m->global_count - 1,
-                                m->global_count, sizeof(Global *), "globals");
-                            Global **glob = &m->globals[m->global_count - 1];
-                            *glob = gval;
+                                m->global_count, sizeof(StackValue), "globals");
+                            StackValue *glob = &m->globals[m->global_count - 1];
+                            glob->value_type = content_type;
+
+                            switch (
+                                content_type) {  // NOLINT(hicpp-multiway-paths-covered)
+                                case I32:
+                                    memcpy(&glob->value.uint32, val, 4);
+                                    break;
+                                case I64:
+                                    memcpy(&glob->value.uint64, val, 8);
+                                    break;
+                                case F32:
+                                    memcpy(&glob->value.f32, val, 4);
+                                    break;
+                                case F64:
+                                    memcpy(&glob->value.f64, val, 8);
+                                    break;
+                            }
                             debug(
                                 "    setting global %d (content_type %d) to "
                                 "%p: %s\n",
                                 m->global_count - 1, content_type, val,
-                                value_repr((*glob)->value));
+                                value_repr(glob));
                             break;
                         }
                         default:
@@ -648,18 +586,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 debug("  import_count: %d, new count: %d\n", m->import_count,
                       m->function_count);
 
-                Block *functions;
-                functions = (Block *)acalloc(m->function_count, sizeof(Block),
-                                             "Block(function)");
-                if (m->import_count != 0) {
-                    memcpy(functions, m->functions,
-                           sizeof(Block) * m->import_count);
-                    free(m->functions);
-                }
-                m->functions = functions;
-
                 for (uint32_t f = m->import_count; f < m->function_count; f++) {
                     uint32_t tidx = read_LEB_32(&pos);
+                    m->functions = (Block *)arecalloc(
+                        m->functions, f, f + 1, sizeof(Block), "functions");
                     m->functions[f].fidx = f;
                     m->functions[f].type = &m->types[tidx];
                     debug("  function fidx: 0x%x, tidx: 0x%x\n", f, tidx);
@@ -678,7 +608,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 m->options.mangle_table_index = false;
                 m->table.entries = (uint32_t *)acalloc(
                     m->table.size, sizeof(uint32_t), "Module->table.entries");
-                m->table.owner = m;
                 //}
                 break;
             }
@@ -690,10 +619,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 // Allocate memory
                 // for (uint32_t c=0; c<memory_count; c++) {
                 parse_memory_type(m, &pos);
-                m->memory.bytes =
-                    (uint8_t *)acalloc(m->memory.pages * PAGE_SIZE,
-                                       1,  // sizeof(uint32_t),
-                                       "Module->memory.bytes");
+                m->memory_resize(m->memory.pages);
                 //}
                 break;
             }
@@ -703,24 +629,20 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 for (uint32_t g = 0; g < global_count; g++) {
                     // Same allocation Import of global above
                     uint8_t type = read_LEB(&pos, 7);
+                    // TODO: use mutability
                     uint8_t mutability = read_LEB(&pos, 1);
                     (void)mutability;
                     uint32_t gidx = m->global_count;
                     m->global_count += 1;
-                    m->globals =
-                        (Global **)arecalloc(m->globals, gidx, m->global_count,
-                                             sizeof(Global *), "globals");
-                    m->globals[gidx] =
-                        (Global *)acalloc(1, sizeof(Global), "globals");
-                    m->globals[gidx]->value =
-                        (StackValue *)acalloc(1, sizeof(StackValue), "globals");
+                    m->globals = (StackValue *)arecalloc(
+                        m->globals, gidx, m->global_count, sizeof(StackValue),
+                        "globals");
+                    m->globals[gidx].value_type = type;
 
                     // Run the init_expr to get global value
                     run_init_expr(m, type, &pos);
 
-                    *(m->globals[gidx]->value) =
-                        execution_context->stack[execution_context->sp--];
-                    m->globals[gidx]->mutability = mutability;
+                    m->globals[gidx] = m->stack[m->sp--];
                 }
                 pos = start_pos + section_len;
                 break;
@@ -731,22 +653,18 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 uint32_t export_count = read_LEB_32(&pos);
                 for (uint32_t e = 0; e < export_count; e++) {
                     char *name = read_string(&pos, nullptr);
+
                     uint32_t kind = *(pos++);  // read and move pos
                     uint32_t index = read_LEB_32(&pos);
-                    switch (kind) {
-                        case 0x00:
-                            m->functions[index].export_name = name;
-                            break;
-                        case 0x03:
-                            m->globals[index]->export_name = name;
-                            break;
-                        default:
-                            dbg_warn(
-                                "  ignoring non-function export '%s'"
-                                " kind 0x%x index 0x%x\n",
-                                name, kind, index);
-                            free(name);
+                    if (kind != 0x00) {
+                        dbg_warn(
+                            "  ignoring non-function export '%s'"
+                            " kind 0x%x index 0x%x\n",
+                            name, kind, index);
+                        continue;
                     }
+                    m->functions[index].export_name = name;
+                    debug("  export: %s (0x%x)\n", name, index);
                 }
                 break;
             }
@@ -777,9 +695,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     // Run the init_expr to get offset
                     run_init_expr(m, I32, &pos);
 
-                    uint32_t offset =
-                        execution_context->stack[execution_context->sp--]
-                            .value.uint32;
+                    uint32_t offset = m->stack[m->sp--].value.uint32;
 
                     if (m->options.mangle_table_index) {
                         // offset is the table address + the index (not sized
@@ -821,11 +737,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 dbg_warn("Parsing Data(11) section (length: 0x%x)\n",
                          section_len);
                 uint32_t seg_count = read_LEB_32(&pos);
-                ASSERT(declared_data_count == static_cast<uint32_t>(-1) ||
-                           seg_count == declared_data_count,
-                       "data segment count mismatch: DataCount declares "
-                       "%" PRIu32 " but Data section contains %" PRIu32,
-                       declared_data_count, seg_count);
                 for (uint32_t s = 0; s < seg_count; s++) {
                     uint32_t midx = read_LEB_32(&pos);
                     ASSERT(midx == 0, "Only 1 default memory in MVP");
@@ -833,9 +744,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     // Run the init_expr to get the offset
                     run_init_expr(m, I32, &pos);
 
-                    uint32_t offset =
-                        execution_context->stack[execution_context->sp--]
-                            .value.uint32;
+                    uint32_t offset = m->stack[m->sp--].value.uint32;
 
                     // Copy the data to the memory offset
                     uint32_t size = read_LEB_32(&pos);
@@ -850,7 +759,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         "  setting 0x%x bytes of memory at 0x%p + offset "
                         "0x%x\n",
                         size, m->memory.bytes, offset);
-                    memcpy(m->memory.bytes + offset, pos, size);
+                    memcpy(&m->memory.bytes[offset], pos, size);
                     pos += size;
                 }
 
@@ -881,9 +790,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     }
 
                     if (function->local_count > 0) {
-                        function->local_value_type = (uint8_t *)acalloc(
-                            function->local_count, sizeof(uint8_t),
-                            "function->local_value_type");
+                        function->local_value_type =
+                            (uint8_t *)acalloc(function->local_count,
+                                               sizeof(uint8_t),
+                                               "function->local_value_type");
                     }
 
                     // Restore position and read the locals
@@ -906,20 +816,15 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 }
                 break;
             }
-            case 12: {
-                dbg_warn("Parsing DataCount(12) section (length: 0x%x)\n",
-                         section_len);
-                ASSERT(declared_data_count == static_cast<uint32_t>(-1),
-                       "Malformed module: multiple DataCount sections are not "
-                       "allowed");
-                declared_data_count = read_LEB_32(&pos);
-                break;
-            }
             default:
                 FATAL("Section %" PRIu32 " unimplemented\n", id);
                 pos += section_len;
         }
     }
+
+#ifdef EMULATOR
+    m->create_symbolic_state();
+#endif
 
     find_blocks(m);
     debug("findblocks finished\n");
@@ -939,16 +844,17 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
         if (fidx < m->import_count) {
             // THUNK thunk_out(m, fidx);     // import/thunk call
         } else {
-            interpreter->setup_call(m, fidx);  // regular function call
+            m->warduino->interpreter->setup_call(
+                m, fidx);  // regular function call
         }
 
-        if (execution_context->csp < 0) {
+        if (m->csp < 0) {
             // start function was a direct external call
             result = true;
         } else {
             // run the function setup by setup_call
             debug("running startfun \n");
-            result = interpreter->interpret(m);
+            result = m->warduino->interpreter->interpret(m);
         }
         if (!result) {
             FATAL("Exception: %s\n", exception);
@@ -958,27 +864,13 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     this->program_state = oldState;
 }
 
-Module *WARDuino::get_module(const char *name) {
-    if (name == nullptr) return nullptr;
-    for (Module *m : this->modules) {
-        if (m->name != nullptr && strcmp(m->name, name) == 0) {
-            return m;
-        }
-    }
-    return nullptr;
-}
-
 Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
-                              const char *module_name, Options options) {
+                              Options options) {
     debug("Loading module of size %d \n", byte_count);
-    Module *m;
     // Allocate the module
-    m = (Module *)acalloc(1, sizeof(Module), "Module");
+    auto *m = new Module();
     m->warduino = this;
     m->options = options;
-    if (module_name) {
-        m->name = strdup(module_name);
-    }
 
     this->instantiate_module(m, bytes, byte_count);
 
@@ -996,94 +888,26 @@ void WARDuino::unload_module(Module *m) {
     auto it = std::find(this->modules.begin(), this->modules.end(), m);
     if (it != this->modules.end()) this->modules.erase(it);
     this->free_module_state(m);
-    free(m);
+    delete m;
 }
 
 WARDuino::WARDuino() {
     this->debugger = new Debugger(0);
     this->interpreter = new Interpreter();
-    this->init_execution_context();
-    install_primitives(this->interpreter);
+    install_primitives();
     initTypes();
 }
 
-WARDuino::~WARDuino() {
-    for (Module *m : this->modules) {
-        this->free_module_state(m);
-        free(m);
-    }
-    this->modules.clear();
-
-    this->free_execution_context();
-}
-
-void WARDuino::shutdown() {
-    if (singleton != nullptr) {
-        delete singleton;
-        singleton = nullptr;
-    }
-}
-
-void WARDuino::init_execution_context() {
-    if (execution_context != nullptr) {
-        return;
-    }
-
-    execution_context = (ExecutionContext *)acalloc(1, sizeof(ExecutionContext),
-                                                    "ExecutionContext");
-
-    execution_context->stack =
-        (StackValue *)acalloc(STACK_SIZE, sizeof(StackValue), "Shared Stack");
-    execution_context->callstack =
-        (Frame *)acalloc(CALLSTACK_SIZE, sizeof(Frame), "Shared Callstack");
-    execution_context->br_table = (uint32_t *)acalloc(
-        BR_TABLE_SIZE, sizeof(uint32_t), "Shared Branch table");
-
-    execution_context->sp = -1;
-    execution_context->fp = -1;
-    execution_context->csp = -1;
-    execution_context->pc_ptr = nullptr;
-    execution_context->current_module = nullptr;
-}
-
-void WARDuino::free_execution_context() {
-    if (execution_context == nullptr) {
-        return;
-    }
-
-    if (execution_context->stack != nullptr) {
-        free(execution_context->stack);
-    }
-    if (execution_context->callstack != nullptr) {
-        for (int j = 0; j <= execution_context->csp; j++) {
-            Frame *f = &execution_context->callstack[j];
-            if (f->block != nullptr && (f->block->block_type == 0xfe ||
-                                        f->block->block_type == 0xff)) {
-                free(f->block);
-            }
-        }
-        free(execution_context->callstack);
-    }
-    if (execution_context->br_table != nullptr) {
-        free(execution_context->br_table);
-    }
-
-    free(execution_context);
-    execution_context = nullptr;
-}
-
 // Return value of false means exception occurred
-std::vector<StackValue> WARDuino::invoke(Module *m, uint32_t fidx,
-                                         uint32_t arity, StackValue *args) {
-    ExecutionContext *ectx = m->warduino->execution_context;
+bool WARDuino::invoke(Module *m, uint32_t fidx, uint32_t arity,
+                      StackValue *args) {
     bool result;
-    ectx->sp = -1;
-    ectx->fp = -1;
-    ectx->csp = -1;
-    ectx->current_module = m;
+    m->sp = -1;
+    m->fp = -1;
+    m->csp = -1;
 
     for (uint32_t i = 0; i < arity; ++i) {
-        ectx->stack[++ectx->sp] = *args;
+        m->stack[++m->sp] = *args;
         args++;
     }
 
@@ -1094,41 +918,22 @@ std::vector<StackValue> WARDuino::invoke(Module *m, uint32_t fidx,
     result = interpreter->interpret(m);
     dbg_trace("Interpretation ended\n");
     dbg_dump_stack(m);
-
-    if (!result) {
-        return {};
-    }
-
-    uint32_t rescount = 0;
-    Type *ftype = m->functions[fidx].type;
-    rescount = ftype->result_count;
-    std::vector<StackValue> out(rescount);
-    for (uint32_t i = 0; i < rescount; ++i)
-        out[i] = ectx->stack[ectx->sp - (rescount - 1) + i];
-    return out;
-}
-
-void WARDuino::setInterpreter(Interpreter *interpreter) {
-    this->interpreter = interpreter;
+    return result;
 }
 
 int WARDuino::run_module(Module *m) {
-    ExecutionContext *ectx = m->warduino->execution_context;
     uint32_t fidx = this->get_main_fidx(m);
-
-    ectx->current_module = m;
 
     // execute main
     if (fidx != UNDEF) {
-        auto results = this->invoke(m, fidx);
-        if (results.empty()) return 0;
-        return (int)results[0].value.uint32;
+        return this->invoke(m, fidx);
+        /*this->invoke(m, fidx);
+        return m->stack[m->sp].value.uint32;*/
     }
-    fflush(stdout);
 
     // wait
     m->warduino->debugger->pauseRuntime(m);
-    return interpreter->interpret(m, true);
+    return m->warduino->interpreter->interpret(m, true);
 }
 
 // Called when an interrupt comes in (not concurre
@@ -1148,11 +953,6 @@ WARDuino *WARDuino::instance() {
 
 // Removes all the state of a module
 void WARDuino::free_module_state(Module *m) {
-    if (m->name != nullptr) {
-        free(m->name);
-        m->name = nullptr;
-    }
-
     if (m->types != nullptr) {
         for (uint32_t i = 0; i < m->type_count; i++) {
             free(m->types[i].params);
@@ -1164,46 +964,48 @@ void WARDuino::free_module_state(Module *m) {
 
     if (m->functions != nullptr) {
         for (uint32_t i = 0; i < m->function_count; ++i) {
-            if (m->functions[i].export_name != nullptr)
-                free(m->functions[i].export_name);
-            if (m->functions[i].local_count)
-                free(m->functions[i].local_value_type);
-            if (m->functions[i].import_module)
-                free(m->functions[i].import_module);
-            if (m->functions[i].import_field)
-                free(m->functions[i].import_field);
+            free(m->functions[i].export_name);
+            free(m->functions[i].local_value_type);
         }
         free(m->functions);
         m->functions = nullptr;
     }
 
     if (m->globals != nullptr) {
-        for (uint32_t i = 0; i < m->global_count; ++i)
-            if (m->globals[i]->export_name != nullptr)
-                free(m->globals[i]->export_name);
         free(m->globals);
         m->globals = nullptr;
     }
 
-    if (!m->table.imported) {
-        if (m->table.entries != nullptr) {
-            free(m->table.entries);
-            m->table.entries = nullptr;
-        }
-        m->table.elem_type = 0;
-        m->table.initial = 0;
-        m->table.maximum = 0;
-        m->table.size = 0;
+    if (m->table.entries != nullptr) {
+        free(m->table.entries);
+        m->table.entries = nullptr;
     }
 
-    if (!m->memory.imported) {
-        if (m->memory.bytes != nullptr) {
-            free(m->memory.bytes);
-            m->memory.bytes = nullptr;
+    if (m->memory.bytes != nullptr) {
+        free(m->memory.bytes);
+        m->memory.bytes = nullptr;
+    }
+
+    if (m->stack != nullptr) {
+        free(m->stack);
+        m->stack = nullptr;
+    }
+
+    if (m->callstack != nullptr) {
+        for (int j = 0; j <= m->csp; j++) {
+            Frame *f = &m->callstack[j];
+            if (f->block != nullptr && (f->block->block_type == 0xfe ||
+                                        f->block->block_type == 0xff)) {
+                free(f->block);
+            }
         }
-        m->memory.pages = 0;
-        m->memory.initial = 0;
-        m->memory.maximum = 0;
+        free(m->callstack);
+        m->callstack = nullptr;
+    }
+
+    if (m->br_table != nullptr) {
+        free(m->br_table);
+        m->br_table = nullptr;
     }
 
     m->function_count = 0;
@@ -1212,56 +1014,36 @@ void WARDuino::free_module_state(Module *m) {
 
     m->import_count = 0;
     m->global_count = 0;
+    m->pc_ptr = 0;
+    m->sp = -1;
+    m->fp = -1;
+    m->csp = -1;
 
     if (m->exception != nullptr) {
         free(m->exception);  // safe to remove?
     }
 
-    for (std::pair<uint8_t *, Block *> block : m->block_lookup) {
-        free(block.second);
-    }
+    m->memory.pages = 0;
+    m->memory.initial = 0;
+    m->memory.maximum = 0;
+    m->table.elem_type = 0;
+    m->table.initial = 0;
+    m->table.maximum = 0;
+    m->table.size = 0;
+
     m->block_lookup.clear();
-}
-
-void WARDuino::reset_module(Module *m) {
-    const uint32_t byte_count = m->byte_count;
-    free_module_state(m);  // Does not reset m->bytes
-    program_state = WARDUINOinit;
-    ExecutionContext *ectx = execution_context;
-    ectx->sp = -1;
-    ectx->fp = -1;
-    ectx->csp = -1;
-    ectx->current_module = m;
-    instantiate_module(m, m->bytes, byte_count);
-
-    uint32_t fidx = get_main_fidx(m);
-    // execute main
-    if (fidx != UNDEF) {
-        interpreter->setup_call(m, fidx);
-        program_state = WARDUINOrun;
-    }
-
-    // wait
-    debugger->pauseRuntime(m);
 }
 
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
     m->warduino->program_state = WARDUINOinit;
 
     this->free_module_state(m);
-
-    ExecutionContext *ectx = m->warduino->execution_context;
-    ectx->sp = -1;
-    ectx->fp = -1;
-    ectx->csp = -1;
-    ectx->current_module = m;
-
     this->instantiate_module(m, wasm, wasm_len);
     uint32_t fidx = this->get_main_fidx(m);
 
     // execute main
     if (fidx != UNDEF) {
-        interpreter->setup_call(m, fidx);
+        m->warduino->interpreter->setup_call(m, fidx);
         m->warduino->program_state = WARDUINOrun;
     }
 
@@ -1277,32 +1059,103 @@ uint32_t WARDuino::get_main_fidx(Module *m) {
     return fidx;
 }
 
-#if defined(ARDUINO)
-#include <Esp.h>
-#define TOTAL_MALLOC (ESP.getHeapSize() - ESP.getFreeHeap())
-#elif defined(ESP_PLATFORM)
-#include <esp_heap_caps.h>
-#define TOTAL_MALLOC                                \
-    (heap_caps_get_total_size(MALLOC_CAP_DEFAULT) - \
-     heap_caps_get_free_size(MALLOC_CAP_DEFAULT))
-#elif defined(__ZEPHYR__)
-#include <zephyr/kernel.h>
-#include <zephyr/sys/sys_heap.h>
-
-extern struct sys_heap _system_heap;
-
-struct sys_memory_stats stats;
-
-#define TOTAL_MALLOC                                       \
-    ({                                                     \
-        sys_heap_runtime_stats_get(&_system_heap, &stats); \
-        stats.allocated_bytes;                             \
-    })
-#elif defined(__APPLE__)
-#include <malloc/malloc.h>
-#define TOTAL_MALLOC mstats().bytes_used
-#else
-#include <malloc.h>
-#define TOTAL_MALLOC mallinfo2().uordblks
+void Module::memory_resize(uint32_t new_pages) {
+    uint32_t old_pages = memory.pages;
+    if (memory.bytes == nullptr) {
+        memory.bytes = (uint8_t *)acalloc(new_pages * PAGE_SIZE, sizeof(uint8_t),
+                                          "Module->memory.bytes");
+    } else {
+        memory.bytes = (uint8_t *)arecalloc(
+            memory.bytes, old_pages * PAGE_SIZE, new_pages * PAGE_SIZE,
+            sizeof(uint8_t), "Module->memory.bytes");
+    }
+    memory.pages = new_pages;
+#ifdef EMULATOR
+    symbolic_memory.symbolic_bytes.resize(new_pages * PAGE_SIZE,
+                                          ctx.bv_val(0, 8));
+    symbolic_memory.symbolic_pages = ctx.bv_val(new_pages, 32);
 #endif
-uint32_t WARDuino::get_heap_used() { return TOTAL_MALLOC; }
+}
+
+#ifdef EMULATOR
+void Module::create_symbolic_state() {
+    /*
+     * Create symbolic globals from concrete globals.
+     * Init expressions for globals are constant expressions. Because of this it
+     * will not involve symbolic semantics, and we can just take the concrete
+     * value and create a symbolic literal from it.
+     */
+    symbolic_globals.clear();
+    for (size_t i = 0; i < global_count; i++) {
+        symbolic_globals.push_back(
+            ConcolicInterpreter::encode_as_symbolic(this, &globals[i]));
+    }
+
+    // Create symbolic memory from concrete memory.
+    for (size_t i = 0; i < memory.pages * PAGE_SIZE; i++) {
+        symbolic_memory.symbolic_bytes[i] = ctx.bv_val(memory.bytes[i], 8);
+    }
+
+    /*
+     * Create symbolic stack from concrete stack.
+     * This is useful when we load a snapshot from the microcontroller while
+     * debugging. It makes it possible to continue the concrete execution using
+     * the concolic interpreter.
+     */
+    for (int i = 0; i <= sp; i++) {
+        symbolic_stack[i] =
+            ConcolicInterpreter::encode_as_symbolic(this, &stack[i]);
+    }
+}
+#endif
+
+std::vector<uint8_t *> Module::find_calls(const std::function<bool(std::string)>& cond, bool after) const {
+    std::vector<uint8_t *> call_sites;
+    for (uint32_t i = import_count; i < function_count; i++) {
+        Block *func = &functions[i];
+        uint8_t *pc = func->start_ptr;
+        while (pc < func->end_ptr) {
+            uint8_t opcode = *pc;
+            uint8_t *instruction_start_pc = pc;
+            if (opcode == 0x10) {
+                pc++;
+                uint32_t fidx = read_LEB_32(&pc);
+                if (fidx < import_count) {
+                    const char *module_name = functions[fidx].import_module;
+                    const char *field_name = functions[fidx].import_field;
+                    if (!strcmp(module_name, "env") && cond(field_name)) {
+                        if (!after) {
+                            call_sites.push_back(instruction_start_pc);
+                        }
+                        else {
+                            // NOTE: Only works because this is a primitive call, if it was a regular call the vm would jump into a function and not just to the instruction after the call instruction.
+                            call_sites.push_back(pc);
+                        }
+                    }
+                }
+                continue;
+            }
+            skip_immediates(&pc);
+        }
+    }
+    return call_sites;
+}
+
+std::vector<uint8_t *> Module::find_choice_points(bool after) const {
+    std::set<std::string> symbolic_primitives = {
+        "chip_digital_read",
+        "chip_analog_read",
+        "color_sensor",
+    };
+    return find_calls([symbolic_primitives](const std::string &field_name) {
+        return symbolic_primitives.find(field_name) != symbolic_primitives.end();
+    }, after);
+}
+
+std::vector<uint8_t *> Module::find_pc_before_primitive_calls() const {
+    return find_calls([](const std::string& x) { return true; });
+}
+
+std::vector<uint8_t *> Module::find_pc_after_primitive_calls() const {
+    return find_calls([](const std::string& x) { return true; }, true);
+}

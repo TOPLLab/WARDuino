@@ -18,23 +18,20 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address);
 class Channel {
    public:
     virtual void open() {}
-    virtual int write(char const *, ...) { return 0; }
-    virtual ssize_t read(void *, size_t) { return 0; }
+    virtual int write(char const *fmt, ...) const { return 0; }
+    virtual ssize_t read(void *out, size_t size) { return 0; }
     virtual void close() {}
     virtual ~Channel() = default;
 };
 
-// note: Channel::write could be a const function, but since it's a proxy
-// for writing to an output stream, it shouldn't be const (this also eliminates
-// a lot of "expression result unused" warnings).
-
 class Sink : public Channel {
    private:
     FILE *outStream;
+    int outDescriptor;
 
    public:
     explicit Sink(FILE *out);
-    int write(char const *fmt, ...) override;
+    int write(char const *fmt, ...) const override;
 };
 
 class Duplex : public Sink {
@@ -54,12 +51,12 @@ class FileDescriptorChannel : public Channel {
    public:
     explicit FileDescriptorChannel(int fileDescriptor);
 
-    int write(char const *fmt, ...) override;
+    int write(char const *fmt, ...) const override;
     ssize_t read(void *out, size_t size) override;
 };
 
 class WebSocket : public Channel {
-   protected:
+   private:
     int port;
     int fileDescriptor;
     int socket;
@@ -68,13 +65,7 @@ class WebSocket : public Channel {
     explicit WebSocket(int port);
 
     void open() override;
-    int write(char const *fmt, ...) override;
+    int write(char const *fmt, ...) const override;
     ssize_t read(void *out, size_t size) override;
     void close() override;
-};
-
-class ClientSocket : public WebSocket {
-   public:
-    explicit ClientSocket(int server);
-    void open() override;
 };

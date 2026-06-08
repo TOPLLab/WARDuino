@@ -5,8 +5,7 @@ option(BUILD_ESP "Build for esp" OFF)
 option(BUILD_EMULATOR "Build for emulator" OFF)
 option(BUILD_UNITTEST "Build for testing" OFF)
 
-# Use C++17
-set(CMAKE_CXX_STANDARD 17)
+include_directories(/usr/include/z3)
 
 if (ESP_PLATFORM)
     set(BUILD_ESP ON)
@@ -44,7 +43,7 @@ if (BUILD_EMULATOR)
             src/WARDuino/WARDuino.cpp
             src/WARDuino/CallbackHandler.cpp
             src/Primitives/emulated.cpp
-            src/Interpreter/instructions.cpp
+            src/Interpreter/concolic_interpreter.cpp
             src/Interpreter/interpreter.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
@@ -54,23 +53,28 @@ if (BUILD_EMULATOR)
             src/Debug/debugger.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
-            src/Edward/RFC.cpp
-    )
+            src/Edward/RFC.cpp)
 
     add_definitions(-DINFO=0)
     add_definitions(-DDEBUG=0)
     add_definitions(-DTRACE=0)
     add_definitions(-DWARN=0)
+    add_definitions(-DEMULATOR=1)
+
+    # Keep emulator and unit-test builds on the same language level.
+    set(CMAKE_CXX_STANDARD 17)
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
-        add_compile_options(-g -v -Wall -Wextra -Werror -Wunused -O3)
+        add_compile_options(-g -v -Wall -Wextra -Wunused)
     endif (CMAKE_COMPILER_IS_GNUCXX)
+    add_compile_options(-O3)
 
     # WARDuino CLI
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
     target_link_libraries(wdcli PRIVATE Threads::Threads)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
+    target_link_libraries(wdcli PRIVATE z3)
 endif (BUILD_EMULATOR)
 
 if (BUILD_UNITTEST)
@@ -85,7 +89,7 @@ if (BUILD_UNITTEST)
             src/WARDuino/WARDuino.cpp
             src/WARDuino/CallbackHandler.cpp
             src/Primitives/emulated.cpp
-            src/Interpreter/instructions.cpp
+            src/Interpreter/concolic_interpreter.cpp
             src/Interpreter/interpreter.cpp
             src/Memory/mem.cpp
             src/Utils/util.cpp
@@ -96,11 +100,14 @@ if (BUILD_UNITTEST)
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
             src/Edward/RFC.cpp
-    )
+            src/Interpreter/interp_loop.h)
+
+    add_definitions(-DEMULATOR=1)
+    set(CMAKE_CXX_STANDARD 17)
 
     # Set default compile flags for GCC
     if (CMAKE_COMPILER_IS_GNUCXX)
-        add_compile_options(-g -v -Wall -Wextra -Wunused -O3)
+        add_compile_options(-g -v -Wall -Wextra -Wunused)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
 
@@ -129,7 +136,7 @@ if (BUILD_UNITTEST)
         get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
         message(DEBUG "Add executable for " ${TEST_FILE})
         add_executable(${TEST_NAME} ${TEST_FILE} ${SOURCE_FILES} ${SHARED_SRC})
-        target_link_libraries(${TEST_NAME} gtest_main)
+        target_link_libraries(${TEST_NAME} gtest_main z3)
         target_include_directories(${TEST_NAME} PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
         add_test(${TEST_NAME} ${TEST_NAME})
     endforeach ()

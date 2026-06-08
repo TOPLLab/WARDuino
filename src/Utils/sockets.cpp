@@ -1,21 +1,16 @@
 #include "sockets.h"
 
-#ifndef __ZEPHYR__
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#endif
 #include <unistd.h>
 
-#ifndef __ZEPHYR__
 #include <csignal>
-#endif
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-#ifndef __ZEPHYR__
 // Socket Debugger Interface
 void setFileDescriptorOptions(int socket_fd) {
     int opt = 1;
@@ -43,7 +38,7 @@ void bindSocketToAddress(int socket_fd, struct sockaddr_in address) {
 }
 
 struct sockaddr_in createAddress(int port) {
-    struct sockaddr_in address{};
+    struct sockaddr_in address {};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
@@ -76,14 +71,16 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     }
     return new_socket;
 }
-#endif
 
-Sink::Sink(FILE *out) { this->outStream = out; }
+Sink::Sink(FILE *out) {
+    this->outStream = out;
+    this->outDescriptor = fileno(out);
+}
 
-int Sink::write(const char *fmt, ...) {
+int Sink::write(const char *fmt, ...) const {
     va_list args;
     va_start(args, fmt);
-    int written = vfprintf(this->outStream, fmt, args);
+    int written = vdprintf(this->outDescriptor, fmt, args);
     va_end(args);
     fflush(this->outStream);
     return written;
@@ -97,12 +94,11 @@ ssize_t Duplex::read(void *out, size_t size) {
     return ::read(this->inDescriptor, out, size);
 }
 
-#ifndef __ZEPHYR__
 FileDescriptorChannel::FileDescriptorChannel(int fileDescriptor) {
     this->fd = fileDescriptor;
 }
 
-int FileDescriptorChannel::write(const char *fmt, ...) {
+int FileDescriptorChannel::write(const char *fmt, ...) const {
     va_list args;
     va_start(args, fmt);
     int written = vdprintf(this->fd, fmt, args);
@@ -120,8 +116,6 @@ WebSocket::WebSocket(int port) {
     this->socket = -1;
 }
 
-ClientSocket::ClientSocket(int server) : WebSocket(server) {}
-
 void WebSocket::open() {
     // bind socket to address
     this->fileDescriptor = createSocketFileDescriptor();
@@ -135,20 +129,7 @@ void WebSocket::open() {
     this->socket = listenForIncomingConnection(this->fileDescriptor, address);
 }
 
-void ClientSocket::open() {
-    // bind socket to address
-    this->fileDescriptor = createSocketFileDescriptor();
-    struct sockaddr_in address = createAddress(this->port);  // server port
-    if (connect(this->fileDescriptor, (struct sockaddr *)&address,
-                sizeof(address)) < 0) {
-        perror("Failed to connect to socket");
-        exit(EXIT_FAILURE);
-    }
-
-    this->socket = this->fileDescriptor;
-}
-
-int WebSocket::write(const char *fmt, ...) {
+int WebSocket::write(const char *fmt, ...) const {
     if (this->socket < 0) {
         return 0;
     }
@@ -167,7 +148,7 @@ ssize_t WebSocket::read(void *out, size_t size) {
 }
 
 void sendAlarm() {
-    struct sigaction sact{};
+    struct sigaction sact {};
     sigemptyset(&sact.sa_mask);
     sact.sa_flags = 0;
     sigaction(SIGALRM, &sact, nullptr);
@@ -178,4 +159,3 @@ void WebSocket::close() {
     sendAlarm();  // stop possible blocking accept call
     shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
 }
-#endif

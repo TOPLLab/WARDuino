@@ -5,13 +5,12 @@
 #include "../Debug/debugger.h"
 #include "../Interpreter/interpreter.h"
 #include "../Utils/macros.h"
-#include "../WARDuino.h"
 
 void push_guard(Module *m) {
     if (m == nullptr) {
         return;
     }
-    auto *guard = static_cast<Block *>(malloc(sizeof(Block)));
+    auto *guard = (Block *)malloc(sizeof(struct Block));
     guard->block_type = 255;
     guard->type = nullptr;
     guard->local_value_type = nullptr;
@@ -22,9 +21,7 @@ void push_guard(Module *m) {
     guard->import_field = nullptr;
     guard->import_module = nullptr;
     guard->func_ptr = nullptr;
-
-    ExecutionContext *ectx = m->warduino->execution_context;
-    WARDuino::instance()->interpreter->push_block(m, guard, ectx->sp);
+    WARDuino::instance()->interpreter->push_block(m, guard, m->sp);
 }
 
 // CallbackHandler class
@@ -72,9 +69,12 @@ size_t CallbackHandler::callback_count(const std::string &topic) {
 // WARNING: Push event functions should not use IO functions, since they can be
 // called from ISR callbacks
 void CallbackHandler::push_event(std::string topic, const char *payload,
-                                 const unsigned int length) {
-    CallbackHandler::push_event(
-        new Event(std::move(topic), std::string(payload, length)));
+                                 unsigned int length) {
+    char *message = (char *)(malloc(sizeof(char) * length + 1));
+    snprintf(message, length + 1, "%s", payload);
+    auto event =
+        new Event(std::move(topic), reinterpret_cast<const char *>(message));
+    CallbackHandler::push_event(event);
 }
 
 void CallbackHandler::push_event(Event *event) {
@@ -116,7 +116,7 @@ bool CallbackHandler::resolve_event(bool force) {
     CallbackHandler::resolving_event = true;
     CallbackHandler::events->pop_front();
 
-    debug("Resolving an event. (%zu remaining)\n",
+    debug("Resolving an event. (%lu remaining)\n",
           CallbackHandler::events->size());
 
     auto iterator = CallbackHandler::callbacks->find(event.topic);
@@ -130,7 +130,7 @@ bool CallbackHandler::resolve_event(bool force) {
         push_guard(module);
     } else {
         // TODO handle error: event for non-existing iterator
-        printf("No handler found for %s (in %zu items)!\n", event.topic.c_str(),
+        printf("No handler found for %s (in %u items)!\n", event.topic.c_str(),
                CallbackHandler::callbacks->size());
     }
     return !CallbackHandler::events->empty();
@@ -197,7 +197,7 @@ Callback::Callback(Module *m, std::string id, uint32_t tidx) {
 
 void Callback::resolve_event(const Event &e) {
     dbg_trace("Callback(%s, %i): resolving Event(%s, \"%s\")\n", topic.c_str(),
-              table_index, e.topic.c_str(), e.payload.c_str());
+              table_index, e.topic.c_str(), e.payload);
 
     // Copy topic and payload to linear memory
     uint32_t start = 10000;  // TODO use reserved area in linear memory
@@ -212,17 +212,16 @@ void Callback::resolve_event(const Event &e) {
     }
 
     // Push arguments (5 args)
-    ExecutionContext *ectx = module->warduino->execution_context;
-    ectx->stack[++ectx->sp].value.uint32 = start - topic.length();
-    ectx->stack[ectx->sp].value_type = I32;
-    ectx->stack[++ectx->sp].value.uint32 = topic.length();
-    ectx->stack[ectx->sp].value_type = I32;
-    ectx->stack[++ectx->sp].value.uint32 = start;
-    ectx->stack[ectx->sp].value_type = I32;
-    ectx->stack[++ectx->sp].value.uint32 = payload.length();
-    ectx->stack[ectx->sp].value_type = I32;
-    ectx->stack[++ectx->sp].value.uint32 = payload.length();
-    ectx->stack[ectx->sp].value_type = I32;
+    module->stack[++module->sp].value.uint32 = start - topic.length();
+    module->stack[module->sp].value_type = I32;
+    module->stack[++module->sp].value.uint32 = topic.length();
+    module->stack[module->sp].value_type = I32;
+    module->stack[++module->sp].value.uint32 = start;
+    module->stack[module->sp].value_type = I32;
+    module->stack[++module->sp].value.uint32 = payload.length();
+    module->stack[module->sp].value_type = I32;
+    module->stack[++module->sp].value.uint32 = payload.length();
+    module->stack[module->sp].value_type = I32;
 
     // Setup function
     uint32_t fidx = module->table.entries[table_index];

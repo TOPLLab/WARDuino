@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
-#include <optional>
 #include <queue>  // std::queue
 #include <set>
 #include <thread>
@@ -13,17 +12,11 @@
 
 #include "../Edward/proxy.h"
 #include "../Edward/proxy_supervisor.h"
-#include "../Threading/warduino-thread.h"
 #include "../Utils/sockets.h"
 
 struct Module;
 struct Block;
 struct StackValue;
-
-enum operation {
-    STORE = 0,
-    LOAD = 1,
-};
 
 enum RunningState {
     WARDUINOinit,
@@ -48,10 +41,7 @@ enum ExecutionState {
     branchingTableState = 0x07,
     stackState = 0x08,
     callbacksState = 0x09,
-    eventsState = 0x0A,
-    ioState = 0x0B,
-    overridesState = 0x0C,
-    heapState = 0x0D,
+    eventsState = 0x0A
 };
 
 enum InterruptTypes {
@@ -63,7 +53,6 @@ enum InterruptTypes {
     interruptSTEPOver = 0x05,
     interruptBPAdd = 0x06,
     interruptBPRem = 0x07,
-    interruptContinueFor = 0x08,
     interruptInspect = 0x09,
     interruptDUMP = 0x10,
     interruptDUMPLocals = 0x11,
@@ -80,7 +69,6 @@ enum InterruptTypes {
 
     // Pull Debugging
     interruptSnapshot = 0x60,
-    interruptSetSnapshotPolicy = 0x61,
     interruptLoadSnapshot = 0x62,
     interruptMonitorProxies = 0x63,
     interruptProxyCall = 0x64,
@@ -92,22 +80,7 @@ enum InterruptTypes {
     interruptPOPEvent = 0x72,
     interruptPUSHEvent = 0x73,
     interruptDUMPCallbackmapping = 0x74,
-    interruptRecvCallbackmapping = 0x75,
-
-    // Primitive overrides
-    interruptSetOverridePinValue = 0x80,
-    interruptUnsetOverridePinValue = 0x81,
-
-    // Operations
-    interruptStore = 0xa0,
-    interruptStored = 0xa1,
-};
-
-enum class SnapshotPolicy : int {
-    none,                // Don't automatically take snapshots.
-    atEveryInstruction,  // Take a snapshot after every instruction.
-    checkpointing,       // Take a snapshot every x instructions or at specific
-                         // points where primitives are used.
+    interruptRecvCallbackmapping = 0x75
 };
 
 class Debugger {
@@ -127,28 +100,11 @@ class Debugger {
     Proxy *proxy = nullptr;  // proxy module for debugger
 
     bool connected_to_proxy = false;
-    warduino::mutex *supervisor_mutex;
-
-    // Mocking
-    std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
-        overrides;
-
-    // Checkpointing
-    SnapshotPolicy snapshotPolicy;
-    uint32_t checkpointInterval;          // #instructions between checkpoints
-    uint32_t instructions_executed;       // #instructions since last checkpoint
-    std::optional<uint32_t> fidx_called;  // The primitive that was executed
-    uint32_t prim_args[8];                // The arguments of the executed prim
-    uint32_t min_return_values;
-    uint32_t checkpoint_state_size;
-    uint8_t *checkpoint_state;
-
-    // Continue for
-    int32_t remaining_instructions;
+    std::mutex *supervisor_mutex;
 
     // Private methods
 
-    void printValue(const StackValue *v, uint32_t idx, bool end) const;
+    void printValue(StackValue *v, uint32_t idx, bool end) const;
 
     // TODO Move parsing to WARDuino class?
     void parseDebugBuffer(size_t len, const uint8_t *buff);
@@ -157,15 +113,15 @@ class Debugger {
 
     //// Handle REPL interrupts
 
-    void handleInvoke(Module *m, uint8_t *interruptData) const;
+    void handleInvoke(Module *m, uint8_t *interruptData);
 
     //// Handle Interrupt Types
 
-    void handleInterruptRUN(const Module *m, RunningState *program_state);
+    void handleInterruptRUN(Module *m, RunningState *program_state);
 
-    void handleSTEP(const Module *m, RunningState *program_state);
+    void handleSTEP(Module *m, RunningState *program_state);
 
-    void handleSTEPOver(const Module *m, RunningState *program_state);
+    void handleSTEPOver(Module *m, RunningState *program_state);
 
     void handleInterruptBP(Module *m, uint8_t *interruptData);
 
@@ -173,9 +129,9 @@ class Debugger {
 
     void dump(Module *m, bool full = false) const;
 
-    void dumpStack(const Module *m) const;
+    void dumpStack(Module *m) const;
 
-    void dumpLocals(const Module *m) const;
+    void dumpLocals(Module *m) const;
 
     void dumpBreakpoints(Module *m) const;
 
@@ -187,22 +143,19 @@ class Debugger {
 
     void dumpCallbackmapping() const;
 
-    void dumpHeapInfo(Module *m) const;
-
-    void inspect(Module *m, uint16_t sizeStateArray,
-                 const uint8_t *state) const;
+    void inspect(Module *m, uint16_t sizeStateArray, uint8_t *state);
 
     //// Handle live code update
 
-    static bool handleChangedFunction(const Module *m, uint8_t *bytes);
+    static bool handleChangedFunction(Module *m, uint8_t *bytes);
 
-    bool handleChangedLocal(const Module *m, uint8_t *bytes) const;
+    bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
-    static bool handleUpdateModule(Module *m, uint8_t *data);
+    bool handleUpdateModule(Module *m, uint8_t *data);
 
-    bool handleUpdateGlobalValue(const Module *m, uint8_t *data) const;
+    bool handleUpdateGlobalValue(Module *m, uint8_t *data);
 
-    bool handleUpdateStackValue(const Module *m, uint8_t *bytes) const;
+    bool handleUpdateStackValue(Module *m, uint8_t *bytes);
 
     bool reset(Module *m);
 
@@ -210,7 +163,7 @@ class Debugger {
 
     void freeState(Module *m, uint8_t *interruptData);
 
-    static uint8_t *findOpcode(Module *m, const Block *block);
+    static uint8_t *findOpcode(Module *m, Block *block);
 
     bool saveState(Module *m, uint8_t *interruptData);
 
@@ -218,12 +171,10 @@ class Debugger {
 
     static void updateCallbackmapping(Module *m, const char *interruptData);
 
-    bool operation(Module *m, operation op);
-
    public:
     // Public fields
-    warduino::mutex messageQueueMutex;  // mutual exclude debugMessages
-    warduino::condition_variable messageQueueConditionVariable;
+    std::mutex messageQueueMutex;  // mutual exclude debugMessages
+    std::condition_variable messageQueueConditionVariable;
     bool freshMessages = false;
     Channel *channel;
     ProxySupervisor *supervisor = nullptr;
@@ -245,10 +196,7 @@ class Debugger {
 
     void stop();
 
-    void pauseRuntime(const Module *m);  // pause runtime for given module
-
-    void notifyCompleteStep(
-        Module *m) const;  // notify the debugger frontend that a step was taken
+    void pauseRuntime(Module *m);  // pause runtime for given module
 
     // Interrupts
 
@@ -270,24 +218,16 @@ class Debugger {
 
     // Out-of-place debugging: EDWARD
 
-    void snapshot(Module *m) const;
-
-    void setSnapshotPolicy(Module *m, uint8_t *interruptData);
-
-    void handleSnapshotPolicy(Module *m);
-
-    bool handleContinueFor(Module *m);
+    void snapshot(Module *m);
 
     void proxify();
 
     void handleProxyCall(Module *m, RunningState *program_state,
-                         uint8_t *interruptData) const;
+                         uint8_t *interruptData);
 
-    RFC *topProxyCall() const;
+    RFC *topProxyCall();
 
-    void sendProxyCallResult(Module *m) const;
-
-    bool isProxy() const;
+    void sendProxyCallResult(Module *m);
 
     bool isProxied(uint32_t fidx) const;
 
@@ -295,30 +235,15 @@ class Debugger {
 
     bool proxy_connected() const;
 
-    void disconnect_proxy() const;
+    void disconnect_proxy();
 
     // Pull-based
 
-    void handleMonitorProxies(const Module *m, uint8_t *interruptData) const;
+    void handleMonitorProxies(Module *m, uint8_t *interruptData);
 
     // Push-based
 
     void notifyPushedEvent() const;
 
     bool handlePushedEvent(char *bytes) const;
-
-    // Concolic Multiverse Debugging
-    inline bool isMocked(uint32_t fidx, uint32_t argument) {
-        return overrides.count(fidx) > 0 && overrides[fidx].count(argument) > 0;
-    }
-    inline uint32_t getMockedValue(uint32_t fidx, uint32_t argument) {
-        return overrides[fidx][argument];
-    }
-
-    void addOverride(Module *m, uint8_t *interruptData);
-    void removeOverride(Module *m, uint8_t *interruptData);
-
-    // Checkpointing
-    void checkpoint(Module *m, bool force = false);
-    inline SnapshotPolicy getSnapshotPolicy() { return snapshotPolicy; }
 };
