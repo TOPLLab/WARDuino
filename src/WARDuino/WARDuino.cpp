@@ -1083,10 +1083,9 @@ void WARDuino::free_execution_context() {
 }
 
 // Return value of false means exception occurred
-std::vector<StackValue> WARDuino::invoke(Module *m, uint32_t fidx,
+std::vector<StackValue> WARDuino::invoke(Module *m, uint32_t fidx, bool *result,
                                          uint32_t arity, StackValue *args) {
     ExecutionContext *ectx = m->warduino->execution_context;
-    bool result;
     ectx->sp = -1;
     ectx->fp = -1;
     ectx->csp = -1;
@@ -1101,11 +1100,11 @@ std::vector<StackValue> WARDuino::invoke(Module *m, uint32_t fidx,
     dbg_dump_stack(m);
     interpreter->setup_call(m, fidx);
     dbg_trace("Call setup\n");
-    result = interpreter->interpret(m);
+    *result = interpreter->interpret(m);
     dbg_trace("Interpretation ended\n");
     dbg_dump_stack(m);
 
-    if (!result) {
+    if (!*result) {
         return {};
     }
 
@@ -1120,6 +1119,7 @@ std::vector<StackValue> WARDuino::invoke(Module *m, uint32_t fidx,
 
 void WARDuino::setInterpreter(Interpreter *interpreter) {
     this->interpreter = interpreter;
+    install_primitives(this->interpreter);
 }
 
 int WARDuino::run_module(Module *m) {
@@ -1130,9 +1130,11 @@ int WARDuino::run_module(Module *m) {
 
     // execute main
     if (fidx != UNDEF) {
-        auto results = this->invoke(m, fidx);
-        if (results.empty()) return 0;
-        return (int)results[0].value.uint32;
+        bool success;
+        auto results = this->invoke(m, fidx, &success);
+        return success;
+        /*if (results.empty()) return 0;
+        return (int)results[0].value.uint32;*/
     }
     fflush(stdout);
 

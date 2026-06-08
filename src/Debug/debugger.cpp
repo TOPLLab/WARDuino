@@ -441,7 +441,11 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) const {
     const RunningState current = instance->program_state;
     instance->program_state = WARDUINOrun;
 
-    WARDuino::instance()->invoke(m, fidx, func.param_count, args);
+    bool success;
+    WARDuino::instance()->invoke(m, fidx, &success, func.param_count, args);
+    if (!success) {
+        FATAL("Failed to invoke function %d\n", fidx);
+    }
     instance->program_state = current;
     this->dumpStack(m);
 }

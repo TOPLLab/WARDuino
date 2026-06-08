@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
@@ -16,15 +17,14 @@
 #include <stdexcept>
 #include <thread>
 #include <utility>
-#include <fstream>
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Interpreter/concolic_interpreter.h"
 #include "../../src/Utils/macros.h"
 #include "../../src/Utils/util.h"
+#include "bigint.h"
 #include "binary-info.h"
 #include "warduino/config.h"
-#include "bigint.h"
 
 // Constants
 #define MAX_MODULE_SIZE (64 * 1024 * 1024)
@@ -653,7 +653,7 @@ z3::expr preconditions() {
 
 void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1, int max_iterations = -1, int stop_at_pc = -1) {
     const auto start{std::chrono::steady_clock::now()};
-    wac->interpreter = new ConcolicInterpreter();
+    wac->setInterpreter(new ConcolicInterpreter());
     // Has a big impact on performance, for example if you have a simple program
     // with a loop that contains an if statement and, you run the loop 30 times
     // then you have 2^30 possible branching paths. You can take the if branch
@@ -1147,16 +1147,15 @@ int main(int argc, const char *argv[]) {
             run_concolic(snapshot_messages, std::stoi(max_instructions_str), std::stoi(max_symbolic_variables_str), std::stoi(max_iterations_str), std::stoi(stop_at_pc_str));
         }
         else {
-            // TODO: Add option to calculate the choice points and add them as breakpoints from the remote debugger once
-            // the user starts debugging instead of always adding them even when not debugging.
-            for (uint8_t *choice_point : find_choice_points(m)) {
-                //wac->debugger->addBreakpoint(choice_point);
-            }
-
             dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
             if (invoke_fname != nullptr) {
                 uint32_t fidx = wac->get_export_fidx(m, invoke_fname);
-                wac->invoke(m, fidx, parsed_args.size(), parsed_args.data());
+                bool success;
+                wac->invoke(m, fidx, &success, parsed_args.size(),
+                            parsed_args.data());
+                if (!success) {
+                    fprintf(stderr, "Failed to run function %s\n", invoke_fname);
+                }
             } else {
                 wac->run_module(m);
             }

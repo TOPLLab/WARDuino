@@ -82,7 +82,8 @@ class WARDuino {
 
     void update_module(Module *old_module, uint8_t *wasm, uint32_t wasm_len);
 
-    std::vector<StackValue> invoke(Module *m, uint32_t fidx, uint32_t arity = 0,
+    std::vector<StackValue> invoke(Module *m, uint32_t fidx, bool *result,
+                                   uint32_t arity = 0,
                                    StackValue *args = nullptr);
 
     uint32_t get_export_fidx(Module *m, const char *name);

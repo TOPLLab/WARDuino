@@ -2,6 +2,8 @@
 
 #include <cinttypes>
 
+#include "../WARDuino.h"
+
 void end() {
     while (true) {
     };
@@ -254,24 +256,25 @@ char *block_repr(Block *b) {
 #if DEBUG && TRACE
 
 void dbg_dump_stack(Module *m) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     printf("      * stack:     [");
-    for (int i = 0; i <= m->sp; i++) {
-        if (i == m->fp) {
+    for (int i = 0; i <= ectx->sp; i++) {
+        if (i == ectx->fp) {
             printf("* ");
         }
-        printf("%s", value_repr(&m->stack[i]));
-        if (i != m->sp) {
+        printf("%s", value_repr(&ectx->stack[i]));
+        if (i != ectx->sp) {
             printf(" ");
         }
     }
     printf("]\n");
     printf("      * callstack: [");
-    for (int i = 0; i <= m->csp; i++) {
-        Frame *f = &m->callstack[i];
+    for (int i = 0; i <= ectx->csp; i++) {
+        Frame *f = &ectx->callstack[i];
         (void)f;
         printf("%s(sp:%d/fp:%d/ra:0x%p)", block_repr(f->block), f->sp, f->fp,
                f->ra_ptr);
-        if (i != m->csp) {
+        if (i != ectx->csp) {
             printf(" ");
         }
     }
