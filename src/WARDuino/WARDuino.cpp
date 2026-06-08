@@ -3,8 +3,12 @@
 #include <algorithm>  // std::find
 #include <cmath>
 #include <cstring>
+#include <set>
 
 #include "../Interpreter/interpreter.h"
+#ifdef EMULATOR
+#include "../Interpreter/concolic_interpreter.h"
+#endif
 #include "../Memory/mem.h"
 #include "../Primitives/primitives.h"
 #include "../Utils/macros.h"
@@ -327,8 +331,6 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
     m->bytes = bytes;
     m->byte_count = byte_count;
-    // run constructor with already allocated memory
-    new (&m->block_lookup) std::map<uint8_t *, Block *>;
     m->start_function = UNDEF;
 
     // Check the module
@@ -447,7 +449,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                     void *val;
                     char *err,
-                        *sym = (char *)malloc(module_len + field_len + 5);
+                        //*sym = (char *)malloc(module_len + field_len + 5);
+                        *sym = (char *)acalloc(module_len + field_len + 5,
+                                               sizeof(char), "import symbol");
 
                     if (strcmp(import_module, "env") == 0) {
                         // TODO add special case form primitives with
@@ -544,10 +548,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             m->import_count += 1;
                             m->function_count += 1;
                             m->functions = (Block *)arecalloc(
-                                m->functions, fidx, m->import_count,
-                                sizeof(Block), "Block(imports)");
+                                m->functions, m->function_count - 1,
+                                m->function_count, sizeof(Block), "functions");
 
-                            Block *func = &m->functions[fidx];
+                            auto *func = &m->functions[fidx];
                             func->import_module = import_module;
                             func->import_field = import_field;
                             func->type = &m->types[type_index];
@@ -660,6 +664,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                 for (uint32_t f = m->import_count; f < m->function_count; f++) {
                     uint32_t tidx = read_LEB_32(&pos);
+                    m->functions = (Block *)arecalloc(
+                        m->functions, f, f + 1, sizeof(Block), "functions");
                     m->functions[f].fidx = f;
                     m->functions[f].type = &m->types[tidx];
                     debug("  function fidx: 0x%x, tidx: 0x%x\n", f, tidx);
@@ -850,7 +856,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         "  setting 0x%x bytes of memory at 0x%p + offset "
                         "0x%x\n",
                         size, m->memory.bytes, offset);
-                    memcpy(m->memory.bytes + offset, pos, size);
+                    memcpy(&m->memory.bytes[offset], pos, size);
                     pos += size;
                 }
 
@@ -881,9 +887,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     }
 
                     if (function->local_count > 0) {
-                        function->local_value_type = (uint8_t *)acalloc(
-                            function->local_count, sizeof(uint8_t),
-                            "function->local_value_type");
+                        function->local_value_type =
+                            (uint8_t *)acalloc(function->local_count,
+                                               sizeof(uint8_t),
+                                               "function->local_value_type");
                     }
 
                     // Restore position and read the locals
@@ -920,6 +927,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 pos += section_len;
         }
     }
+
+#ifdef EMULATOR
+    m->create_symbolic_state();
+#endif
 
     find_blocks(m);
     debug("findblocks finished\n");
@@ -971,9 +982,8 @@ Module *WARDuino::get_module(const char *name) {
 Module *WARDuino::load_module(uint8_t *bytes, uint32_t byte_count,
                               const char *module_name, Options options) {
     debug("Loading module of size %d \n", byte_count);
-    Module *m;
     // Allocate the module
-    m = (Module *)acalloc(1, sizeof(Module), "Module");
+    auto *m = new Module();
     m->warduino = this;
     m->options = options;
     if (module_name) {
@@ -996,7 +1006,7 @@ void WARDuino::unload_module(Module *m) {
     auto it = std::find(this->modules.begin(), this->modules.end(), m);
     if (it != this->modules.end()) this->modules.erase(it);
     this->free_module_state(m);
-    free(m);
+    delete m;
 }
 
 WARDuino::WARDuino() {
@@ -1306,3 +1316,105 @@ struct sys_memory_stats stats;
 #define TOTAL_MALLOC mallinfo2().uordblks
 #endif
 uint32_t WARDuino::get_heap_used() { return TOTAL_MALLOC; }
+
+void Module::memory_resize(uint32_t new_pages) {
+    uint32_t old_pages = memory.pages;
+    if (memory.bytes == nullptr) {
+        memory.bytes = (uint8_t *)acalloc(new_pages * PAGE_SIZE, sizeof(uint8_t),
+                                          "Module->memory.bytes");
+    } else {
+        memory.bytes = (uint8_t *)arecalloc(
+            memory.bytes, old_pages * PAGE_SIZE, new_pages * PAGE_SIZE,
+            sizeof(uint8_t), "Module->memory.bytes");
+    }
+    memory.pages = new_pages;
+#ifdef EMULATOR
+    symbolic_memory.symbolic_bytes.resize(new_pages * PAGE_SIZE,
+                                          ctx.bv_val(0, 8));
+    symbolic_memory.symbolic_pages = ctx.bv_val(new_pages, 32);
+#endif
+}
+
+#ifdef EMULATOR
+void Module::create_symbolic_state() {
+    /*
+     * Create symbolic globals from concrete globals.
+     * Init expressions for globals are constant expressions. Because of this it
+     * will not involve symbolic semantics, and we can just take the concrete
+     * value and create a symbolic literal from it.
+     */
+    symbolic_globals.clear();
+    for (size_t i = 0; i < global_count; i++) {
+        symbolic_globals.push_back(
+            ConcolicInterpreter::encode_as_symbolic(this, globals[i]->value));
+    }
+
+    // Create symbolic memory from concrete memory.
+    for (size_t i = 0; i < memory.pages * PAGE_SIZE; i++) {
+        symbolic_memory.symbolic_bytes[i] = ctx.bv_val(memory.bytes[i], 8);
+    }
+
+    /*
+     * Create symbolic stack from concrete stack.
+     * This is useful when we load a snapshot from the microcontroller while
+     * debugging. It makes it possible to continue the concrete execution using
+     * the concolic interpreter.
+     */
+    ExecutionContext *ectx = warduino->execution_context;
+    for (int i = 0; i <= ectx->sp; i++) {
+        symbolic_stack[i] =
+            ConcolicInterpreter::encode_as_symbolic(this, &ectx->stack[i]);
+    }
+}
+#endif
+
+std::vector<uint8_t *> Module::find_calls(const std::function<bool(std::string)>& cond, bool after) const {
+    std::vector<uint8_t *> call_sites;
+    for (uint32_t i = import_count; i < function_count; i++) {
+        Block *func = &functions[i];
+        uint8_t *pc = func->start_ptr;
+        while (pc < func->end_ptr) {
+            uint8_t opcode = *pc;
+            uint8_t *instruction_start_pc = pc;
+            if (opcode == 0x10) {
+                pc++;
+                uint32_t fidx = read_LEB_32(&pc);
+                if (fidx < import_count) {
+                    const char *module_name = functions[fidx].import_module;
+                    const char *field_name = functions[fidx].import_field;
+                    if (!strcmp(module_name, "env") && cond(field_name)) {
+                        if (!after) {
+                            call_sites.push_back(instruction_start_pc);
+                        }
+                        else {
+                            // NOTE: Only works because this is a primitive call, if it was a regular call the vm would jump into a function and not just to the instruction after the call instruction.
+                            call_sites.push_back(pc);
+                        }
+                    }
+                }
+                continue;
+            }
+            skip_immediates(&pc);
+        }
+    }
+    return call_sites;
+}
+
+std::vector<uint8_t *> Module::find_choice_points(bool after) const {
+    std::set<std::string> symbolic_primitives = {
+        "chip_digital_read",
+        "chip_analog_read",
+        "color_sensor",
+    };
+    return find_calls([symbolic_primitives](const std::string &field_name) {
+        return symbolic_primitives.find(field_name) != symbolic_primitives.end();
+    }, after);
+}
+
+std::vector<uint8_t *> Module::find_pc_before_primitive_calls() const {
+    return find_calls([](const std::string& x) { return true; });
+}
+
+std::vector<uint8_t *> Module::find_pc_after_primitive_calls() const {
+    return find_calls([](const std::string& x) { return true; }, true);
+}

@@ -1193,6 +1193,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 // if(m->memory.pages !=0)
                 if (m->memory.bytes != nullptr) {
                     free(m->memory.bytes);
+                    m->memory.bytes = nullptr;
                 }
                 m->memory.bytes = static_cast<uint8_t *>(
                     acalloc(pages * PAGE_SIZE, 1, "Module->memory.bytes"));
@@ -1261,7 +1262,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                         debug("function block\n");
                         uint32_t fidx = read_B32(&program_state);
                         /* debug("function block idx=%" PRIu32 "\n", fidx); */
-                        f->block = m->functions + fidx;
+                        f->block = &m->functions[fidx];
 
                         if (f->block->fidx != fidx) {
                             FATAL("incorrect fidx: exp %" PRIu32 " got %" PRIu32

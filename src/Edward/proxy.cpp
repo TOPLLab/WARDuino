@@ -6,7 +6,7 @@
 #include <cstring>
 #include <map>
 
-#include "../Interpreter/instructions.h"
+#include "../Interpreter/interpreter.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 

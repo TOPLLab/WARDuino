@@ -8,15 +8,23 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <iomanip>
 #include <iostream>
+#include <numeric>
+#include <set>
 #include <stdexcept>
 #include <thread>
+#include <utility>
+#include <fstream>
 
 #include "../../src/Debug/debugger.h"
+#include "../../src/Interpreter/concolic_interpreter.h"
 #include "../../src/Utils/macros.h"
 #include "../../src/Utils/util.h"
 #include "binary-info.h"
 #include "warduino/config.h"
+#include "bigint.h"
 
 // Constants
 #define MAX_MODULE_SIZE (64 * 1024 * 1024)
@@ -291,6 +299,548 @@ const char *valueTypeToString(uint8_t value_type) {
     }
 }
 
+void load_snapshot(const std::vector<std::string> &snapshot_messages) {
+    std::cout << "Loading snapshot data:" << std::endl;
+    for (const std::string &msg : snapshot_messages) {
+        std::cout << "Adding debug message: \"" << msg << "\"" << std::endl;
+        wac->debugger->addDebugMessage(msg.length() + 1,
+                                       (uint8_t *)(msg + "\n").c_str());
+    }
+    while (wac->debugger->checkDebugMessages(m, &wac->program_state)) {
+    }
+    wac->program_state = WARDUINOrun;
+}
+
+z3::expr simplify_custom(z3::expr expression) {
+    if (expression.is_app()) {
+        z3::func_decl decl = expression.decl();
+        if (decl.decl_kind() == Z3_OP_EQ) {
+            if (expression.arg(0).decl().decl_kind() == Z3_OP_ITE) {
+                z3::expr l = expression.arg(0).arg(1);
+                z3::expr r = expression.arg(1);
+                if (l.is_const() && r.is_const() && l.get_numeral_int() == r.get_numeral_int()) {
+                    return expression.arg(0).arg(0);
+                }
+            }
+            return expression;
+        }
+        else if (decl.decl_kind() == Z3_OP_ITE) {
+        }
+        return expression;
+    }
+    return expression;
+}
+
+void z3_pretty_print(z3::expr expression) {
+    expression = simplify_custom(expression);
+    if (expression.is_app()) {
+        z3::func_decl decl = expression.decl();
+
+        if (decl.decl_kind() == Z3_OP_SLT) {
+            std::cout << "(";
+            z3_pretty_print(expression.arg(0));
+            std::cout << " < ";
+            z3_pretty_print(expression.arg(1));
+            std::cout << ")";
+            return;
+        }
+        if (decl.decl_kind() == Z3_OP_SLEQ) {
+            std::cout << "(";
+            z3_pretty_print(expression.arg(0));
+            std::cout << " <= ";
+            z3_pretty_print(expression.arg(1));
+            std::cout << ")";
+            return;
+        }
+        else if (decl.decl_kind() == Z3_OP_EQ) {
+            std::cout << "(";
+            z3_pretty_print(expression.arg(0));
+            std::cout << " == ";
+            z3_pretty_print(expression.arg(1));
+            std::cout << ")";
+            return;
+        }
+        else if (decl.decl_kind() == Z3_OP_ITE) {
+            std::cout << "(";
+            z3_pretty_print(expression.arg(0));
+            std::cout << " ? ";
+            z3_pretty_print(expression.arg(1));
+            std::cout << " : ";
+            z3_pretty_print(expression.arg(2));
+            std::cout << ")";
+            return;
+        }
+        else if (decl.decl_kind() == Z3_OP_AND) {
+            std::cout << "(";
+            z3_pretty_print(expression.arg(0));
+            std::cout << " && ";
+            z3_pretty_print(expression.arg(1));
+            std::cout << ")";
+            return;
+        }
+        else if (decl.decl_kind() == Z3_OP_NOT) {
+            std::cout << "!";
+            z3_pretty_print(expression.arg(0));
+            return;
+        }
+        else if (decl.decl_kind() == Z3_OP_BNUM) {
+            std::cout << expression.get_decimal_string(3);
+            return;
+        }
+        /*else {
+            std::cout << decl.name();
+        }
+
+        int arg_count = expression.num_args();
+        std::cout << "(";
+        for (int i = 0; i < arg_count; i++) {
+            if (i != 0) {
+                std::cout << ", ";
+            }
+            std::cout << expression.arg(i);
+        }
+        std::cout << ")";
+        std::cout << std::endl;*/
+        //std::cout << decl.decl_kind();
+        std::cout << expression;
+    }
+    else {
+        std::cout << expression;
+    }
+}
+
+void z3_pretty_println(z3::expr expression) {
+    z3_pretty_print(expression);
+    std::cout << std::endl;
+}
+
+struct Model {
+    std::unordered_map<std::string, SymbolicValueMapping> values;
+    z3::expr path_condition;
+    std::vector<Model> subpaths;
+
+    Model(const std::unordered_map<std::string, SymbolicValueMapping> &values,
+          z3::expr path_condition)
+        : values(values), path_condition(std::move(path_condition)) {
+        //subpaths.push_back(*this);
+    }
+
+    z3::expr x_only_path_condition(size_t index) {
+        dbg_trace("x_only_path_condition depth = %lu\n", index);
+        z3::expr_vector from(m->ctx);
+        z3::expr_vector to(m->ctx);
+        // TODO: values.size() maybe dangerous with substitute if it's higher than the current iteration symbolic variable count
+        for (size_t i = 0; i < values.size(); i++) {
+            if (i == index) continue;
+            std::string var_name = "x_" + std::to_string(i);
+            from.push_back(m->ctx.bv_const(var_name.c_str(), 32));
+            to.push_back(m->ctx.bv_val(values[var_name].concrete_value.value.uint32, 32));
+            dbg_trace("%s = %u\n", var_name.c_str(), values[var_name].concrete_value.value.uint32);
+        }
+        //std::cout << path_condition.substitute(from, to) << std::endl;
+        return path_condition.substitute(from, to).simplify();
+    }
+
+    void add_partial_match(Model em, size_t depth, size_t symbolic_variable_count) {
+        if (depth >= symbolic_variable_count)
+            return;
+
+        z3::expr x_only_path_condition = em.x_only_path_condition(depth);
+
+        dbg_trace("\n--- Adding partial match (depth = %lu) ---\n", depth);
+        dbg_trace("x_only_path_condition = %s\n", x_only_path_condition.to_string().c_str());
+#ifdef DEBUG
+        // Verify that the path condition is satisfiable, if not something went wrong.
+        z3::solver s(m->ctx);
+        s.add(x_only_path_condition);
+        assert(s.check() == z3::sat);
+#endif
+
+        std::string sym_var_name = "x_" + std::to_string(depth);
+        auto already_exists = std::find_if(
+            subpaths.begin(), subpaths.end(), [x_only_path_condition, this, sym_var_name, depth](Model otherModel) {
+                dbg_trace("Compare with %s\n", otherModel.x_only_path_condition(depth).to_string().c_str());
+                z3::solver s(m->ctx);
+                /*s.add(z3::forall(m->ctx.bv_const(sym_var_name.c_str(), 32),
+                                 otherModel.x_only_path_condition(depth) ==
+                                     x_only_path_condition));
+                return s.check() == z3::sat;*/
+                s.add(otherModel.x_only_path_condition(depth) != x_only_path_condition);
+                return s.check() != z3::sat;
+            });
+        // Doesn't exist!
+        if (already_exists == subpaths.end()) {
+#if TRACE
+            dbg_trace("\u001b[32m");
+            //dbg_trace("New branch value for %s, %llu\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint64);
+            dbg_trace("New branch value for %s, %d\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint32);
+            dbg_trace("\u001b[0m");
+            if (!subpaths.empty()) {
+                dbg_trace("Existing values:\n");
+                for (Model otherModel : subpaths) {
+                    dbg_trace("- %u\n", otherModel.values[sym_var_name].concrete_value.value.uint32);
+                }
+            }
+#endif
+            em.add_partial_match(em, depth + 1, symbolic_variable_count);
+            subpaths.push_back(em);
+        }
+        else {
+            dbg_trace("\u001b[34m");
+            //dbg_trace("Existing branch for %s, %llu\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint64);
+            dbg_trace("Existing branch for %s, %d\n", sym_var_name.c_str(), em.values[sym_var_name].concrete_value.value.uint32);
+            dbg_trace("\u001b[0m");
+            Model &m = *already_exists;
+            m.add_partial_match(em, depth + 1, symbolic_variable_count);
+        }
+    }
+
+    [[nodiscard]] std::string to_string(size_t depth) const {
+        std::string str = "";
+        if (depth == 0) {
+            str += "*\n";
+        }
+        for (Model path : subpaths) {
+            for (size_t i = 0; i < depth + 1; i++) {
+                str += "\t";
+            }
+            str += std::to_string(path.values["x_" + std::to_string(depth)].concrete_value.value.int32);
+            str += "\n";
+            str += path.to_string(depth + 1);
+        }
+        return str;
+    }
+
+    int count_leaf_nodes() {
+        if (subpaths.empty()) {
+            return 1;
+        }
+        int count = 0;
+        for (Model path : subpaths) {
+            count += path.count_leaf_nodes();
+        }
+        return count;
+    }
+
+    size_t max_fanout() {
+        size_t max = 0;
+        if (subpaths.size() > max) {
+            max = subpaths.size();
+        }
+        for (Model path : subpaths) {
+            max = std::max(path.max_fanout(), max);
+        }
+        return max;
+    }
+
+    int min_fanout() {
+        int min = -1;
+        if (!subpaths.empty() && (min < 0 || subpaths.size() < min)) {
+            min = subpaths.size();
+        }
+
+        for (Model path : subpaths) {
+            int val = path.min_fanout();
+            if (val > 0) {
+                min = std::min(val, min);
+            }
+        }
+        return min;
+    }
+
+    BigInt::bigint prim_states(const std::string& prim) {
+        if (prim == "chip_analog_read") {
+            return 4096;
+        }
+        if (prim == "chip_digital_read") {
+            return 2;
+        }
+        return -1;
+    }
+
+    BigInt::bigint max_states() {
+        BigInt::bigint max = 0;
+        for (auto model : subpaths) {
+            BigInt::bigint value = model.max_states(0);
+            if (value > max) {
+                max = value;
+            }
+        }
+        return max;
+    }
+
+    BigInt::bigint max_states(size_t depth) {
+        // TODO: Maybe, maybe not, knock lock for example
+        /*if (subpaths.empty()) {
+            return 1;
+        }*/
+
+        BigInt::bigint v = prim_states(values["x_" + std::to_string(depth)].primitive_origin);
+        BigInt::bigint max = v;
+        for (int i = 0; i < subpaths.size(); i++) {
+            BigInt::bigint value = v * subpaths[i].max_states(depth + 1); // Might overflow (Gesture-robot)
+            if (value > max) {
+                max = value;
+            }
+        }
+        return max;
+    }
+
+    void fanouts(std::vector<size_t> &fanout) {
+        if (subpaths.empty()) {
+            return;
+        }
+        fanout.emplace_back(subpaths.size());
+        for (Model path : subpaths) {
+            path.fanouts(fanout);
+        }
+    }
+
+    float avg_fanout() {
+        std::vector<size_t> f;
+        fanouts(f);
+        return static_cast<float>(std::reduce(f.begin(), f.end())) / static_cast<float>(f.size());
+    }
+
+    nlohmann::json to_json() {
+        nlohmann::json graph;
+        graph["paths"] = to_json(0);
+        return graph;
+    }
+
+    nlohmann::json to_json(size_t depth) {
+        auto paths = std::vector<nlohmann::json>();
+        for (Model path : subpaths) {
+            nlohmann::json path_node;
+            SymbolicValueMapping value = path.values["x_" + std::to_string(depth)];
+            path_node["value"] = value.concrete_value.value.int32;
+            path_node["primitive"] = value.primitive_origin;
+            path_node["arg"] = value.primitive_argument;
+            path_node["time_step"] = value.time_step;
+            path_node["paths"] = path.to_json(depth + 1);
+            paths.push_back(path_node);
+        }
+        return paths;
+    }
+};
+
+std::string uint128_to_string(__uint128_t value) {
+    if (value == 0) return "0";
+
+    std::string result;
+    while (value > 0) {
+        result = char('0' + value % 10) + result;
+        value /= 10;
+    }
+    return result;
+}
+
+z3::expr preconditions() {
+    z3::expr primitive_bounds = m->ctx.bool_val(true);
+    for (const auto& entry : m->symbolic_concrete_values) {
+        int32_t upper = 4096;
+        int32_t lower = 0;
+        if (entry.second.primitive_origin == "chip_digital_read") {
+            upper = 2; // Upper bound is excluded.
+        }
+        if (entry.second.primitive_origin == "color_sensor") {
+            upper = 101; // Upper bound is excluded.
+        }
+        primitive_bounds = primitive_bounds && m->ctx.bv_const(entry.first.c_str(), 32) < upper && m->ctx.bv_const(entry.first.c_str(), 32) >= lower;
+    }
+    return primitive_bounds;
+}
+
+void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1, int max_iterations = -1, int stop_at_pc = -1) {
+    const auto start{std::chrono::steady_clock::now()};
+    wac->interpreter = new ConcolicInterpreter();
+    // Has a big impact on performance, for example if you have a simple program
+    // with a loop that contains an if statement and, you run the loop 30 times
+    // then you have 2^30 possible branching paths. You can take the if branch
+    // in the first loop, not take it in the second, and so on.
+    //wac->max_instructions = -1;
+    //wac->max_instructions = 900;
+    wac->max_instructions = max_instructions;
+    wac->max_symbolic_variables = max_sym_vars;
+    wac->stop_at_pc = stop_at_pc;
+    int total_instructions_executed = 0;
+
+    z3::expr global_condition = m->ctx.bool_val(true);
+    int iteration_index = 0;
+    std::vector<std::unordered_map<std::string, SymbolicValueMapping>> models;
+    Model graph = Model({}, m->ctx.bool_val(true));
+    while (max_iterations < 0 || iteration_index < max_iterations) {
+        dbg_info("=== CONCOLIC ITERATION %d ===\n", iteration_index);
+        m->symbolic_variable_count = 0;
+        m->path_condition = m->ctx.bool_val(true);
+        m->instructions_executed = 0;
+        wac->stop = false;
+
+        bool success;
+        if (!snapshot_messages.empty()) {
+            load_snapshot(snapshot_messages);
+            // Remove any breakpoints that might have been set, we don't want the concolic execution to pause on them.
+            wac->debugger->breakpoints.clear();
+            m->create_symbolic_state();
+            success = wac->interpreter->interpret(m);
+        } else {
+            //wac->instantiate_module(m);
+            //wac->instantiate_module(m, m->bytes, m->byte_count);
+            // TODO: Introduce a reset module function
+            auto wasm = (uint8_t *)malloc(sizeof(uint8_t) * m->byte_count);
+            memcpy(wasm, m->bytes, m->byte_count);
+            m->warduino->update_module(m, wasm, m->byte_count);
+            m->warduino->program_state = WARDUINOrun;
+            success = wac->run_module(m);
+        }
+
+        if (!success) {
+            std::cout << "Trap: " << m->exception << std::endl;
+            std::cout << "Model that caused issue:" << std::endl;
+            for (const auto &entry : m->symbolic_concrete_values) {
+                std::cout << "  " << entry.first << " = "
+                          << entry.second.concrete_value.value.int32 << std::endl;
+            }
+            break;
+        }
+
+        if (iteration_index == 0) {
+            z3::solver s(m->ctx);
+            s.add(m->path_condition && preconditions());
+            auto result = s.check();
+            if (result != z3::sat) {
+                std::cout << m->path_condition.to_string() << std::endl;
+            }
+            assert(result == z3::sat);
+            dbg_trace("Iteration 0, fixing default values\n");
+            dbg_trace("Model:\n");
+            z3::model model = s.get_model();
+            for (int i = 0; i < (int)model.size(); i++) {
+                z3::func_decl func = model[i];
+                if (func.name().str().find("x_") == std::string::npos) {
+                    continue;
+                }
+                dbg_trace("- %s = %s\n", func.name().str().c_str(), model.get_const_interp(func).to_string().c_str());
+                m->symbolic_concrete_values[func.name().str()]
+                    .concrete_value.value.uint32 =
+                    model.get_const_interp(func).get_numeral_uint();
+            }
+        }
+        iteration_index++;
+        models.push_back(m->symbolic_concrete_values);
+
+        dbg_trace("path condition = %s\n", m->path_condition.to_string().c_str());
+        graph.add_partial_match(Model(m->symbolic_concrete_values, m->path_condition), 0, m->symbolic_variable_count);
+
+        // Start a new concolic iteration by solving !path_condition.
+        // TODO: When should I use simplify? Does the solver automatically
+        // simplify things so I can just let it handle that? Maybe I should
+        // only use simplify when building up expressions during symbolic
+        // execution?
+        /*std::cout << "Execution finished, path condition = "
+                  << m->path_condition.simplify() << std::endl;
+        std::cout << "PC = ";
+        z3_pretty_print(m->path_condition);
+        std::cout << std::endl;*/
+        z3::solver s(m->ctx);
+        /*std::cout << "!path_condition = " << !m->path_condition
+                  << std::endl;
+        std::cout << "!path_condition (simplified) = "
+                  << (!m->path_condition).simplify() << std::endl;*/
+        // s.add(!m->path_condition);
+        //std::cout << m->path_condition.simplify() << std::endl;
+        m->path_condition = m->path_condition.simplify();
+        global_condition = global_condition &&
+                           !m->path_condition;  // Not this path and also
+                                                // not the previous paths
+
+        /*std::cout << "GPC = ";
+        z3_pretty_print(global_condition);
+        std::cout << std::endl;
+        std::cout << global_condition << std::endl;*/
+        total_instructions_executed += m->instructions_executed;
+        s.add(global_condition && preconditions());
+        if (s.check() == z3::unsat) {
+            std::cout << "Explored all paths!" << std::endl;
+            break;
+        }
+        /*std::cout << "Solve !path_condition:" << std::endl
+                  << s.get_model() << std::endl;*/
+
+        z3::model model = s.get_model();
+        //std::cout << "Model:" << std::endl;
+        /*std::vector<Z3_ast> from;
+        std::vector<Z3_ast> to;*/
+        for (int i = 0; i < (int)model.size(); i++) {
+            z3::func_decl func = model[i];
+            if (func.name().str().find("x_") == std::string::npos) {
+                continue;
+            }
+            /*std::cout << func.name() << " = "
+                      << model.get_const_interp(func) << std::endl;
+            std::cout << model.get_const_interp(func).get_numeral_uint() << std::endl;*/
+            m->symbolic_concrete_values[func.name().str()].concrete_value.value.uint32 =
+                model.get_const_interp(func).get_numeral_uint();
+
+            /*if (func.name().str() != "x_0") {
+                from.push_back(m->ctx.bv_const(func.name().str().c_str(), 32));
+                to.push_back(model.get_const_interp(func));
+            }*/
+        }
+        /*std::cout << "x_0 only path condition: " << std::endl;
+        z3_pretty_println(z3::to_expr(m->ctx, Z3_substitute(m->ctx, m->path_condition, from.size(),from.data(),to.data())));
+        z3_pretty_println(m->path_condition);*/
+    }
+
+    const auto finish{std::chrono::steady_clock::now()};
+    const std::chrono::duration<double> elapsed_seconds{finish - start};
+    std::cout << std::endl << "=== FINISHED ===" << std::endl;
+    /*std::cout << "Models found:" << std::endl;
+    for (size_t i = 0; i < models.size(); i++) {
+        std::cout << "- Model #" << i << ":" << std::endl;
+        for (const auto &entry : models[i]) {
+            std::cout << "  " << entry.first << " = "
+                      << entry.second.value.int32 << std::endl;
+        }
+    }*/
+
+    std::cout << "Total amount of instructions executed: " << total_instructions_executed << std::endl;
+    std::cout << "Models found:" << std::endl;
+    dbg_info(graph.to_string(0).c_str());
+    std::cout << graph.to_json() << std::endl;
+    //std::cout << uint128_to_string(graph.max_states()) << " & " << graph.count_leaf_nodes() << " & " << " & " << graph.max_fanout() << " & " << elapsed_seconds.count() << " \\\\" << std::endl;
+    std::cout << graph.max_states() << " & " << graph.count_leaf_nodes() << " & " << graph.max_fanout() << " & " <<
+        //(max_instructions < 0 ? "$\\infty$" : std::to_string(max_instructions)) << " & " <<
+        //(max_sym_vars < 0 ? "$\\infty$" : std::to_string(max_sym_vars)) << " & " <<
+        //(max_iterations < 0 ? "$\\infty$" : std::to_string(max_iterations)) << " & " <<
+        std::fixed << std::setprecision(3) << elapsed_seconds.count() << " \\\\" << std::endl;
+    //std::cout << uint128_to_string(graph.max_states()) << " & " << graph.count_leaf_nodes() << " & " << graph.min_fanout() << " & " << graph.max_fanout() << " & " << graph.avg_fanout() << " \\\\" << std::endl;
+
+    /*for (size_t i = 0; i < x0_models.size(); i++) {
+        std::cout << "- Model #" << i << ":" << std::endl;
+        //z3_pretty_println(x0_models[i].path_condition);
+        for (const auto &entry : x0_models[i].values) {
+            std::cout << "  " << entry.first << " = "
+                      << entry.second.concrete_value.value.int32 << std::endl;
+        }
+    }
+
+    nlohmann::json json_models;
+    json_models["models"] = std::vector<nlohmann::json>();
+    for (auto &model : x0_models) {
+        nlohmann::json j;
+        for (const auto &entry : model.values) {
+            nlohmann::json value;
+            value["primitive"] = entry.second.primitive_origin;
+            value["arg"] = entry.second.primitive_argument;
+            value["value"] = entry.second.concrete_value.value.int32;
+            j[entry.first] = value;
+        }
+        json_models["models"].push_back(j);
+    }
+    std::cout << json_models << std::endl;*/
+}
+
 int main(int argc, const char *argv[]) {
     ARGV_SHIFT();  // Skip command name
 
@@ -305,12 +855,19 @@ int main(int argc, const char *argv[]) {
     const char *proxy = nullptr;
     const char *baudrate = nullptr;
     const char *mode = "interpreter";
+    const char *max_instructions_str = "50";
+    const char *max_symbolic_variables_str = "-1";
+    const char *max_iterations_str = "-1";
+    const char *stop_at_pc_str = "-1";
     bool dump_info = false;
 
     const char *invoke_fname = nullptr;
     std::vector<const char *> invoke_raw_args;
 
-    // Parse main module (first positional argument)
+    const char *current_msg = nullptr;
+    std::vector<std::string> snapshot_messages;
+
+
     if (argc > 0 && argv[0][0] != '-') {
         main_module = argv[0];
         ARGV_SHIFT();
@@ -364,6 +921,30 @@ int main(int argc, const char *argv[]) {
                 ARGV_GET(val);
                 invoke_raw_args.push_back(val);
             }
+        } else if (!strcmp("--snapshot", arg)) {
+            ARGV_GET(current_msg);
+
+            if (std::filesystem::exists(current_msg)) {
+                std::ifstream ifs(current_msg);
+                std::string line;
+                while (std::getline(ifs, line)) {
+                    snapshot_messages.emplace_back(line);
+                }
+            }
+            else {
+                while (strcmp("end", current_msg) != 0) {
+                    snapshot_messages.emplace_back(current_msg);
+                    ARGV_GET(current_msg);
+                }
+            }
+        } else if (!strcmp("--max-instructions", arg)) {
+            ARGV_GET(max_instructions_str);
+        } else if (!strcmp("--max-symbolic-variables", arg)) {
+            ARGV_GET(max_symbolic_variables_str);
+        } else if (!strcmp("--max-iterations", arg)) {
+            ARGV_GET(max_iterations_str);
+        } else if (!strcmp("--stop-at-pc", arg)) {
+            ARGV_GET(stop_at_pc_str);
         } else if (!strcmp("--dump-info", arg)) {
             dump_info = true;
         } else {
@@ -561,12 +1142,24 @@ int main(int argc, const char *argv[]) {
             communication = std::thread(startDebuggerCommunication);
         }
 
-        dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
-        if (invoke_fname != nullptr) {
-            uint32_t fidx = wac->get_export_fidx(m, invoke_fname);
-            wac->invoke(m, fidx, parsed_args.size(), parsed_args.data());
-        } else {
-            wac->run_module(m);
+        // Run Wasm module
+        if (strcmp(mode, "concolic") == 0) {
+            run_concolic(snapshot_messages, std::stoi(max_instructions_str), std::stoi(max_symbolic_variables_str), std::stoi(max_iterations_str), std::stoi(stop_at_pc_str));
+        }
+        else {
+            // TODO: Add option to calculate the choice points and add them as breakpoints from the remote debugger once
+            // the user starts debugging instead of always adding them even when not debugging.
+            for (uint8_t *choice_point : find_choice_points(m)) {
+                //wac->debugger->addBreakpoint(choice_point);
+            }
+
+            dbg_info("\n=== STARTED INTERPRETATION (main thread) ===\n");
+            if (invoke_fname != nullptr) {
+                uint32_t fidx = wac->get_export_fidx(m, invoke_fname);
+                wac->invoke(m, fidx, parsed_args.size(), parsed_args.data());
+            } else {
+                wac->run_module(m);
+            }
         }
 
         // Unload all
@@ -574,8 +1167,9 @@ int main(int argc, const char *argv[]) {
             wac->unload_module(mod);
         }
         wac->debugger->stop();
+        Z3_finalize_memory();
 
-        if (!no_debug) {
+        if (communication.joinable()) {
             communication.join();
         }
     }

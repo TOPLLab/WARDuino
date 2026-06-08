@@ -19,7 +19,9 @@
 #include <cstring>
 #include <random>
 #include <thread>
+#include <iostream>
 
+#include "../Interpreter/concolic_interpreter.h"
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
@@ -132,6 +134,33 @@ def_prim(print_string, twoToNoneU32) {
     return true;
 }
 
+void push_symbolic_int(Module *m, std::string primitive_origin, uint32_t arg) {
+    int32_t concrete_value = 0;
+    std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
+    if (m->symbolic_concrete_values.find(var_name) !=
+        m->symbolic_concrete_values.end()) {
+        concrete_value = m->symbolic_concrete_values[var_name].concrete_value.value.int32;
+
+        dbg_trace("Existing symbolic value %s, value = %d\n", var_name.c_str(), concrete_value);
+    }
+    else {
+        dbg_trace("New symbolic value %s, start value = %d\n", var_name.c_str(), concrete_value);
+    }
+    pushInt32(concrete_value);
+    m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_const(var_name.c_str(), 32);
+    m->symbolic_concrete_values[var_name] = {
+        .concrete_value = { .value_type = I32, .value = {.int32 = concrete_value} },
+        .primitive_origin = primitive_origin,
+        .primitive_argument = arg,
+        .time_step = m->instructions_executed - 1
+    };
+}
+
+def_prim(sym_int, NoneToOneU32) {
+    push_symbolic_int(m, "sym_int", 0);
+    return true;
+}
+
 def_prim(wifi_connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
@@ -209,8 +238,7 @@ def_prim(http_post, tenToOneU32) {
     // uint32_t size = arg0.uint32; // never used in emulator
 
     std::string url_parsed = parse_utf8_string(m->memory.bytes, url_len, url);
-    std::string body_parsed =
-        parse_utf8_string(m->memory.bytes, body_len, body);
+    std::string body_parsed = parse_utf8_string(m->memory.bytes, body_len, body);
     std::string content_type_parsed =
         parse_utf8_string(m->memory.bytes, content_type_len, content_type);
     std::string authorization_parsed =
@@ -288,18 +316,45 @@ def_prim_serialize(chip_digital_write) {
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    if (pin < NUM_DIGITAL_PINS) {
-        pushUInt32(PINS[pin]);
+    //pushUInt32(1);  // HIGH
+    if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
+        m->warduino->stop = true;
         return true;
     }
-    return false;
+    push_symbolic_int(m, "chip_digital_read", pin);
+    return true;
 }
 
 def_prim(chip_analog_read, oneToOneI32) {
-    // uint8_t pin = arg0.uint32; // never used in emulator
+    uint8_t pin = arg0.uint32;
     pop_args(1);
-    pushInt32(sin(sensor_emu) * 100);
+    /*if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
+        push_symbolic_int(m, "chip_analog_read", pin);
+        return true;
+    }*/
+    if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
+        m->warduino->stop = true;
+        return true;
+    }
+    push_symbolic_int(m, "chip_analog_read", pin);
+    //pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
+    return true;
+}
+
+def_prim(color_sensor, oneToOneI32) {
+    uint8_t pin = arg0.uint32;
+    pop_args(1);
+    /*if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
+        push_symbolic_int(m, "color_sensor", pin);
+        return true;
+    }*/
+    if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
+        m->symbolic_variable_count++;
+        m->warduino->stop = true;
+        return true;
+    }
+    push_symbolic_int(m, "color_sensor", pin);
     return true;
 }
 
@@ -313,7 +368,9 @@ def_prim(chip_delay, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
     debug("EMU: chip_delay(%u) \n", arg0.uint32);
-    sleep_for(milliseconds(arg0.uint32));
+    /*if (!dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
+        sleep_for(milliseconds(arg0.uint32));
+    }*/
     debug("EMU: .. done\n");
     pop_args(1);
     return true;
@@ -525,6 +582,11 @@ void install_primitives(Interpreter *interpreter) {
 
     install_primitive(print_int);
     install_primitive(print_string);
+
+    install_primitive(sym_int);
+    install_primitive(setup_uart_sensor);
+    install_primitive(color_sensor);
+    install_primitive(drive_motor_degrees);
 
     install_primitive(wifi_connect);
     install_primitive(wifi_status);
