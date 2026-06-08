@@ -1,8 +1,23 @@
 #pragma once
+#include <array>
 #include <cstdint>
+#include <functional>
 #include <map>
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
+
+#ifdef EMULATOR
+#include <z3++.h>
+#endif
+
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 0x10000
+#endif
+#ifndef STACK_SIZE
+#define STACK_SIZE 0x100
+#endif
 
 #define I32 0x7f  // -0x01
 #define I64 0x7e  // -0x02
@@ -103,8 +118,6 @@ typedef struct Table {
     uint32_t maximum = 0;   // maximum table size
     uint32_t size = 0;      // current table size
     uint32_t *entries = nullptr;
-    bool imported = false;           // whether the table is imported/shared
-    struct Module *owner = nullptr;  // module that owns the table
 } Table;
 
 typedef struct Memory {
@@ -112,7 +125,6 @@ typedef struct Memory {
     uint32_t maximum = 0;      // maximum size (64K pages)
     uint32_t pages = 0;        // current size (64K pages)
     uint8_t *bytes = nullptr;  // memory area
-    bool imported = false;     // whether the memory is imported/shared
 } Memory;
 
 typedef struct Global {
@@ -138,21 +150,25 @@ typedef struct Options {
 
 class WARDuino;  // predeclare for it work in the module decl
 
-typedef struct ExecutionContext {
-    uint8_t *pc_ptr = nullptr;
-    int sp = -1;
-    int fp = -1;
-    StackValue *stack = nullptr;
-    int csp = -1;
-    Frame *callstack = nullptr;
-    uint32_t *br_table = nullptr;
+#ifdef EMULATOR
+struct SymbolicMemory {
+    z3::expr symbolic_pages;
+    std::vector<z3::expr> symbolic_bytes;
 
-    struct Module *current_module = nullptr;
-} ExecutionContext;
+    explicit SymbolicMemory(z3::context &ctx)
+        : symbolic_pages(ctx.bv_val(0, 32)) {}
+};
+
+struct SymbolicValueMapping {
+    StackValue concrete_value;
+    std::string primitive_origin;
+    uint32_t primitive_argument;
+    int32_t time_step;
+};
+#endif
 
 typedef struct Module {
     WARDuino *warduino = nullptr;
-    char *name = nullptr;
     char *path = nullptr;  // file path of the wasm module
     Options options;       // Config options
 
@@ -171,10 +187,41 @@ typedef struct Module {
     uint32_t start_function = -1;  // function to run on module load
     Table table;
     Memory memory;
-    uint32_t global_count = 0;   // number of globals
-    Global **globals = nullptr;  // globals
+    uint32_t global_count = 0;      // number of globals
+    StackValue *globals = nullptr;  // globals
+
+    // Runtime state
+    uint8_t *pc_ptr = nullptr;     // program counter
+    int sp = -1;                   // operand stack pointer
+    int fp = -1;                   // current frame pointer into stack
+    StackValue *stack = nullptr;   // main operand stack
+    int csp = -1;                  // callstack pointer
+    Frame *callstack = nullptr;    // callstack
+    uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
+    int instructions_executed = 0;
+
+#ifdef EMULATOR
+    z3::context ctx;
+    z3::expr path_condition = ctx.bool_val(true);
+    std::vector<z3::expr> symbolic_globals;
+    std::array<std::optional<z3::expr>, STACK_SIZE> symbolic_stack;
+    SymbolicMemory symbolic_memory = SymbolicMemory(ctx);
+    int symbolic_variable_count = 0;
+    std::unordered_map<std::string, SymbolicValueMapping>
+        symbolic_concrete_values;
+    std::vector<uint32_t> trace;
+
+    void create_symbolic_state();
+#endif
+
+    void memory_resize(uint32_t new_pages);
+    std::vector<uint8_t *> find_choice_points(bool after = false) const;
+    std::vector<uint8_t *> find_pc_before_primitive_calls() const;
+    std::vector<uint8_t *> find_pc_after_primitive_calls() const;
+    std::vector<uint8_t *> find_calls(
+        const std::function<bool(std::string)> &cond, bool after = false) const;
 } Module;
 
 typedef bool (*Primitive)(Module *);

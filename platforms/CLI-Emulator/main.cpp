@@ -18,6 +18,7 @@
 #include "../../src/Interpreter/concolic_interpreter.h"
 #include "../../src/Utils/macros.h"
 #include "../../src/Utils/util.h"
+#include "../../src/Primitives/primitives.h"
 #include "warduino/config.h"
 #include "bigint.h"
 
@@ -611,6 +612,7 @@ z3::expr preconditions() {
 void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1, int max_iterations = -1, int stop_at_pc = -1) {
     const auto start{std::chrono::steady_clock::now()};
     wac->interpreter = new ConcolicInterpreter();
+    install_primitives(wac->interpreter);
     // Has a big impact on performance, for example if you have a simple program
     // with a loop that contains an if statement and, you run the loop 30 times
     // then you have 2^30 possible branching paths. You can take the if branch

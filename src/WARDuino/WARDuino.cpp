@@ -14,18 +14,17 @@
 #include "../Utils/util.h"
 
 #define UNDEF (uint32_t)(-1)
-#define pushUInt32(m, arg) m->stack[++(m)->sp].value.uint32 = arg
 
 char exception[512];
 
 // UTIL
-bool resolvesym(char *filename, char *symbol, uint8_t external_kind, void **val,
-                char **err) {
+bool resolvesym(Interpreter *interpreter, char *filename, char *symbol,
+                uint8_t external_kind, void **val, char **err) {
     if (nullptr != filename && !strcmp(filename, "env")) {
         switch (external_kind) {
             case 0x00:  // Function
             {
-                return resolve_primitive(symbol, (Primitive *)val);
+                return interpreter->resolve_primitive(symbol, (Primitive *)val);
                 break;
             }
             case 0x01:  // Table
@@ -439,8 +438,9 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     // TODO add special case form primitives with resolvePrim
                     do {
                         // Try using module as handle filename
-                        if (resolvesym(import_module, import_field,
-                                       external_kind, &val, &err)) {
+                        if (resolvesym(m->warduino->interpreter, import_module,
+                                       import_field, external_kind, &val,
+                                       &err)) {
                             break;
                         }
 
@@ -453,8 +453,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                 sym[sidx] = '_';
                             }
                         }
-                        if (resolvesym(nullptr, sym, external_kind, &val,
-                                       &err)) {
+                        if (resolvesym(m->warduino->interpreter, nullptr, sym,
+                                       external_kind, &val, &err)) {
                             break;
                         }
 
@@ -464,8 +464,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             (strncmp("env", import_module, 4) == 0) &&
                             (strncmp("_", import_field, 1) == 0)) {
                             sprintf(sym, "%s", import_field + 1);
-                            if (resolvesym(nullptr, sym, external_kind, &val,
-                                           &err)) {
+                            if (resolvesym(m->warduino->interpreter, nullptr,
+                                           sym, external_kind, &val, &err)) {
                                 break;
                             }
                         }
@@ -473,8 +473,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         // Try the plain symbol by itself with module
                         // name/handle
                         sprintf(sym, "%s", import_field);
-                        if (resolvesym(nullptr, sym, external_kind, &val,
-                                       &err)) {
+                        if (resolvesym(m->warduino->interpreter, nullptr, sym,
+                                       external_kind, &val, &err)) {
                             break;
                         }
 
@@ -894,7 +894,7 @@ void WARDuino::unload_module(Module *m) {
 WARDuino::WARDuino() {
     this->debugger = new Debugger(0);
     this->interpreter = new Interpreter();
-    install_primitives();
+    install_primitives(this->interpreter);
     initTypes();
 }
 
@@ -1158,4 +1158,9 @@ std::vector<uint8_t *> Module::find_pc_before_primitive_calls() const {
 
 std::vector<uint8_t *> Module::find_pc_after_primitive_calls() const {
     return find_calls([](const std::string& x) { return true; }, true);
+}
+
+uint32_t WARDuino::get_heap_used() const {
+    // Heap introspection is platform-specific; keep a safe default for emulator.
+    return 0;
 }

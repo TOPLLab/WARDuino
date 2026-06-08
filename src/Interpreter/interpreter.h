@@ -1,4 +1,9 @@
 #pragma once
+#include <cstring>
+#include <set>
+#include <vector>
+
+#include "../Utils/macros.h"
 #include "../WARDuino.h"
 
 class Interpreter {
@@ -47,6 +52,51 @@ class Interpreter {
     virtual void store(Module *m, uint32_t offset, uint32_t addr, int value_sp,
                        int size);
 
+    void register_primitive(const PrimitiveEntry &entry) {
+        primitives.push_back(entry);
+    }
+
+    bool resolve_primitive(const char *symbol, Primitive *val) {
+        debug("Resolve primitive %s\n", symbol);
+
+        for (auto &primitive : primitives) {
+            if (!strcmp(symbol, primitive.name)) {
+                debug("FOUND PRIMITIVE\n");
+                *val = primitive.f;
+                return true;
+            }
+        }
+        FATAL("Could not find primitive %s \n", symbol);
+        return false;
+    }
+
+    void restore_external_state(
+        Module *m, const std::vector<IOStateElement> &external_state) {
+        std::set<std::string> prim_names;
+        for (uint32_t i = 0; i < m->import_count; i++) {
+            prim_names.emplace(m->functions[i].import_field);
+        }
+
+        for (PrimitiveEntry &p : primitives) {
+            if (prim_names.find(p.name) != prim_names.end()) {
+                if (p.f_reverse) {
+                    dbg_info("Reversing state for primitive %s\n", p.name);
+                    p.f_reverse(m, external_state);
+                }
+            }
+        }
+    }
+
+    std::vector<IOStateElement *> get_io_state(Module *) const {
+        std::vector<IOStateElement *> ioState;
+        for (auto &primitive : primitives) {
+            if (primitive.f_serialize_state) {
+                primitive.f_serialize_state(ioState);
+            }
+        }
+        return ioState;
+    }
+
     bool i_instr_block(Module *m, uint8_t *block_ptr);
     bool i_instr_loop(Module *m, uint8_t *block_ptr);
     bool i_instr_if(Module *m, uint8_t *block_ptr);
@@ -84,6 +134,9 @@ class Interpreter {
     bool i_instr_binary_f64(Module *m, uint8_t opcode);
     bool i_instr_conversion(Module *m, uint8_t opcode);
     bool i_instr_callback(Module *m, uint8_t opcode);
+
+   private:
+    std::vector<PrimitiveEntry> primitives;
 };
 
 //template <typename T>
