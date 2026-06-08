@@ -145,9 +145,6 @@ typedef struct Options {
 } Options;
 
 #define STACK_SIZE 0x100       // 256 stack slots
-#define BLOCKSTACK_SIZE 0x100
-#define CALLSTACK_SIZE 0x100
-#define BR_TABLE_SIZE 0x100
 
 #ifdef EMULATOR
 struct SymbolicMemory {
