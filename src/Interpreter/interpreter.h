@@ -9,6 +9,11 @@
 #include "../Utils/macros.h"
 #include "../WARDuino/internals.h"
 
+// Size of memory load/store operations indexed by opcode - 0x28
+extern uint32_t LOAD_SIZE[];
+extern uint32_t LOAD_TYPES[];
+extern uint32_t STORE_SIZE[];
+
 class Interpreter {
    public:
     void push_block(Module *m, Block *block, int sp);
@@ -21,8 +26,7 @@ class Interpreter {
 
     virtual void load(Module *m, uint32_t offset, uint32_t addr, int size,
                       uint8_t value_type, bool sign_extend);
-    virtual void store(Module *m, uint32_t offset, uint32_t addr, int value_sp,
-                       int size);
+    virtual bool store(Module *m, uint8_t type, uint32_t addr, int value_sp);
 
     static void report_overflow(Module *m, uint8_t *maddr);
 

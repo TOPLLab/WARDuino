@@ -910,7 +910,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
             }
             case memoryState: {
                 uint32_t total_elems =
-                    m->memory.pages * static_cast<uint32_t>(PAGE_SIZE);
+                    m->memory.pages * static_cast<uint32_t>(WARD_PAGE_SIZE);
                 this->channel->write(
                     R"(%s"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
                     addComma ? "," : "", m->memory.pages, m->memory.maximum,
@@ -1200,12 +1200,12 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                     m->memory.bytes = nullptr;
                 }
                 m->memory.bytes = static_cast<uint8_t *>(
-                    acalloc(pages * PAGE_SIZE, 1, "Module->memory.bytes"));
+                    acalloc(pages * WARD_PAGE_SIZE, 1, "Module->memory.bytes"));
                 m->memory.pages = pages;
                 // }
                 // else{
                 //   //TODO fill memory.bytes with zeros
-                // memset(m->memory.bytes, 0, m->memory.pages * PAGE_SIZE) ;
+                // memset(m->memory.bytes, 0, m->memory.pages * WARD_PAGE_SIZE) ;
                 // }
                 break;
             }
@@ -1345,7 +1345,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 uint32_t total_bytes = limit - start + 1;
                 uint8_t *mem_end =
                     m->memory.bytes +
-                    m->memory.pages * static_cast<uint32_t>(PAGE_SIZE);
+                    m->memory.pages * static_cast<uint32_t>(WARD_PAGE_SIZE);
                 debug("will copy #%" PRIu32 " bytes from %" PRIu32
                       " to %" PRIu32 " (incl.)\n",
                       total_bytes, start, limit);

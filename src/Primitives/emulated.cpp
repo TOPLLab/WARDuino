@@ -273,7 +273,7 @@ def_prim(chip_digital_write, twoToNoneU32) {
     uint8_t pin = arg1.uint32;
     uint8_t val = arg0.uint32;
     printf("EMU: chip_digital_write(%u,%u) \n", pin, val);
-    bool writable = pin < NUM_DIGITAL_PINS && MODES[pin] == 0x02;
+    bool writable = pin < NUM_DIGITAL_PINS && MODES[pin] >= 1;
     if (writable) {
         PINS[pin] = val;
     }
@@ -651,7 +651,7 @@ bool resolve_external_memory(char *symbol, Memory **val) {
             external_mem.maximum = 256;
             external_mem.pages = 256;
             external_mem.bytes = static_cast<uint8_t *>(
-                acalloc(external_mem.pages * PAGE_SIZE, sizeof(uint32_t),
+                acalloc(external_mem.pages * WARD_PAGE_SIZE, sizeof(uint32_t),
                         "Module->memory.bytes primitive"));
         }
         *val = &external_mem;

@@ -78,8 +78,8 @@ bool interp(Module *m, bool waiting) {
         /*std::string symbolic_stack_str = "sym stack    : [ ";
         std::string stack_str = "stack        : [ ";
         //for (int i = std::max(0, m->sp - 5); i <= m->sp; i++) {
-        for (int i = 0; i <= m->sp; i++) {
-            stack_str += std::to_string(m->stack[i].value.int32);
+        for (int i = 0; i <= m->warduino->execution_context->sp; i++) {
+            stack_str += std::to_string(m->warduino->execution_context->stack[i].value.int32);
             if (m->symbolic_stack[i].has_value()) {
                 auto v = m->symbolic_stack[i].value().simplify();
                 assert(v.to_string() != "null");
@@ -95,7 +95,7 @@ bool interp(Module *m, bool waiting) {
                 //assert(false);
                 symbolic_stack_str += "none";
             }
-            if (i != m->sp) {
+            if (i != m->warduino->execution_context->sp) {
                 symbolic_stack_str += ", ";
                 stack_str += ", ";
             }
@@ -105,7 +105,7 @@ bool interp(Module *m, bool waiting) {
         std::cout << symbolic_stack_str << std::endl;
         std::cout << stack_str << std::endl;
 
-        z3::solver s(m->ctx);
+        /*z3::solver s(m->ctx);
         s.add(m->path_condition);
         auto result = s.check();
         std::cout << "Path condition: " << m->path_condition.to_string() << std::endl;
@@ -120,6 +120,7 @@ bool interp(Module *m, bool waiting) {
         /*std::cout << "running instr: " << OPERATOR_INFO[opcode]; // <<
         std::endl; uint8_t *pc_ptr_tmp = m->pc_ptr; std::cout << " " <<
         read_LEB_32(&pc_ptr_tmp) << std::endl;*/
+
         if (m->warduino->program_state == WARDUINOrun) {
             m->instructions_executed++;
             if (m->warduino->max_instructions > 0 &&

@@ -10,8 +10,7 @@ class ConcolicInterpreter : public Interpreter {
 
     void load(Module *m, uint32_t offset, uint32_t addr, int size,
               uint8_t value_type, bool sign_extend) override;
-    void store(Module *m, uint32_t offset, uint32_t addr, int value_sp,
-               int size) override;
+    bool store(Module *m, uint8_t type, uint32_t addr, int value_sp) override;
 
     bool i_instr_if(Module *m, uint8_t *block_ptr);
     bool i_instr_br_if(Module *m);

@@ -697,7 +697,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                 // for (uint32_t c=0; c<memory_count; c++) {
                 parse_memory_type(m, &pos);
                 m->memory.bytes =
-                    (uint8_t *)acalloc(m->memory.pages * PAGE_SIZE,
+                    (uint8_t *)acalloc(m->memory.pages * WARD_PAGE_SIZE,
                                        1,  // sizeof(uint32_t),
                                        "Module->memory.bytes");
                 //}
@@ -846,11 +846,11 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                     // Copy the data to the memory offset
                     uint32_t size = read_LEB_32(&pos);
                     if (!m->options.disable_memory_bounds) {
-                        ASSERT(offset + size <= m->memory.pages * PAGE_SIZE,
+                        ASSERT(offset + size <= m->memory.pages * WARD_PAGE_SIZE,
                                "memory overflow %" PRIu32 "+%" PRIu32
                                " > %" PRIu32 "\n",
                                offset, size,
-                               (uint32_t)(m->memory.pages * PAGE_SIZE));
+                               (uint32_t)(m->memory.pages * WARD_PAGE_SIZE));
                     }
                     dbg_info(
                         "  setting 0x%x bytes of memory at 0x%p + offset "
@@ -1322,16 +1322,16 @@ uint32_t WARDuino::get_heap_used() { return TOTAL_MALLOC; }
 void Module::memory_resize(uint32_t new_pages) {
     uint32_t old_pages = memory.pages;
     if (memory.bytes == nullptr) {
-        memory.bytes = (uint8_t *)acalloc(new_pages * PAGE_SIZE, sizeof(uint8_t),
+        memory.bytes = (uint8_t *)acalloc(new_pages * WARD_PAGE_SIZE, sizeof(uint8_t),
                                           "Module->memory.bytes");
     } else {
         memory.bytes = (uint8_t *)arecalloc(
-            memory.bytes, old_pages * PAGE_SIZE, new_pages * PAGE_SIZE,
+            memory.bytes, old_pages * WARD_PAGE_SIZE, new_pages *WARD_PAGE_SIZE,
             sizeof(uint8_t), "Module->memory.bytes");
     }
     memory.pages = new_pages;
 #ifdef EMULATOR
-    symbolic_memory.symbolic_bytes.resize(new_pages * PAGE_SIZE,
+    symbolic_memory.symbolic_bytes.resize(new_pages * WARD_PAGE_SIZE,
                                           ctx.bv_val(0, 8));
     symbolic_memory.symbolic_pages = ctx.bv_val(new_pages, 32);
 #endif
@@ -1352,7 +1352,9 @@ void Module::create_symbolic_state() {
     }
 
     // Create symbolic memory from concrete memory.
-    for (size_t i = 0; i < memory.pages * PAGE_SIZE; i++) {
+    symbolic_memory.symbolic_bytes.resize(memory.pages * WARD_PAGE_SIZE, ctx.bv_val(0, 8));
+    symbolic_memory.symbolic_pages = ctx.bv_val(memory.pages, 32);
+    for (size_t i = 0; i < memory.pages * WARD_PAGE_SIZE; i++) {
         symbolic_memory.symbolic_bytes[i] = ctx.bv_val(memory.bytes[i], 8);
     }
 

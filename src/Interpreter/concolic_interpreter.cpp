@@ -144,18 +144,20 @@ void ConcolicInterpreter::load(Module *m, uint32_t offset, uint32_t addr,
     }
 }
 
-void ConcolicInterpreter::store(Module *m, uint32_t offset, uint32_t addr,
-                                int value_sp, int size) {
+bool ConcolicInterpreter::store(Module *m, uint8_t type, uint32_t addr,
+                                int value_sp) {
     // Store concrete value.
-    Interpreter::store(m, offset, addr, value_sp, size);
+    bool result = Interpreter::store(m, type, addr, value_sp);
 
     // Store symbolic value.
     z3::expr symbolic_stack_value = m->symbolic_stack[value_sp].value();
 
+    uint32_t size = STORE_SIZE[abs(type - I32)];
     for (int i = 0; i < size; i++) {
-        m->symbolic_memory.symbolic_bytes[offset + addr + i] =
+        m->symbolic_memory.symbolic_bytes[addr + i] =
             symbolic_stack_value.extract((i + 1) * 8 - 1, i * 8);
     }
+    return result;
 }
 
 z3::expr simplify_bool_conversion(z3::expr expression) {

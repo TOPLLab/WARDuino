@@ -10,6 +10,11 @@
 #include "../WARDuino/CallbackHandler.h"
 #include "interp_loop.h"
 
+uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4};
+uint32_t LOAD_TYPES[] = {I32, I64, F32, F64, I32, I32, I32,
+                         I32, I64, I64, I64, I64, I64, I64};
+uint32_t STORE_SIZE[] = {4, 8, 4, 8, 1, 2, 1, 2, 4};
+
 //
 // Stack machine (byte code related functions)
 //
@@ -133,12 +138,6 @@ void Interpreter::setup_call(Module *m, uint32_t fidx) {
     ectx->callstack[ectx->csp].module = m;
 }
 
-// Size of memory load/store operations indexed by opcode - 0x28
-uint32_t LOAD_SIZE[] = {4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4};
-uint32_t LOAD_TYPES[] = {I32, I64, F32, F64, I32, I32, I32,
-                         I32, I64, I64, I64, I64, I64, I64};
-uint32_t STORE_SIZE[] = {4, 8, 4, 8, 1, 2, 1, 2, 4};
-
 void Interpreter::load(Module *m, uint32_t offset, uint32_t addr, int size,
                        uint8_t value_type, bool sign_extend) {
     ExecutionContext *ectx = m->warduino->execution_context;
@@ -148,17 +147,40 @@ void Interpreter::load(Module *m, uint32_t offset, uint32_t addr, int size,
     ectx->stack[ectx->sp].value_type = value_type;
 }
 
-void Interpreter::store(Module *m, uint32_t offset, uint32_t addr,
-                        int value_sp, int size) {
+bool Interpreter::store(Module *m, uint8_t type, uint32_t addr, int value_sp) {
+    if (m->warduino->debugger->isProxy()) {
+        return m->warduino->debugger;
+    }
+
     ExecutionContext *ectx = m->warduino->execution_context;
-    uint8_t *maddr = m->memory.bytes + offset + addr;
+    uint8_t *maddr, *mem_end;
+    uint32_t size = STORE_SIZE[abs(type - I32)];
+    bool overflow = false;
+
+    maddr = m->memory.bytes + addr;
+    if (maddr < m->memory.bytes) {
+        overflow = true;
+    }
+    mem_end = m->memory.bytes + m->memory.pages * (uint32_t)WARD_PAGE_SIZE;
+    if (maddr + size > mem_end) {
+        overflow = true;
+    }
+
+    if (!m->options.disable_memory_bounds) {
+        if (overflow) {
+            report_overflow(m, maddr);
+            return false;
+        }
+    }
+
     memcpy(maddr, &ectx->stack[value_sp].value, size);
+    return true;
 }
 
 void Interpreter::report_overflow([[maybe_unused]] Module *m,
                                   [[maybe_unused]] uint8_t *maddr) {
     dbg_warn("memory start: %p, memory end: %p, maddr: %p\n", m->memory.bytes,
-             m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE, maddr);
+             m->memory.bytes + m->memory.pages * (uint32_t)WARD_PAGE_SIZE, maddr);
     sprintf(exception, "out of bounds memory access");
 }
 
@@ -680,7 +702,7 @@ bool Interpreter::i_instr_grow_memory(Module *m) {
     }
     m->memory.pages += delta;
     m->memory.bytes = (uint8_t *)arecalloc(
-        m->memory.bytes, prev_pages * PAGE_SIZE, m->memory.pages * PAGE_SIZE,
+        m->memory.bytes, prev_pages * WARD_PAGE_SIZE, m->memory.pages * WARD_PAGE_SIZE,
         1 /*sizeof(uint32_t)*/, "Module->memory.bytes", true);
     return true;
 }
@@ -709,7 +731,7 @@ bool Interpreter::i_instr_mem_load(Module *m, uint8_t opcode) {
         overflow = true;
     }
     uint8_t *mem_end =
-        m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
+        m->memory.bytes + m->memory.pages * (uint32_t)WARD_PAGE_SIZE;
     if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
         overflow = true;
     }
@@ -796,73 +818,27 @@ bool Interpreter::i_instr_mem_load(Module *m, uint8_t opcode) {
  */
 bool Interpreter::i_instr_mem_store(Module *m, uint8_t opcode) {
     ExecutionContext *ectx = m->warduino->execution_context;
+    int value_sp = ectx->sp--;
     uint32_t flags = read_LEB_32(&ectx->pc_ptr);
     uint32_t offset = read_LEB_32(&ectx->pc_ptr);
-    int value_sp = ectx->sp--;  // position of the data we want to store
+
     uint32_t addr = ectx->stack[ectx->sp--].value.uint32;
-    bool overflow = false;
 
     if (flags != 2 && TRACE) {
         dbg_info(
             "      - unaligned store - flags: 0x%x,"
-            " offset: 0x%x, addr: 0x%x\n",
-            flags, offset, addr);
+            " offset: 0x%x, addr: 0x%x, val: %s\n",
+            flags, offset, addr, value_repr(&ectx->stack[value_sp]));
     }
 
-    if (offset + addr < addr) {
-        overflow = true;
-    }
-    uint8_t *maddr = m->memory.bytes + offset + addr;
-    if (maddr < m->memory.bytes) {
-        overflow = true;
-    }
-    uint8_t *mem_end =
-        m->memory.bytes + m->memory.pages * (uint32_t)PAGE_SIZE;
-    if (maddr + LOAD_SIZE[opcode - 0x28] > mem_end) {
-        overflow = true;
-    }
-    dbg_info(
-        "      - addr: 0x%x, offset: 0x%x, maddr: %p, mem_end: %p\n",
-        addr, offset, maddr, mem_end);
-    if (!m->options.disable_memory_bounds) {
-        if (overflow) {
-            report_overflow(m, maddr);
-            return false;
-        }
+    if (offset + addr < addr && !m->options.disable_memory_bounds) {
+        m->warduino->interpreter->report_overflow(
+            m, m->memory.bytes + offset + addr);
     }
 
-    switch (opcode) {
-        case 0x36:
-            this->store(m, offset, addr, value_sp, 4);
-            break;  // i32.store
-        case 0x37:
-            this->store(m, offset, addr, value_sp, 8);
-            break;  // i64.store
-        case 0x38:
-            this->store(m, offset, addr, value_sp, 4);
-            break;  // f32.store
-        case 0x39:
-            this->store(m, offset, addr, value_sp, 8);
-            break;  // f64.store
-        case 0x3a:
-            this->store(m, offset, addr, value_sp, 1);
-            break;  // i32.store8
-        case 0x3b:
-            this->store(m, offset, addr, value_sp, 2);
-            break;  // i32.store16
-        case 0x3c:
-            this->store(m, offset, addr, value_sp, 1);
-            break;  // i64.store8
-        case 0x3d:
-            this->store(m, offset, addr, value_sp, 2);
-            break;  // i64.store16
-        case 0x3e:
-            this->store(m, offset, addr, value_sp, 4);
-            break;  // i64.store32
-        default:
-            return false;
-    }
-    return true;
+    addr += offset;
+    return m->warduino->interpreter->store(m, I32 + (0x36 - opcode), addr,
+                                           value_sp);
 }
 
 /**

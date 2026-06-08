@@ -884,7 +884,7 @@ bool resolve_external_memory(char *symbol, Memory **val) {
             external_mem.maximum = 256;
             external_mem.pages = 256;
             external_mem.bytes = (uint8_t *)acalloc(
-                external_mem.pages * PAGE_SIZE, sizeof(uint8_t),
+                external_mem.pages * WARD_PAGE_SIZE, sizeof(uint8_t),
                 "external_mem.bytes");
         }
         *val = &external_mem;
