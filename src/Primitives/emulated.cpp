@@ -54,6 +54,28 @@ double sensor_emu = 0;
 // The globals table
 Global globals[ALL_GLOBALS];
 
+void push_symbolic_int(Module *m, std::string primitive_origin, uint32_t arg) {
+    int32_t concrete_value = 0;
+    std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
+    if (m->symbolic_concrete_values.find(var_name) !=
+        m->symbolic_concrete_values.end()) {
+        concrete_value = m->symbolic_concrete_values[var_name].concrete_value.value.int32;
+
+        dbg_trace("Existing symbolic value %s, value = %d\n", var_name.c_str(), concrete_value);
+        }
+    else {
+        dbg_trace("New symbolic value %s, start value = %d\n", var_name.c_str(), concrete_value);
+    }
+    pushInt32(concrete_value);
+    m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_const(var_name.c_str(), 32);
+    m->symbolic_concrete_values[var_name] = {
+        .concrete_value = { .value_type = I32, .value = {.int32 = concrete_value} },
+        .primitive_origin = primitive_origin,
+        .primitive_argument = arg,
+        .time_step = m->instructions_executed - 1
+    };
+}
+
 def_prim(init_pixels, NoneToNoneU32) {
     printf("init_pixels \n");
     return true;
@@ -97,7 +119,12 @@ def_prim(micros, NoneToOneU64) {
 }
 
 def_prim(random_int, NoneToOneU32) {
-    pushInt32(rand());
+    //pushInt32(rand());
+    if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
+        m->warduino->stop = true;
+        return true;
+    }
+    push_symbolic_int(m, "random_int", 0);
     return true;
 }
 
@@ -132,28 +159,6 @@ def_prim(print_string, twoToNoneU32) {
     printf("%s", text.c_str());
     pop_args(2);
     return true;
-}
-
-void push_symbolic_int(Module *m, std::string primitive_origin, uint32_t arg) {
-    int32_t concrete_value = 0;
-    std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
-    if (m->symbolic_concrete_values.find(var_name) !=
-        m->symbolic_concrete_values.end()) {
-        concrete_value = m->symbolic_concrete_values[var_name].concrete_value.value.int32;
-
-        dbg_trace("Existing symbolic value %s, value = %d\n", var_name.c_str(), concrete_value);
-    }
-    else {
-        dbg_trace("New symbolic value %s, start value = %d\n", var_name.c_str(), concrete_value);
-    }
-    pushInt32(concrete_value);
-    m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_const(var_name.c_str(), 32);
-    m->symbolic_concrete_values[var_name] = {
-        .concrete_value = { .value_type = I32, .value = {.int32 = concrete_value} },
-        .primitive_origin = primitive_origin,
-        .primitive_argument = arg,
-        .time_step = m->instructions_executed - 1
-    };
 }
 
 def_prim(sym_int, NoneToOneU32) {
@@ -287,7 +292,11 @@ def_prim(chip_digital_write, twoToNoneU32) {
     }
     printf("\n");
     pop_args(2);
-    return writable;
+    /*if (!writable) {
+        printf("Pin not writeable!\n");
+    }
+    return writable;*/
+    return true;
 }
 
 def_prim_reverse(chip_digital_write) {
@@ -489,12 +498,14 @@ def_prim(display_set_orientation, oneToNoneI32) {
 def_prim(display_width, NoneToOneU32) {
     printf("EMU: display_width()\n");
     pushUInt32(320);
+    m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_val(320, 32);
     return true;
 }
 
 def_prim(display_height, NoneToOneU32) {
     printf("EMU: display_height()\n");
     pushUInt32(240);
+    m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_val(240, 32);
     return true;
 }
 
