@@ -696,6 +696,8 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
 
         if (!success) {
             std::cout << "Trap: " << m->exception << std::endl;
+            std::cout << "instructions_executed = " << m->instructions_executed << std::endl;
+            std::cout << "pc = 0x" << std::hex << toVirtualAddress(m->warduino->execution_context->pc_ptr, m)  << std::endl;
             std::cout << "Model that caused issue:" << std::endl;
             for (const auto &entry : m->symbolic_concrete_values) {
                 std::cout << "  " << entry.first << " = "
@@ -729,6 +731,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         iteration_index++;
         models.push_back(m->symbolic_concrete_values);
 
+        dbg_trace("\n--- Execution finished, iteration = %d ---\n", iteration_index - 1);
         dbg_trace("path condition = %s\n", m->path_condition.to_string().c_str());
         graph.add_partial_match(Model(m->symbolic_concrete_values, m->path_condition), 0, m->symbolic_variable_count);
 
@@ -754,6 +757,8 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
                            !m->path_condition;  // Not this path and also
                                                 // not the previous paths
 
+        dbg_trace("global path condition = %s\n", global_condition.to_string().c_str());
+
         /*std::cout << "GPC = ";
         z3_pretty_print(global_condition);
         std::cout << std::endl;
@@ -764,6 +769,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
             std::cout << "Explored all paths!" << std::endl;
             break;
         }
+        dbg_trace("Found a new model!\n");
         /*std::cout << "Solve !path_condition:" << std::endl
                   << s.get_model() << std::endl;*/
 
@@ -771,11 +777,13 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         //std::cout << "Model:" << std::endl;
         /*std::vector<Z3_ast> from;
         std::vector<Z3_ast> to;*/
+        dbg_trace("Model:\n");
         for (int i = 0; i < (int)model.size(); i++) {
             z3::func_decl func = model[i];
             if (func.name().str().find("x_") == std::string::npos) {
                 continue;
             }
+            dbg_trace("%s = %d\n", func.name().str().c_str(), model.get_const_interp(func).get_numeral_uint());
             /*std::cout << func.name() << " = "
                       << model.get_const_interp(func) << std::endl;
             std::cout << model.get_const_interp(func).get_numeral_uint() << std::endl;*/
