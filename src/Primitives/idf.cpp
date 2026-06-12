@@ -25,6 +25,7 @@
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "driver/gpio.h"
+#include "primitive_macros.h"
 #include "primitives.h"
 
 #define NUM_GLOBALS 0

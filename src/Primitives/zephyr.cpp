@@ -33,6 +33,7 @@
 #include "../Utils/util.h"
 #include "Mindstorms/Motor.h"
 #include "Mindstorms/uart_sensor.h"
+#include "primitive_macros.h"
 #include "primitives.h"
 
 #define NUM_GLOBALS 0

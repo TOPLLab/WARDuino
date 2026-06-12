@@ -23,6 +23,7 @@
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../WARDuino/CallbackHandler.h"
+#include "primitive_macros.h"
 #include "primitives.h"
 
 // NEOPIXEL
