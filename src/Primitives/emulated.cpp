@@ -54,7 +54,7 @@ double sensor_emu = 0;
 // The globals table
 Global globals[ALL_GLOBALS];
 
-void push_symbolic_int(Module *m, std::string primitive_origin, uint32_t arg) {
+void push_symbolic_int(Module *m, const std::string &primitive_origin, const std::vector<uint32_t> &args) {
     int32_t concrete_value = 0;
     std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
     if (m->symbolic_concrete_values.find(var_name) !=
@@ -71,7 +71,7 @@ void push_symbolic_int(Module *m, std::string primitive_origin, uint32_t arg) {
     m->symbolic_concrete_values[var_name] = {
         .concrete_value = { .value_type = I32, .value = {.int32 = concrete_value} },
         .primitive_origin = primitive_origin,
-        .primitive_argument = arg,
+        .primitive_arguments = args,
         .time_step = m->instructions_executed - 1
     };
 }
@@ -124,7 +124,7 @@ def_prim(random_int, NoneToOneU32) {
         m->warduino->stop = true;
         return true;
     }
-    push_symbolic_int(m, "random_int", 0);
+    push_symbolic_int(m, "random_int", {});
     return true;
 }
 
@@ -162,7 +162,7 @@ def_prim(print_string, twoToNoneU32) {
 }
 
 def_prim(sym_int, NoneToOneU32) {
-    push_symbolic_int(m, "sym_int", 0);
+    push_symbolic_int(m, "sym_int", {});
     return true;
 }
 
@@ -330,7 +330,7 @@ def_prim(chip_digital_read, oneToOneU32) {
         m->warduino->stop = true;
         return true;
     }
-    push_symbolic_int(m, "chip_digital_read", pin);
+    push_symbolic_int(m, "chip_digital_read", {pin});
     return true;
 }
 
@@ -345,7 +345,7 @@ def_prim(chip_analog_read, oneToOneI32) {
         m->warduino->stop = true;
         return true;
     }
-    push_symbolic_int(m, "chip_analog_read", pin);
+    push_symbolic_int(m, "chip_analog_read", {pin});
     //pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
     return true;
@@ -363,7 +363,7 @@ def_prim(color_sensor, oneToOneI32) {
         m->warduino->stop = true;
         return true;
     }
-    push_symbolic_int(m, "color_sensor", pin);
+    push_symbolic_int(m, "color_sensor", {pin});
     return true;
 }
 

@@ -157,7 +157,7 @@ struct SymbolicMemory {
 struct SymbolicValueMapping {
     StackValue concrete_value;
     std::string primitive_origin;
-    uint32_t primitive_argument;
+    std::vector<uint32_t> primitive_arguments;
     int32_t time_step;
 };
 #endif
