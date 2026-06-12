@@ -242,10 +242,15 @@ bool ConcolicInterpreter::i_instr_br_if(Module *m) {
 bool ConcolicInterpreter::i_instr_select(Module *m) {
     ExecutionContext *ectx = m->warduino->execution_context;
     int original_sp = ectx->sp;
+    uint32_t cond = ectx->stack[ectx->sp].value.uint32;
     Interpreter::i_instr_select(m);
     ectx->sp = original_sp;
 
     z3::expr sym_cond = m->symbolic_stack[ectx->sp--].value();
+
+    z3::expr bool_cond = simplify_bool_conversion(sym_cond != 0).simplify();
+    m->path_condition = m->path_condition && (cond ? bool_cond : !bool_cond);
+
     ectx->sp--;
     m->symbolic_stack[ectx->sp] =
         z3::ite(sym_cond != 0, m->symbolic_stack[ectx->sp].value(),
