@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cstring>
 #include <set>
+#include <string>
+#include <unordered_map>
 
 #include "../Utils/macros.h"
 #include "../WARDuino/internals.h"
@@ -57,8 +59,18 @@ class Interpreter {
 
     static void report_overflow(Module *m, uint8_t *maddr);
 
+    void register_primitive(const char *name, const Primitive f, Type *t) {
+        PrimitiveEntry p = {};
+        p.name = name;
+        p.t = t;
+        p.f = f;
+        p.f_reverse = nullptr;
+        p.f_serialize_state = nullptr;
+        register_primitive(p);
+    }
+
     void register_primitive(const PrimitiveEntry &entry) {
-        primitives.push_back(entry);
+        primitives[entry.name] = entry;
     }
 
     //------------------------------------------------------
@@ -67,14 +79,11 @@ class Interpreter {
     // ReSharper disable once CppDFAConstantFunctionResult
     bool resolve_primitive(const char *symbol, Primitive *val) {
         debug("Resolve primitive %s\n", symbol);
-
-        for (auto &primitive : primitives) {
-            //        printf("Checking %s = %s  \n", symbol, primitive.name);
-            if (!strcmp(symbol, primitive.name)) {
-                debug("FOUND PRIMITIVE\n");
-                *val = primitive.f;
-                return true;
-            }
+        auto it = primitives.find(symbol);
+        if (it != primitives.end()) {
+            debug("FOUND PRIMITIVE\n");
+            *val = it->second.f;
+            return true;
         }
         FATAL("Could not find primitive %s \n", symbol);
         return false;  // unreachable
@@ -90,8 +99,8 @@ class Interpreter {
             prim_names.emplace(m->functions[i].import_field);
         }
 
-        for (PrimitiveEntry &p : primitives) {
-            if (prim_names.find(p.name) != prim_names.end()) {
+        for (auto &[name, p] : primitives) {
+            if (prim_names.find(name) != prim_names.end()) {
                 if (p.f_reverse) {
                     dbg_info("Reversing state for primitive %s\n", p.name);
                     p.f_reverse(m, external_state);
@@ -102,7 +111,7 @@ class Interpreter {
 
     std::vector<IOStateElement *> get_io_state(Module *) const {
         std::vector<IOStateElement *> ioState;
-        for (auto &primitive : primitives) {
+        for (auto &[name, primitive] : primitives) {
             if (primitive.f_serialize_state) {
                 primitive.f_serialize_state(ioState);
             }
@@ -112,5 +121,5 @@ class Interpreter {
 
    protected:
    private:
-    std::vector<PrimitiveEntry> primitives;
+    std::unordered_map<std::string, PrimitiveEntry> primitives;
 };
