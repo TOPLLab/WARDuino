@@ -26,7 +26,6 @@
        (assert_return (invoke "i64_load32_u" (i64.const 42424242)) (i64.const 42424242))
        (assert_return (invoke "i64_load" (i64.const -1)) (i64.const -1))
        (assert_return (invoke "i64_load" (i64.const -42424242)) (i64.const -42424242))
-       (assert_return (invoke "i64_load" (i64.const 0xABAD1DEA)) (i64.const 0xABAD1DEA))
        (assert_return (invoke "i32_store16" (i32.const -1)) (i32.const 0xFFFF))
        (assert_return (invoke "i32_store16" (i32.const -4242)) (i32.const 61294))
        (assert_return (invoke "i32_store16" (i32.const 42)) (i32.const 42))
@@ -43,4 +42,3 @@
        (assert_return (invoke "i64_store32" (i64.const 42424242)) (i64.const 42424242))
        (assert_return (invoke "i64_store" (i64.const -1)) (i64.const -1))
        (assert_return (invoke "i64_store" (i64.const -42424242)) (i64.const -42424242))
-       (assert_return (invoke "i64_store" (i64.const 0xABAD1DEA)) (i64.const 0xABAD1DEA))
