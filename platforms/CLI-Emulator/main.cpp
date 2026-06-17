@@ -20,6 +20,7 @@
 
 #include "../../src/Debug/debugger.h"
 #include "../../src/Interpreter/concolic_interpreter.h"
+#include "../../src/Primitives/primitive_macros.h"
 #include "../../src/Utils/macros.h"
 #include "../../src/Utils/util.h"
 #include "bigint.h"
@@ -651,9 +652,123 @@ z3::expr preconditions() {
     return primitive_bounds;
 }
 
+/*
+ * Returns a bool indicating if the variable was added or not.
+ */
+bool push_symbolic_int(Module *m, const std::string &primitive_origin,
+                       const std::vector<uint32_t> &args) {
+    if (m->warduino->max_symbolic_variables > 0 &&
+        m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
+        m->warduino->stop = true;
+        return false;
+    }
+
+    int32_t concrete_value = 0;
+    std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
+    if (m->symbolic_concrete_values.find(var_name) !=
+        m->symbolic_concrete_values.end()) {
+        concrete_value =
+            m->symbolic_concrete_values[var_name].concrete_value.value.int32;
+
+        dbg_trace("Existing symbolic value %s, value = %d\n", var_name.c_str(),
+                  concrete_value);
+    } else {
+        dbg_trace("New symbolic value %s, start value = %d\n", var_name.c_str(),
+                  concrete_value);
+    }
+    pushInt32(concrete_value);
+    m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_const(var_name.c_str(), 32);
+    m->symbolic_concrete_values[var_name] = {
+        .concrete_value = {.value_type = I32,
+                           .value = {.int32 = concrete_value}},
+        .primitive_origin = primitive_origin,
+        .primitive_arguments = args,
+        .time_step = m->instructions_executed - 1};
+    return true;
+}
+
+void install_concolic_primitives(Interpreter *interpreter) {
+    // Make the following primitives not print anything in concolic mode.
+    interpreter->register_primitive(
+        "chip_pin_mode",
+        [](Module *m) -> bool {
+            pop_args(2);
+            return true;
+        },
+        &twoToNoneU32);
+    interpreter->register_primitive(
+        "chip_digital_write",
+        [](Module *m) -> bool {
+            pop_args(2);
+            return true;
+        },
+        &twoToNoneU32);
+
+    // Don't sleep when a delay primitive is executed
+    interpreter->register_primitive(
+        "chip_delay",
+        [](Module *m) -> bool {
+            pop_args(1);
+            return true;
+        },
+        &oneToNoneI32);
+    interpreter->register_primitive(
+        "chip_delay_us",
+        [](Module *m) -> bool {
+            pop_args(1);
+            return true;
+        },
+        &oneToNoneI32);
+
+    // Input primitives should return symbolic values.
+    interpreter->register_primitive(
+        "chip_analog_read",
+        [](Module *m) -> bool {
+            uint8_t pin = arg0.uint32;
+            pop_args(1);
+            push_symbolic_int(m, "chip_analog_read", {pin});
+            return true;
+        },
+        &oneToOneI32);
+    interpreter->register_primitive(
+        "chip_digital_read",
+        [](Module *m) -> bool {
+            uint8_t pin = arg0.uint32;
+            pop_args(1);
+            push_symbolic_int(m, "chip_digital_read", {pin});
+            return true;
+        },
+        &oneToOneI32);
+    interpreter->register_primitive(
+        "color_sensor",
+        [](Module *m) -> bool {
+            uint8_t pin = arg0.uint32;
+            pop_args(1);
+            push_symbolic_int(m, "color_sensor", {pin});
+            return true;
+        },
+        &oneToOneI32);
+    interpreter->register_primitive(
+        "random_int",
+        [](Module *m) -> bool {
+            push_symbolic_int(m, "random_int", {});
+            return true;
+        },
+        &NoneToOneU32);
+    interpreter->register_primitive(
+        "sym_int",
+        [](Module *m) -> bool {
+            push_symbolic_int(m, "sym_int", {});
+            return true;
+        },
+        &NoneToOneU32);
+}
+
 void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1, int max_iterations = -1, int stop_at_pc = -1) {
     const auto start{std::chrono::steady_clock::now()};
     wac->setInterpreter(new ConcolicInterpreter());
+    install_concolic_primitives(wac->interpreter);
+
     // Has a big impact on performance, for example if you have a simple program
     // with a loop that contains an if statement and, you run the loop 30 times
     // then you have 2^30 possible branching paths. You can take the if branch

@@ -54,28 +54,6 @@ double sensor_emu = 0;
 // The globals table
 Global globals[ALL_GLOBALS];
 
-void push_symbolic_int(Module *m, const std::string &primitive_origin, const std::vector<uint32_t> &args) {
-    int32_t concrete_value = 0;
-    std::string var_name = "x_" + std::to_string(m->symbolic_variable_count++);
-    if (m->symbolic_concrete_values.find(var_name) !=
-        m->symbolic_concrete_values.end()) {
-        concrete_value = m->symbolic_concrete_values[var_name].concrete_value.value.int32;
-
-        dbg_trace("Existing symbolic value %s, value = %d\n", var_name.c_str(), concrete_value);
-        }
-    else {
-        dbg_trace("New symbolic value %s, start value = %d\n", var_name.c_str(), concrete_value);
-    }
-    pushInt32(concrete_value);
-    m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_const(var_name.c_str(), 32);
-    m->symbolic_concrete_values[var_name] = {
-        .concrete_value = { .value_type = I32, .value = {.int32 = concrete_value} },
-        .primitive_origin = primitive_origin,
-        .primitive_arguments = args,
-        .time_step = m->instructions_executed - 1
-    };
-}
-
 def_prim(init_pixels, NoneToNoneU32) {
     printf("init_pixels \n");
     return true;
@@ -119,12 +97,7 @@ def_prim(micros, NoneToOneU64) {
 }
 
 def_prim(random_int, NoneToOneU32) {
-    //pushInt32(rand());
-    if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
-        m->warduino->stop = true;
-        return true;
-    }
-    push_symbolic_int(m, "random_int", {});
+    pushInt32(rand());
     return true;
 }
 
@@ -158,11 +131,6 @@ def_prim(print_string, twoToNoneU32) {
     debug("EMU: print string at %i: ", addr);
     printf("%s", text.c_str());
     pop_args(2);
-    return true;
-}
-
-def_prim(sym_int, NoneToOneU32) {
-    push_symbolic_int(m, "sym_int", {});
     return true;
 }
 
@@ -325,28 +293,14 @@ def_prim_serialize(chip_digital_write) {
 def_prim(chip_digital_read, oneToOneU32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    //pushUInt32(1);  // HIGH
-    if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
-        m->warduino->stop = true;
-        return true;
-    }
-    push_symbolic_int(m, "chip_digital_read", {pin});
+    pushUInt32(1);  // HIGH
     return true;
 }
 
 def_prim(chip_analog_read, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    /*if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
-        push_symbolic_int(m, "chip_analog_read", pin);
-        return true;
-    }*/
-    if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
-        m->warduino->stop = true;
-        return true;
-    }
-    push_symbolic_int(m, "chip_analog_read", {pin});
-    //pushInt32(sin(sensor_emu) * 100);
+    pushInt32(sin(sensor_emu) * 100);
     sensor_emu += .25;
     return true;
 }
@@ -354,16 +308,7 @@ def_prim(chip_analog_read, oneToOneI32) {
 def_prim(color_sensor, oneToOneI32) {
     uint8_t pin = arg0.uint32;
     pop_args(1);
-    /*if (dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
-        push_symbolic_int(m, "color_sensor", pin);
-        return true;
-    }*/
-    if (m->warduino->max_symbolic_variables > 0 && m->symbolic_variable_count + 1 > m->warduino->max_symbolic_variables) {
-        m->symbolic_variable_count++;
-        m->warduino->stop = true;
-        return true;
-    }
-    push_symbolic_int(m, "color_sensor", {pin});
+    pushInt32(0);
     return true;
 }
 
@@ -377,9 +322,7 @@ def_prim(chip_delay, oneToNoneU32) {
     using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono;       // nanoseconds, system_clock, seconds
     debug("EMU: chip_delay(%u) \n", arg0.uint32);
-    /*if (!dynamic_cast<ConcolicInterpreter *>(m->warduino->interpreter)) {
-        sleep_for(milliseconds(arg0.uint32));
-    }*/
+    sleep_for(milliseconds(arg0.uint32));
     debug("EMU: .. done\n");
     pop_args(1);
     return true;
@@ -594,7 +537,6 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(print_int);
     install_primitive(print_string);
 
-    install_primitive(sym_int);
     install_primitive(setup_uart_sensor);
     install_primitive(color_sensor);
     install_primitive(drive_motor_degrees);
