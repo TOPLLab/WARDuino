@@ -79,6 +79,7 @@ class Interpreter {
     }
 
     void register_primitive(const PrimitiveEntry &entry) {
+        dbg_info("installing primitive %s\n", entry.name);
         primitives[entry.name] = entry;
     }
 

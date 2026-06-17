@@ -688,6 +688,7 @@ bool push_symbolic_int(Module *m, const std::string &primitive_origin,
 }
 
 void install_concolic_primitives(Interpreter *interpreter) {
+    dbg_info("INSTALLING CONCOLIC PRIMITIVES\n");
     // Make the following primitives not print anything in concolic mode.
     interpreter->register_primitive(
         "chip_pin_mode",
@@ -787,6 +788,8 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
     const auto start{std::chrono::steady_clock::now()};
     wac->setInterpreter(new ConcolicInterpreter());
     install_concolic_primitives(wac->interpreter);
+    // This will trigger the module to resolve all primitives again.
+    m->warduino->reset_module(m);
 
     // Has a big impact on performance, for example if you have a simple program
     // with a loop that contains an if statement and, you run the loop 30 times
@@ -818,12 +821,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
             m->create_symbolic_state();
             success = wac->interpreter->interpret(m);
         } else {
-            //wac->instantiate_module(m);
-            //wac->instantiate_module(m, m->bytes, m->byte_count);
-            // TODO: Introduce a reset module function
-            auto wasm = (uint8_t *)malloc(sizeof(uint8_t) * m->byte_count);
-            memcpy(wasm, m->bytes, m->byte_count);
-            m->warduino->update_module(m, wasm, m->byte_count);
+            m->warduino->reset_module(m);
             m->warduino->program_state = WARDUINOrun;
             success = wac->run_module(m);
         }
