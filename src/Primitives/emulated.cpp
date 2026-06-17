@@ -441,14 +441,12 @@ def_prim(display_set_orientation, oneToNoneI32) {
 def_prim(display_width, NoneToOneU32) {
     printf("EMU: display_width()\n");
     pushUInt32(320);
-    m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_val(320, 32);
     return true;
 }
 
 def_prim(display_height, NoneToOneU32) {
     printf("EMU: display_height()\n");
     pushUInt32(240);
-    m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_val(240, 32);
     return true;
 }
 

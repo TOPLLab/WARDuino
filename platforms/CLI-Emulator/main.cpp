@@ -762,6 +762,25 @@ void install_concolic_primitives(Interpreter *interpreter) {
             return true;
         },
         &NoneToOneU32);
+
+    // Primitives that return a constant should also have a symbolic constant.
+    interpreter->register_primitive(
+        "display_width",
+        [](Module *m) -> bool {
+            pushUInt32(320);
+            m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_val(320, 32);
+            return true;
+        },
+        &NoneToOneU32);
+
+    interpreter->register_primitive(
+        "display_height",
+        [](Module *m) -> bool {
+            pushUInt32(240);
+            m->symbolic_stack[get_ectx(m)->sp] = m->ctx.bv_val(240, 32);
+            return true;
+        },
+        &NoneToOneU32);
 }
 
 void run_concolic(const std::vector<std::string>& snapshot_messages, int max_instructions = 50, int max_sym_vars = -1, int max_iterations = -1, int stop_at_pc = -1) {
@@ -962,6 +981,7 @@ void run_concolic(const std::vector<std::string>& snapshot_messages, int max_ins
         json_models["models"].push_back(j);
     }
     std::cout << json_models << std::endl;*/
+    exit(0);
 }
 
 int main(int argc, const char *argv[]) {
