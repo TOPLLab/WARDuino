@@ -33,10 +33,13 @@ int global_index = 0;
 
 double sensor_emu = 0;
 
-#define def_glob(name, type, mut, init_value)             \
-    StackValue name##_sv{.value_type = type, init_value}; \
-    Global name = {                                       \
-        .mutability = mut, .import_field = #name, .value = &name##_sv};
+#define def_glob(name, type, mut, init_val)                           \
+    StackValue name##_sv = {.value_type = type, .value = {init_val}}; \
+    Global name = {.export_name = nullptr,                            \
+                   .import_module = nullptr,                          \
+                   .import_field = #name,                             \
+                   .mutability = mut,                                 \
+                   .value = &name##_sv};
 
 #define install_global(global_name)                        \
     {                                                      \
