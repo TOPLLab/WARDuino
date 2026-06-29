@@ -276,16 +276,15 @@ static void forwardCreated(Circuit* circuit, ControlCell cell) {
 
 //Sends data towards the other end of the circuit. If the data is larger than 
 //the maximum payload size, it will be split into multiple cells and sent sequentially.
-static void sendData(Circuit* circuit, uint16_t nextNodeID, uint16_t circID, uint8_t* data, size_t length, bool direction) {
+static void sendData(Circuit* circuit, uint16_t nextNodeID, uint16_t circID, uint8_t* data, 
+                    size_t length, bool direction, RelayCellCommand command = DATA) {
     uint16_t maxPayload = CELL_SIZE - RELAY_HEADER_SIZE - HASH_SIZE;
     uint16_t offset = 0; //keep track of how much of the data has been sent
-    printf("after entry check\n");
     while (offset < length) {
-        printf("loop, offset: %d, total: %zu, max space: %d\n", offset, length, maxPayload);
         uint16_t size = (length - offset) < maxPayload ? (length - offset) : maxPayload; //payload size
         //fill the information cell
         RelayCell dataCell;
-        fillRelayCell(dataCell, circID, RelayCellCommand::DATA, nodeID, nextNodeID, size);
+        fillRelayCell(dataCell, circID, command, nodeID, nextNodeID, size);
         memcpy(dataCell.payload, data + offset, size);
         // write zeroes to remaining payload, prevent leakage of previous data if payload is smaller than max
         memset(dataCell.payload + size, 0, maxPayload - size);
@@ -326,9 +325,10 @@ void sendDataForwards(Circuit* circuit, uint8_t* data, size_t length) {
 }
 
 //function to send a RELAY DATA cell towards the origin.
-void sendDataBackwards(Circuit* circuit, uint16_t prevNodeID, uint16_t prevCircID, uint8_t* data, size_t length) {
+void sendDataBackwards(Circuit* circuit, uint16_t prevNodeID, uint16_t prevCircID, 
+                        uint8_t* data, size_t length, RelayCellCommand command = DATA) {
     printf("sendDataBackwards\n");
-    sendData(circuit, prevNodeID, prevCircID, data, length, false);
+    sendData(circuit, prevNodeID, prevCircID, data, length, false, command);
 }
 
 //checks the validity of the digest, and returns a buffer with the content of the message.
@@ -359,9 +359,9 @@ static void handleDataAtExit(Circuit* circuit, RelayCell cell) {
     uint8_t buffer[CELL_SIZE - RELAY_HEADER_SIZE - HASH_SIZE];
     uint8_t* result = handleData(circuit, cell, buffer);
     if (result != nullptr) {
-        printf("Received data: %s\n", result);
+        printf("Circuit %d: Received data: %s\n", circuit->circID ,result);
         const char* msg = "Data received successfully!";
-        sendDataBackwards(circuit, cell.srcNodeID, cell.circID, (uint8_t*)msg, strlen(msg) + 1);
+        sendDataBackwards(circuit, cell.srcNodeID, cell.circID, (uint8_t*)msg, strlen(msg) + 1, DATA_ACK);
     }
 }
 
@@ -644,6 +644,9 @@ static void dispatchRelay(Circuit* circuit, uint8_t* data, uint16_t circID) {
             //break;
         case DATA:
             handleDataAtExit(circuit, cell);
+            break;
+        case DATA_ACK:
+            handleDataAtOrigin(circuit, copy);
             break;
         default:
             break;

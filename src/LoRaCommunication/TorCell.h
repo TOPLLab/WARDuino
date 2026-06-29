@@ -23,6 +23,7 @@ enum CellCommand {
 
 enum RelayCellCommand {
     DATA,
+    DATA_ACK,
     BEGIN,
     END,
     TEARDOWN,
