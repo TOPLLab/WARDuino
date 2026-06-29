@@ -27,12 +27,22 @@ void encryptOnion(uint8_t hopCount, HopSecretKey keys[4], uint8_t* payload, size
     }
 }
 
-//USED?
-//function to decrypt a payload with the session keys of all hops in the circuit, starting from the first hop
-void decryptOnion(uint8_t hopCount, HopSecretKey keys[4], uint8_t* nonce, uint8_t* payload, size_t payloadLen) {
+//function to encrypt a payload with the session key of a single hop.
+// used for encrypting the payload of a RELAY cell at each hop
+void encryptSingleHop(uint8_t* key, uint8_t* nonce, uint8_t* payload, size_t len) {
+    struct AES_ctx ctx;
+    uint8_t iv[16];
+    memcpy(iv, nonce, 16);
+    AES_init_ctx_iv(&ctx, key, iv);
+    AES_CTR_xcrypt_buffer(&ctx, payload, len);
+}
+
+//function to decrypt a payload with the session keys of all hops in the circuit. 
+//Used by the origin node when receiving data from the exit node.
+void decryptOnion(uint8_t hopCount, HopSecretKey keys[4], uint8_t* payload, size_t payloadLen) {
     for (int i = 0; i < hopCount; ++i) {
         AES_ctx ctx;
-        AES_init_ctx_iv(&ctx, keys[i].key, nonce);
+        AES_init_ctx_iv(&ctx, keys[i].key, keys[i].nonce);
         AES_CTR_xcrypt_buffer(&ctx, payload, payloadLen);
     }
 }

@@ -17,7 +17,8 @@ enum CellCommand {
     CREATED,
     DESTROY,
     RELAY,
-    ANNOUNCE
+    ANNOUNCE,
+    ANNOUNCE_ACK
 };
 
 enum RelayCellCommand {

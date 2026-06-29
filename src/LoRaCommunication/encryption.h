@@ -18,5 +18,6 @@ struct HopSecretKey {
 bool verifyDigest(uint8_t* data, uint8_t* digest);
 void hashData(uint8_t* input, uint8_t* output);
 void encryptOnion(uint8_t hopCount, HopSecretKey keys[], uint8_t* payload, size_t payloadLen);
-void decryptOnion(uint8_t hopCount, HopSecretKey keys[], uint8_t* nonce, uint8_t* payload, size_t payloadLen);
+void encryptSingleHop(uint8_t* key, uint8_t* nonce, uint8_t* payload, size_t len);
+void decryptOnion(uint8_t hopCount, HopSecretKey keys[], uint8_t* payload, size_t payloadLen);
 void decryptSingleHop(uint8_t* key, uint8_t* nonce, uint8_t* payload, size_t len);

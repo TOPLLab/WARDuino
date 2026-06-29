@@ -13,7 +13,7 @@ NodeRole nodeRole;
 
 //determine which node the program belongs to (UDP)
 void determineNode(int argc, char* argv[]) {
-    char label = argv[1][0]; // first character of first argument: 'A', 'B', or 'C'
+    char label = argv[1][0]; // first character of first argument: 'A', 'B',...
 
     if (label == 'A') {
         nodeID = 111;
@@ -36,12 +36,14 @@ void determineNode(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
     if (argc < 2) { printf("Usage: ./node_A A\n"); return 1; }
+    //seed random number generator to the actual time
+    srand(time(0));
+
     determineNode(argc, argv);
 
     radio_begin_extern(0, 0, 0, 0, 0, 0);
 
-    LocalPeers.init();
-    uint8_t publicKey[32] = {0}; // replace with real public key
+    LocalPeers.init(); //initialise the table of the local peers
     LocalPeers.addNode(nodeID, nodeRole, 0, 1000); //add self to the hash table
     sendAnnounce(LocalPeers); //send table information to other nodes, response is handled by LoRaMessageListener
 
@@ -49,16 +51,69 @@ int main(int argc, char* argv[]) {
     std::this_thread::sleep_for(std::chrono::milliseconds(200)); //wait for listener
 
     if (builds == 1) {
-        printf("build Circuit\n");
-        Circuit* circuit = buildCircuit(333, 2, LocalPeers, nodeRole);
+        LocalPeers.printTable();
+
+        const char* longmsg = 
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";
+
+        const char* hello = "Hello World!";
+
+        /*
+        printf("------------------------ build Circuit A - B - C - D -----------------------\n");
+        Circuit* circuit = buildCircuit(444, 3, LocalPeers, nodeRole);
 
         while (circuit->state != CircuitState::READY) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
-        LocalPeers.printTable();
-        const char* msg = "Hello, World!";
-        sendData(circuit, (uint8_t*)msg, strlen(msg) + 1);
+        */
+
+        /*
+        printf("------------------------ build Circuit A - B - C -----------------------\n");
+        Circuit* circuit2 = buildCircuit(333, 2, LocalPeers, nodeRole);
+
+        while (circuit2->state != CircuitState::READY) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+
+        const char* msg = longmsg;
+        //sendDataForwards(circuit, (uint8_t*)hello, strlen(msg) + 1);
+        sendDataForwards(circuit2, (uint8_t*)msg, strlen(hello) + 1);
+        */
+
+        printf("------------------------ build Circuit A - B -----------------------\n");
+        Circuit* circuit3 = buildCircuit(222, 1, LocalPeers, nodeRole);
+
+        while (circuit3->state != CircuitState::READY) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+
+        const char* msg = longmsg;
+        //sendDataForwards(circuit, (uint8_t*)hello, strlen(msg) + 1);
+        sendDataForwards(circuit3, (uint8_t*)msg, strlen(hello) + 1);
+        
+        /*
+        printf("------------------------ Destroy Circuit A - B - C - D -----------------------\n");
+        sendDestroy(circuit);
+
+        printf("------------------------ Destroy Circuit A - B - C -----------------------\n");
+        sendDestroy(circuit2);
+        */
     }
 
     listenerThread.join();
+
 } 

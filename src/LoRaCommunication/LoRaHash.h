@@ -34,8 +34,8 @@ public:
     int addNode(uint16_t nodeID, NodeRole role, uint32_t position, uint32_t timestamp); // Add a node to the hash table
     void updateNode(uint16_t nodeID, NodeRole role, uint32_t position, uint32_t timestamp);  // Update a given nodes timestamp/information (needed?)
     void removeNode(uint16_t nodeID);  // Remove a node from the hash table
-    uint32_t serialiseSelf(uint8_t* buffer, size_t length); // Broadcast own hashtable to other nodes (needed for new nodes)
-    void updateTable(uint8_t* buffer, size_t length); // Update own table based on received buffer from other node
+    uint32_t serialiseSelf(uint8_t* buffer, uint16_t nodeID, size_t length); // Broadcast own hashtable to other nodes (needed for new nodes)
+    void updateTable(uint8_t* buffer); // Update own table based on received buffer from other node
     void printTable(); // Print the contents of the hash table (for debugging)
     uint16_t findRouter(); //find router connected to local group
 

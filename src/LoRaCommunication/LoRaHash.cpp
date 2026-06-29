@@ -14,8 +14,6 @@ int findSlot(LoRaNode* table, size_t size, uint16_t nodeID) {
     return -1; //not found
 }
 
-//public methods
-
 //initialize hash table
 void LoraHashTable::init() {
     size = MAX_NODES;
@@ -44,6 +42,7 @@ int LoraHashTable::addNode(uint16_t nodeID, NodeRole role, uint32_t position, ui
     return -1;
 }
 
+//updates a node's information in the table
 void LoraHashTable::updateNode(uint16_t nodeID, NodeRole role, uint32_t position, uint32_t timestamp) {
     int idx = findSlot(table, size, nodeID);
     if (idx == -1) {
@@ -57,6 +56,7 @@ void LoraHashTable::updateNode(uint16_t nodeID, NodeRole role, uint32_t position
 
 }
 
+//remvoes a node from the table
 void LoraHashTable::removeNode(uint16_t nodeID) {
     int idx = findSlot(table, size, nodeID);
     if (idx == -1) return; //not found
@@ -80,54 +80,36 @@ void LoraHashTable::removeNode(uint16_t nodeID) {
         }
     }
 }
-    
 
-// Serialise the entire table into a buffer for broadcasting
-uint32_t LoraHashTable::serialiseSelf(uint8_t* buffer, size_t length) {
-
-    size_t counter = 0;
+// Serialise a node's information based on its ID into a buffer for broadcasting
+uint32_t LoraHashTable::serialiseSelf(uint8_t* buffer, uint16_t nodeID, size_t length) {
+    if (BYTE_COUNT > length) return 0; //buffer is too small to serialise all.
     uint8_t* ptr = buffer;
 
     // Iterate through the table and serialise each node's data
     for (size_t i = 0; i < size; i++) {
-        if (table[i].nodeID == 0) continue; // skip empty slots
-
-        if ((size_t)(ptr - buffer) + BYTE_COUNT > length) return 0; //buffer is too small to serialise all.
+        if (table[i].nodeID != nodeID) continue; // find the right slot
 
         memcpy(ptr, &table[i].nodeID, 2);       ptr += 2;
         memcpy(ptr, &table[i].role, 1);         ptr += 1;
         memcpy(ptr, &table[i].position, 4);     ptr += 4;
         memcpy(ptr, &table[i].lastUpdated, 4);  ptr += 4;
-        counter++;
+        return 1;    
     }
-
-    size_t payloadLength = counter * BYTE_COUNT;
-
-    if (payloadLength > length) return 0; // Not enough space in buffer
-
-    return payloadLength; //return length of actual data in buffer
+    return 0; //node not found
 }
 
-
-void LoraHashTable::updateTable(uint8_t* buffer, size_t length) {
-
-    size_t nodeCount = length / BYTE_COUNT;
+//updates the table with the information of 1 node
+void LoraHashTable::updateTable(uint8_t* buffer) {
     uint8_t* ptr = buffer;
-
-    for (size_t i = 0; i < nodeCount; i++) {
-        uint16_t nodeID;
-        memcpy(&nodeID, ptr, 2); ptr += 2;
-        NodeRole role = (NodeRole)*ptr; ptr += 1;
-        uint32_t position;
-        memcpy(&position, ptr, 4); ptr += 4;
-        uint32_t lastUpdated;
-        memcpy(&lastUpdated, ptr, 4); ptr += 4;
-
-        if (nodeID == 0) break; //end of valid data
-
-        updateNode(nodeID, role, position, lastUpdated);
-    }
-
+    uint16_t nodeID;
+    memcpy(&nodeID, ptr, 2); ptr += 2;
+    NodeRole role = (NodeRole)*ptr; ptr += 1;
+    uint32_t position;
+    memcpy(&position, ptr, 4); ptr += 4;
+    uint32_t lastUpdated;
+    memcpy(&lastUpdated, ptr, 4); ptr += 4;
+    updateNode(nodeID, role, position, lastUpdated);
     return;
 }
 

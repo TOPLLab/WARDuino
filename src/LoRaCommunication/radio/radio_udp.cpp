@@ -50,8 +50,8 @@ uint16_t radio_begin_extern(uint32_t freq, uint32_t bw, uint32_t sf, uint32_t cr
  
     //tells the socket where to send data to 
     sockaddr_in addr{};
-    addr.sin_family      = AF_INET; //IPv4 address
-    addr.sin_port        = htons(NODE_PORT); //port number
+    addr.sin_family = AF_INET; //IPv4 address
+    addr.sin_port = htons(NODE_PORT); //port number
     inet_pton(AF_INET, LOCALHOST, &addr.sin_addr); //listen to localhost
  
     //tells OS to route messages over port 5001 to this process
@@ -71,14 +71,14 @@ uint16_t radio_transmit_bytes_extern(uint8_t* data, size_t length) {
     };
  
     sockaddr_in dest{};
-    dest.sin_family      = AF_INET; //IPv4 address
+    dest.sin_family = AF_INET; //IPv4 address
     inet_pton(AF_INET, LOCALHOST, &dest.sin_addr); //listen to localhost
  
     for (int i = 0; i < PEER_COUNT; i++) {
         if (PEER_PORTS[i] == NODE_PORT) continue; // skip own socket
  
         dest.sin_port = htons(PEER_PORTS[i]); //send to right port
-        ssize_t sent  = sendto(SOCKET, data, length, 0, (sockaddr*)&dest, sizeof(dest));
+        ssize_t sent = sendto(SOCKET, data, length, 0, (sockaddr*)&dest, sizeof(dest));
 
         if (sent < 0) {
             //no ressources found
