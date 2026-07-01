@@ -12,7 +12,7 @@
 
 
 enum CellCommand {
-    PADDING,
+    //PADDING,
     CREATE,
     CREATED,
     DESTROY,
@@ -24,16 +24,16 @@ enum CellCommand {
 enum RelayCellCommand {
     DATA,
     DATA_ACK,
-    BEGIN,
-    END,
-    TEARDOWN,
-    CONNECTED,
+    //BEGIN,
+    //END,
+    //TEARDOWN,
+    //CONNECTED,
     EXTEND,
     EXTENDED,
-    TRUNCATE,
-    TRUNCATED,
-    SENDME,
-    DROP
+    //TRUNCATE,
+    //TRUNCATED,
+    //SENDME,
+    //DROP
 };
 
 class Cell {

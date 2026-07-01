@@ -100,16 +100,16 @@ int main(int argc, char* argv[]) {
 
         const char* msg = longmsg;
         sendDataForwards(circuit, (uint8_t*)hello, strlen(hello) + 1);
-        sendDataForwards(circuit, (uint8_t*)longmsg, strlen(longmsg) + 1);
-        sendDataForwards(circuit, (uint8_t*)incoming, strlen(incoming) + 1);
+        sendDataForwards(circuit2, (uint8_t*)longmsg, strlen(longmsg) + 1);
+        sendDataForwards(circuit3, (uint8_t*)incoming, strlen(incoming) + 1);
         
-        /*
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        
         printf("------------------------ Destroy Circuit A - B - C - D -----------------------\n");
         sendDestroy(circuit);
-
-        printf("------------------------ Destroy Circuit A - B - C -----------------------\n");
-        sendDestroy(circuit2);
-        */
+        //not sent or received
+        sendDataForwards(circuit, (uint8_t*)hello, strlen(hello) + 1);
     }
 
     listenerThread.join();

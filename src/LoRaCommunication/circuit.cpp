@@ -94,7 +94,10 @@ static void handleCreate(Circuit* circuit, ControlCell cell) {
     printf("handleCreate\n");
     //initialises the circuit for the to-added cell.
     int idx = findCircuitSlot();
-    if (idx == -1) return;
+    if (idx == -1) {
+        printf("No space for new circuit, dropping CREATE cell.\n");
+        return;
+    }
     circuit = &CIRCUITS[idx];
     circuit->circID = cell.circID;
     //generate fresh ECDH key pair and derive the shared session key
@@ -121,7 +124,10 @@ static void handleCreated(Circuit* circuit, ControlCell cell) {
     //derive shared session key
     uint8_t sessionKey[KEY_SIZE];
     ecdh_shared_secret(circuit->pendingPrivateKey, cell.payload, sessionKey); //payload is the public key of the extended node
-    if(!verifyDigest(sessionKey, cell.digest)) return; //invalid digest, drop message
+    if(!verifyDigest(sessionKey, cell.digest)) {
+        printf("Error: digest verification failed for circuit %d, dropping CREATED cell.\n", circuit->circID);
+        return;
+    }
     // clear private key, only the session key is needed
     memset(circuit->pendingPrivateKey, 0, KEY_SIZE); 
     memcpy(circuit->hopSessionKeys[circuit->hopCount].key, sessionKey, KEY_SIZE);
@@ -174,6 +180,7 @@ static void handleDestroy(Circuit* circuit, uint16_t incomingCircID) {
         memset(entry, 0, sizeof(ForwardingEntry)); //clear forwarding entry
     }
     clearInternalCircuitState(circuit);
+    printf("Circuit %d destroyed.\n", incomingCircID);
 }
 
 
@@ -183,7 +190,7 @@ static void handleDestroy(Circuit* circuit, uint16_t incomingCircID) {
 void sendExtend(Circuit* circuit) {
     printf("sendExtend\n");
     if (circuit->hopCount >= MAX_HOPS) {
-        printf("Maximum hops reached, cannot extend further.\n");
+        printf("Maximum hops reached for circuit %d, cannot extend further.\n", circuit->circID);
         return;
     };
     //generate fresh ECDH key pair, new one for each hop. private stored in circuit until EXTENDED is received
@@ -231,41 +238,14 @@ static void handleExtend(Circuit* circuit, RelayCell cell) {
     serialiseAndSendCell(&createCell);
 }
 
-/**
-//function to handle a received RELAY EXTENDED cell
-void handleExtended(Circuit* circuit, RelayCell cell) {
-    printf("handleExtended\n");
-
-    //derive shared secret key
-    uint8_t sessionKey[KEY_SIZE];
-    ecdh_shared_secret(circuit->pendingPrivateKey, cell.payload, sessionKey); //payload is the public key of the extended node
-
-    printf("session key: ");
-    for (size_t i = 0; i < KEY_SIZE; i++) printf("%02x", sessionKey[i]);
-    printf("\n");
-
-    // clear private key, only sessionKey is now needed
-    memset(circuit->pendingPrivateKey, 0, KEY_SIZE); 
-
-    //store session key for actual hop
-    memcpy(circuit->hopSessionKeys[circuit->hopCount].key, sessionKey, KEY_SIZE);
-    circuit->hopCount++;
-
-    // Now check if we need to extend further
-    if (circuit->hopCount < circuit->totalHops) {
-        sendExtend(circuit); // triggers the next hop
-    } else {
-        circuit->state = CircuitState::READY;
-        printf("!!! CIRCUIT %d WITH %d HOPS IS BUILT.\n", circuit->circID, circuit->hopCount);
-    }
-}
-*/
-
 //forward an EXTENDED cell back to the previous node in the circuit towards the origin.
 static void forwardCreated(Circuit* circuit, ControlCell cell) {
     printf("forwardCreated\n");
     ForwardingEntry* entry = getReverseForwardingEntry(cell.circID); //forwarding entry contains the previous circuit ID and previous node ID
-    if (entry == nullptr) return; // no entry (and thus no previous node in circuit) found, drop the information cell
+    if (entry == nullptr) {
+        printf("Error: no forwarding entry found for circuit %d, dropping CREATED cell.\n", cell.circID);
+        return; // no entry (and thus no previous node in circuit) found, drop the information cell
+    }
     ControlCell extendedCell;
     fillControlCell(extendedCell, entry->prevCircID, CellCommand::CREATED, nodeID, entry->prevNodeID, cell.payload, KEY_SIZE, cell.digest, HASH_SIZE);
     serialiseAndSendCell(&extendedCell);
@@ -336,7 +316,10 @@ static uint8_t* handleData(Circuit* circuit, RelayCell cell, uint8_t* buffer) {
     printf("handleData\n");
     uint8_t digest[HASH_SIZE];
     memcpy(digest, cell.digest, HASH_SIZE);
-    if (!verifyDigest(cell.payload, digest)) return nullptr; //invalid digest, drop message
+    if (!verifyDigest(cell.payload, digest)) {
+        printf("Error: digest verification failed for circuit %d, dropping DATA cell.\n", cell.circID);
+        return nullptr; //invalid digest, drop message
+    }
     memcpy(buffer, cell.payload, cell.payloadLength);
     return buffer;
 }
@@ -395,97 +378,6 @@ Circuit* buildCircuit(uint16_t destNodeID, uint8_t totalHops, LoraHashTable tabl
 }
 
 // ------------------------------------ MESSAGE DISPATCH: CONTROL CELLS ------------------------------------ //
-
-/**
-//function to listen for incoming LoRa messages and dispatch them based on command
-void LoRaMessageListener2() {
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        uint8_t data[CELL_SIZE]; // buffer for received data
-        uint16_t state = radio_receive_bytes_extern(data, CELL_SIZE);
-        if (state == 0) {
-            ControlCell controlCell = ControlCell::deserialise(data, CELL_SIZE);
-            CellCommand command = controlCell.command;
-            uint16_t circID = controlCell.circID;
-            uint16_t destNodeID = controlCell.destNodeID;
-
-            printf("Received cell destNodeID: %d, my nodeID: %d\n", destNodeID, nodeID);
-
-            //a new node announces itself: update table and send aknowledgement
-            if (command == CellCommand::ANNOUNCE) {
-                handleAnnounce(controlCell);
-                continue;
-            } else if (command == CellCommand::ANNOUNCE_ACK && destNodeID == nodeID) { //targeted acknowledegement
-                handleAnnounceAck(controlCell);
-                continue;
-            }
-
-            //message not destined for own node
-            if (destNodeID == GLOBAL_ID ||destNodeID != nodeID) continue; 
-
-            printf("Command: %d\n", command);
-
-            //TODO: determine circuit ID and look up circuit to get session keys for decryption
-            Circuit* circuit = getCircuit(circID);
-
-            if (circuit == nullptr && command == CellCommand::CREATE) { //create a circuit
-                int idx = findCircuitSlot();
-                if (idx == -1) continue; // no space
-                circuit = &CIRCUITS[idx];
-                circuit->circID = circID;
-                circuit->hopCount = 0;
-                circuit->state = CircuitState::IDLE;
-            } else if (circuit == nullptr && command == CellCommand::CREATED) { //see below
-            } else if (circuit == nullptr && command == CellCommand::DESTROY) { //see below
-            } else if (circuit == nullptr && command == CellCommand::RELAY) {
-                //data could be forwarding from the last node: check if given circID is in the forwarding table
-                ForwardingEntry* entry = getReverseForwardingEntry(circID);
-                if (entry != nullptr) {
-                    circuit = getCircuit(entry->prevCircID);
-                    if (circuit == nullptr) continue; // no circuit, drop
-                    dispatchRelay(circuit, data); //forward RELAY cell back to previous node in circuit
-                    continue;
-                } else {
-                    // no forwarding entry, drop message
-                    continue;
-                }
-            } else if (circuit == nullptr) {
-                continue; // unknown circuit, drop
-            }
-            
-
-
-            ForwardingEntry* entry;
-            switch (command) {
-            case CREATE:
-                handleCreate(circuit, controlCell);
-                break;
-            case CREATED:
-                entry = getReverseForwardingEntry(circID);
-                if(entry != nullptr) {
-                    //Node is relay: forward information
-                    circuit = getCircuit(entry->prevCircID);
-                    if (circuit == nullptr) break; // no circuit, drop
-                    forwardCreated(circuit, controlCell); //forward CREATED cell back to previous node in circuit
-                } else {
-                    //Node is origin: handle CREATED
-                    if (circuit == nullptr) break; // no circuit, drop
-                    handleCreated(circuit, controlCell);
-                }
-                break;
-            case DESTROY:
-                handleDestroy(circuit, circID);
-                break;
-            case RELAY:
-                dispatchRelay(circuit, data); //payload of control cell contains the encrypted relay cell
-                break;   
-            default:
-                break;
-            }
-        } else {}
-    }
-}
-*/
 
 //Internal loop of the node: reads incoming information nodes and handles them accordingly.
 void LoRaMessageListener() {
@@ -551,7 +443,7 @@ static void dispatchControl(ControlCell& cell, uint8_t* data) {
 }
 
 
-// ------------------------------------ MESSAGE DISPATCH: CONTROL CELLS ------------------------------------ //
+// ------------------------------------ MESSAGE DISPATCH: RELAY CELLS ------------------------------------ //
 
 //When a relay cell forwards information to the origin or exit, it rewrites relay 
 //information such as the next circuit ID, next node's ID and its own ID. This is 
@@ -652,106 +544,6 @@ static void dispatchRelay(Circuit* circuit, uint8_t* data, uint16_t circID) {
             break;
     }
 }
-
-
-/**
-void dispatchRelay2(Circuit* circuit, uint8_t* data) {
-    printf("dispatchRelay\n");
-
-    uint16_t incomingCircID = (data[0] << 8) | data[1];
-    uint16_t incomingSrcNodeID = (data[5] << 8) | data[6];
-
-    HopSecretKey circuitKey = circuit->hopSessionKeys[0];
-
-    uint8_t copy[CELL_SIZE];
-    memcpy(copy, data, CELL_SIZE);
-    // Decrypt the raw buffer first, same region that was encrypted
-    decryptSingleHop(circuitKey.key, circuitKey.nonce, data + RELAY_HEADER_SIZE, CELL_SIZE - RELAY_HEADER_SIZE);
-
-    // Now deserialise the decrypted buffer
-    RelayCell cell = RelayCell::deserialise(data, CELL_SIZE);
-
-    // Check if this cell is meant for us
-    uint8_t hash[HASH_SIZE];
-    hashData(cell.payload, hash);
-    bool digestMatch = (memcmp(hash, cell.digest, HASH_SIZE) == 0);
-
-    printf("digest match: %d\n", digestMatch);
-    printf("relayCommand: %d payloadLength: %d\n", cell.relayCommand, cell.payloadLength);
-
-    if (!digestMatch) {
-        ForwardingEntry* entry = getForwardingEntry(incomingCircID);
-
-        if (entry != nullptr && incomingSrcNodeID == entry->prevNodeID) {
-            if (entry == nullptr) return;
-            // rewrite circID and dest towards next hop in circuit
-            data[0] = (entry->nextCircID >> 8) & 0xFF;
-            data[1] =  entry->nextCircID & 0xFF;
-            data[3] = (entry->nextNodeID >> 8) & 0xFF;
-            data[4] =  entry->nextNodeID & 0xFF;
-            data[5] = (nodeID >> 8) & 0xFF;  // rewrite srcNodeID to self
-            data[6] =  nodeID & 0xFF;
-            radio_transmit_bytes_extern(data, CELL_SIZE);
-        } else {
-            // reverse lookup toward prev hop
-            entry = getReverseForwardingEntry(incomingCircID);
-            if (entry == nullptr) {
-                //DATA forwarded towards origin, decrypt all layers
-                decryptOnion(
-                    circuit->hopCount, 
-                    circuit->hopSessionKeys, 
-                    copy + RELAY_HEADER_SIZE, 
-                    CELL_SIZE - RELAY_HEADER_SIZE
-                );
-                RelayCell copyCell = RelayCell::deserialise(copy, CELL_SIZE);
-                uint8_t buffer[CELL_SIZE - RELAY_HEADER_SIZE - HASH_SIZE];
-                uint8_t* result = handleData(circuit, copyCell, buffer);
-                if (result != nullptr) {
-                    printf("Received data: %s\n", result);
-                }
-                return;
-            }
-
-            copy[0] = (entry->prevCircID >> 8) & 0xFF;
-            copy[1] =  entry->prevCircID & 0xFF;
-            copy[3] = (entry->prevNodeID >> 8) & 0xFF;
-            copy[4] =  entry->prevNodeID & 0xFF;
-            copy[5] = (nodeID >> 8) & 0xFF;  // rewrite srcNodeID to self
-            copy[6] =  nodeID & 0xFF;
-            encryptSingleHop(
-                circuit->hopSessionKeys[0].key,
-                circuit->hopSessionKeys[0].nonce,
-                copy + RELAY_HEADER_SIZE,
-                CELL_SIZE - RELAY_HEADER_SIZE
-            );
-            radio_transmit_bytes_extern(copy, CELL_SIZE);
-        }
-        return;
-    }
-
-    uint8_t* result = nullptr;
-    printf("Relay command: %d\n", cell.relayCommand);
-    switch (cell.relayCommand) {
-        case EXTEND:
-            handleExtend(circuit, cell);
-            break;
-        //case EXTENDED:
-            //handleExtended(circuit, cell);
-            //break;
-        case DATA:
-            uint8_t buffer[CELL_SIZE - RELAY_HEADER_SIZE - HASH_SIZE];
-            result = handleData(circuit, cell, buffer);
-            if (result != nullptr) {
-                printf("Received data: %s\n", result);
-                const char* msg = "Data received successfully!";
-                sendDataBackwards(circuit, cell.srcNodeID, cell.circID, (uint8_t*)msg, strlen(msg) + 1);
-            }
-            break;
-        default:
-            break;
-    }
-}
-*/
 
 
 // ------------------------------------ HELPFUNCTIONS ------------------------------------ //
