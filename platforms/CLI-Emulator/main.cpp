@@ -573,10 +573,10 @@ int main(int argc, const char *argv[]) {
         for (auto mod : loaded_modules) {
             wac->unload_module(mod);
         }
+        // Stop the debugger, the thread will be killed when the process exits.
         wac->debugger->stop();
-
         if (!no_debug) {
-            communication.join();
+            exit(0);
         }
     }
 
