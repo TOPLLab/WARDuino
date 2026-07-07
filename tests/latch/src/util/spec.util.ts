@@ -1,11 +1,12 @@
 import {WASM} from "latch";
 import {readFileSync} from "fs";
+import Value = WASM.Value;
 
 interface Cursor {
     value: number;
 }
 
-export function parseResult(input: string): WASM.Value | undefined {
+export function parseResult(input: string): WASM.Value<WASM.Type> | undefined {
     let cursor = 0;
     let delta: number = consume(input, cursor, /\(/d);
     if (delta === 0) {
@@ -14,27 +15,39 @@ export function parseResult(input: string): WASM.Value | undefined {
     cursor += delta;
 
     delta = consume(input, cursor, /^[^.)]*/d);
-    const type: WASM.Type = WASM.typing.get(input.slice(cursor, cursor + delta)) ?? WASM.Type.i64;
+    let type: WASM.Type = WASM.typing.get(input.slice(cursor, cursor + delta)) ?? WASM.Integer.i64;
 
     cursor += delta + consume(input, cursor + delta);
 
-    let value;
     delta = consume(input, cursor, /^[^)]*/d);
-    if (type === WASM.Type.f32 || type === WASM.Type.f64) {
-        value = parseHexFloat(input.slice(cursor, cursor + delta));
-    } else {
-        value = parseInteger(input.slice(cursor, cursor + delta));
-    }
+    return parseValue(input.slice(cursor, cursor + delta), type);
+}
 
-    if (value === undefined) {
-        return value;
+function parseValue(input: string, type: WASM.Type): Value<WASM.Type> | undefined {
+    let value: number | bigint;
+    switch (type) {
+        case WASM.Float.f32:
+        case WASM.Float.f64:
+            value = parseHexFloat(input);
+            break;
+        case WASM.Integer.u32:
+        case WASM.Integer.i32:
+        case WASM.Integer.u64:
+        case WASM.Integer.i64:
+            value = parseInteger(input);
+            break;
+        default:
+            return undefined;
     }
+    type = typeof value !== 'bigint' && isNaN(<number>value) ? WASM.Special.nan
+        : typeof value !== 'bigint' && <number>value === Infinity ? WASM.Special.infinity
+            : type;
 
     return {type, value};
 }
 
-export function parseArguments(input: string, index: Cursor): WASM.Value[] {
-    const args: WASM.Value[] = [];
+export function parseArguments(input: string, index: Cursor): WASM.Value<WASM.Type>[] {
+    const args: WASM.Value<WASM.Type>[] = [];
 
     let cursor: number = consume(input, 0, /invoke "[^"]+"/d);
     while (cursor < input.length) {
@@ -45,19 +58,14 @@ export function parseArguments(input: string, index: Cursor): WASM.Value[] {
         cursor += delta;
 
         delta = consume(input, cursor, /^[^.)]*/d);
-        const type: WASM.Type = WASM.typing.get(input.slice(cursor + delta - 3, cursor + delta)) ?? WASM.Type.i64;
+        const type: WASM.Type = WASM.typing.get(input.slice(cursor + delta - 3, cursor + delta)) ?? WASM.Integer.i64;
 
         cursor += delta + consume(input, cursor + delta, /^[^)]*const /d);
         delta = consume(input, cursor, /^[^)]*/d);
-        let maybe: number | undefined;
-        if (type === WASM.Type.f32 || type === WASM.Type.f64) {
-            maybe = parseHexFloat(input.slice(cursor, cursor + delta));
-        } else {
-            maybe = parseInteger(input.slice(cursor, cursor + delta));
-        }
+        let maybe = parseValue(input.slice(cursor, cursor + delta), type);
 
         if (maybe !== undefined) {
-            args.push({type, value: maybe});
+            args.push(maybe);
         }
 
         cursor += consume(input, cursor, /\)/d);
@@ -131,14 +139,15 @@ function parseHexFloat(input: string): number {
     return mantissa * Math.pow(2, exponent);
 }
 
-function parseInteger(hex: string, bytes: number = 4): number {
+function parseInteger(hex: string, bytes: number = 4): bigint | number {
     if (!hex.includes('0x')) {
-        return parseInt(hex);
+        const n: number = parseInt(hex);
+        return typeof n !== 'bigint' && isNaN(n) ? NaN : typeof n !== 'bigint' && n === Infinity ? Infinity : BigInt(n);
     }
-    const mask = parseInt('0x80' + '00'.repeat(bytes - 1), 16);
-    let integer = parseInt(hex, 16);
+    const mask = BigInt(parseInt('0x80' + '00'.repeat(bytes - 1), 16));
+    let integer = BigInt(parseInt(hex, 16));
     if (integer >= mask) {
-        integer = integer - mask * 2;
+        integer = integer - mask * 2n;
     }
     return integer;
 }

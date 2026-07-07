@@ -1,15 +1,4 @@
-import {
-    ArduinoSpecification,
-    EmulatorSpecification,
-    Framework, HybridScheduler,
-    invoke,
-    Invoker,
-    StyleType,
-    returns,
-    Step,
-    TestScenario,
-    WASM
-} from 'latch';
+import {EmulatorSpecification, Framework, invoke, returns, Step, StyleType, TestScenario, WASM} from 'latch';
 import {readdirSync} from 'fs';
 import {basename} from 'path';
 import {find, parseArguments, parseAsserts, parseResult} from "./util/spec.util";
@@ -65,7 +54,7 @@ spec.testee('emulator [:8500]', new EmulatorSpecification(8500));
 //spec.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler());
 spec.tests(tests);
 
-framework.run([spec]);
+framework.analyse([spec]);
 
 // Helper function
 
@@ -75,8 +64,8 @@ function createTest(module: string, asserts: string[]): TestScenario {
     for (const assert of asserts) {
         const cursor = {value: 0};
         const func: string = find(/invoke "([^"]+)"/, assert);
-        const args: WASM.Value[] = parseArguments(assert.replace(`(invoke "${func} "`, ''), cursor);
-        const result: WASM.Value | undefined = parseResult(assert.slice(cursor.value));
+        const args: WASM.Value<WASM.Type>[] = parseArguments(assert.replace(`(invoke "${func} "`, ''), cursor);
+        const result: WASM.Value<WASM.Type> | undefined = parseResult(assert.slice(cursor.value));
 
         steps.push({
             title: assert,
