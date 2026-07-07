@@ -139,7 +139,7 @@ jobs:
               mkdir -p zephyrproject
               cd zephyrproject
 
-              west init
+              west init --mr v4.4.1
               west update
               west zephyr-export
 
