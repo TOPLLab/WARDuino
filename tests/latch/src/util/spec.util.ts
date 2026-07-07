@@ -1,6 +1,7 @@
 import {WASM} from "latch";
 import {readFileSync} from "fs";
 import Value = WASM.Value;
+import WasmInt = WASM.WasmInt;
 
 interface Cursor {
     value: number;
@@ -24,24 +25,19 @@ export function parseResult(input: string): WASM.Value<WASM.Type> | undefined {
 }
 
 function parseValue(input: string, type: WASM.Type): Value<WASM.Type> | undefined {
-    let value: number | bigint;
+    let value: number | WasmInt;
     switch (type) {
         case WASM.Float.f32:
         case WASM.Float.f64:
-            value = parseHexFloat(input);
-            break;
+            return {value: parseHexFloat(input), type};
         case WASM.Integer.u32:
         case WASM.Integer.i32:
         case WASM.Integer.u64:
         case WASM.Integer.i64:
-            value = parseInteger(input);
-            break;
+            return {value: parseInteger(input, type), type};
         default:
             return undefined;
     }
-    type = typeof value !== 'bigint' && isNaN(<number>value) ? WASM.Special.nan
-        : typeof value !== 'bigint' && <number>value === Infinity ? WASM.Special.infinity
-            : type;
 
     return {type, value};
 }
@@ -139,17 +135,18 @@ function parseHexFloat(input: string): number {
     return mantissa * Math.pow(2, exponent);
 }
 
-function parseInteger(hex: string, bytes: number = 4): bigint | number {
+function parseInteger(hex: string, type: WASM.Integer): WasmInt {
+    const bytes = type === WASM.Integer.u32 || type === WASM.Integer.i32 ? 4 : 8;
     if (!hex.includes('0x')) {
         const n: number = parseInt(hex);
-        return typeof n !== 'bigint' && isNaN(n) ? NaN : typeof n !== 'bigint' && n === Infinity ? Infinity : BigInt(n);
+        return typeof n !== 'bigint' && isNaN(n) ? WasmInt.nan() : typeof n !== 'bigint' && n === Infinity ? WasmInt.infinity() : WasmInt.finite(BigInt(hex));
     }
     const mask = BigInt(parseInt('0x80' + '00'.repeat(bytes - 1), 16));
     let integer = BigInt(parseInt(hex, 16));
     if (integer >= mask) {
         integer = integer - mask * 2n;
     }
-    return integer;
+    return WasmInt.finite(integer);
 }
 
 export function find(regex: RegExp, input: string) {
