@@ -305,10 +305,12 @@ bool i_instr_call(Module *m) {
 
         // Mocking only works on primitives, no need to check for it otherwise.
         if (ectx->sp >= 0) {
-            uint32_t arg = ectx->stack[ectx->sp].value.uint32;
-            if (m->warduino->debugger->isMocked(fidx, arg)) {
-                ectx->stack[ectx->sp].value.uint32 =
-                    m->warduino->debugger->getMockedValue(fidx, arg);
+            uint32_t mock_result;
+            if (m->warduino->debugger->getMockForArgs(m, fidx, mock_result)) {
+                const uint32_t param_count =
+                    m->functions[fidx].type->param_count;
+                ectx->sp -= static_cast<int>(param_count) - 1;
+                ectx->stack[ectx->sp].value.uint32 = mock_result;
                 return true;
             }
         }

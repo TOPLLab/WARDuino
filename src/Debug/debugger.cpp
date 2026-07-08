@@ -974,14 +974,16 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 this->channel->write("%s", addComma ? "," : "");
                 this->channel->write(R"("overrides": [)");
                 bool comma = false;
-                for (auto key : overrides) {
-                    for (auto argResult : key.second) {
-                        this->channel->write("%s", comma ? ", " : "");
-                        this->channel->write(
-                            R"({"fidx": %d, "arg": %d, "return_value": %d})",
-                            key.first, argResult.first, argResult.second);
-                        comma = true;
+                for (const auto &[key, return_value] : overrides) {
+                    this->channel->write("%s", comma ? ", " : "");
+                    const uint32_t fidx = key[key.size() - 1];
+                    this->channel->write(R"({"fidx": %d, "args": [)", fidx);
+                    for (uint32_t i = 0; i < key.size() - 1; i++) {
+                        this->channel->write("%s%d", i > 0 ? ", " : "", key[i]);
                     }
+                    this->channel->write(R"(], "return_value": %d})",
+                                         return_value);
+                    comma = true;
                 }
                 this->channel->write("]");
                 addComma = true;
@@ -1482,10 +1484,14 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 uint8_t overrides_count = *program_state++;
                 for (uint32_t i = 0; i < overrides_count; i++) {
                     uint32_t fidx = read_B32(&program_state);
-                    uint32_t arg = read_B32(&program_state);
+                    uint32_t param_count = m->functions[fidx].type->param_count;
+                    std::vector<uint32_t> key(param_count + 1);
+                    for (uint32_t j = 0; j < param_count; j++) {
+                        key[j] = read_B32(&program_state);
+                    }
+                    key[param_count] = fidx;
                     uint32_t return_value = read_B32(&program_state);
-                    overrides[fidx][arg] = return_value;
-                    debug("Override %d %d %d\n", fidx, arg, return_value);
+                    overrides[key] = return_value;
                 }
                 break;
             }
@@ -1670,7 +1676,7 @@ std::optional<uint32_t> resolve_imported_function(Module *m,
 }
 
 std::string read_string(uint8_t **pos) {
-    std::string str = "";
+    std::string str;
     char c = *(*pos)++;
     while (c != '\0') {
         str += c;
@@ -1680,43 +1686,68 @@ std::string read_string(uint8_t **pos) {
 }
 
 void Debugger::addOverride(Module *m, uint8_t *interruptData) {
-    std::string primitive_name = read_string(&interruptData);
-    uint32_t arg = read_B32(&interruptData);
-    uint32_t result = read_B32(&interruptData);
-
-    std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
+    const std::string primitive_name = read_string(&interruptData);
+    const std::optional<uint32_t> fidx =
+        resolve_imported_function(m, primitive_name);
     if (!fidx) {
         channel->write(
             "Cannot override the result for unknown function \"%s\".\n",
             primitive_name.c_str());
+        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
-    channel->write("Override %s(%d) = %d.\n", primitive_name.c_str(), arg,
-                   result);
-    overrides[fidx.value()][arg] = result;
+    const uint32_t param_count = m->functions[fidx.value()].type->param_count;
+    std::vector<uint32_t> key(param_count + 1);
+    for (uint32_t i = 0; i < param_count; i++) {
+        key[i] = read_B32(&interruptData);
+    }
+    key[param_count] = fidx.value();
+
+    const uint32_t result = read_B32(&interruptData);
+    channel->write("ack%x;1\n", interruptSetOverridePinValue);
+    overrides[key] = result;
 }
 
 void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
-    std::string primitive_name = read_string(&interruptData);
-    uint32_t arg = read_B32(&interruptData);
-
-    std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
+    const std::string primitive_name = read_string(&interruptData);
+    const std::optional<uint32_t> fidx =
+        resolve_imported_function(m, primitive_name);
     if (!fidx) {
         channel->write("Cannot remove override for unknown function \"%s\".\n",
                        primitive_name.c_str());
+        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
-    if (overrides[fidx.value()].count(arg) == 0) {
-        channel->write("Override for %s(%d) not found.\n",
-                       primitive_name.c_str(), arg);
+    const uint32_t param_count = m->functions[fidx.value()].type->param_count;
+    std::vector<uint32_t> key(param_count + 1);
+    for (uint32_t i = 0; i < param_count; i++) {
+        key[i] = read_B32(&interruptData);
+    }
+    key[param_count] = fidx.value();
+
+    if (overrides.erase(key) == 0) {
+        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
+    channel->write("ack%x;1\n", interruptUnsetOverridePinValue);
+}
 
-    channel->write("Removing override %s(%d) = %d.\n", primitive_name.c_str(),
-                   arg, overrides[fidx.value()][arg]);
-    overrides[fidx.value()].erase(arg);
+bool Debugger::getMockForArgs(Module *m, uint32_t fidx, uint32_t &result) {
+    const uint32_t param_count = m->functions[fidx].type->param_count;
+    std::vector<uint32_t> key(param_count + 1);
+    const ExecutionContext *ectx = m->warduino->execution_context;
+    for (uint32_t i = 0; i < param_count; i++) {
+        key[i] = ectx->stack[ectx->sp - (param_count - i - 1)].value.uint32;
+    }
+    key[param_count] = fidx;
+    const auto it = overrides.find(key);
+    if (it == overrides.end()) {
+        return false;
+    }
+    result = it->second;
+    return true;
 }
 
 bool Debugger::handleContinueFor(Module *m) {
