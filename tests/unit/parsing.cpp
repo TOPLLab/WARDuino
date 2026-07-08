@@ -43,7 +43,6 @@ TEST_CASE("Test: leb128 signed encoding") {
     }
 }
 
-
 TEST_CASE("Test: wasm args parsing") {
     uint32_t params[] = {F32, F32};
     uint32_t results[] = {I32};

@@ -41,5 +41,4 @@ TEST_CASE("Test: to physical address conversion") {
         CHECK(toPhysicalAddress(module.byte_count - 1, &module) ==
               module.bytes + module.byte_count - 1);
     }
-
 }

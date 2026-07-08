@@ -8,8 +8,8 @@
 
 class InstantiateModuleFixture : public ::testing::Test {
    protected:
-    WARDuino* warduino;
-    Module* wasm_module;
+    WARDuino *warduino;
+    Module *wasm_module;
     Options opts;
 
     InstantiateModuleFixture() : warduino(WARDuino::instance()) {}
@@ -172,7 +172,7 @@ TEST_F(InstantiateModuleFixture, InstantiatingWorksDespitePROXYhaltState) {
     });
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
