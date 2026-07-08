@@ -40,6 +40,21 @@ if (BUILD_EMULATOR)
     set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
     find_package(Threads REQUIRED)
+
+    include(FetchContent)
+    FetchContent_Declare(
+        nanopb
+        GIT_REPOSITORY https://github.com/nanopb/nanopb.git
+        GIT_TAG 0.4.9.1
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(nanopb)
+    set(NANOPB_SRC_ROOT_FOLDER ${nanopb_SOURCE_DIR})
+    find_program(NANOPB_GENERATOR_PLUGIN
+        NAMES protoc-gen-nanopb
+        DOC "nanopb protoc plugin"
+        REQUIRED
+    )
     find_package(Nanopb REQUIRED)
 
     nanopb_generate_cpp(TARGET proto src/Debug/debug.proto)
