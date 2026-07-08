@@ -37,8 +37,12 @@ configure_file(src/config.h.in include/warduino/config.h)
 # Build the emulator version of WARDuino
 if (BUILD_EMULATOR)
     set(EXTERNAL_LIB_HEADERS lib/json/single_include)
+    set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
     find_package(Threads REQUIRED)
+    find_package(Nanopb REQUIRED)
+
+    nanopb_generate_cpp(TARGET proto src/Debug/debug.proto)
 
     set(SOURCE_FILES
             src/WARDuino/WARDuino.cpp
@@ -69,7 +73,7 @@ if (BUILD_EMULATOR)
 
     # WARDuino CLI
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
-    target_link_libraries(wdcli PRIVATE Threads::Threads)
+    target_link_libraries(wdcli PRIVATE Threads::Threads proto)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
 endif (BUILD_EMULATOR)
 
