@@ -1,17 +1,17 @@
 set unstable
 
-
 default:
     just --list
 
 
 ## Run
+
 [group('run')]
 [doc('Run program on any platform (rebuilds)')]
 run platform program:
-    stage {{program}}
-    build {{platform}}
-    flash {{platform}}
+    just stage {{program}}
+    just build {{platform}}
+    just flash {{platform}} upload.wasm
 
 
 ## Stage
@@ -46,32 +46,38 @@ cmake(flags) := (
 
 [group('build')]
 [doc('Build runtime for any platform (flags: debug, trace)')]
-build platform *flags: (emulator flags)
+build platform *flags:
+    just {{platform}} {{flags}}
 
 [group('build')]
 [working-directory: 'build-emu']
 [doc('Platform: emulator')]
-emulator *flags: _mkdir
+emulator *flags: _mkdir-emu
     cmake .. -D BUILD_EMULATOR=ON {{cmake(flags)}}
     make
 
 [group('build')]
-[working-directory: 'platforms/zephyr']
-[doc('Platform: zephir')]
-zephir *flags: _zephir
-    ls
+[doc('Platform: zephyr')]
+zephyr *flags='-b esp32_devkitc_wroom/esp32/procpu': 
+    just _zephyr "west build {{flags}}"
 
 
 ## Flash
+
 [group('exec')]
 [doc('Flash/execute platform')]
-flash platform: cli
+flash platform program *flags:
+    just _flash_{{platform}} {{program}} {{flags}}
 
+_flash_zephyr program *flags:
+    just _zephyr "west flash {{flags}}"
+
+_flash_emulator program *flags: (cli program flags)
 
 [group('exec')]
 [doc('Run command-line interface')]
-cli:
-    ./build-emu/wdcli 
+cli program *flags:
+    ./build-emu/wdcli {{program}} {{flags}}
 
 
 ## Setup
@@ -90,15 +96,33 @@ _setup-emulator:
 lint:
     clang-format -i src/**/*
 
+## Tests
+
+[group('test')]
+[doc('Run unit tests')]
+test: _mkdir-doctest _build-doctest
+    ctest --test-dir ./build-doctest --output-on-failure
+
 
 ## Private recipes
 
 # make build folder
-_mkdir:
+_mkdir-emu:
     mkdir -p build-emu
 
-# activate zephyr environment
-_zephir:
+# make build folder
+_mkdir-doctest:
+    mkdir -p build-doctest
+
+_build-doctest:
+    cmake -B ./build-doctest -D BUILD_UNITTEST=ON
+    cmake --build ./build-doctest 2>/dev/null
+
+# activate zephyr environment and run a command in it
+[working-directory: 'platforms/Zephyr']
+[script("bash")]
+_zephyr +cmd:
+    set -euo pipefail
     source ~/zephyrproject/.venv/bin/activate
     source ~/zephyrproject/zephyr/zephyr-env.sh
-
+    {{cmd}}
