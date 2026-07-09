@@ -48,54 +48,33 @@ just setup emulator ; just run emulator tutorials/wat/main/fac.wat
 ## Build and Development Instructions
 
 > [!NOTE]
-> **Supported platforms:** Linux (Ubuntu), macOS, ESP-IDF, Arduino
+> **Supported platforms:** Linux (Ubuntu), macOS, Zephyr, ESP-IDF, Arduino
 
 The project uses CMake. Quick install looks like this:
 
 ```bash
 git clone --recursive git@github.com:TOPLLab/WARDuino.git
 cd WARDuino
-mkdir build-emu
-cd build-emu
-cmake .. -D BUILD_EMULATOR=ON
-make
+just build emulator
 ```
 
 This will build the command-line tool (`emulator`), which has been tested on both linux and macOS.
 
-The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, and has been extensively tested on different ESP8266 and ESP32 microcontrollers.
-
-### Build for ESP-IDF
-
-> [!WARNING]
-> Primitive support for IDF is under construction.
-
-Before you can compile and flash with ESP-IDF, you must install and enable [the toolchain](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html).
-You also need to disable the watchdog timer:
-
-1. Go to the root folder of the WARDuino repo
-2. run `idf.py menuconfig`
-3. Under **Component config → ESP System Settings** disable the following options:
-   - Interrupt watchdog
-   - Initialize Task Watchdog Timer on startup
-4. Save and quit the menu
-
-Make sure the ESP-IDF tools are enabled, otherwise these steps will not work.
-
-To install the WARDuino with the ESP-IDF toolchain perform the following steps starting from the project root folder:
-
 ```bash
-mkdir build
-cd build
-cmake .. -D BUILD_ESP=ON
-make flash
+./build-emu/wdcli --help
 ```
 
-Or simply run `idf.py flash`.
+The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, and has been extensively tested on different ESP8266 and ESP32 microcontrollers.
 
 ### Build for Zephyr
 
-First, install the [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#getting-started-guide), then follow these steps:
+First, install the [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#getting-started-guide), then run:
+
+```bash
+just build zephyr tutorials/wat/main/blink.wat ; just flash zephyr
+```
+
+Alternative, when you do not have just, you can follow the following steps:
 
 1. Activate your Zephyr environment:
 ```bash
@@ -197,6 +176,34 @@ cd build-emu
 cmake .. -D BUILD_EMULATOR=ON
 make
 ```
+
+### Build for ESP-IDF
+
+> [!WARNING]
+> Primitive support for IDF is under construction.
+
+Before you can compile and flash with ESP-IDF, you must install and enable [the toolchain](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html).
+You also need to disable the watchdog timer:
+
+1. Go to the root folder of the WARDuino repo
+2. run `idf.py menuconfig`
+3. Under **Component config → ESP System Settings** disable the following options:
+   - Interrupt watchdog
+   - Initialize Task Watchdog Timer on startup
+4. Save and quit the menu
+
+Make sure the ESP-IDF tools are enabled, otherwise these steps will not work.
+
+To install the WARDuino with the ESP-IDF toolchain perform the following steps starting from the project root folder:
+
+```bash
+mkdir build
+cd build
+cmake .. -D BUILD_ESP=ON
+make flash
+```
+
+Or simply run `idf.py flash`.
 
 ## WebAssembly Specification tests
 

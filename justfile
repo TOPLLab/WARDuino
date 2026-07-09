@@ -73,7 +73,7 @@ zephyr *flags='-b esp32_devkitc_wroom/esp32/procpu':
 
 [group('exec')]
 [doc('Flash/execute platform')]
-flash platform program *flags:
+flash platform program="upload.wasm" *flags:
     just _flash_{{platform}} {{program}} {{flags}}
 
 _flash_zephyr program *flags:
