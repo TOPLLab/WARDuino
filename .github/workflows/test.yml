@@ -80,7 +80,7 @@ jobs:
         working-directory: tests/latch/
 
       - name: Run Latch
-        run: npm run spectest
+        run: npm run tests:spec
         working-directory: tests/latch/
 
   # Stage 3: end-to-end testing of primitives and debugger
@@ -135,7 +135,7 @@ jobs:
         working-directory: tests/latch/
 
       - name: Run Latch
-        run: npm run primtest
+        run: npm run tests:prim
         working-directory: tests/latch/
 
   debugtests:
@@ -188,6 +188,6 @@ jobs:
         working-directory: tests/latch/
 
       - name: Run Latch
-        run: npm run debugtest
+        run: npm run tests:debug
         working-directory: tests/latch/
 
