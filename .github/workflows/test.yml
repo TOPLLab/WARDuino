@@ -44,6 +44,12 @@ jobs:
         with:
           node-version: 20
 
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Install protoc/nanopb
+        run: brew install nanopb
+
       - name: Build warduino cli
         run: |
           cmake . -D BUILD_EMULATOR=ON
@@ -99,6 +105,12 @@ jobs:
         with:
           node-version: 20
 
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Install protoc/nanopb
+        run: brew install nanopb
+
       - name: Build warduino cli
         run: |
           cmake . -D BUILD_EMULATOR=ON
@@ -151,6 +163,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Install protoc/nanopb
+        run: brew install nanopb
 
       - name: Build warduino cli
         run: |
