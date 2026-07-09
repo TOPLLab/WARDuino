@@ -41,8 +41,8 @@ This project is released under the Mozilla Public License 2.0, and is being deve
 If you use just, the most common project commands are collected in the justfile.
 To run the virtual machine locally (emulator) for the first time, use:
 
-```
-just setup ; just run emulator tutorials/wat/main/fac.wat
+```bash
+just setup emulator ; just run emulator tutorials/wat/main/fac.wat
 ```
 
 ## Build and Development Instructions
@@ -184,6 +184,12 @@ The purpose of this CLI is to allow developers to test WARDuino applications wit
 The CLI is also used to run the various unit and specification tests for WARDuino.
 
 To install the CLI perform the following steps starting from the project root folder:
+
+```bash
+just build emulator ; echo ; ./build-emu/wdcli --help
+```
+
+Alternative, when you do not have just, use:
 
 ```bash
 mkdir build-emu
