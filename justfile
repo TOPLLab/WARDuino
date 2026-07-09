@@ -27,6 +27,13 @@ wat program:
   wat2wasm --no-canonicalize-leb128s --disable-bulk-memory --debug-names -v -o upload.wasm {{program}}
 
 
+## Clean
+
+[group('clean')]
+[doc('Clean build folders')]
+clean:
+    rm -rf build-emu build-doctest build
+
 ## Build
 
 has(flags, flag) := if flags =~ ('(^| )' + flag + '($| )') { "true" } else { "false" }
@@ -53,8 +60,8 @@ build platform *flags:
 [working-directory: 'build-emu']
 [doc('Platform: emulator')]
 emulator *flags: _mkdir-emu
-    cmake .. -D BUILD_EMULATOR=ON {{cmake(flags)}}
-    make
+    cmake .. -D BUILD_EMULATOR=ON {{cmake(flags)}} -G Ninja
+    ninja
 
 [group('build')]
 [doc('Platform: zephyr')]
@@ -99,10 +106,32 @@ lint:
 ## Tests
 
 [group('test')]
+[doc('Run tests')]
+test level='all':
+    just {{level}}
+
+[group('test')]
 [doc('Run unit tests')]
-test: _mkdir-doctest _build-doctest
+unit: _mkdir-doctest _build-doctest
     ctest --test-dir ./build-doctest --output-on-failure
 
+[group('test')]
+[doc('Run spec tests')]
+[working-directory: 'tests/latch/']
+spec: 
+    WABT="../../lib/wabt/build/" npm run tests:spec
+
+[group('test')]
+[doc('Run integration tests')]
+[working-directory: 'tests/latch/']
+integration: 
+    WABT="../../lib/wabt/build/" npm run tests:integration
+
+[group('test')]
+[doc('Run integration tests')]
+[working-directory: 'tests/latch/']
+all: 
+    WABT="../../lib/wabt/build/" npm run tests:all
 
 ## Private recipes
 
@@ -115,7 +144,7 @@ _mkdir-doctest:
     mkdir -p build-doctest
 
 _build-doctest:
-    cmake -B ./build-doctest -D BUILD_UNITTEST=ON
+    cmake -B ./build-doctest -D BUILD_UNITTEST=ON -G Ninja
     cmake --build ./build-doctest 2>/dev/null
 
 # activate zephyr environment and run a command in it
