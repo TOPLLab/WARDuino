@@ -6,8 +6,8 @@
 
 class FreeingModuleFixture : public ::testing::Test {
    protected:
-    WARDuino* warduino;
-    Module* wasm_module;
+    WARDuino *warduino;
+    Module *wasm_module;
     Options opts;
 
     FreeingModuleFixture() : warduino(WARDuino::instance()) {}
@@ -54,7 +54,7 @@ TEST_F(FreeingModuleFixture, FreeingStatePreservesOptions) {
     EXPECT_EQ(opts.return_exception, opts2.return_exception);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
