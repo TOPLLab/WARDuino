@@ -36,6 +36,9 @@ jobs:
             - name: Create build folder
               run: mkdir build-emu
 
+            - name: Install protoc/nanopb
+              run: brew install nanopb
+
             - name: Build WARDuino CLI
               run: cmake .. -D BUILD_EMULATOR=ON ; cmake --build .
               working-directory: build-emu
