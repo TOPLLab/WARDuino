@@ -36,6 +36,15 @@ This project is released under the Mozilla Public License 2.0, and is being deve
 > [!WARNING]
 > WARDuino is not 1.0, since this is an active research project. Expect possible bugs or performance issues.
 
+## Quick start
+
+If you use just, the most common project commands are collected in the justfile.
+To run the virtual machine locally (emulator) for the first time, use:
+
+```
+just setup ; just run emulator tutorials/wat/main/fac.wat
+```
+
 ## Build and Development Instructions
 
 > [!NOTE]

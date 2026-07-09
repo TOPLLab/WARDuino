@@ -2,10 +2,12 @@
   "name": "warduino-testsuite",
   "version": "1.0.0",
   "scripts": {
-    "debugtest": "npx ts-node ./src/debugger.test.ts",
-    "primtest": "npx ts-node ./src/primitives.test.ts",
-    "spectest": "npx ts-node ./src/spec.test.ts",
-    "comptest": "npx ts-node ./src/comp.test.ts"
+    "tests:debug": "npx ts-node ./src/debugger.test.ts",
+    "tests:prim": "npx ts-node ./src/primitives.test.ts",
+    "tests:spec": "npx ts-node ./src/spec.test.ts",
+    "tests:comp": "npx ts-node ./src/comp.test.ts",
+    "tests:integration": "npm run tests:debug ; npm run tests:prim",
+    "tests:all": "npm run tests:spec ; npm run tests:integration"
   },
   "devDependencies": {
     "latch": "file:./latch-0.6.0.tgz",
