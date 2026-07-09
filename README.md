@@ -205,11 +205,11 @@ make flash
 
 Or simply run `idf.py flash`.
 
-## WebAssembly Specification tests
+## Run test suites
 
 ```shell
-cd tests/latch
-npm run spectest
+just build emulator
+just test all
 ```
 
 ## Technical support and feedback
