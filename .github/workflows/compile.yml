@@ -37,6 +37,7 @@ jobs:
               run: mkdir build-emu
 
             - name: Set up Homebrew
+              if: ${{ ! startsWith(matrix.os, 'macos') }}
               uses: Homebrew/actions/setup-homebrew@main
 
             - name: Install protoc/nanopb
