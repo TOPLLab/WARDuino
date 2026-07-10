@@ -160,8 +160,21 @@ namespace warduino {
             printf("Failed to connect %s\n", strerror(errno));
             close(sock);
             return -1;
-            }
+        }
         printf("Connected to %s:%d\n", ip, port);
+        return sock;
+    }
+
+    inline int socket_create_retry(const char *ip, int port, int times) {
+        int sock = -1;
+        while (times > 0 && (sock = socket_create(ip, port)) < 0) {
+            printf("Retry %d more times\n", times);
+            times--;
+            k_sleep(K_SECONDS(1));
+        }
+        if (times == 0) {
+            printf("Failed after x retries\n");
+        }
         return sock;
     }
 

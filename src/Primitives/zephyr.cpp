@@ -579,7 +579,7 @@ def_prim(socket_create, threeToOneU32) {
     uint32_t port    = arg0.uint32;
     std::string ip = parse_utf8_string(m->memory.bytes, ip_len, ip_addr);
     pop_args(3);
-    int socket = warduino::socket_create(ip.c_str(), (int)port);
+    int socket = warduino::socket_create_retry(ip.c_str(), (int)port, 5);
     pushInt32(socket);
     return true;
 }
