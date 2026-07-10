@@ -10,17 +10,16 @@
 #include <cstdint>
 #include <cstdio>
 
-#define EVENT_MASK \
-    (NET_EVENT_WIFI_CONNECT_RESULT | NET_EVENT_WIFI_DISCONNECT_RESULT)
-
 static net_mgmt_event_callback mgmt_cb;
 static net_mgmt_event_callback ipv4_cb;
 static net_mgmt_event_callback scan_cb;
+static net_mgmt_event_callback disconnect_cb;
 
 static volatile bool connected;
 static K_SEM_DEFINE(run_app, 0, 1);
 static K_SEM_DEFINE(ip_sem, 0, 1);
 static K_SEM_DEFINE(scan_done_sem, 0, 1);
+static K_SEM_DEFINE(disconnect_done, 0, 1);
 
 void wifi_args_to_params(wifi_connect_req_params *params,
                          const char *ssid, const char *passwd) {
@@ -109,21 +108,29 @@ static void net_mgmt_event_handler(net_mgmt_event_callback *cb,
                 continue;
             }
 
-            printk("IPv4 address: %s\n",
+            printf("IPv4 address: %s\n",
                    net_addr_ntop(
                        AF_INET,
                        &iface->config.ip.ipv4->unicast[i].ipv4.address.in_addr,
                        buf, sizeof(buf)));
-            printk("Subnet: %s\n",
+            printf("Subnet: %s\n",
                    net_addr_ntop(AF_INET,
                                  &iface->config.ip.ipv4->unicast[i].netmask,
                                  buf, sizeof(buf)));
-            printk("Router: %s\n",
+            printf("Router: %s\n",
                    net_addr_ntop(AF_INET, &iface->config.ip.ipv4->gw, buf,
                                  sizeof(buf)));
         }
         k_sem_give(&ip_sem);
         return;
+    }
+}
+
+static void disconnect_result_handler(net_mgmt_event_callback *cb,
+                                uint64_t mgmt_event, net_if *iface) {
+    if (mgmt_event == NET_EVENT_WIFI_DISCONNECT_RESULT) {
+        printf("Disconnect event received\n");
+        k_sem_give(&disconnect_done);
     }
 }
 
@@ -133,9 +140,10 @@ static void net_mgmt_event_handler(net_mgmt_event_callback *cb,
 
 namespace warduino {
     inline int socket_create(const char *ip, int port) {
+        printf("Create socket %s:%d\n", ip, port);
         int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (sock < 0) {
-            printk("Socket creation failed\n");
+            printf("Socket creation failed\n");
             return -1;
         }
 
@@ -149,19 +157,21 @@ namespace warduino {
             (sockaddr *)&server_addr,
             sizeof(server_addr)) < 0
             ) {
-            printk("Failed to connect %s\n", strerror(errno));
+            printf("Failed to connect %s\n", strerror(errno));
             close(sock);
             return -1;
             }
-        printk("Connected to %s:%d\n", ip, port);
+        printf("Connected to %s:%d\n", ip, port);
         return sock;
     }
 
     inline int socket_send(int socket, const char* message) {
+        printf("socket_send\n");
         return send(socket, message, strlen(message), 0);
     }
 
     inline int socket_close(int socket) {
+        printf("socket_close\n");
         return close(socket);
     }
 }
@@ -174,11 +184,11 @@ int tcp_send_message(const char *ip, int port, const char *message) {
     }
 
     if (warduino::socket_send(sock, message) < 0) {
-        printk("Send failed\n");
+        printf("Send failed\n");
     }
 
     warduino::socket_close(sock);
-    printk("Connection closed\n");
+    printf("Connection closed\n");
 
     return 0;
 }
@@ -187,7 +197,7 @@ inline int network_connect(const char *ssid, const char *passwd) {
     printf("Initializing Wi-Fi driver\n");
     k_sleep(K_SECONDS(5));
 
-    net_mgmt_init_event_callback(&mgmt_cb, net_mgmt_event_handler, EVENT_MASK);
+    net_mgmt_init_event_callback(&mgmt_cb, net_mgmt_event_handler, NET_EVENT_WIFI_CONNECT_RESULT);
     net_mgmt_add_event_callback(&mgmt_cb);
 
     net_mgmt_init_event_callback(&ipv4_cb, net_mgmt_event_handler,
@@ -235,5 +245,22 @@ inline int network_connect(const char *ssid, const char *passwd) {
     net_dhcpv4_start(iface);
     k_sem_take(&ip_sem, K_SECONDS(30));
 
+    return 0;
+}
+
+inline int network_disconnect() {
+    printf("Request network disconnect\n");
+    net_if *iface = net_if_get_first_wifi();
+    if (iface == nullptr) {
+        printf("No Wi-Fi interface found\n");
+        return -1;
+    }
+    net_mgmt_init_event_callback(&disconnect_cb, disconnect_result_handler,
+        NET_EVENT_WIFI_DISCONNECT_RESULT);
+    net_mgmt_add_event_callback(&disconnect_cb);
+    k_sem_reset(&disconnect_done);
+    net_mgmt(NET_REQUEST_WIFI_DISCONNECT, iface, nullptr, 0);
+    k_sem_take(&disconnect_done, K_SECONDS(30));
+    printf("Network disconnected!\n");
     return 0;
 }

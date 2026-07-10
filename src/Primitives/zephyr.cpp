@@ -568,6 +568,11 @@ def_prim(wifi_connect, fourToNoneU32) {
     return true;
 }
 
+def_prim(wifi_disconnect, NoneToOneU32) {
+    pushUInt32(network_disconnect());
+    return true;
+}
+
 def_prim(socket_create, threeToOneU32) {
     uint32_t ip_addr = arg2.uint32;
     uint32_t ip_len  = arg1.uint32;
@@ -648,6 +653,7 @@ void install_primitives(Interpreter *interpreter) {
 
 #if IS_ENABLED(CONFIG_WIFI)
     install_primitive(wifi_connect);
+    install_primitive(wifi_disconnect);
     install_primitive(socket_create);
     install_primitive(socket_send);
     install_primitive(socket_close);
