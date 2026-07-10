@@ -127,6 +127,62 @@ static void net_mgmt_event_handler(net_mgmt_event_callback *cb,
     }
 }
 
+// TCP socket test
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+namespace warduino {
+    int socket_create(const char *ip, int port) {
+        int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (sock < 0) {
+            printk("Socket creation failed\n");
+            return -1;
+        }
+
+        sockaddr_in server_addr;
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_port = htons(port);
+        server_addr.sin_addr.s_addr = inet_addr(ip);
+
+        if (connect(
+            sock,
+            (sockaddr *)&server_addr,
+            sizeof(server_addr)) < 0
+            ) {
+            printk("Connection failed\n");
+            close(sock);
+            return -1;
+            }
+        printk("Connected to %s:%d\n", ip, port);
+        return sock;
+    }
+
+    inline int socket_send(int socket, const char* message) {
+        return send(socket, message, strlen(message), 0);
+    }
+
+    inline int socket_close(int socket) {
+        return close(socket);
+    }
+}
+
+int tcp_send_message(const char *ip, int port, const char *message) {
+    const int sock = warduino::socket_create(ip, port);
+    if (sock < 0) {
+        printf("Failed to create socket!\n");
+        return -1;
+    }
+
+    if (warduino::socket_send(sock, message) < 0) {
+        printk("Send failed\n");
+    }
+
+    warduino::socket_close(sock);
+    printk("Connection closed\n");
+
+    return 0;
+}
+
 int network_connect(const char *ssid, const char *passwd) {
     printf("Initializing Wi-Fi driver\n");
     k_sleep(K_SECONDS(5));
@@ -178,6 +234,8 @@ int network_connect(const char *ssid, const char *passwd) {
     printf("Connected! Starting DHCP...\n");
     net_dhcpv4_start(iface);
     k_sem_take(&ip_sem, K_SECONDS(30));
+
+    tcp_send_message("10.115.167.189", 12345, "Hello from WARDuino over WIFI!");
 
     return 0;
 }
