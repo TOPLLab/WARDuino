@@ -567,6 +567,37 @@ def_prim(wifi_connect, fourToNoneU32) {
     pop_args(4);
     return true;
 }
+
+def_prim(socket_create, threeToOneU32) {
+    uint32_t ip_addr = arg2.uint32;
+    uint32_t ip_len  = arg1.uint32;
+    uint32_t port    = arg0.uint32;
+    std::string ip = parse_utf8_string(m->memory.bytes, ip_len, ip_addr);
+    pop_args(3);
+    int socket = warduino::socket_create(ip.c_str(), (int)port);
+    pushInt32(socket);
+    return true;
+}
+
+def_prim(socket_send, threeToOneU32) {
+    int32_t  socket       = arg2.int32;
+    uint32_t msg_addr = arg1.uint32;
+    uint32_t msg_len  = arg0.uint32;
+    std::string msg = parse_utf8_string(m->memory.bytes, msg_len, msg_addr);
+    pop_args(3);
+    int sent = warduino::socket_send(socket, msg.c_str());
+    pushInt32(sent);
+    return true;
+}
+
+def_prim(socket_close, oneToOneI32) {
+    int32_t socket = arg0.int32;
+    pop_args(1);
+    int result = warduino::socket_close(socket);
+    pushInt32(result);
+    return true;
+}
+
 #endif
 
 //------------------------------------------------------
@@ -617,6 +648,9 @@ void install_primitives(Interpreter *interpreter) {
 
 #if IS_ENABLED(CONFIG_WIFI)
     install_primitive(wifi_connect);
+    install_primitive(socket_create);
+    install_primitive(socket_send);
+    install_primitive(socket_close);
 #endif
 }
 

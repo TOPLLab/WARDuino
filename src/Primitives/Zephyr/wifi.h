@@ -132,7 +132,7 @@ static void net_mgmt_event_handler(net_mgmt_event_callback *cb,
 #include <arpa/inet.h>
 
 namespace warduino {
-    int socket_create(const char *ip, int port) {
+    inline int socket_create(const char *ip, int port) {
         int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (sock < 0) {
             printk("Socket creation failed\n");
@@ -149,7 +149,7 @@ namespace warduino {
             (sockaddr *)&server_addr,
             sizeof(server_addr)) < 0
             ) {
-            printk("Connection failed\n");
+            printk("Failed to connect %s\n", strerror(errno));
             close(sock);
             return -1;
             }
@@ -183,7 +183,7 @@ int tcp_send_message(const char *ip, int port, const char *message) {
     return 0;
 }
 
-int network_connect(const char *ssid, const char *passwd) {
+inline int network_connect(const char *ssid, const char *passwd) {
     printf("Initializing Wi-Fi driver\n");
     k_sleep(K_SECONDS(5));
 
@@ -234,8 +234,6 @@ int network_connect(const char *ssid, const char *passwd) {
     printf("Connected! Starting DHCP...\n");
     net_dhcpv4_start(iface);
     k_sem_take(&ip_sem, K_SECONDS(30));
-
-    tcp_send_message("10.115.167.189", 12345, "Hello from WARDuino over WIFI!");
 
     return 0;
 }
