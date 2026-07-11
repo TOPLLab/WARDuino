@@ -23,6 +23,7 @@ static K_SEM_DEFINE(disconnect_done, 0, 1);
 
 void wifi_args_to_params(wifi_connect_req_params *params,
                          const char *ssid, const char *passwd) {
+    memset(params, 0, sizeof(*params));
     params->ssid = (const uint8_t *)ssid;
     params->ssid_length = strlen((const char *)params->ssid);
 
