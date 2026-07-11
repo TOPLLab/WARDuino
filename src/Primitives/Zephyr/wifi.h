@@ -228,15 +228,9 @@ inline int network_connect(const char *ssid, const char *passwd) {
     net_mgmt_init_event_callback(&scan_cb, scan_result_handler,
         NET_EVENT_WIFI_SCAN_RESULT | NET_EVENT_WIFI_SCAN_DONE);
     net_mgmt_add_event_callback(&scan_cb);
-    for (int i = 0; i < 3; i++) {
-        printf("Scan %d/3 (looking for: %s)...\n", i + 1, ssid);
-        k_sem_reset(&scan_done_sem);
-        if (net_mgmt(NET_REQUEST_WIFI_SCAN, iface, nullptr, 0) == 0) {
-            k_sem_take(&scan_done_sem, K_SECONDS(10));
-        }
-        if (i < 2) {
-            k_msleep(2000);
-        }
+    k_sem_reset(&scan_done_sem);
+    if (net_mgmt(NET_REQUEST_WIFI_SCAN, iface, nullptr, 0) == 0) {
+        k_sem_take(&scan_done_sem, K_SECONDS(10));
     }
     net_mgmt_del_event_callback(&scan_cb);
 
