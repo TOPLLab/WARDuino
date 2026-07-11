@@ -148,7 +148,7 @@ namespace warduino {
             return -1;
         }
 
-        sockaddr_in server_addr;
+        sockaddr_in server_addr = {};
         server_addr.sin_family = AF_INET;
         server_addr.sin_port = htons(port);
         server_addr.sin_addr.s_addr = inet_addr(ip);
@@ -163,6 +163,7 @@ namespace warduino {
             return -1;
         }
         printf("Connected to %s:%d\n", ip, port);
+        printf("sock = %d\n", sock);
         return sock;
     }
 
@@ -180,12 +181,14 @@ namespace warduino {
     }
 
     inline int socket_send(int socket, const char* message) {
-        printf("socket_send\n");
+        printf("socket_send(%d, \"%s\" (len = %d))\n", socket, message, strlen(message));
         return send(socket, message, strlen(message), 0);
     }
 
     inline int socket_close(int socket) {
-        printf("socket_close\n");
+        printf("socket_close(%d)\n", socket);
+        // Wait a bit to make sure any sent messages in the buffer are still sent.
+        k_sleep(K_MSEC(500));
         return close(socket);
     }
 }
