@@ -584,6 +584,20 @@ def_prim(socket_create, threeToOneU32) {
     return true;
 }
 
+def_prim(socket_create_server, oneToOneI32) {
+    const int32_t port = arg0.int32;
+    pop_args(1);
+    pushInt32(warduino::socket_create_server(port));
+    return true;
+}
+
+def_prim(socket_accept, oneToOneI32) {
+    const int32_t sock = arg0.int32;
+    pop_args(1);
+    pushInt32(warduino::socket_accept(sock));
+    return true;
+}
+
 def_prim(socket_send, threeToOneU32) {
     int32_t  socket       = arg2.int32;
     uint32_t msg_addr = arg1.uint32;
@@ -655,6 +669,8 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(wifi_connect);
     install_primitive(wifi_disconnect);
     install_primitive(socket_create);
+    install_primitive(socket_create_server);
+    install_primitive(socket_accept);
     install_primitive(socket_send);
     install_primitive(socket_close);
 #endif
