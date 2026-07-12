@@ -224,9 +224,14 @@ namespace warduino {
         return client_sock;
     }
 
-    inline int socket_send(int socket, const char* message) {
+    inline int socket_send(const int socket, const char* message) {
         printf("socket_send(%d, \"%s\" (len = %d))\n", socket, message, strlen(message));
         return send(socket, message, strlen(message), 0);
+    }
+
+    inline int socket_receive(const int socket, char* buffer, const size_t size) {
+        printf("socket_receive(%d, 0x%p, %d)\n", socket, buffer, size);
+        return recv(socket, buffer, size, 0);
     }
 
     inline int socket_close(int socket) {

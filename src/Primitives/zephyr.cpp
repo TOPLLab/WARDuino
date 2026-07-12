@@ -609,6 +609,16 @@ def_prim(socket_send, threeToOneU32) {
     return true;
 }
 
+def_prim(socket_receive, threeToOneU32) {
+    int32_t  socket       = arg2.int32;
+    uint32_t msg_addr = arg1.uint32;
+    uint32_t msg_len  = arg0.uint32;
+    pop_args(3);
+    char *buf = reinterpret_cast<char *>(&m->memory.bytes[msg_addr]);
+    pushInt32(warduino::socket_receive(socket, buf, msg_len));
+    return true;
+}
+
 def_prim(socket_close, oneToOneI32) {
     int32_t socket = arg0.int32;
     pop_args(1);
@@ -672,6 +682,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(socket_create_server);
     install_primitive(socket_accept);
     install_primitive(socket_send);
+    install_primitive(socket_receive);
     install_primitive(socket_close);
 #endif
 }
