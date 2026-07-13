@@ -45,6 +45,12 @@ To run the virtual machine locally (emulator) for the first time, use:
 just setup emulator ; just run emulator tutorials/wat/main/fac.wat
 ```
 
+You can use the debugger by running:
+
+```bash
+just monitor emulator 8119
+```
+
 ## Build and Development Instructions
 
 > [!NOTE]
@@ -71,7 +77,7 @@ The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, an
 First, install the [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#getting-started-guide), then run:
 
 ```bash
-just build zephyr tutorials/wat/main/blink.wat ; just flash zephyr
+just build zephyr tutorials/wat/main/blink.wat ; just flash zephyr ; just monitor zephyr
 ```
 
 Alternative, when you do not have just, you can follow the following steps:
@@ -144,7 +150,6 @@ arduino-cli lib install --git-url https://github.com/me-no-dev/AsyncTCP.git
 
 If you haven't done so already, clone (or symlink) this repository to `~/Arduino/libraries` to make WARDuino available to Arduino.
 
-
 After this initial installation steps you can start using WARDuino with the Arduino toolchain.
 You can upload the example file as follows, starting from the project root:
 
@@ -207,7 +212,7 @@ Or simply run `idf.py flash`.
 
 ## Run test suites
 
-```shell
+```bash
 just build emulator
 just test all
 ```
@@ -218,7 +223,7 @@ For a feature request or bug report, create a [GitHub issue](https://github.com/
 
 ## Acknowledgments
 
-WARDuino by Robbert Gurdeep Singh, Tom Lauwaerts, Carlos Rojas Castillo, Maarten Steevens and Christophe Scholliers is licensed under a [MPL-2.0 License](./LICENSE).
+WARDuino by Tom Lauwaerts, Maarten Steevens, Carlos Rojas Castillo, and Christophe Scholliers is licensed under a [MPL-2.0 License](./LICENSE).
 An early version of this work was derived from [kanaka/wac](https://github.com/kanaka/wac) by Joel Martin.
 
 If you need to cite WARDuino in your research, use:

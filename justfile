@@ -12,6 +12,7 @@ run platform program:
     just stage {{program}}
     just build {{platform}}
     just flash {{platform}} upload.wasm
+    just monitor {{platform}}
 
 
 ## Stage
@@ -79,12 +80,26 @@ flash platform program="upload.wasm" *flags:
 _flash_zephyr program *flags:
     just _zephyr "west flash {{flags}}"
 
-_flash_emulator program *flags: (cli program flags)
+_flash_emulator program *flags='--socket 8119': (cli program flags)
 
 [group('exec')]
 [doc('Run command-line interface')]
 cli program *flags:
     ./build-emu/wdcli {{program}} {{flags}}
+
+
+## Monitor
+
+monitor platform port='8119':
+    just _monitor_{{platform}} {{port}}
+
+[no-exit-message]
+_monitor_emulator port='8119':
+    telnet localhost {{port}}
+
+
+_monitor_zephyr port:
+    west espressif monitor
 
 
 ## Setup
@@ -93,42 +108,43 @@ cli program *flags:
 [doc('Setup toolchains & platforms')]
 setup platform: _setup-emulator
 
+[confirm('You are about to install nanopb using Homebrew. Proceed? [y/n]')]
+_nanopb:
+    brew install nanopb
+
 [group('setup')]
 [doc('Setup: emulator')]
-_setup-emulator:
+_setup-emulator: _nanopb
     git submodule update --init --recursive
 
 [group('lint')]
 [doc('Lint src folder')]
+[no-exit-message]
 lint:
     clang-format -i src/**/*
 
 ## Tests
 
 [group('test')]
-[doc('Run tests')]
+[doc('Run tests at level (unit, integration, spec, all)')]
 test level='all':
     just {{level}}
 
 [group('test')]
-[doc('Run unit tests')]
 unit: _mkdir-doctest _build-doctest
     ctest --test-dir ./build-doctest --output-on-failure
 
 [group('test')]
-[doc('Run spec tests')]
 [working-directory: 'tests/latch/']
 spec: 
     WABT="../../lib/wabt/build/" npm run tests:spec
 
 [group('test')]
-[doc('Run integration tests')]
 [working-directory: 'tests/latch/']
 integration: 
     WABT="../../lib/wabt/build/" npm run tests:integration
 
 [group('test')]
-[doc('Run integration tests')]
 [working-directory: 'tests/latch/']
 all: 
     WABT="../../lib/wabt/build/" npm run tests:all
