@@ -49,6 +49,7 @@
             <&gpio0 29 0>;
 
         pwms = < &pwm 2 PWM_USEC(1500) PWM_POLARITY_NORMAL >;
+        pwm-names = "builtin-buzzer";
      };
 };
 

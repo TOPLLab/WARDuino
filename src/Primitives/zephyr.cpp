@@ -130,8 +130,10 @@ def_prim(millis, NoneToOneU32) {
     return true;
 }
 
+#if DT_PROP_HAS_NAME(DT_PATH(zephyr_user), pwms, builtin_buzzer)
+
 static const struct pwm_dt_spec piezo_spec =
-    PWM_DT_SPEC_GET(DT_PATH(zephyr_user));
+    PWM_DT_SPEC_GET_BY_NAME(DT_PATH(zephyr_user), builtin_buzzer);
 
 bool pwm_write_freq(pwm_dt_spec pwm_spec, uint32_t period_us) {
     if (!pwm_is_ready_dt(&pwm_spec)) {
@@ -166,6 +168,8 @@ def_prim(noTone, NoneToNoneU32) {
     pwm_set_pulse_dt(&piezo_spec, 0);
     return true;
 }
+
+#endif
 
 def_prim(random_int, NoneToOneU32) {
     pushInt32(sys_rand32_get());
@@ -579,8 +583,10 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(display_draw_string);
 #endif
 
+#if DT_PROP_HAS_NAME(DT_PATH(zephyr_user), pwms, builtin_buzzer)
     install_primitive(tone);
     install_primitive(noTone);
+#endif
 }
 
 Memory external_mem = {0, 0, 0, nullptr};
