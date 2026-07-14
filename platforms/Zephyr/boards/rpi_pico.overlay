@@ -47,6 +47,9 @@
             <&gpio0 27 0>,
             <&gpio0 28 0>,
             <&gpio0 29 0>;
+
+        pwms = < &pwm 2 PWM_USEC(1500) PWM_POLARITY_NORMAL >;
+        pwm-names = "builtin-buzzer";
      };
 };
 
@@ -74,4 +77,18 @@
             h-mirror;
         };
     };
+};
+
+&pinctrl {
+    pwm_ch1a_default: pwm_ch1a_default {
+        group1 {
+            pinmux = <PWM_1A_P2>; // Channel 1 A, 1 * 1 + 1 = 2, &pwm 2 in pwms
+        };
+    };
+};
+
+&pwm {
+    status="okay";
+    divider-int-4 = <255>;
+    pinctrl-0 = < &pwm_ch1a_default >;
 };

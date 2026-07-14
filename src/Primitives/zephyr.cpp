@@ -130,6 +130,47 @@ def_prim(millis, NoneToOneU32) {
     return true;
 }
 
+#if DT_PROP_HAS_NAME(DT_PATH(zephyr_user), pwms, builtin_buzzer)
+
+static const struct pwm_dt_spec piezo_spec =
+    PWM_DT_SPEC_GET_BY_NAME(DT_PATH(zephyr_user), builtin_buzzer);
+
+bool pwm_write_freq(pwm_dt_spec pwm_spec, uint32_t period_us) {
+    if (!pwm_is_ready_dt(&pwm_spec)) {
+        printf("Error: PWM device %s is not ready\n", pwm_spec.dev->name);
+        return false;
+    }
+
+    uint32_t period = PWM_USEC(period_us);
+    int ret = pwm_set_dt(&pwm_spec, period, period / 2U);
+    if (ret) {
+        printf("Error %d: failed to set pulse width, period_us = %d\n", ret,
+               period_us);
+        return false;
+    }
+
+    return true;
+}
+
+def_prim(tone, oneToNoneI32) {
+    // The argument is in Hz, we convert it to a period in us.
+    pwm_write_freq(piezo_spec, 1000000 / arg0.uint32);
+    pop_args(1);
+    return true;
+}
+
+def_prim(noTone, NoneToNoneU32) {
+    if (!pwm_is_ready_dt(&piezo_spec)) {
+        printf("Error: PWM device %s is not ready\n", piezo_spec.dev->name);
+        return false;
+    }
+
+    pwm_set_pulse_dt(&piezo_spec, 0);
+    return true;
+}
+
+#endif
+
 def_prim(random_int, NoneToOneU32) {
     pushInt32(sys_rand32_get());
     return true;
@@ -540,6 +581,11 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(display_height);
     install_primitive(display_fill_rect);
     install_primitive(display_draw_string);
+#endif
+
+#if DT_PROP_HAS_NAME(DT_PATH(zephyr_user), pwms, builtin_buzzer)
+    install_primitive(tone);
+    install_primitive(noTone);
 #endif
 }
 
