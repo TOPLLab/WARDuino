@@ -17,37 +17,40 @@
 / {
     zephyr,user {
         warduino-gpios =
-            <&gpio0 0 0>,
-            <&gpio0 1 0>,
-            <&gpio0 2 0>,
-            <&gpio0 3 0>,
-            <&gpio0 4 0>,
-            <&gpio0 5 0>,
-            <&gpio0 6 0>,
-            <&gpio0 7 0>,
-            <&gpio0 8 0>,
-            <&gpio0 9 0>,
-            <&gpio0 10 0>,
-            <&gpio0 11 0>,
-            <&gpio0 12 0>,
-            <&gpio0 13 0>,
-            <&gpio0 14 0>,
-            <&gpio0 15 0>,
-            <&gpio0 16 0>,
-            <&gpio0 17 0>,
-            <&gpio0 18 0>,
-            <&gpio0 19 0>,
-            <&gpio0 20 0>,
-            <&gpio0 21 0>,
-            <&gpio0 22 0>,
-            <&gpio0 23 0>,
-            <&gpio0 24 0>,
-            <&gpio0 25 0>,
-            <&gpio0 26 0>,
-            <&gpio0 27 0>,
-            <&gpio0 28 0>,
-            <&gpio0 29 0>;
-     };
+                <&gpio0 0 0>,
+                <&gpio0 1 0>,
+                <&gpio0 2 0>,
+                <&gpio0 3 0>,
+                <&gpio0 4 0>,
+                <&gpio0 5 0>,
+                <&gpio0 6 0>,
+                <&gpio0 7 0>,
+                <&gpio0 8 0>,
+                <&gpio0 9 0>,
+                <&gpio0 10 0>,
+                <&gpio0 11 0>,
+                <&gpio0 12 0>,
+                <&gpio0 13 0>,
+                <&gpio0 14 0>,
+                <&gpio0 15 0>,
+                <&gpio0 16 0>,
+                <&gpio0 17 0>,
+                <&gpio0 18 0>,
+                <&gpio0 19 0>,
+                <&gpio0 20 0>,
+                <&gpio0 21 0>,
+                <&gpio0 22 0>,
+                <&gpio0 23 0>,
+                <&gpio0 24 0>,
+                <&gpio0 25 0>,
+                <&gpio0 26 0>,
+                <&gpio0 27 0>,
+                <&gpio0 28 0>,
+                <&gpio0 29 0>;
+
+        pwms = < &pwm 2 PWM_USEC(1500) PWM_POLARITY_NORMAL >;
+        pwm-names = "builtin-buzzer";
+    };
 };
 
 / {
@@ -74,4 +77,18 @@
             h-mirror;
         };
     };
+};
+
+&pinctrl {
+    pwm_ch1a_default: pwm_ch1a_default {
+        group1 {
+            pinmux = <PWM_1A_P2>; // Channel 1 A, 1 * 1 + 1 = 2, &pwm 2 in pwms
+        };
+    };
+};
+
+&pwm {
+    status="okay";
+    divider-int-4 = <255>;
+    pinctrl-0 = < &pwm_ch1a_default >;
 };
