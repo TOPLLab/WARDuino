@@ -573,6 +573,13 @@ def_prim(wifi_disconnect, NoneToOneU32) {
     return true;
 }
 
+def_prim(wifi_localip, oneToNoneI32) {
+    const uint32_t buf_addr = arg0.uint32;
+    network_ip(reinterpret_cast<char *>(&m->memory.bytes[buf_addr]));
+    pop_args(1);
+    return true;
+}
+
 def_prim(socket_create, threeToOneU32) {
     uint32_t ip_addr = arg2.uint32;
     uint32_t ip_len = arg1.uint32;
@@ -678,6 +685,7 @@ void install_primitives(Interpreter *interpreter) {
 #if IS_ENABLED(CONFIG_WIFI)
     install_primitive(wifi_connect);
     install_primitive(wifi_disconnect);
+    install_primitive(wifi_localip);
     install_primitive(socket_create);
     install_primitive(socket_create_server);
     install_primitive(socket_accept);

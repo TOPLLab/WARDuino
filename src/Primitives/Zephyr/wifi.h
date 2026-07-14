@@ -324,3 +324,11 @@ inline int network_disconnect() {
     printf("Network disconnected!\n");
     return 0;
 }
+
+inline void network_ip(char *buf) {
+    net_if *iface = net_if_get_first_wifi();
+    net_addr_ntop(
+                       AF_INET,
+                       &iface->config.ip.ipv4->unicast[0].ipv4.address.in_addr,
+                       buf, NET_IPV4_ADDR_LEN);
+}
