@@ -21,8 +21,8 @@ static K_SEM_DEFINE(ip_sem, 0, 1);
 static K_SEM_DEFINE(scan_done_sem, 0, 1);
 static K_SEM_DEFINE(disconnect_done, 0, 1);
 
-void wifi_args_to_params(wifi_connect_req_params *params,
-                         const char *ssid, const char *passwd) {
+void wifi_args_to_params(wifi_connect_req_params *params, const char *ssid,
+                         const char *passwd) {
     memset(params, 0, sizeof(*params));
     params->ssid = (const uint8_t *)ssid;
     params->ssid_length = strlen((const char *)params->ssid);
@@ -65,8 +65,8 @@ static void scan_result_handler(net_mgmt_event_callback *cb,
         const wifi_scan_result *entry =
             (const struct wifi_scan_result *)cb->info;
         if (entry) {
-            printf("  AP: %-32s ch=%-3d rssi=%-4d security=%d\n",
-                   entry->ssid, entry->channel, entry->rssi, entry->security);
+            printf("  AP: %-32s ch=%-3d rssi=%-4d security=%d\n", entry->ssid,
+                   entry->channel, entry->rssi, entry->security);
         }
     }
     if (mgmt_event == NET_EVENT_WIFI_SCAN_DONE) {
@@ -77,8 +77,7 @@ static void scan_result_handler(net_mgmt_event_callback *cb,
 static void net_mgmt_event_handler(net_mgmt_event_callback *cb,
                                    uint64_t mgmt_event, net_if *iface) {
     if (mgmt_event == NET_EVENT_WIFI_CONNECT_RESULT) {
-        const wifi_status *status =
-            (const wifi_status *)cb->info;
+        const wifi_status *status = (const wifi_status *)cb->info;
         if (status && status->conn_status == WIFI_STATUS_CONN_SUCCESS) {
             printf("Network connected\n");
             connected = true;
@@ -128,7 +127,7 @@ static void net_mgmt_event_handler(net_mgmt_event_callback *cb,
 }
 
 static void disconnect_result_handler(net_mgmt_event_callback *cb,
-                                uint64_t mgmt_event, net_if *iface) {
+                                      uint64_t mgmt_event, net_if *iface) {
     if (mgmt_event == NET_EVENT_WIFI_DISCONNECT_RESULT) {
         printf("Disconnect event received\n");
         k_sem_give(&disconnect_done);
@@ -136,111 +135,110 @@ static void disconnect_result_handler(net_mgmt_event_callback *cb,
 }
 
 // TCP socket test
-#include <sys/socket.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 
 namespace warduino {
-    inline int socket_create(const char *ip, int port) {
-        printf("Create socket %s:%d\n", ip, port);
-        int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (sock < 0) {
-            printf("Socket creation failed\n");
-            return -1;
-        }
-
-        sockaddr_in server_addr = {};
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_port = htons(port);
-        server_addr.sin_addr.s_addr = inet_addr(ip);
-
-        if (connect(
-            sock,
-            (sockaddr *)&server_addr,
-            sizeof(server_addr)) < 0
-            ) {
-            printf("Failed to connect %s\n", strerror(errno));
-            close(sock);
-            return -1;
-        }
-        printf("Connected to %s:%d\n", ip, port);
-        printf("sock = %d\n", sock);
-        return sock;
+inline int socket_create(const char *ip, int port) {
+    printf("Create socket %s:%d\n", ip, port);
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock < 0) {
+        printf("Socket creation failed\n");
+        return -1;
     }
 
-    inline int socket_create_retry(const char *ip, int port, int times) {
-        int sock = -1;
-        while (times > 0 && (sock = socket_create(ip, port)) < 0) {
-            printf("Retry %d more times\n", times);
-            times--;
-            k_sleep(K_SECONDS(1));
-        }
-        if (times == 0) {
-            printf("Failed after x retries\n");
-        }
-        return sock;
+    sockaddr_in server_addr = {};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    server_addr.sin_addr.s_addr = inet_addr(ip);
+
+    if (connect(sock, (sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        printf("Failed to connect %s\n", strerror(errno));
+        close(sock);
+        return -1;
     }
-
-    inline int socket_create_server(const int port) {
-        const int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (sock < 0) {
-            printf("Server socket creation failed\n");
-            return -1;
-        }
-
-        constexpr int value = 1;
-        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
-
-        sockaddr_in addr = {};
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(port);
-        addr.sin_addr.s_addr = INADDR_ANY;
-
-        if (bind(sock, reinterpret_cast<net_sockaddr *>(&addr), sizeof(addr)) < 0) {
-            printf("error: bind: %s\n", strerror(errno));
-            close(sock);
-            return -1;
-        }
-
-        if (listen(sock, 1) < 0) {
-            printf("error: listen: %s\n", strerror(errno));
-            close(sock);
-            return -1;
-        }
-
-        printf("Server listening on port %d (sock=%d)\n", port, sock);
-        return sock;
-    }
-
-    inline int socket_accept(const int socket) {
-        sockaddr_in client_addr = {};
-        socklen_t client_addr_len = sizeof(client_addr);
-        printf("Waiting for connection on sock=%d\n", socket);
-        const int client_sock = accept(socket, reinterpret_cast<net_sockaddr *>(&client_addr), &client_addr_len);
-        if (client_sock < 0) {
-            printf("error: accept failed: %s\n", strerror(errno));
-            return -1;
-        }
-        printf("Client connected (client_sock=%d)\n", client_sock);
-        return client_sock;
-    }
-
-    inline int socket_send(const int socket, const char* message) {
-        printf("socket_send(%d, \"%s\" (len = %d))\n", socket, message, strlen(message));
-        return send(socket, message, strlen(message), 0);
-    }
-
-    inline int socket_receive(const int socket, char* buffer, const size_t size) {
-        printf("socket_receive(%d, 0x%p, %d)\n", socket, buffer, size);
-        return recv(socket, buffer, size, 0);
-    }
-
-    inline int socket_close(int socket) {
-        printf("socket_close(%d)\n", socket);
-        // Wait a bit to make sure any sent messages in the buffer are still sent.
-        k_sleep(K_MSEC(500));
-        return close(socket);
-    }
+    printf("Connected to %s:%d\n", ip, port);
+    printf("sock = %d\n", sock);
+    return sock;
 }
+
+inline int socket_create_retry(const char *ip, int port, int times) {
+    int sock = -1;
+    while (times > 0 && (sock = socket_create(ip, port)) < 0) {
+        printf("Retry %d more times\n", times);
+        times--;
+        k_sleep(K_SECONDS(1));
+    }
+    if (times == 0) {
+        printf("Failed after x retries\n");
+    }
+    return sock;
+}
+
+inline int socket_create_server(const int port) {
+    const int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock < 0) {
+        printf("Server socket creation failed\n");
+        return -1;
+    }
+
+    constexpr int value = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
+
+    sockaddr_in addr = {};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(sock, reinterpret_cast<net_sockaddr *>(&addr), sizeof(addr)) < 0) {
+        printf("error: bind: %s\n", strerror(errno));
+        close(sock);
+        return -1;
+    }
+
+    if (listen(sock, 1) < 0) {
+        printf("error: listen: %s\n", strerror(errno));
+        close(sock);
+        return -1;
+    }
+
+    printf("Server listening on port %d (sock=%d)\n", port, sock);
+    return sock;
+}
+
+inline int socket_accept(const int socket) {
+    sockaddr_in client_addr = {};
+    socklen_t client_addr_len = sizeof(client_addr);
+    printf("Waiting for connection on sock=%d\n", socket);
+    const int client_sock =
+        accept(socket, reinterpret_cast<net_sockaddr *>(&client_addr),
+               &client_addr_len);
+    if (client_sock < 0) {
+        printf("error: accept failed: %s\n", strerror(errno));
+        return -1;
+    }
+    printf("Client connected (client_sock=%d)\n", client_sock);
+    return client_sock;
+}
+
+inline int socket_send(const int socket, const char *message) {
+    printf("socket_send(%d, \"%s\" (len = %d))\n", socket, message,
+           strlen(message));
+    return send(socket, message, strlen(message), 0);
+}
+
+inline int socket_receive(const int socket, char *buffer, const size_t size) {
+    printf("socket_receive(%d, 0x%p, %d)\n", socket, buffer, size);
+    return recv(socket, buffer, size, 0);
+}
+
+inline int socket_close(int socket) {
+    printf("socket_close(%d)\n", socket);
+    // Wait a bit to make sure any sent messages in the buffer are still sent.
+    k_sleep(K_MSEC(500));
+    return close(socket);
+}
+}  // namespace warduino
 
 inline int tcp_send_message(const char *ip, int port, const char *message) {
     const int sock = warduino::socket_create(ip, port);
@@ -263,7 +261,8 @@ inline int network_connect(const char *ssid, const char *passwd) {
     printf("Initializing Wi-Fi driver\n");
     k_sleep(K_SECONDS(5));
 
-    net_mgmt_init_event_callback(&mgmt_cb, net_mgmt_event_handler, NET_EVENT_WIFI_CONNECT_RESULT);
+    net_mgmt_init_event_callback(&mgmt_cb, net_mgmt_event_handler,
+                                 NET_EVENT_WIFI_CONNECT_RESULT);
     net_mgmt_add_event_callback(&mgmt_cb);
 
     net_mgmt_init_event_callback(&ipv4_cb, net_mgmt_event_handler,
@@ -278,7 +277,8 @@ inline int network_connect(const char *ssid, const char *passwd) {
     net_if_up(iface);
 
     // Scan networks in the area
-    net_mgmt_init_event_callback(&scan_cb, scan_result_handler,
+    net_mgmt_init_event_callback(
+        &scan_cb, scan_result_handler,
         NET_EVENT_WIFI_SCAN_RESULT | NET_EVENT_WIFI_SCAN_DONE);
     net_mgmt_add_event_callback(&scan_cb);
     k_sem_reset(&scan_done_sem);
@@ -316,7 +316,7 @@ inline int network_disconnect() {
         return -1;
     }
     net_mgmt_init_event_callback(&disconnect_cb, disconnect_result_handler,
-        NET_EVENT_WIFI_DISCONNECT_RESULT);
+                                 NET_EVENT_WIFI_DISCONNECT_RESULT);
     net_mgmt_add_event_callback(&disconnect_cb);
     k_sem_reset(&disconnect_done);
     net_mgmt(NET_REQUEST_WIFI_DISCONNECT, iface, nullptr, 0);

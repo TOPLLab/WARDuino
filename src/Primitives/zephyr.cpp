@@ -575,8 +575,8 @@ def_prim(wifi_disconnect, NoneToOneU32) {
 
 def_prim(socket_create, threeToOneU32) {
     uint32_t ip_addr = arg2.uint32;
-    uint32_t ip_len  = arg1.uint32;
-    uint32_t port    = arg0.uint32;
+    uint32_t ip_len = arg1.uint32;
+    uint32_t port = arg0.uint32;
     std::string ip = parse_utf8_string(m->memory.bytes, ip_len, ip_addr);
     pop_args(3);
     int socket = warduino::socket_create_retry(ip.c_str(), (int)port, 5);
@@ -599,9 +599,9 @@ def_prim(socket_accept, oneToOneI32) {
 }
 
 def_prim(socket_send, threeToOneU32) {
-    int32_t  socket       = arg2.int32;
+    int32_t socket = arg2.int32;
     uint32_t msg_addr = arg1.uint32;
-    uint32_t msg_len  = arg0.uint32;
+    uint32_t msg_len = arg0.uint32;
     std::string msg = parse_utf8_string(m->memory.bytes, msg_len, msg_addr);
     pop_args(3);
     int sent = warduino::socket_send(socket, msg.c_str());
@@ -610,9 +610,9 @@ def_prim(socket_send, threeToOneU32) {
 }
 
 def_prim(socket_receive, threeToOneU32) {
-    int32_t  socket       = arg2.int32;
+    int32_t socket = arg2.int32;
     uint32_t msg_addr = arg1.uint32;
-    uint32_t msg_len  = arg0.uint32;
+    uint32_t msg_len = arg0.uint32;
     pop_args(3);
     char *buf = reinterpret_cast<char *>(&m->memory.bytes[msg_addr]);
     pushInt32(warduino::socket_receive(socket, buf, msg_len));
