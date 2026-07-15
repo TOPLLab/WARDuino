@@ -139,7 +139,7 @@ static void disconnect_result_handler(net_mgmt_event_callback *cb,
 #include <sys/socket.h>
 
 namespace warduino {
-inline int socket_create(const char *ip, int port) {
+inline int socket_create(const char *ip, const uint32_t port) {
     printf("Create socket %s:%d\n", ip, port);
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
@@ -162,33 +162,20 @@ inline int socket_create(const char *ip, int port) {
     return sock;
 }
 
-inline int socket_create_retry(const char *ip, int port, int times) {
-    int sock = -1;
-    while (times > 0 && (sock = socket_create(ip, port)) < 0) {
-        printf("Retry %d more times\n", times);
-        times--;
-        k_sleep(K_SECONDS(1));
-    }
-    if (times == 0) {
-        printf("Failed after x retries\n");
-    }
-    return sock;
-}
-
-inline int socket_create_server(const int port) {
+inline int socket_create_server(const uint32_t port) {
     const int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
         printf("Server socket creation failed\n");
         return -1;
     }
 
-    constexpr int value = 1;
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
-
     sockaddr_in addr = {};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = INADDR_ANY;
+
+    constexpr int value = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
 
     if (bind(sock, reinterpret_cast<net_sockaddr *>(&addr), sizeof(addr)) < 0) {
         printf("error: bind: %s\n", strerror(errno));
@@ -326,9 +313,8 @@ inline int network_disconnect() {
 }
 
 inline void network_ip(char *buf) {
-    net_if *iface = net_if_get_first_wifi();
-    net_addr_ntop(
-                       AF_INET,
-                       &iface->config.ip.ipv4->unicast[0].ipv4.address.in_addr,
-                       buf, NET_IPV4_ADDR_LEN);
+    const net_if *iface = net_if_get_first_wifi();
+    net_addr_ntop(AF_INET,
+                  &iface->config.ip.ipv4->unicast[0].ipv4.address.in_addr, buf,
+                  NET_IPV4_ADDR_LEN);
 }

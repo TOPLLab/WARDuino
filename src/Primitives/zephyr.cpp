@@ -586,7 +586,7 @@ def_prim(socket_create, threeToOneU32) {
     uint32_t port = arg0.uint32;
     std::string ip = parse_utf8_string(m->memory.bytes, ip_len, ip_addr);
     pop_args(3);
-    int socket = warduino::socket_create_retry(ip.c_str(), (int)port, 5);
+    int socket = warduino::socket_create(ip.c_str(), port);
     pushInt32(socket);
     return true;
 }
@@ -675,7 +675,6 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(display_fill_rect);
     install_primitive(display_draw_string);
 #endif
-
 
 #if DT_PROP_HAS_NAME(DT_PATH(zephyr_user), pwms, builtin_buzzer)
     install_primitive(tone);
