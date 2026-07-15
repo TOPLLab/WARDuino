@@ -549,6 +549,7 @@ def_prim(display_draw_string, sevenToNoneU32) {
 #endif
 
 #if IS_ENABLED(CONFIG_WIFI)
+#include "Zephyr/sockets.h"
 #include "Zephyr/wifi.h"
 
 def_prim(wifi_connect, fourToNoneU32) {
@@ -586,7 +587,7 @@ def_prim(socket_create, threeToOneU32) {
     uint32_t port = arg0.uint32;
     std::string ip = parse_utf8_string(m->memory.bytes, ip_len, ip_addr);
     pop_args(3);
-    int socket = warduino::socket_create(ip.c_str(), port);
+    int socket = sockets::socket_create(ip.c_str(), port);
     pushInt32(socket);
     return true;
 }
@@ -594,14 +595,14 @@ def_prim(socket_create, threeToOneU32) {
 def_prim(socket_create_server, oneToOneI32) {
     const int32_t port = arg0.int32;
     pop_args(1);
-    pushInt32(warduino::socket_create_server(port));
+    pushInt32(sockets::socket_create_server(port));
     return true;
 }
 
 def_prim(socket_accept, oneToOneI32) {
     const int32_t sock = arg0.int32;
     pop_args(1);
-    pushInt32(warduino::socket_accept(sock));
+    pushInt32(sockets::socket_accept(sock));
     return true;
 }
 
@@ -611,7 +612,7 @@ def_prim(socket_send, threeToOneU32) {
     uint32_t msg_len = arg0.uint32;
     std::string msg = parse_utf8_string(m->memory.bytes, msg_len, msg_addr);
     pop_args(3);
-    int sent = warduino::socket_send(socket, msg.c_str());
+    int sent = sockets::socket_send(socket, msg.c_str());
     pushInt32(sent);
     return true;
 }
@@ -622,14 +623,14 @@ def_prim(socket_receive, threeToOneU32) {
     uint32_t msg_len = arg0.uint32;
     pop_args(3);
     char *buf = reinterpret_cast<char *>(&m->memory.bytes[msg_addr]);
-    pushInt32(warduino::socket_receive(socket, buf, msg_len));
+    pushInt32(sockets::socket_receive(socket, buf, msg_len));
     return true;
 }
 
 def_prim(socket_close, oneToOneI32) {
     int32_t socket = arg0.int32;
     pop_args(1);
-    int result = warduino::socket_close(socket);
+    int result = sockets::socket_close(socket);
     pushInt32(result);
     return true;
 }

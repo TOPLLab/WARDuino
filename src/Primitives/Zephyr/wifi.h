@@ -1,14 +1,12 @@
 #pragma once
-#include <errno.h>
-#include <stddef.h>
-#include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/net/wifi_mgmt.h>
 #include <zephyr/types.h>
 
-#include <cstdint>
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
 
 static net_mgmt_event_callback mgmt_cb;
 static net_mgmt_event_callback ipv4_cb;
@@ -132,116 +130,6 @@ static void disconnect_result_handler(net_mgmt_event_callback *cb,
         printf("Disconnect event received\n");
         k_sem_give(&disconnect_done);
     }
-}
-
-// TCP socket test
-#include <arpa/inet.h>
-#include <sys/socket.h>
-
-namespace warduino {
-inline int socket_create(const char *ip, const uint32_t port) {
-    printf("Create socket %s:%d\n", ip, port);
-    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock < 0) {
-        printf("Socket creation failed\n");
-        return -1;
-    }
-
-    sockaddr_in server_addr = {};
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
-    server_addr.sin_addr.s_addr = inet_addr(ip);
-
-    if (connect(sock, (sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        printf("Failed to connect %s\n", strerror(errno));
-        close(sock);
-        return -1;
-    }
-    printf("Connected to %s:%d\n", ip, port);
-    printf("sock = %d\n", sock);
-    return sock;
-}
-
-inline int socket_create_server(const uint32_t port) {
-    const int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock < 0) {
-        printf("Server socket creation failed\n");
-        return -1;
-    }
-
-    sockaddr_in addr = {};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = INADDR_ANY;
-
-    constexpr int value = 1;
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
-
-    if (bind(sock, reinterpret_cast<net_sockaddr *>(&addr), sizeof(addr)) < 0) {
-        printf("error: bind: %s\n", strerror(errno));
-        close(sock);
-        return -1;
-    }
-
-    if (listen(sock, 1) < 0) {
-        printf("error: listen: %s\n", strerror(errno));
-        close(sock);
-        return -1;
-    }
-
-    printf("Server listening on port %d (sock=%d)\n", port, sock);
-    return sock;
-}
-
-inline int socket_accept(const int socket) {
-    sockaddr_in client_addr = {};
-    socklen_t client_addr_len = sizeof(client_addr);
-    printf("Waiting for connection on sock=%d\n", socket);
-    const int client_sock =
-        accept(socket, reinterpret_cast<net_sockaddr *>(&client_addr),
-               &client_addr_len);
-    if (client_sock < 0) {
-        printf("error: accept failed: %s\n", strerror(errno));
-        return -1;
-    }
-    printf("Client connected (client_sock=%d)\n", client_sock);
-    return client_sock;
-}
-
-inline int socket_send(const int socket, const char *message) {
-    printf("socket_send(%d, \"%s\" (len = %d))\n", socket, message,
-           strlen(message));
-    return send(socket, message, strlen(message), 0);
-}
-
-inline int socket_receive(const int socket, char *buffer, const size_t size) {
-    printf("socket_receive(%d, 0x%p, %d)\n", socket, buffer, size);
-    return recv(socket, buffer, size, 0);
-}
-
-inline int socket_close(int socket) {
-    printf("socket_close(%d)\n", socket);
-    // Wait a bit to make sure any sent messages in the buffer are still sent.
-    k_sleep(K_MSEC(500));
-    return close(socket);
-}
-}  // namespace warduino
-
-inline int tcp_send_message(const char *ip, int port, const char *message) {
-    const int sock = warduino::socket_create(ip, port);
-    if (sock < 0) {
-        printf("Failed to create socket!\n");
-        return -1;
-    }
-
-    if (warduino::socket_send(sock, message) < 0) {
-        printf("Send failed\n");
-    }
-
-    warduino::socket_close(sock);
-    printf("Connection closed\n");
-
-    return 0;
 }
 
 inline int network_connect(const char *ssid, const char *passwd) {
