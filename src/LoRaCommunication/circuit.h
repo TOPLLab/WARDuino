@@ -7,7 +7,6 @@
 
 #include "encryption.h"
 #include "TorCell.h"
-//#include "LoRaHash.h"
 #include "logicalLayer.h"
 
 #define GLOBAL_ID 65535
