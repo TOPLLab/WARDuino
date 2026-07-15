@@ -549,8 +549,8 @@ def_prim(display_draw_string, sevenToNoneU32) {
 #endif
 
 #if IS_ENABLED(CONFIG_WIFI)
-#include "Zephyr/sockets.h"
-#include "Zephyr/wifi.h"
+#include "Networking/sockets.h"
+#include "Networking/wifi.h"
 
 def_prim(wifi_connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
