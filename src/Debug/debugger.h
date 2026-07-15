@@ -51,6 +51,7 @@ enum ExecutionState {
     eventsState = 0x0A,
     ioState = 0x0B,
     overridesState = 0x0C,
+    heapState = 0x0D,
 };
 
 enum InterruptTypes {
@@ -109,6 +110,26 @@ enum class SnapshotPolicy : int {
                          // points where primitives are used.
 };
 
+/*
+ * FNV-1a 32bit:
+ * https://datatracker.ietf.org/doc/html/draft-eastlake-fnv-17.html
+ */
+struct FNV1aVectorHash {
+    size_t operator()(const std::vector<uint32_t> &values) const {
+        constexpr uint32_t FNV_offset_basis = 0x811c9dc5;
+        uint32_t result_hash = FNV_offset_basis;
+        for (const uint32_t v : values) {
+            for (int i = 0; i < 4; ++i) {
+                constexpr uint32_t FNV_prime = 0x01000193;
+                const uint8_t byte = (v >> (i * 8)) & 0xff;
+                result_hash ^= byte;
+                result_hash *= FNV_prime;
+            }
+        }
+        return result_hash;
+    }
+};
+
 class Debugger {
    private:
     std::deque<uint8_t *> debugMessages = {};
@@ -129,7 +150,7 @@ class Debugger {
     warduino::mutex *supervisor_mutex;
 
     // Mocking
-    std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint32_t>>
+    std::unordered_map<std::vector<uint32_t>, uint32_t, FNV1aVectorHash>
         overrides;
 
     // Checkpointing
@@ -138,6 +159,9 @@ class Debugger {
     uint32_t instructions_executed;       // #instructions since last checkpoint
     std::optional<uint32_t> fidx_called;  // The primitive that was executed
     uint32_t prim_args[8];                // The arguments of the executed prim
+    uint32_t min_return_values;
+    uint32_t checkpoint_state_size;
+    uint8_t *checkpoint_state;
 
     // Continue for
     int32_t remaining_instructions;
@@ -183,6 +207,8 @@ class Debugger {
 
     void dumpCallbackmapping() const;
 
+    void dumpHeapInfo(Module *m) const;
+
     void inspect(Module *m, uint16_t sizeStateArray,
                  const uint8_t *state) const;
 
@@ -198,7 +224,12 @@ class Debugger {
 
     bool handleUpdateStackValue(const Module *m, uint8_t *bytes) const;
 
-    bool reset(Module *m) const;
+    bool reset(Module *m);
+
+    //// Handle mocking
+
+    void addOverride(Module *m, uint8_t *interruptData);
+    void removeOverride(Module *m, uint8_t *interruptData);
 
     //// Handle out-of-place debugging
 
@@ -302,15 +333,7 @@ class Debugger {
     bool handlePushedEvent(char *bytes) const;
 
     // Concolic Multiverse Debugging
-    inline bool isMocked(uint32_t fidx, uint32_t argument) {
-        return overrides.count(fidx) > 0 && overrides[fidx].count(argument) > 0;
-    }
-    inline uint32_t getMockedValue(uint32_t fidx, uint32_t argument) {
-        return overrides[fidx][argument];
-    }
-
-    void addOverride(Module *m, uint8_t *interruptData);
-    void removeOverride(Module *m, uint8_t *interruptData);
+    bool getMockForArgs(Module *m, uint32_t fidx, uint32_t &result);
 
     // Checkpointing
     void checkpoint(Module *m, bool force = false);

@@ -67,7 +67,8 @@ void Proxy::returnResult(Module *m) {
     }
 
     // send the result to the client
-    rfc->result = &m->stack[m->sp];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    rfc->result = &ectx->stack[ectx->sp];
     char *val = printValue(rfc->result);
     WARDuino::instance()->debugger->channel->write(R"({"success":true,%s})",
                                                    val);
@@ -104,9 +105,10 @@ StackValue *Proxy::readRFCArgs(Block *func, uint8_t *data) {
 
 void Proxy::setupCalleeArgs(Module *m, RFC *callee) {
     // adding arguments to the stack
+    ExecutionContext *ectx = m->warduino->execution_context;
     StackValue *args = callee->args;
     for (uint32_t i = 0; i < callee->type->param_count; i++)
-        m->stack[++m->sp] = args[i];
+        ectx->stack[++ectx->sp] = args[i];
 }
 
 void Proxy::pushProxyGuard(Module *m) {
@@ -115,5 +117,6 @@ void Proxy::pushProxyGuard(Module *m) {
     }
     auto *guard = (Block *)malloc(sizeof(struct Block));
     guard->block_type = 0xfe;  // 0xfe proxy guard
-    m->warduino->interpreter->push_block(m, guard, m->sp);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    m->warduino->interpreter->push_block(m, guard, ectx->sp);
 }

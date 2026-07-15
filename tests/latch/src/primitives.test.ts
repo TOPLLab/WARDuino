@@ -15,7 +15,7 @@ import Type = WASM.Type;
 import {Breakpoint} from "latch/dist/types/debug/Breakpoint";
 
 const framework = Framework.getImplementation();
-framework.style(StyleType.github);
+framework.reporter.style(StyleType.github);
 
 // TODO disclaimer: file is currently disabled until latch supports AS compilation
 
@@ -31,7 +31,7 @@ const io: TestScenario = {
     dependencies: [],
     steps: [{
         title: 'Check: read LOW sensor value',
-        instruction: {kind: Kind.Request, value: Message.invoke('digital.read', [WASM.i32(12)])},
+        instruction: {kind: Kind.Request, value: Message.invoke('digital.read', [WASM.i32(12n)])},
         expected: [{'value': {kind: 'comparison', value: (state, value: string) => parseInt(value) === 0}}]
     }, {
         title: 'Drop stack value',
@@ -45,7 +45,7 @@ const io: TestScenario = {
         }]
     }, {
         title: 'Check: write HIGH to pin',
-        instruction: {kind: Kind.Request, value: Message.invoke('digital.write', [WASM.i32(36)])},
+        instruction: {kind: Kind.Request, value: Message.invoke('digital.write', [WASM.i32(36n)])},
         expected: [{
             'stack': {
                 kind: 'comparison', value: (state: Object, value: Array<any>) => {
@@ -55,7 +55,7 @@ const io: TestScenario = {
         }]
     }, {
         title: 'Check: read HIGH from pin',
-        instruction: {kind: Kind.Request, value: Message.invoke('digital.read', [WASM.i32(36)])},
+        instruction: {kind: Kind.Request, value: Message.invoke('digital.read', [WASM.i32(36n)])},
         expected: [{'value': {kind: 'comparison', value: (state, value: string) => parseInt(value) === 1}}]
     }]
 };
@@ -69,9 +69,9 @@ const interrupts: TestScenario = {
         title: 'Subscribe to falling interrupt on pin 36',
         instruction: {
             kind: Kind.Request, value: Message.invoke('interrupts.subscribe', [
-                {type: Type.i32, value: 36},
-                {type: Type.i32, value: 0},
-                {type: Type.i32, value: 2}])
+                {type: WASM.Integer.i32, value: 36},
+                {type: WASM.Integer.i32, value: 0},
+                {type: WASM.Integer.i32, value: 2}])
         },
         expected: [{
             'stack': {

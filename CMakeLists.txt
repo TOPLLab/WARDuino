@@ -29,7 +29,9 @@ if (BUILD_ESP)
     include($ENV{IDF_PATH}/tools/cmake/project.cmake "${PROJECT_BINARY_DIR}/../include")
 endif (BUILD_ESP)
 
-project(WARDuino VERSION 0.6.1)
+project(WARDuino VERSION 0.8.0)
+
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 set(WARDUINO_VERSION_STRING "${PROJECT_VERSION}")
 configure_file(src/config.h.in include/warduino/config.h)
@@ -104,16 +106,7 @@ if (BUILD_UNITTEST)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
 
-    include(FetchContent)
-    FetchContent_Declare(
-            googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG release-1.12.1
-    )
-
-    # For Windows: Prevent overriding the parent project's compiler/linker settings
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
+    include(Doctest)
 
     set(PATH_TO_UNIT_TEST ${PROJECT_SOURCE_DIR}/tests/unit)
 
@@ -129,7 +122,7 @@ if (BUILD_UNITTEST)
         get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
         message(DEBUG "Add executable for " ${TEST_FILE})
         add_executable(${TEST_NAME} ${TEST_FILE} ${SOURCE_FILES} ${SHARED_SRC})
-        target_link_libraries(${TEST_NAME} gtest_main)
+        target_link_libraries(${TEST_NAME} PRIVATE doctest::doctest)
         target_include_directories(${TEST_NAME} PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
         add_test(${TEST_NAME} ${TEST_NAME})
     endforeach ()

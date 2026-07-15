@@ -24,6 +24,7 @@
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../WARDuino/CallbackHandler.h"
+#include "primitive_macros.h"
 #include "primitives.h"
 
 #define NUM_GLOBALS 0
@@ -90,6 +91,11 @@ def_prim(micros, NoneToOneU64) {
     gettimeofday(&tv, nullptr);
     unsigned long micros = 1000000 * tv.tv_sec + tv.tv_usec;
     pushUInt64(micros);
+    return true;
+}
+
+def_prim(random_int, NoneToOneU32) {
+    pushInt32(rand());
     return true;
 }
 
@@ -412,6 +418,44 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
     return true;
 }
 
+def_prim(display_setup, NoneToNoneU32) {
+    printf("EMU: display_setup()\n");
+    return true;
+}
+
+def_prim(display_set_orientation, oneToNoneI32) {
+    printf("EMU: display_set_orientation(%d)\n", arg0.uint32);
+    pop_args(1);
+    return true;
+}
+
+def_prim(display_width, NoneToOneU32) {
+    printf("EMU: display_width()\n");
+    pushUInt32(320);
+    return true;
+}
+
+def_prim(display_height, NoneToOneU32) {
+    printf("EMU: display_height()\n");
+    pushUInt32(240);
+    return true;
+}
+
+def_prim(display_fill_rect, fiveToNoneU32) {
+    printf("EMU: display_fill_rect(%d, %d, %d, %d, %d)\n", arg4.int32,
+           arg3.int32, arg2.int32, arg1.int32, arg0.uint32);
+    pop_args(5);
+    return true;
+}
+
+def_prim(display_draw_string, sevenToNoneU32) {
+    printf("EMU: display_draw_string(%d %d %d, %d, %d, %d, %d)\n", arg6.int32,
+           arg5.int32, arg4.int32, arg3.int32, arg2.int32, arg1.int32,
+           arg0.uint32);
+    pop_args(7);
+    return true;
+}
+
 def_prim(subscribe_interrupt, threeToNoneU32) {
     uint8_t pin = arg2.uint32;   // GPIOPin
     uint8_t tidx = arg1.uint32;  // Table Idx pointing to Callback function
@@ -462,6 +506,12 @@ def_prim(chip_ledc_attach_pin, twoToNoneU32) {
     return true;
 }
 
+def_prim(heap_used, zeroToOneU32) {
+    printf("EMU: heap_used()\n");
+    pushUInt32(m->warduino->get_heap_used());
+    return true;
+}
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -471,6 +521,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(abort);
     install_primitive(millis);
     install_primitive(micros);
+    install_primitive(random_int);
 
     install_primitive(print_int);
     install_primitive(print_string);
@@ -516,6 +567,16 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(read_uart_sensor);
     install_primitive(nxt_touch_sensor);
     install_primitive(ev3_touch_sensor);
+
+    // Display primitives
+    install_primitive(display_setup);
+    install_primitive(display_set_orientation);
+    install_primitive(display_width);
+    install_primitive(display_height);
+    install_primitive(display_fill_rect);
+    install_primitive(display_draw_string);
+
+    install_primitive(heap_used);
 }
 
 Memory external_mem{};

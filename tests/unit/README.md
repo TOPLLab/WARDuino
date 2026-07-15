@@ -1,17 +1,10 @@
-# Virtual Machine Internals Tests
+# Unit test
 
-The tests in this folder are designed to test the internals of the virtual machine.
-The current test suite contains tests for the following components:
+These unit tests are for the internal VM machinery.
 
-1. Physical to virtual address translation
-2. WebAssembly module loading
-3. WebAssembly module unloading
+New tests should always follow these criteria:
 
-## Running the tests
-
-To run the tests, execute the following command from the root of the repository:
-
-```bash
-$ mkdir tests/build ; cd tests/build ; cmake ../../ -D BUILD_UNITTEST=ON ; cmake --build . ; ctest -VV
-```
+1. unit tests should test internal code only, never behaviour, or external facing code
+2. unit tests should be very narrow; they should never test more than one function at a time
+3. unit tests should have limited scaffolding; when you need a lot of scaffolding code, you are likely testing broader VM behaviour
 

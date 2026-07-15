@@ -23,6 +23,7 @@
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../WARDuino/CallbackHandler.h"
+#include "primitive_macros.h"
 #include "primitives.h"
 
 // NEOPIXEL
@@ -888,6 +889,11 @@ def_prim(m5_cardputer_display_print, twoToNoneU32) {
 
 /**
 
+def_prim(heap_used, zeroToOneU32) {
+    pushUInt32(m->warduino->get_heap_used());
+    return true;
+}
+
 //------------------------------------------------------
 // Util functions
 //------------------------------------------------------
@@ -1080,6 +1086,8 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(chip_analog_write);
     install_primitive(chip_ledc_attach);
     install_primitive(chip_ledc_set_duty);
+
+    install_primitive(heap_used);
 
     dbg_info("INSTALLING ISRs\n");
     install_isrs();

@@ -4,8 +4,8 @@
 
 class ConversionFixture : public ::testing::Test {
    protected:
-    WARDuino* warduino;
-    Module* wasm_module;
+    WARDuino *warduino;
+    Module *wasm_module;
     Options opts;
 
     ConversionFixture() : warduino(WARDuino::instance()) {}
@@ -25,7 +25,7 @@ class ConversionFixture : public ::testing::Test {
 
     void TearDown() override {
         wasm_module->warduino = nullptr;
-        warduino->free_module_state(wasm_module);
+        warduino->shutdown();
         this->wasm_module = nullptr;
         delete wasm_module;
     }
@@ -34,8 +34,8 @@ class ConversionFixture : public ::testing::Test {
 using ConversionDeathTest = ConversionFixture;
 
 TEST_F(ConversionDeathTest, ExitWhenPhysAddrIsSmallerThanStartWasmPhysAddr) {
-    uint8_t* startWasmPhysAddr = this->wasm_module->bytes;
-    uint8_t* smallerInvalidAddr =
+    uint8_t *startWasmPhysAddr = this->wasm_module->bytes;
+    uint8_t *smallerInvalidAddr =
         startWasmPhysAddr - 1;  // randomly chosen number
 
     auto expectedStdErrMsg = "";
@@ -44,8 +44,8 @@ TEST_F(ConversionDeathTest, ExitWhenPhysAddrIsSmallerThanStartWasmPhysAddr) {
 }
 
 TEST_F(ConversionDeathTest, ExitWhenPhysAddrIsBiggerThanEndWasmPhysAddr) {
-    uint8_t* startWasmPhysAddr = this->wasm_module->bytes;
-    uint8_t* biggerInvalidAddr = startWasmPhysAddr +
+    uint8_t *startWasmPhysAddr = this->wasm_module->bytes;
+    uint8_t *biggerInvalidAddr = startWasmPhysAddr +
                                  this->wasm_module->byte_count +
                                  1;  // randomly chosen number
     auto expectedStdErrMsg = "";
@@ -80,7 +80,7 @@ TEST_F(ConversionFixture,
     ASSERT_TRUE(isToPhysicalAddrPossible(maximalVirAddr, this->wasm_module));
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

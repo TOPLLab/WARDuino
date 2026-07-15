@@ -9,9 +9,7 @@ void serial_cb(const struct device *dev, void *user_data) {
     auto *sensor = static_cast<UartSensor *>(user_data);
     uint8_t data;
 
-    if (!uart_irq_update(dev)) {
-        return;
-    }
+    uart_irq_update(dev);
 
     if (!uart_irq_rx_ready(dev)) {
         return;

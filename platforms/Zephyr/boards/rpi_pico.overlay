@@ -1,3 +1,5 @@
+#include <zephyr/dt-bindings/display/panel.h>
+
 #include "../app.overlay"
 
 / {
@@ -45,5 +47,48 @@
             <&gpio0 27 0>,
             <&gpio0 28 0>,
             <&gpio0 29 0>;
+
+        pwms = < &pwm 2 PWM_USEC(1500) PWM_POLARITY_NORMAL >;
+        pwm-names = "builtin-buzzer";
      };
-}; 
+};
+
+/ {
+    chosen {
+        zephyr,display = &ili9341;
+    };
+    mipi_dbi {
+        compatible = "zephyr,mipi-dbi-spi";
+        spi-dev = <&spi0>;
+        dc-gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+        ili9341: ili9341@0 {
+            compatible = "ilitek,ili9341";
+            reg = <0>;
+            mipi-max-frequency = <20000000>;
+            mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+            width = <240>;
+            height = <320>;
+            pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+            rotation = <0>;
+            status = "okay";
+            h-mirror;
+        };
+    };
+};
+
+&pinctrl {
+    pwm_ch1a_default: pwm_ch1a_default {
+        group1 {
+            pinmux = <PWM_1A_P2>; // Channel 1 A, 1 * 1 + 1 = 2, &pwm 2 in pwms
+        };
+    };
+};
+
+&pwm {
+    status="okay";
+    divider-int-4 = <255>;
+    pinctrl-0 = < &pwm_ch1a_default >;
+};

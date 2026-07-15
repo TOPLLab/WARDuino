@@ -6,8 +6,8 @@
 
 class FreeingModuleFixture : public ::testing::Test {
    protected:
-    WARDuino* warduino;
-    Module* wasm_module;
+    WARDuino *warduino;
+    Module *wasm_module;
     Options opts;
 
     FreeingModuleFixture() : warduino(WARDuino::instance()) {}
@@ -31,20 +31,20 @@ class FreeingModuleFixture : public ::testing::Test {
 };
 
 TEST_F(FreeingModuleFixture, FreeingModuleStateEmptiesModule) {
+    warduino->init_execution_context();
     warduino->instantiate_module(wasm_module, dimmer_wasm, dimmer_wasm_len);
     warduino->free_module_state(wasm_module);
-
+    warduino->free_execution_context();
     EXPECT_EQ(wasm_module->types, nullptr);
     EXPECT_EQ(wasm_module->functions, nullptr);
     EXPECT_EQ(wasm_module->globals, nullptr);
     EXPECT_EQ(wasm_module->table.entries, nullptr);
     EXPECT_EQ(wasm_module->memory.bytes, nullptr);
-    EXPECT_EQ(wasm_module->stack, nullptr);
-    EXPECT_EQ(wasm_module->callstack, nullptr);
-    EXPECT_EQ(wasm_module->br_table, nullptr);
+    EXPECT_EQ(wasm_module->warduino->execution_context, nullptr);
 }
 
 TEST_F(FreeingModuleFixture, FreeingStatePreservesOptions) {
+    warduino->init_execution_context();
     warduino->instantiate_module(wasm_module, blink_wasm, blink_wasm_len);
     warduino->free_module_state(wasm_module);
     Options opts2 = wasm_module->options;
@@ -54,7 +54,7 @@ TEST_F(FreeingModuleFixture, FreeingStatePreservesOptions) {
     EXPECT_EQ(opts.return_exception, opts2.return_exception);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

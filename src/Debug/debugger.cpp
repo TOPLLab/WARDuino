@@ -25,6 +25,9 @@ Debugger::Debugger(Channel *duplex) {
     this->checkpointInterval = 10;
     this->instructions_executed = 0;
     this->fidx_called = {};
+    this->min_return_values = 0;
+    this->checkpoint_state = nullptr;
+    this->checkpoint_state_size = 0;
     this->remaining_instructions = -1;
 }
 
@@ -193,6 +196,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->channel->write("STOP!\n");
             this->channel->close();
             free(interruptData);
+            delete m->warduino;
             exit(0);
         case interruptPAUSE:
             this->pauseRuntime(m);
@@ -383,23 +387,23 @@ void Debugger::printValue(const StackValue *v, const uint32_t idx,
 
     switch (v->value_type) {
         case I32:
-            snprintf(buff, 255, R"("type":"i32","value":)" FMT(PRIi32),
+            snprintf(buff, 255, R"("type":"i32","value":)" FMT(PRIu32),
                      v->value.uint32);
             break;
         case I64:
-            snprintf(buff, 255, R"("type":"i64","value":)" FMT(PRIi64),
+            snprintf(buff, 255, R"("type":"i64","value":)" FMT(PRIu64),
                      v->value.uint64);
             break;
         case F32:
-            snprintf(buff, 255, R"("type":"F32","value":")" FMT(PRIx32) "\"",
+            snprintf(buff, 255, R"("type":"F32","value":")" FMT(PRIu32) "\"",
                      v->value.uint32);
             break;
         case F64:
-            snprintf(buff, 255, R"("type":"F64","value":")" FMT(PRIx64) "\"",
+            snprintf(buff, 255, R"("type":"F64","value":")" FMT(PRIu64) "\"",
                      v->value.uint64);
             break;
         default:
-            snprintf(buff, 255, R"("type":"%02x","value":")" FMT(PRIx64) "\"",
+            snprintf(buff, 255, R"("type":"%02x","value":")" FMT(PRIu64) "\"",
                      v->value_type, v->value.uint64);
     }
     this->channel->write(R"({"idx":%d,%s}%s)", idx, buff, end ? "" : ",");
@@ -426,7 +430,7 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) const {
     const uint32_t fidx = read_LEB_32(&interruptData);
 
     if (fidx >= m->function_count) {
-        debug("no function available for fidx %" PRIi32 "\n", fidx);
+        debug("no function available for fidx %" PRIu32 "\n", fidx);
         return;
     }
 
@@ -444,32 +448,35 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) const {
 
 void Debugger::handleInterruptRUN(const Module *m,
                                   RunningState *program_state) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     this->channel->write("GO!\n");
-    if (*program_state == WARDUINOpause && this->isBreakpoint(m->pc_ptr)) {
-        this->skipBreakpoint = m->pc_ptr;
+    if (*program_state == WARDUINOpause && this->isBreakpoint(ectx->pc_ptr)) {
+        this->skipBreakpoint = ectx->pc_ptr;
     }
     *program_state = WARDUINOrun;
 }
 
 void Debugger::handleSTEP(const Module *m, RunningState *program_state) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     *program_state = WARDUINOstep;
-    this->skipBreakpoint = m->pc_ptr;
+    this->skipBreakpoint = ectx->pc_ptr;
 }
 
 void Debugger::handleSTEPOver(const Module *m, RunningState *program_state) {
-    this->skipBreakpoint = m->pc_ptr;
-    uint8_t const opcode = *m->pc_ptr;
+    ExecutionContext *ectx = m->warduino->execution_context;
+    this->skipBreakpoint = ectx->pc_ptr;
+    uint8_t const opcode = *ectx->pc_ptr;
     if (opcode == 0x10) {  // step over direct call
-        uint8_t *ptr_cpy = m->pc_ptr + 1;
+        uint8_t *ptr_cpy = ectx->pc_ptr + 1;
         read_LEB_32(&ptr_cpy);
-        this->mark = m->pc_ptr + (ptr_cpy - m->pc_ptr);
+        this->mark = ectx->pc_ptr + (ptr_cpy - ectx->pc_ptr);
         *program_state = WARDUINOrun;
         // warning: ack will be BP hit
     } else if (opcode == 0x11) {  // step over indirect call
-        uint8_t *ptr_cpy = m->pc_ptr + 1;
+        uint8_t *ptr_cpy = ectx->pc_ptr + 1;
         read_LEB_32(&ptr_cpy);
         read_LEB_32(&ptr_cpy);
-        this->mark = m->pc_ptr + (ptr_cpy - m->pc_ptr);
+        this->mark = ectx->pc_ptr + (ptr_cpy - ectx->pc_ptr);
         *program_state = WARDUINOrun;
     } else {
         // normal step
@@ -492,11 +499,12 @@ void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
 }
 
 void Debugger::dump(Module *m, bool full) const {
+    ExecutionContext *ectx = m->warduino->execution_context;
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("{");
 
     // current PC
-    this->channel->write("\"pc\":%" PRIu32 ",", toVA(m->pc_ptr));
+    this->channel->write("\"pc\":%" PRIu32 ",", toVA(ectx->pc_ptr));
 
     this->dumpBreakpoints(m);
 
@@ -505,21 +513,25 @@ void Debugger::dump(Module *m, bool full) const {
     this->dumpCallstack(m);
 
     if (full) {
-        this->channel->write(R"(, "locals": )");
+        this->channel->write(R"( "locals": )");
         this->dumpLocals(m);
         this->channel->write(", ");
         this->dumpEvents(0, static_cast<long>(CallbackHandler::event_count()));
+        this->channel->write(", ");
     }
+
+    this->dumpHeapInfo(m);
 
     this->channel->write("}\n\n");
     //    fflush(stdout);
 }
 
 void Debugger::dumpStack(const Module *m) const {
+    ExecutionContext *ectx = m->warduino->execution_context;
     this->channel->write("{\"stack\": [");
-    int32_t i = m->sp;
+    int32_t i = ectx->sp;
     while (0 <= i) {
-        this->printValue(&m->stack[i], i, i < 1);
+        this->printValue(&ectx->stack[i], i, i < 1);
         i--;
     }
     this->channel->write("]}\n\n");
@@ -553,10 +565,17 @@ void Debugger::dumpFunctions(Module *m) const {
  * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
  */
 void Debugger::dumpCallstack(Module *m) const {
+    ExecutionContext *ectx = m->warduino->execution_context;
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("\"callstack\":[");
-    for (int i = 0; i <= m->csp; i++) {
-        const Frame *f = &m->callstack[i];
+
+    if (ectx->csp < 0) {
+        this->channel->write("]");
+        return;
+    }
+
+    for (int i = 0; i <= ectx->csp; i++) {
+        const Frame *f = &ectx->callstack[i];
         int callsite_retaddr = -1;
         int retaddr = -1;
         // first frame has no retrun address
@@ -572,34 +591,41 @@ void Debugger::dumpCallstack(Module *m) const {
         this->channel->write("\"start\":%" PRIu32
                              ",\"ra\":%d,\"callsite\":%d}%s",
                              toVA(f->block->start_ptr), retaddr,
-                             callsite_retaddr, (i < m->csp) ? "," : "]");
+                             callsite_retaddr, (i < ectx->csp) ? "," : "],");
     }
 }
 
 void Debugger::dumpLocals(const Module *m) const {
     //    fflush(stdout);
-    int firstFunFramePtr = m->csp;
-    while (m->callstack[firstFunFramePtr].block->block_type != 0) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+    int firstFunFramePtr = ectx->csp;
+
+    if (firstFunFramePtr < 0) {
+        this->channel->write("[]");
+        return;
+    }
+
+    while (ectx->callstack[firstFunFramePtr].block->block_type != 0) {
         firstFunFramePtr--;
         if (firstFunFramePtr < 0) {
             FATAL("Not in a function!");
         }
     }
-    Frame *f = &m->callstack[firstFunFramePtr];
+    Frame *f = &ectx->callstack[firstFunFramePtr];
     this->channel->write(R"({"count":%u,"locals":[)", f->block->local_count);
     //    fflush(stdout);  // FIXME: this is needed for ESP to properly print
     for (uint32_t i = 0; i < f->block->local_count; i++) {
         char _value_str[256];
-        auto v = &m->stack[m->fp + i];
+        auto v = &ectx->stack[ectx->fp + i];
         switch (v->value_type) {
             case I32:
                 snprintf(_value_str, 255,
-                         R"("type":"i32","value":)" FMT(PRIi32),
+                         R"("type":"i32","value":)" FMT(PRIu32),
                          v->value.uint32);
                 break;
             case I64:
                 snprintf(_value_str, 255,
-                         R"("type":"i64","value":)" FMT(PRIi64),
+                         R"("type":"i64","value":)" FMT(PRIu64),
                          v->value.uint64);
                 break;
             case F32:
@@ -612,7 +638,7 @@ void Debugger::dumpLocals(const Module *m) const {
                 break;
             default:
                 snprintf(_value_str, 255,
-                         R"("type":"%02x","value":")" FMT(PRIx64) "\"",
+                         R"("type":"%02x","value":")" FMT(PRIu64) "\"",
                          v->value_type, v->value.uint64);
         }
 
@@ -651,6 +677,10 @@ void Debugger::dumpEvents(long start, long size) const {
 
 void Debugger::dumpCallbackmapping() const {
     this->channel->write("%s\n", CallbackHandler::dump_callbacks().c_str());
+}
+
+void Debugger::dumpHeapInfo(Module *m) const {
+    this->channel->write(R"("heap":{"used":%u})", m->warduino->get_heap_used());
 }
 
 /**
@@ -725,7 +755,8 @@ bool Debugger::handleChangedLocal(const Module *m, uint8_t *bytes) const {
     uint32_t localId = read_LEB_32(&pos);
 
     this->channel->write("Local %u being changed\n", localId);
-    auto v = &m->stack[m->fp + localId];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    auto v = &ectx->stack[ectx->fp + localId];
     switch (v->value_type) {
         case I32:
             v->value.uint32 = read_LEB_signed(&pos, 32);
@@ -779,6 +810,7 @@ void Debugger::snapshot(Module *m) const {
 
 void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                        const uint8_t *state) const {
+    ExecutionContext *ectx = m->warduino->execution_context;
     debug("asked for inspect\n");
     uint16_t idx = 0;
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
@@ -789,7 +821,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
     while (idx < sizeStateArray) {
         switch (state[idx++]) {
             case pcState: {  // PC
-                this->channel->write("\"pc\":%" PRIu32 "", toVA(m->pc_ptr));
+                this->channel->write("\"pc\":%" PRIu32 "", toVA(ectx->pc_ptr));
                 addComma = true;
 
                 break;
@@ -810,8 +842,8 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
             case callstackState: {
                 this->channel->write("%s\"callstack\":[", addComma ? "," : "");
                 addComma = true;
-                for (int j = 0; j <= m->csp; j++) {
-                    const Frame *f = &m->callstack[j];
+                for (int j = 0; j <= ectx->csp; j++) {
+                    const Frame *f = &ectx->callstack[j];
                     const uint8_t bt = f->block->block_type;
                     const uint32_t block_key =
                         (bt == 0 || bt == 0xff || bt == 0xfe)
@@ -824,7 +856,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                         bt, fidx, f->sp, f->fp, j);
                     this->channel->write(
                         "\"block_key\":%" PRIu32 ",\"ra\":%d}%s", block_key, ra,
-                        (j < m->csp) ? "," : "");
+                        (j < ectx->csp) ? "," : "");
                 }
                 this->channel->write("]");
                 break;
@@ -832,9 +864,9 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
             case stackState: {
                 this->channel->write("%s\"stack\":[", addComma ? "," : "");
                 addComma = true;
-                for (int j = 0; j <= m->sp; j++) {
-                    auto v = &m->stack[j];
-                    printValue(v, j, j == m->sp);
+                for (int j = 0; j <= ectx->sp; j++) {
+                    auto v = &ectx->stack[j];
+                    printValue(v, j, j == ectx->sp);
                 }
                 this->channel->write("]");
                 break;
@@ -866,7 +898,7 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                     R"(%s"br_table":{"size":"0x%x","labels":[)",
                     addComma ? "," : "", BR_TABLE_SIZE);
                 for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
-                    this->channel->write("%" PRIu32 "%s", m->br_table[j],
+                    this->channel->write("%" PRIu32 "%s", ectx->br_table[j],
                                          (j + 1) == BR_TABLE_SIZE ? "" : ",");
                 }
                 this->channel->write("]}");
@@ -942,16 +974,25 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
                 this->channel->write("%s", addComma ? "," : "");
                 this->channel->write(R"("overrides": [)");
                 bool comma = false;
-                for (auto key : overrides) {
-                    for (auto argResult : key.second) {
-                        this->channel->write("%s", comma ? ", " : "");
-                        this->channel->write(
-                            R"({"fidx": %d, "arg": %d, "return_value": %d})",
-                            key.first, argResult.first, argResult.second);
-                        comma = true;
+                for (const auto &[key, return_value] : overrides) {
+                    this->channel->write("%s", comma ? ", " : "");
+                    const uint32_t fidx = key[key.size() - 1];
+                    this->channel->write(R"({"fidx": %d, "args": [)", fidx);
+                    for (uint32_t i = 0; i < key.size() - 1; i++) {
+                        this->channel->write("%s%d", i > 0 ? ", " : "", key[i]);
                     }
+                    this->channel->write(R"(], "return_value": %d})",
+                                         return_value);
+                    comma = true;
                 }
                 this->channel->write("]");
+                addComma = true;
+                break;
+            }
+            case heapState: {
+                uint32_t heap_used = m->warduino->get_heap_used();
+                this->channel->write(R"(%s"heap":{"used":%d})",
+                                     addComma ? "," : "", heap_used);
                 addComma = true;
                 break;
             }
@@ -965,14 +1006,37 @@ void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
 }
 
 void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
-    snapshotPolicy = SnapshotPolicy{*interruptData};
+    uint8_t **data_ptr = &interruptData;
+    if (*interruptData <= 2) {
+        snapshotPolicy = SnapshotPolicy{*interruptData};
+        min_return_values = 0;
+        if (checkpoint_state) {
+            free(checkpoint_state);
+        }
+        checkpoint_state = nullptr;
+        checkpoint_state_size = 0;
+    } else {
+        snapshotPolicy = SnapshotPolicy::checkpointing;
+        *data_ptr += 1;
+        min_return_values = read_LEB_32(data_ptr);
+        if (checkpoint_state) {
+            free(checkpoint_state);
+        }
+        checkpoint_state_size = read_LEB_32(data_ptr);
+        checkpoint_state = new uint8_t[checkpoint_state_size];
+        for (uint32_t i = 0; i < checkpoint_state_size; i++) {
+            checkpoint_state[i] = **data_ptr;
+            *data_ptr += 1;
+        }
+    }
 
     // Make a checkpoint when you first enable checkpointing
     if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-        uint8_t *ptr = interruptData + 1;
+        uint8_t *ptr = *data_ptr + 1;
         checkpointInterval = read_B32(&ptr);
         checkpoint(m, true);
     }
+    printf("ack%x\n", interruptSetSnapshotPolicy);
 }
 
 std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
@@ -999,16 +1063,26 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         this->channel->write("\n");
     } else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
         if (instructions_executed >= checkpointInterval || fidx_called) {
-            checkpoint(m);
+            if (min_return_values == 0) {
+                checkpoint(m);
+            } else {
+                if (fidx_called) {
+                    const Type *type = m->functions[*fidx_called].type;
+                    if (type->result_count >= min_return_values) {
+                        checkpoint(m);
+                    }
+                }
+            }
         }
         instructions_executed++;
 
+        ExecutionContext *ectx = m->warduino->execution_context;
         // Store arguments of last primitive call.
-        if ((fidx_called = getPrimitiveBeingCalled(m, m->pc_ptr))) {
+        if ((fidx_called = getPrimitiveBeingCalled(m, ectx->pc_ptr))) {
             const Type *type = m->functions[*fidx_called].type;
             for (uint32_t i = 0; i < type->param_count; i++) {
                 prim_args[type->param_count - i - 1] =
-                    m->stack[m->sp - i].value.uint32;
+                    ectx->stack[ectx->sp - i].value.uint32;
             }
         }
     } else if (snapshotPolicy != SnapshotPolicy::none) {
@@ -1016,7 +1090,7 @@ void Debugger::handleSnapshotPolicy(Module *m) {
     }
 }
 
-void Debugger::checkpoint(Module *m, bool force) {
+void Debugger::checkpoint(Module *m, const bool force) {
     if (instructions_executed == 0 && !force) {
         return;
     }
@@ -1032,9 +1106,24 @@ void Debugger::checkpoint(Module *m, bool force) {
             comma = true;
         }
         this->channel->write("], ");
+
+        // Return values:
+        this->channel->write(R"("returns": [)");
+        comma = false;
+        for (uint32_t i = 0; i < func_block.type->result_count; i++) {
+            ExecutionContext *ectx = m->warduino->execution_context;
+            channel->write("%s%d", comma ? ", " : "",
+                           ectx->stack[ectx->sp - i].value.uint32);
+            comma = true;
+        }
+        this->channel->write("], ");
     }
-    this->channel->write(R"("snapshot": )", instructions_executed);
-    snapshot(m);
+    this->channel->write(R"("snapshot": )");
+    if (!checkpoint_state) {
+        snapshot(m);
+    } else {
+        inspect(m, checkpoint_state_size, checkpoint_state);
+    }
     this->channel->write("}\n");
     instructions_executed = 0;
 }
@@ -1048,9 +1137,10 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
 
     // nullify state
     this->breakpoints.clear();
-    m->csp = -1;
-    m->sp = -1;
-    memset(m->br_table, 0, BR_TABLE_SIZE);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    ectx->csp = -1;
+    ectx->sp = -1;
+    memset(ectx->br_table, 0, BR_TABLE_SIZE);
 
     while (first_msg < endfm) {
         switch (*first_msg++) {
@@ -1124,6 +1214,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
 }
 
 bool Debugger::saveState(Module *m, uint8_t *interruptData) {
+    ExecutionContext *ectx = m->warduino->execution_context;
     uint8_t *program_state = nullptr;
     uint8_t *end_state = nullptr;
     program_state = interruptData + 1;  // skip interruptLoadSnapshot
@@ -1138,7 +1229,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 if (!isToPhysicalAddrPossible(pc, m)) {
                     FATAL("cannot set pc on invalid address\n");
                 }
-                m->pc_ptr = toPhysicalAddress(pc, m);
+                ectx->pc_ptr = toPhysicalAddress(pc, m);
                 debug("Updated pc %" PRIu32 "\n", pc);
                 break;
             }
@@ -1161,8 +1252,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 for (size_t i = 0; i < quantity; i++) {
                     /* printf("frame IDX: %lu\n", i); */
                     uint8_t block_type = *program_state++;
-                    m->csp += 1;
-                    Frame *f = m->callstack + m->csp;
+                    ectx->csp += 1;
+                    Frame *f = ectx->callstack + ectx->csp;
                     f->sp = read_B32_signed(&program_state);
                     f->fp = read_B32_signed(&program_state);
                     auto virtualRA = read_B32_signed(&program_state);
@@ -1179,7 +1270,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                                   ". Exiting program\n",
                                   fidx, f->block->fidx);
                         }
-                        m->fp = f->sp + 1;
+                        ectx->fp = f->sp + 1;
                     } else if (block_type == 0xff || block_type == 0xfe) {
                         debug("guard block %" PRIu8 "\n", block_type);
                         auto *guard =
@@ -1295,7 +1386,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 for (auto idx = begin_index; idx <= end_index; idx++) {
                     // FIXME speedup with memcpy?
                     uint32_t el = read_B32(&program_state);
-                    m->br_table[idx] = el;
+                    ectx->br_table[idx] = el;
                 }
                 break;
             }
@@ -1310,8 +1401,8 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                     if (type_index >= sizeof(valtypes)) {
                         FATAL("received unknown type %" PRIu8 "\n", type_index);
                     }
-                    m->sp += 1;
-                    StackValue *sv = &m->stack[m->sp];
+                    ectx->sp += 1;
+                    StackValue *sv = &ectx->stack[ectx->sp];
                     sv->value.uint64 = 0;  // init whole union to 0
                     size_t qb = type_index == 0 || type_index == 2 ? 4 : 8;
                     sv->value_type = valtypes[type_index];
@@ -1393,10 +1484,14 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 uint8_t overrides_count = *program_state++;
                 for (uint32_t i = 0; i < overrides_count; i++) {
                     uint32_t fidx = read_B32(&program_state);
-                    uint32_t arg = read_B32(&program_state);
+                    uint32_t param_count = m->functions[fidx].type->param_count;
+                    std::vector<uint32_t> key(param_count + 1);
+                    for (uint32_t j = 0; j < param_count; j++) {
+                        key[j] = read_B32(&program_state);
+                    }
+                    key[param_count] = fidx;
                     uint32_t return_value = read_B32(&program_state);
-                    overrides[fidx][arg] = return_value;
-                    debug("Override %d %d %d\n", fidx, arg, return_value);
+                    overrides[key] = return_value;
                 }
                 break;
             }
@@ -1552,7 +1647,8 @@ bool Debugger::handleUpdateStackValue(const Module *m, uint8_t *bytes) const {
     if (idx >= STACK_SIZE) {
         return false;
     }
-    StackValue *sv = &m->stack[idx];
+    ExecutionContext *ectx = m->warduino->execution_context;
+    StackValue *sv = &ectx->stack[idx];
     // ReSharper disable once CppTooWideScopeInitStatement
     constexpr bool decodeType = false;
     if (!deserialiseStackValue(bytes, decodeType, sv)) {
@@ -1562,11 +1658,9 @@ bool Debugger::handleUpdateStackValue(const Module *m, uint8_t *bytes) const {
     return true;
 }
 
-bool Debugger::reset(Module *m) const {
-    auto *wasm =
-        static_cast<uint8_t *>(malloc(sizeof(uint8_t) * m->byte_count));
-    memcpy(wasm, m->bytes, m->byte_count);
-    m->warduino->update_module(m, wasm, m->byte_count);
+bool Debugger::reset(Module *m) {
+    m->warduino->reset_module(m);
+    instructions_executed = 0;
     this->channel->write("Reset WARDuino.\n");
     return true;
 }
@@ -1582,7 +1676,7 @@ std::optional<uint32_t> resolve_imported_function(Module *m,
 }
 
 std::string read_string(uint8_t **pos) {
-    std::string str = "";
+    std::string str;
     char c = *(*pos)++;
     while (c != '\0') {
         str += c;
@@ -1592,43 +1686,68 @@ std::string read_string(uint8_t **pos) {
 }
 
 void Debugger::addOverride(Module *m, uint8_t *interruptData) {
-    std::string primitive_name = read_string(&interruptData);
-    uint32_t arg = read_B32(&interruptData);
-    uint32_t result = read_B32(&interruptData);
-
-    std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
+    const std::string primitive_name = read_string(&interruptData);
+    const std::optional<uint32_t> fidx =
+        resolve_imported_function(m, primitive_name);
     if (!fidx) {
         channel->write(
             "Cannot override the result for unknown function \"%s\".\n",
             primitive_name.c_str());
+        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
-    channel->write("Override %s(%d) = %d.\n", primitive_name.c_str(), arg,
-                   result);
-    overrides[fidx.value()][arg] = result;
+    const uint32_t param_count = m->functions[fidx.value()].type->param_count;
+    std::vector<uint32_t> key(param_count + 1);
+    for (uint32_t i = 0; i < param_count; i++) {
+        key[i] = read_B32(&interruptData);
+    }
+    key[param_count] = fidx.value();
+
+    const uint32_t result = read_B32(&interruptData);
+    channel->write("ack%x;1\n", interruptSetOverridePinValue);
+    overrides[key] = result;
 }
 
 void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
-    std::string primitive_name = read_string(&interruptData);
-    uint32_t arg = read_B32(&interruptData);
-
-    std::optional<uint32_t> fidx = resolve_imported_function(m, primitive_name);
+    const std::string primitive_name = read_string(&interruptData);
+    const std::optional<uint32_t> fidx =
+        resolve_imported_function(m, primitive_name);
     if (!fidx) {
         channel->write("Cannot remove override for unknown function \"%s\".\n",
                        primitive_name.c_str());
+        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
-    if (overrides[fidx.value()].count(arg) == 0) {
-        channel->write("Override for %s(%d) not found.\n",
-                       primitive_name.c_str(), arg);
+    const uint32_t param_count = m->functions[fidx.value()].type->param_count;
+    std::vector<uint32_t> key(param_count + 1);
+    for (uint32_t i = 0; i < param_count; i++) {
+        key[i] = read_B32(&interruptData);
+    }
+    key[param_count] = fidx.value();
+
+    if (overrides.erase(key) == 0) {
+        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
+    channel->write("ack%x;1\n", interruptUnsetOverridePinValue);
+}
 
-    channel->write("Removing override %s(%d) = %d.\n", primitive_name.c_str(),
-                   arg, overrides[fidx.value()][arg]);
-    overrides[fidx.value()].erase(arg);
+bool Debugger::getMockForArgs(Module *m, uint32_t fidx, uint32_t &result) {
+    const uint32_t param_count = m->functions[fidx].type->param_count;
+    std::vector<uint32_t> key(param_count + 1);
+    const ExecutionContext *ectx = m->warduino->execution_context;
+    for (uint32_t i = 0; i < param_count; i++) {
+        key[i] = ectx->stack[ectx->sp - (param_count - i - 1)].value.uint32;
+    }
+    key[param_count] = fidx;
+    const auto it = overrides.find(key);
+    if (it == overrides.end()) {
+        return false;
+    }
+    result = it->second;
+    return true;
 }
 
 bool Debugger::handleContinueFor(Module *m) {

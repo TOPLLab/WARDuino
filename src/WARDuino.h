@@ -46,21 +46,39 @@ class WARDuino {
     Debugger *debugger;
     Interpreter *interpreter;
     RunningState program_state = WARDUINOrun;
+    ExecutionContext *execution_context = nullptr;
+    ~WARDuino();
 
     static WARDuino *instance();
+    static void shutdown();
 
     void setInterpreter(Interpreter *interpreter);
 
+    Module *get_current_module() {
+        return execution_context ? execution_context->current_module : nullptr;
+    }
+
+    void switch_to_module(Module *m) {
+        if (execution_context) {
+            execution_context->current_module = m;
+        }
+    }
+
     int run_module(Module *m);
 
-    Module *load_module(uint8_t *bytes, uint32_t byte_count, Options options);
+    Module *load_module(uint8_t *bytes, uint32_t byte_count,
+                        const char *module_name, Options options);
+
+    Module *get_module(const char *name);
 
     void unload_module(Module *m);
 
+    void reset_module(Module *m);
+
     void update_module(Module *old_module, uint8_t *wasm, uint32_t wasm_len);
 
-    bool invoke(Module *m, uint32_t fidx, uint32_t arity = 0,
-                StackValue *args = nullptr);
+    std::vector<StackValue> invoke(Module *m, uint32_t fidx, uint32_t arity = 0,
+                                   StackValue *args = nullptr);
 
     uint32_t get_export_fidx(Module *m, const char *name);
 
@@ -71,4 +89,10 @@ class WARDuino {
     void instantiate_module(Module *m, uint8_t *bytes, uint32_t byte_count);
 
     void free_module_state(Module *m);
+
+    uint32_t get_heap_used();
+
+    void init_execution_context();
+
+    void free_execution_context();
 };

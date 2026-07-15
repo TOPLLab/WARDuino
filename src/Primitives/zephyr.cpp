@@ -15,9 +15,11 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/devicetree/gpio.h>
 #include <zephyr/drivers/adc.h>
+#include <zephyr/drivers/display.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/kernel.h>
+#include <zephyr/random/random.h>
 #include <zephyr/sys/util_macro.h>
 
 #include <chrono>
@@ -31,6 +33,7 @@
 #include "../Utils/util.h"
 #include "Mindstorms/Motor.h"
 #include "Mindstorms/uart_sensor.h"
+#include "primitive_macros.h"
 #include "primitives.h"
 
 #define NUM_GLOBALS 0
@@ -119,6 +122,57 @@ def_prim(chip_digital_read, oneToOneU32) {
     uint8_t res = gpio_pin_get_raw(pin_spec.port, pin_spec.pin);
     pop_args(1);
     pushUInt32(res);
+    return true;
+}
+
+def_prim(millis, NoneToOneU32) {
+    pushInt32(k_uptime_get());
+    return true;
+}
+
+#if DT_PROP_HAS_NAME(DT_PATH(zephyr_user), pwms, builtin_buzzer)
+
+static const struct pwm_dt_spec piezo_spec =
+    PWM_DT_SPEC_GET_BY_NAME(DT_PATH(zephyr_user), builtin_buzzer);
+
+bool pwm_write_freq(pwm_dt_spec pwm_spec, uint32_t period_us) {
+    if (!pwm_is_ready_dt(&pwm_spec)) {
+        printf("Error: PWM device %s is not ready\n", pwm_spec.dev->name);
+        return false;
+    }
+
+    uint32_t period = PWM_USEC(period_us);
+    int ret = pwm_set_dt(&pwm_spec, period, period / 2U);
+    if (ret) {
+        printf("Error %d: failed to set pulse width, period_us = %d\n", ret,
+               period_us);
+        return false;
+    }
+
+    return true;
+}
+
+def_prim(tone, oneToNoneI32) {
+    // The argument is in Hz, we convert it to a period in us.
+    pwm_write_freq(piezo_spec, 1000000 / arg0.uint32);
+    pop_args(1);
+    return true;
+}
+
+def_prim(noTone, NoneToNoneU32) {
+    if (!pwm_is_ready_dt(&piezo_spec)) {
+        printf("Error: PWM device %s is not ready\n", piezo_spec.dev->name);
+        return false;
+    }
+
+    pwm_set_pulse_dt(&piezo_spec, 0);
+    return true;
+}
+
+#endif
+
+def_prim(random_int, NoneToOneU32) {
+    pushInt32(sys_rand32_get());
     return true;
 }
 
@@ -377,6 +431,118 @@ def_prim(ev3_touch_sensor, oneToOneU32) {
 
 #endif
 
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
+void draw_rect(const device *display_dev, int xpos, int ypos, int w, int h,
+               uint16_t color) {
+    struct display_buffer_descriptor new_buf_desc;
+    new_buf_desc.width = w;
+    new_buf_desc.height = h;
+    new_buf_desc.buf_size = new_buf_desc.width * new_buf_desc.height;
+    new_buf_desc.pitch = new_buf_desc.width;
+    new_buf_desc.frame_incomplete = false;
+    uint16_t *new_buf = static_cast<uint16_t *>(
+        malloc(sizeof(uint16_t) * new_buf_desc.buf_size));  // 16 bit color
+    for (int y = 0; y < new_buf_desc.height; y++) {
+        for (int x = 0; x < new_buf_desc.width; x++) {
+            new_buf[y * new_buf_desc.width + x] = color;
+        }
+    }
+    display_write(display_dev, xpos, ypos, &new_buf_desc, new_buf);
+    free(new_buf);
+}
+
+#include "vgafont.h"
+
+void draw_char(const device *display_dev, int xpos, int ypos, char c,
+               uint16_t foreground, uint16_t background, int scale) {
+    struct display_buffer_descriptor new_buf_desc;
+    new_buf_desc.width = 8 * scale;
+    new_buf_desc.height = 16 * scale;
+    new_buf_desc.buf_size = new_buf_desc.width * new_buf_desc.height;
+    new_buf_desc.pitch = new_buf_desc.width;
+    new_buf_desc.frame_incomplete = false;
+    uint16_t *new_buf = static_cast<uint16_t *>(
+        malloc(sizeof(uint16_t) * new_buf_desc.buf_size));  // 16 bit color
+    for (int y = 0; y < new_buf_desc.height; y++) {
+        for (int x = 0; x < new_buf_desc.width; x++) {
+            new_buf[y * new_buf_desc.width + x] =
+                (font16[16 * c + y / scale] >> (8 - x / scale)) & 0b1 == 1
+                    ? foreground
+                    : background;
+        }
+    }
+    display_write(display_dev, xpos, ypos, &new_buf_desc, new_buf);
+    free(new_buf);
+}
+
+const device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+
+def_prim(display_setup, NoneToNoneU32) {
+    struct display_capabilities capabilities;
+
+    if (!device_is_ready(display_dev)) {
+        printf("Device %s is not ready.", display_dev->name);
+        return false;
+    }
+
+    printf("Display setup for %s ", display_dev->name);
+    display_get_capabilities(display_dev, &capabilities);
+
+    printf("w = %d, h = %d\n", capabilities.x_resolution,
+           capabilities.y_resolution);
+    printf("Display color format %d\n", capabilities.current_pixel_format);
+
+    // Fill display in steps so we don't fill up memory with a huge framebuffer.
+    for (int x = 0; x < capabilities.x_resolution; x++) {
+        draw_rect(display_dev, x, 0, 1, capabilities.y_resolution, 0x0000);
+    }
+    // display_clear(display_dev);
+    display_blanking_off(display_dev);
+    return true;
+}
+
+def_prim(display_set_orientation, oneToNoneI32) {
+    display_set_orientation(display_dev,
+                            static_cast<display_orientation>(arg0.uint32));
+    pop_args(1);
+    return true;
+}
+
+def_prim(display_width, NoneToOneU32) {
+    display_capabilities capabilities;
+    display_get_capabilities(display_dev, &capabilities);
+    pushUInt32(capabilities.x_resolution);
+    return true;
+}
+
+def_prim(display_height, NoneToOneU32) {
+    display_capabilities capabilities;
+    display_get_capabilities(display_dev, &capabilities);
+    pushUInt32(capabilities.y_resolution);
+    return true;
+}
+
+def_prim(display_fill_rect, fiveToNoneU32) {
+    draw_rect(display_dev, arg4.int32, arg3.int32, arg2.int32, arg1.int32,
+              arg0.uint32);
+    pop_args(5);
+    return true;
+}
+
+def_prim(display_draw_string, sevenToNoneU32) {
+    uint32_t addr = arg4.uint32;
+    uint32_t size = arg3.uint32;
+    std::string text = parse_utf8_string(m->memory.bytes, size, addr);
+    int scale = arg2.uint32;
+    for (int i = 0; i < text.length(); i++) {
+        draw_char(display_dev, arg6.int32 + i * 8 * scale, arg5.int32, text[i],
+                  arg1.uint32, arg0.uint32, scale);
+    }
+    pop_args(7);
+    return true;
+}
+#endif
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -386,6 +552,8 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(chip_pin_mode);
     install_reversible_primitive(chip_digital_write);
     install_primitive(chip_digital_read);
+    install_primitive(millis);
+    install_primitive(random_int);
     install_primitive(print_string);
     install_primitive(print_int);
     install_primitive(abort);
@@ -404,6 +572,20 @@ void install_primitives(Interpreter *interpreter) {
 
     k_timer_init(&heartbeat_timer, heartbeat_timer_func, nullptr);
     k_timer_start(&heartbeat_timer, K_MSEC(500), K_MSEC(500));
+#endif
+
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_display)) && IS_ENABLED(CONFIG_DISPLAY)
+    install_primitive(display_setup);
+    install_primitive(display_set_orientation);
+    install_primitive(display_width);
+    install_primitive(display_height);
+    install_primitive(display_fill_rect);
+    install_primitive(display_draw_string);
+#endif
+
+#if DT_PROP_HAS_NAME(DT_PATH(zephyr_user), pwms, builtin_buzzer)
+    install_primitive(tone);
+    install_primitive(noTone);
 #endif
 }
 

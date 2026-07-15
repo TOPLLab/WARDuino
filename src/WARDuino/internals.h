@@ -92,6 +92,7 @@ typedef struct Frame {
     int sp;
     int fp;
     uint8_t *ra_ptr;
+    struct Module *module;
 } Frame;
 
 ///
@@ -102,6 +103,8 @@ typedef struct Table {
     uint32_t maximum = 0;   // maximum table size
     uint32_t size = 0;      // current table size
     uint32_t *entries = nullptr;
+    bool imported = false;           // whether the table is imported/shared
+    struct Module *owner = nullptr;  // module that owns the table
 } Table;
 
 typedef struct Memory {
@@ -109,6 +112,7 @@ typedef struct Memory {
     uint32_t maximum = 0;      // maximum size (64K pages)
     uint32_t pages = 0;        // current size (64K pages)
     uint8_t *bytes = nullptr;  // memory area
+    bool imported = false;     // whether the memory is imported/shared
 } Memory;
 
 typedef struct Global {
@@ -134,8 +138,21 @@ typedef struct Options {
 
 class WARDuino;  // predeclare for it work in the module decl
 
+typedef struct ExecutionContext {
+    uint8_t *pc_ptr = nullptr;
+    int sp = -1;
+    int fp = -1;
+    StackValue *stack = nullptr;
+    int csp = -1;
+    Frame *callstack = nullptr;
+    uint32_t *br_table = nullptr;
+
+    struct Module *current_module = nullptr;
+} ExecutionContext;
+
 typedef struct Module {
     WARDuino *warduino = nullptr;
+    char *name = nullptr;
     char *path = nullptr;  // file path of the wasm module
     Options options;       // Config options
 
@@ -156,14 +173,6 @@ typedef struct Module {
     Memory memory;
     uint32_t global_count = 0;   // number of globals
     Global **globals = nullptr;  // globals
-    // Runtime state
-    uint8_t *pc_ptr = nullptr;     // program counter
-    int sp = -1;                   // operand stack pointer
-    int fp = -1;                   // current frame pointer into stack
-    StackValue *stack = nullptr;   // main operand stack
-    int csp = -1;                  // callstack pointer
-    Frame *callstack = nullptr;    // callstack
-    uint32_t *br_table = nullptr;  // br_table branch indexes
 
     char *exception = nullptr;  // exception is set when the program fails
 } Module;
