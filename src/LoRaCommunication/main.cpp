@@ -77,32 +77,32 @@ int main(int argc, char* argv[]) {
 
         printf("------------------------ build Circuit A - B - C - D -----------------------\n");
         Circuit* circuit = buildCircuit(444, 3, LocalPeers, nodeRole);
-
-        while (circuit->state != CircuitState::READY) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        if (circuit != nullptr) {
+            while (circuit->state != CircuitState::READY) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            sendDataForwards(circuit, (uint8_t*)hello, strlen(hello) + 1);
         }
 
 
         printf("------------------------ build Circuit A - B - C -----------------------\n");
         Circuit* circuit2 = buildCircuit(333, 2, LocalPeers, nodeRole);
-
-        while (circuit2->state != CircuitState::READY) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        if (circuit2 != nullptr) {
+            while (circuit2->state != CircuitState::READY) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            sendDataForwards(circuit2, (uint8_t*)longmsg, strlen(longmsg) + 1);
         }
     
 
         printf("------------------------ build Circuit A - B -----------------------\n");
         Circuit* circuit3 = buildCircuit(222, 1, LocalPeers, nodeRole);
-
-        while (circuit3->state != CircuitState::READY) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        if (circuit3 != nullptr) {
+            while (circuit3->state != CircuitState::READY) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            sendDataForwards(circuit3, (uint8_t*)incoming, strlen(incoming) + 1);
         }
-
-        const char* msg = longmsg;
-        sendDataForwards(circuit, (uint8_t*)hello, strlen(hello) + 1);
-        sendDataForwards(circuit2, (uint8_t*)longmsg, strlen(longmsg) + 1);
-        sendDataForwards(circuit3, (uint8_t*)incoming, strlen(incoming) + 1);
-        
 
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         

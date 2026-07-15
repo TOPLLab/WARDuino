@@ -366,16 +366,31 @@ Circuit* buildCircuit(uint16_t destNodeID, uint8_t totalHops, LoraHashTable tabl
     circuit->hopCount = 0;
     circuit->totalHops = totalHops;
     circuit->state = CircuitState::IDLE;
-    //TODO: calculate a route to destination node
-    //table.determineRoute(destNodeID, role)
-    //hardcoded path
-    circuit->hopNodeIDs[0] = 222;
-    circuit->hopNodeIDs[1] = 333;
-    circuit->hopNodeIDs[2] = 444;
-    //sending a create cell to the second node in the circuit will snowball into creating the whole circuit
+
+    //create the logical network. Add all node's IDs and their edges.
+    logicalNetwork.nodeCount = 4;
+    logicalNetwork.nodeIDs[0] = 111;
+    logicalNetwork.nodeIDs[1] = 222;
+    logicalNetwork.nodeIDs[2] = 333;
+    logicalNetwork.nodeIDs[3] = 444;
+    addLogicalConnection(111, 222);
+    addLogicalConnection(222, 333);
+    addLogicalConnection(444, 333);
+    //build the route for the circuit
+    uint16_t route[4];
+    uint16_t routeLength = determineRoute(111, 444, route, 4);
+    if (routeLength == 0) {
+        printf("Error: no route found from %d to %d.\n", 111, 444);
+        return nullptr;
+    }
+    for (uint16_t i = 0; i < routeLength && route[i] != 0; i++) {
+        circuit->hopNodeIDs[i] = route[i];
+    }
+    //send a create cell to the second node in the circuit that will snowball into creating the whole circuit
     sendCreate(circuit);
     return circuit;
 }
+
 
 // ------------------------------------ MESSAGE DISPATCH: CONTROL CELLS ------------------------------------ //
 
