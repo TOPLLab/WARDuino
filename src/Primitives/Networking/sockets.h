@@ -65,10 +65,11 @@ inline int socket_accept(const int socket) {
     return client_sock;
 }
 
-inline int socket_send(const int socket, const char *message) {
-    printf("socket_send(%d, \"%s\" (len = %lu))\n", socket, message,
-           strlen(message));
-    return send(socket, message, strlen(message), 0);
+inline int socket_send(const int socket, const char *message,
+                       const size_t len) {
+    printf("socket_send(%d, \"%s\" (len = %d))\n", socket, message,
+           len);
+    return send(socket, message, len, 0);
 }
 
 inline int socket_receive(const int socket, char *buffer, const size_t size) {

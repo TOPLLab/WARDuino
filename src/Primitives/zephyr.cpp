@@ -613,13 +613,12 @@ def_prim(socket_accept, oneToOneI32) {
 }
 
 def_prim(socket_send, threeToOneU32) {
-    int32_t socket = arg2.int32;
-    uint32_t msg_addr = arg1.uint32;
-    uint32_t msg_len = arg0.uint32;
-    std::string msg = parse_utf8_string(m->memory.bytes, msg_len, msg_addr);
+    const int32_t socket = arg2.int32;
+    const uint32_t msg_addr = arg1.uint32;
+    const uint32_t msg_len = arg0.uint32;
+    const std::string msg = parse_utf8_string(m->memory.bytes, msg_len, msg_addr);
     pop_args(3);
-    int sent = sockets::socket_send(socket, msg.c_str());
-    pushInt32(sent);
+    pushInt32(sockets::socket_send(socket, msg.c_str(), msg_len));
     return true;
 }
 
