@@ -574,10 +574,16 @@ def_prim(wifi_disconnect, NoneToOneU32) {
     return true;
 }
 
-def_prim(wifi_localip, oneToNoneI32) {
-    const uint32_t buf_addr = arg0.uint32;
+def_prim(wifi_localip, twoToOneU32) {
+    // We ignore arg0, we just have two arguments so it's the same on all
+    // platforms.
+    const uint32_t buf_addr = arg1.uint32;
+    pop_args(2);
     network_ip(reinterpret_cast<char *>(&m->memory.bytes[buf_addr]));
-    pop_args(1);
+    const uint32_t len =
+        strlen(reinterpret_cast<const char *>(&m->memory.bytes[buf_addr]));
+    printf("len(wifi_localip) = %d\n", len);
+    pushInt32(len);
     return true;
 }
 
