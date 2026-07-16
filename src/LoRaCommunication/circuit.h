@@ -49,10 +49,10 @@ struct ForwardingEntry {
 /** circuits datastructure */
 extern Circuit CIRCUITS[CIRCUIT_AMOUNT]; //array to store active circuits, indexed by circuit ID
 
-Circuit* buildCircuit(uint16_t destNodeID, uint8_t totalHops, LoraHashTable table, NodeRole myRole);
+Circuit* buildCircuit(uint16_t destNodeID);
 void sendAnnounce(LoraHashTable& table);
 void sendCreate(Circuit* circuit);
 void sendDestroy(Circuit* circuit);
 void sendExtend(Circuit* circuit);
-void sendDataForwards(Circuit* circuit, uint8_t* data, size_t length);
+void sendDataForwards(Circuit* circuit, const char* data, size_t length);
 void LoRaMessageListener();

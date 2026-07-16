@@ -70,7 +70,8 @@ void loop() {
         Module* mod = wac->load_module(
             modules[i].wasm, 
             modules[i].wasm_len,
-            modules[i].name
+            modules[i].name,
+            Options()
         );
         
         if (mod) {

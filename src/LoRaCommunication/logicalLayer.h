@@ -7,7 +7,7 @@ struct LogicalAdjacencyMatrix {
     //matrix of node IDs representing a connection between nodes. 
     // 0 means no connection, nodeID means connection to the node with that ID. 
     uint16_t Adjacency[MAX_NODES][MAX_NODES];
-    u_int16_t nodeCount; //number of nodes in the logical network
+    uint16_t nodeCount; //number of nodes in the logical network
 };
 
 extern LogicalAdjacencyMatrix logicalNetwork;

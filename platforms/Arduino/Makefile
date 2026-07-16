@@ -3,6 +3,7 @@
 # default values
 PORT = /dev/ttyUSB0
 FQBN = esp32:esp32:esp32wrover
+RADIO = MOCK
 
 # possible config file
 CONFIG = .config
@@ -47,7 +48,7 @@ recompile: Arduino.ino
 ifndef FQBN
 	$(error FQBN is not set. Use a .config file)
 endif
-	arduino-cli compile --fqbn $(FQBN) Arduino.ino
+	arduino-cli compile --fqbn $(FQBN) --build-property "compiler.cpp.extra_flags=-DRADIO_$(RADIO)" Arduino.ino
 
 compile: clean recompile
 

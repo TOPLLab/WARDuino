@@ -1,7 +1,11 @@
 #include "radio.h"
+
+#if defined(RADIO_MOCK)
+
 #include <queue>
 #include <vector>
 #include <cstdio>
+#include <cstring>
  
 // -------------------------------------------------
 //      Mock replacements using message queues
@@ -38,5 +42,11 @@ uint16_t radio_receive_bytes_extern(uint8_t* data, size_t length) {
     printf("MOCK: transmit %zu bytes\n", len);
     return 0;
 }
+
+uint16_t radio_startReceive_extern() {
+    return 0; // Not implemented
+}
  
 }
+
+#endif //RADIO_MOCK

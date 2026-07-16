@@ -12,6 +12,7 @@ static void fillRelayCell(RelayCell& cell, uint16_t circID, RelayCellCommand rel
 static void serialiseAndSendCell(Cell* cell);
 static Circuit* getCircuit(uint16_t circID);
 static int findCircuitSlot();
+static void removeCircuit(uint16_t circID);
 static void createEntry(uint16_t prevCircID, uint16_t prevNodeID, uint16_t nextCircID, uint16_t nextNodeID);
 static ForwardingEntry* getForwardingEntry(uint16_t prevCircID);
 static ForwardingEntry* getReverseForwardingEntry(uint16_t nextCircID);
@@ -169,6 +170,7 @@ void sendDestroy(Circuit* circuit) {
     if (circuit == nullptr) return;
     sendDestroyCell(circuit->circID, circuit->hopNodeIDs[0]);
     clearInternalCircuitState(circuit);
+    removeCircuit(circuit->circID);
 }
 
 //function to handle a received DESTROY cell.
@@ -256,7 +258,7 @@ static void forwardCreated(Circuit* circuit, ControlCell cell) {
 
 //Sends data towards the other end of the circuit. If the data is larger than 
 //the maximum payload size, it will be split into multiple cells and sent sequentially.
-static void sendData(Circuit* circuit, uint16_t nextNodeID, uint16_t circID, uint8_t* data, 
+static void sendData(Circuit* circuit, uint16_t nextNodeID, uint16_t circID, const char* data, 
                     size_t length, bool direction, RelayCellCommand command = DATA) {
     uint16_t maxPayload = CELL_SIZE - RELAY_HEADER_SIZE - HASH_SIZE;
     uint16_t offset = 0; //keep track of how much of the data has been sent
@@ -299,14 +301,14 @@ static void sendData(Circuit* circuit, uint16_t nextNodeID, uint16_t circID, uin
 }
 
 //function to send a RELAY DATA cell towards the end of the circuit.
-void sendDataForwards(Circuit* circuit, uint8_t* data, size_t length) {
+void sendDataForwards(Circuit* circuit, const char* data, size_t length) {
     printf("sendDataForwards\n");
     sendData(circuit, circuit->hopNodeIDs[0], circuit->circID, data, length, true);
 }
 
 //function to send a RELAY DATA cell towards the origin.
 void sendDataBackwards(Circuit* circuit, uint16_t prevNodeID, uint16_t prevCircID, 
-                        uint8_t* data, size_t length, RelayCellCommand command = DATA) {
+                        const char* data, size_t length, RelayCellCommand command = DATA) {
     printf("sendDataBackwards\n");
     sendData(circuit, prevNodeID, prevCircID, data, length, false, command);
 }
@@ -344,7 +346,7 @@ static void handleDataAtExit(Circuit* circuit, RelayCell cell) {
     if (result != nullptr) {
         printf("Circuit %d: Received data: %s\n", circuit->circID ,result);
         const char* msg = "Data received successfully!";
-        sendDataBackwards(circuit, cell.srcNodeID, cell.circID, (uint8_t*)msg, strlen(msg) + 1, DATA_ACK);
+        sendDataBackwards(circuit, cell.srcNodeID, cell.circID, msg, strlen(msg) + 1, DATA_ACK);
     }
 }
 
@@ -352,11 +354,7 @@ static void handleDataAtExit(Circuit* circuit, RelayCell cell) {
 // ------------------------------------ BUILD CIRCUIT ------------------------------------ //
 
 //Builds a circuit from caller node to destination node.
-Circuit* buildCircuit(uint16_t destNodeID, uint8_t totalHops, LoraHashTable table, NodeRole role) {
-    if (totalHops < 1 || totalHops > MAX_HOPS) {
-        printf("Error: invalid amount of hops: %d\n", totalHops);
-        return nullptr;
-    }
+Circuit* buildCircuit(uint16_t destNodeID) {
     //find empty slot for new circuit
     int idx = findCircuitSlot();
     if (idx == -1) return nullptr;
@@ -364,7 +362,6 @@ Circuit* buildCircuit(uint16_t destNodeID, uint8_t totalHops, LoraHashTable tabl
     Circuit* circuit = &CIRCUITS[idx];
     circuit->circID = (rand() % 65536) + 1;
     circuit->hopCount = 0;
-    circuit->totalHops = totalHops;
     circuit->state = CircuitState::IDLE;
 
     //create the logical network. Add all node's IDs and their edges.
@@ -378,11 +375,12 @@ Circuit* buildCircuit(uint16_t destNodeID, uint8_t totalHops, LoraHashTable tabl
     addLogicalConnection(444, 333);
     //build the route for the circuit
     uint16_t route[4];
-    uint16_t routeLength = determineRoute(111, 444, route, 4);
+    uint16_t routeLength = determineRoute(nodeID, destNodeID, route, 4);
     if (routeLength == 0) {
-        printf("Error: no route found from %d to %d.\n", 111, 444);
+        printf("Error: no route found from %d to %d.\n", nodeID, destNodeID);
         return nullptr;
     }
+    circuit->totalHops = routeLength;
     for (uint16_t i = 0; i < routeLength && route[i] != 0; i++) {
         circuit->hopNodeIDs[i] = route[i];
     }
@@ -625,6 +623,15 @@ static int findCircuitSlot() {
         if (CIRCUITS[i].circID == 0) return i; //empty slot
     }
     return -1; //no empty slot
+}
+
+static void removeCircuit(uint16_t circID) {
+    for (size_t i = 0; i < CIRCUIT_AMOUNT; i++) {
+        if (CIRCUITS[i].circID == circID) {
+            CIRCUITS[i].circID = 0;
+            return;
+        }
+    }
 }
 
 //creates an entry for a certain node. Such an entry contains the previous and 

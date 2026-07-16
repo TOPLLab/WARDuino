@@ -1,4 +1,7 @@
 #include "radio.h"
+
+#if defined(RADIO_LORA)
+
 #include <RadioLib.h>
 
 // -------------------------------------------------
@@ -29,3 +32,5 @@ extern "C" {
         return radio.receive(data, timeout);
     }
 }
+
+#endif //RADIO_LORA

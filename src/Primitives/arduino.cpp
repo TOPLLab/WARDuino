@@ -731,9 +731,9 @@ def_prim(check_initialised, NoneToOneU32) {
 // LoRa MODULE
 extern "C" {
     uint16_t radio_begin_extern(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
-    uint16_t radio_transmit_extern(String data);
+    uint16_t radio_transmit_bytes_extern(uint8_t* data, size_t length);
     uint16_t radio_startReceive_extern();
-    uint16_t radio_receive_extern(String data, uint32_t timeout);
+    uint16_t radio_receive_bytes_extern(uint8_t* data, size_t length);
 }
 
 def_prim(radio_begin, sixToOneU32) {
@@ -759,10 +759,9 @@ def_prim(radio_transmit, twoToOneU32) {
     uint32_t data_length = arg0.uint32;
 
     String data = parse_utf8_string(m->memory.bytes, data_length, data_param).c_str();
-    //TODO: secure with session key encryption
-    //uint32_t encrypted = node.encrypt(node.sessionKey, (uint8_t*)data.c_str(), data.length()); //pseudocode
 
-    int result = radio_transmit_extern(data);
+    //int result = radio_transmit_extern(data);
+    int result = radio_transmit_bytes_extern((uint8_t*)data.c_str(), data.length());
     pop_args(2);
     pushInt32((int)result);
     return true;
@@ -779,7 +778,8 @@ def_prim(radio_receive, twoToOneU32) {
     uint32_t size = arg0.uint32;
 
     String data;
-    int state = radio_receive_extern(data, 2000);
+    //int state = radio_receive_extern(data, 2000);
+    int state = radio_receive_bytes_extern((uint8_t*)data.c_str(), size);
 
     //TODO: decrypt message using session key
     //String data = node.decrypt(node.sessionKey, (uint8_t*)encrypted.c_str(), encrypted.length()); //pseudocode
@@ -887,13 +887,14 @@ def_prim(m5_cardputer_display_print, twoToNoneU32) {
     return true;
 }
 
-/**
+
 
 def_prim(heap_used, zeroToOneU32) {
     pushUInt32(m->warduino->get_heap_used());
     return true;
 }
 
+/**
 //------------------------------------------------------
 // Util functions
 //------------------------------------------------------

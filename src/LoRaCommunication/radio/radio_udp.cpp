@@ -1,4 +1,7 @@
 #include "radio.h"
+
+#if defined(RADIO_UDP)
+
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
@@ -127,5 +130,11 @@ uint16_t radio_receive_bytes_extern(uint8_t* data, size_t length) {
     printf("UDP receive: timeout after %d ms\n", TIMEOUT_MS);
     return 1;
 }
+
+uint16_t radio_startReceive_extern() {
+    return 0; // Not implemented
+}
  
 }
+
+#endif //RADIO_UDP
