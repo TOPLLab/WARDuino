@@ -1,17 +1,29 @@
 #pragma once
 
+#include <unistd.h>
+
 #include <cstdio>
-void setFileDescriptorOptions(int socket_fd);
+
+#ifdef __ZEPHYR__
+#if IS_ENABLED(CONFIG_WIFI)
+#include <sys/socket.h>  // Zephyr renames sockaddr_in with macros
+#define WIFI_ENABLED
+#endif
+#else
+#define WIFI_ENABLED
+#endif
+
+int setFileDescriptorOptions(int socket_fd);
 
 int createSocketFileDescriptor();
 
-void bindSocketToAddress(int socket_fd, struct sockaddr_in address);
+int bindSocketToAddress(int socket_fd, struct sockaddr_in address);
 
-struct sockaddr_in createAddress(int port);
+struct sockaddr_in createServerAddress(int port);
 
 struct sockaddr_in createLocalhostAddress(int port);
 
-void startListening(int socket_fd);
+int startListening(int socket_fd);
 
 int listenForIncomingConnection(int socket_fd, struct sockaddr_in address);
 

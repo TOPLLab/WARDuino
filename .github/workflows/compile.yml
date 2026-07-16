@@ -147,6 +147,7 @@ jobs:
 
               cd zephyr
               west sdk install
+              west blobs fetch hal_espressif
 
           - name: Checkout repository
             uses: actions/checkout@v6

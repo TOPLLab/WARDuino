@@ -22,6 +22,11 @@
 #include <zephyr/random/random.h>
 #include <zephyr/sys/util_macro.h>
 
+#if IS_ENABLED(CONFIG_WIFI)
+#include <zephyr/net/net_mgmt.h>
+#include <zephyr/net/wifi_mgmt.h>
+#endif
+
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -543,6 +548,101 @@ def_prim(display_draw_string, sevenToNoneU32) {
 }
 #endif
 
+#if IS_ENABLED(CONFIG_WIFI)
+#include "Networking/sockets.h"
+#include "Networking/wifi.h"
+
+def_prim(wifi_connect, fourToNoneU32) {
+    uint32_t ssid = arg3.uint32;
+    uint32_t len0 = arg2.uint32;
+    uint32_t pass = arg1.uint32;
+    uint32_t len1 = arg0.uint32;
+
+    std::string ssid_str =
+        parse_utf8_string(m->memory.bytes, len0, ssid).c_str();
+    std::string pass_str =
+        parse_utf8_string(m->memory.bytes, len1, pass).c_str();
+
+    network_connect(ssid_str.c_str(), pass_str.c_str());
+
+    pop_args(4);
+    return true;
+}
+
+def_prim(wifi_disconnect, NoneToOneU32) {
+    pushUInt32(network_disconnect());
+    return true;
+}
+
+def_prim(wifi_localip, twoToOneU32) {
+    // We ignore arg0, we just have two arguments so it's the same on all
+    // platforms.
+    const uint32_t buf_addr = arg1.uint32;
+    pop_args(2);
+    network_ip(reinterpret_cast<char *>(&m->memory.bytes[buf_addr]));
+    const uint32_t len =
+        strlen(reinterpret_cast<const char *>(&m->memory.bytes[buf_addr]));
+    printf("len(wifi_localip) = %d\n", len);
+    pushInt32(len);
+    return true;
+}
+
+def_prim(socket_create, threeToOneU32) {
+    uint32_t ip_addr = arg2.uint32;
+    uint32_t ip_len = arg1.uint32;
+    uint32_t port = arg0.uint32;
+    std::string ip = parse_utf8_string(m->memory.bytes, ip_len, ip_addr);
+    pop_args(3);
+    int socket = sockets::socket_create(ip.c_str(), port);
+    pushInt32(socket);
+    return true;
+}
+
+def_prim(socket_create_server, oneToOneI32) {
+    const int32_t port = arg0.int32;
+    pop_args(1);
+    pushInt32(sockets::socket_create_server(port));
+    return true;
+}
+
+def_prim(socket_accept, oneToOneI32) {
+    const int32_t sock = arg0.int32;
+    pop_args(1);
+    pushInt32(sockets::socket_accept(sock));
+    return true;
+}
+
+def_prim(socket_send, threeToOneU32) {
+    int32_t socket = arg2.int32;
+    uint32_t msg_addr = arg1.uint32;
+    uint32_t msg_len = arg0.uint32;
+    std::string msg = parse_utf8_string(m->memory.bytes, msg_len, msg_addr);
+    pop_args(3);
+    int sent = sockets::socket_send(socket, msg.c_str());
+    pushInt32(sent);
+    return true;
+}
+
+def_prim(socket_receive, threeToOneU32) {
+    int32_t socket = arg2.int32;
+    uint32_t msg_addr = arg1.uint32;
+    uint32_t msg_len = arg0.uint32;
+    pop_args(3);
+    char *buf = reinterpret_cast<char *>(&m->memory.bytes[msg_addr]);
+    pushInt32(sockets::socket_receive(socket, buf, msg_len));
+    return true;
+}
+
+def_prim(socket_close, oneToOneI32) {
+    int32_t socket = arg0.int32;
+    pop_args(1);
+    int result = sockets::socket_close(socket);
+    pushInt32(result);
+    return true;
+}
+
+#endif
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -586,6 +686,18 @@ void install_primitives(Interpreter *interpreter) {
 #if DT_PROP_HAS_NAME(DT_PATH(zephyr_user), pwms, builtin_buzzer)
     install_primitive(tone);
     install_primitive(noTone);
+#endif
+
+#if IS_ENABLED(CONFIG_WIFI)
+    install_primitive(wifi_connect);
+    install_primitive(wifi_disconnect);
+    install_primitive(wifi_localip);
+    install_primitive(socket_create);
+    install_primitive(socket_create_server);
+    install_primitive(socket_accept);
+    install_primitive(socket_send);
+    install_primitive(socket_receive);
+    install_primitive(socket_close);
 #endif
 }
 

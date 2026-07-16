@@ -296,7 +296,6 @@
 	status = "okay";
 	st,adc-clock-source = "SYNC";
 	st,adc-prescaler = < 0x4 >;
-	resolutions = < 0x60630c 0x51630c 0x42630c 0x33630c >;
 	sampling-times = < 0x3 0x7 0xd 0x19 0x30 0x5d 0xf8 0x281 >;
 	st,adc-sequencer = "programmable";
 	st,adc-oversampler = "minimal";
