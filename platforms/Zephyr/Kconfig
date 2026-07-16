@@ -1,3 +1,40 @@
-source "samples/subsys/usb/common/Kconfig.sample_usbd"
-
 source "Kconfig.zephyr"
+
+menu "WARDuino"
+
+config WARDUINO_NETWORKING
+	bool "Enable WARDuino networking primitives"
+	default y
+	select NETWORKING
+	select NET_MGMT
+	select NET_MGMT_EVENT
+	select NET_MGMT_EVENT_INFO
+	select WIFI
+	select NET_L2_WIFI_MGMT
+	select NET_IPV4
+	select NET_DHCPV4
+	select NET_SOCKETS
+	select NET_TCP
+	help
+	  Enables all networking primitives supported by WARDuino.
+
+if WARDUINO_NETWORKING
+
+config NET_PKT_RX_COUNT
+	default 10
+
+config NET_PKT_TX_COUNT
+	default 10
+
+config NET_BUF_RX_COUNT
+	default 20
+
+config NET_BUF_TX_COUNT
+	default 20
+
+config NET_MAX_CONTEXTS
+	default 10
+
+endif # WARDUINO_NETWORKING
+
+endmenu
