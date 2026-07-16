@@ -1,80 +1,88 @@
 #include "sockets.h"
 
-#ifndef __ZEPHYR__
+#ifdef WIFI_ENABLED
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #endif
-#include <unistd.h>
 
-#ifndef __ZEPHYR__
 #include <csignal>
-#endif
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-#ifndef __ZEPHYR__
+#ifdef WIFI_ENABLED
 // Socket Debugger Interface
-void setFileDescriptorOptions(int socket_fd) {
+int setFileDescriptorOptions(int socket_fd) {
     int opt = 1;
     if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
         perror("Failed to set socket file descriptor options");
-        exit(EXIT_FAILURE);
+        return -1;
     }
+    return 0;
 }
 
 int createSocketFileDescriptor() {
     int socket_fd;
-    if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    if ((socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         perror("Failed to make a new socket file descriptor");
-        exit(EXIT_FAILURE);
+        return -1;
     }
-    setFileDescriptorOptions(socket_fd);
+    if (setFileDescriptorOptions(socket_fd) < 0) {
+        return -1;
+    }
     return socket_fd;
 }
 
-void bindSocketToAddress(int socket_fd, struct sockaddr_in address) {
-    if (bind(socket_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+int bindSocketToAddress(const int socket_fd, sockaddr_in address) {
+    if (bind(socket_fd, reinterpret_cast<sockaddr *>(&address),
+             sizeof(address)) < 0) {
         perror("Binding socket to address failed");
-        exit(EXIT_FAILURE);
+        close(socket_fd);
+        return -1;
     }
+    return 0;
 }
 
-struct sockaddr_in createAddress(int port) {
-    struct sockaddr_in address{};
+sockaddr_in createServerAddress(int port) {
+    sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
     return address;
 }
 
-struct sockaddr_in createLocalhostAddress(int port) {
-    struct sockaddr_in address = createAddress(port);
-    const char hostname[] = "localhost";
-    struct hostent *resolvedhost = gethostbyname(hostname);
-    memcpy(&address.sin_addr, resolvedhost->h_addr_list[0],
-           resolvedhost->h_length);
-    return address;
-}
-
-void startListening(int socket_fd) {
+int startListening(const int socket_fd) {
     if (listen(socket_fd, 1) < 0) {
         perror("listen");
-        exit(EXIT_FAILURE);
+        close(socket_fd);
+        return -1;
     }
+    return 0;
 }
 
-int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
+int listenForIncomingConnection(const int socket_fd, sockaddr_in address) {
     int new_socket;
     int size = sizeof(address);
-    if ((new_socket = accept(socket_fd, (struct sockaddr *)&address,
-                             (socklen_t *)&size)) < 0) {
+    if ((new_socket = accept(socket_fd, reinterpret_cast<sockaddr *>(&address),
+                             reinterpret_cast<socklen_t *>(&size))) < 0) {
         perror("Failed to listen for incoming connections");
         exit(EXIT_FAILURE);
     }
     return new_socket;
+}
+
+#endif
+
+#ifndef __ZEPHYR__
+sockaddr_in createLocalhostAddress(int port) {
+    sockaddr_in address = createServerAddress(port);
+    constexpr char hostname[] = "localhost";
+    const hostent *resolvedhost = gethostbyname(hostname);
+    memcpy(&address.sin_addr, resolvedhost->h_addr_list[0],
+           resolvedhost->h_length);
+    return address;
 }
 #endif
 
@@ -125,9 +133,16 @@ ClientSocket::ClientSocket(int server) : WebSocket(server) {}
 void WebSocket::open() {
     // bind socket to address
     this->fileDescriptor = createSocketFileDescriptor();
-    struct sockaddr_in address = createAddress(this->port);
-    bindSocketToAddress(this->fileDescriptor, address);
-    startListening(this->fileDescriptor);
+    if (this->fileDescriptor < 0) {
+        exit(EXIT_FAILURE);
+    }
+    const sockaddr_in address = createServerAddress(this->port);
+    if (bindSocketToAddress(this->fileDescriptor, address) < 0) {
+        exit(EXIT_FAILURE);
+    }
+    if (startListening(this->fileDescriptor) < 0) {
+        exit(EXIT_FAILURE);
+    }
     printf("Listening on port 127.0.0.1:%i\n", this->port);
     fflush(stdout);
 
@@ -138,8 +153,8 @@ void WebSocket::open() {
 void ClientSocket::open() {
     // bind socket to address
     this->fileDescriptor = createSocketFileDescriptor();
-    struct sockaddr_in address = createAddress(this->port);  // server port
-    if (connect(this->fileDescriptor, (struct sockaddr *)&address,
+    sockaddr_in address = createServerAddress(this->port);  // server port
+    if (connect(this->fileDescriptor, reinterpret_cast<sockaddr *>(&address),
                 sizeof(address)) < 0) {
         perror("Failed to connect to socket");
         exit(EXIT_FAILURE);

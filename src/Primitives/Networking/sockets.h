@@ -1,7 +1,6 @@
 #pragma once
 
 #include <arpa/inet.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -9,12 +8,13 @@
 #include <cstring>
 #include <ctime>
 
+#include "../../Utils/sockets.h"
+
 namespace sockets {
-inline int socket_create(const char *ip, const uint32_t port) {
+inline int socket_create(const char *ip, const int32_t port) {
     printf("Create socket %s:%d\n", ip, port);
-    const int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    const int sock = createSocketFileDescriptor();
     if (sock < 0) {
-        printf("Socket creation failed\n");
         return -1;
     }
 
@@ -34,30 +34,16 @@ inline int socket_create(const char *ip, const uint32_t port) {
     return sock;
 }
 
-inline int socket_create_server(const uint32_t port) {
-    const int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+inline int socket_create_server(const int32_t port) {
+    const int sock = createSocketFileDescriptor();
     if (sock < 0) {
-        printf("Server socket creation failed\n");
         return -1;
     }
-
-    sockaddr_in addr = {};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = INADDR_ANY;
-
-    constexpr int value = 1;
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
-
-    if (bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0) {
-        printf("error: bind: %s\n", strerror(errno));
-        close(sock);
+    const sockaddr_in addr = createServerAddress(port);
+    if (bindSocketToAddress(sock, addr) < 0) {
         return -1;
     }
-
-    if (listen(sock, 1) < 0) {
-        printf("error: listen: %s\n", strerror(errno));
-        close(sock);
+    if (startListening(sock) < 0) {
         return -1;
     }
 
