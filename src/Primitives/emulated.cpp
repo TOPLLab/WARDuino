@@ -133,6 +133,17 @@ def_prim(print_string, twoToNoneU32) {
     return true;
 }
 
+def_prim(tone, oneToNoneI32) {
+    printf("EMU: tone(%d)\n", arg0.uint32);
+    pop_args(1);
+    return true;
+}
+
+def_prim(noTone, NoneToNoneU32) {
+    printf("EMU: noTone()\n");
+    return true;
+}
+
 def_prim(wifi_connect, fourToNoneU32) {
     uint32_t ssid = arg3.uint32;
     uint32_t len0 = arg2.uint32;
@@ -585,6 +596,9 @@ void install_primitives(Interpreter *interpreter) {
 
     install_primitive(print_int);
     install_primitive(print_string);
+
+    install_primitive(tone);
+    install_primitive(noTone);
 
     install_primitive(wifi_connect);
     install_primitive(wifi_disconnect);
