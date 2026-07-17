@@ -73,7 +73,7 @@ inline int socket_send(const int socket, const char *message,
 }
 
 inline int socket_receive(const int socket, char *buffer, const size_t size) {
-    printf("socket_receive(%d, 0x%p, %lu)\n", socket, buffer, size);
+    printf("socket_receive(%d, %p, %lu)\n", socket, buffer, size);
     return recv(socket, buffer, size, 0);
 }
 
