@@ -4,7 +4,7 @@ CONFIG = .config
 -include ${CONFIG}
 
 ifdef PAUSED
-	COMMAND := uint8_t command[] = {'0', '3', '\\\n'}; wac->handleInterrupt(3, command);
+	COMMAND := uint8_t command[] = {'0', '3', '0', '1', '\\\n'}; wac->handleInterrupt(5, command);
 else
 	COMMAND :=
 endif
