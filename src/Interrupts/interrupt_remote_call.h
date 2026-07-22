@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "../Utils/util.h"
 #include "../WARDuino/structs.h"
 
@@ -24,6 +26,7 @@ typedef struct CallResult {
 } CallResult;
 
 typedef struct FunCallResponse {
+    uint32_t id{};
     uint8_t type{};
     uint8_t error_code{};
     CallResult *result;
@@ -41,7 +44,7 @@ char *Interrupt_RemoteCall_serialize_request(FunCallRequest &request,
 
 bool Interrupt_RemoteCall_deserialize_request(const Module *m,
                                               FunCallRequest &request,
-                                              uint8_t *encoded_request,
+                                              DebugMessage *msg,
                                               uint8_t &error_code);
 
 bool Interrupt_RemoteCall_deserialize_response(FunCallResponse *response,
@@ -55,7 +58,7 @@ void Interrupt_RemoteCall_free_response(FunCallResponse &response);
 
 // Needed by the Target VM where the call has the happen
 void Interrupt_RemoteCall_handle_request(const Channel &requester, Module *m,
-                                         uint8_t *data);
+                                         DebugMessage *msg);
 
 void Interrupt_RemoteCall_do_local_call(Module *m, const uint32_t fun,
                                         StackValue *args, uint32_t nr_args,
