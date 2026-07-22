@@ -292,7 +292,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptPOPEvent:
             CallbackHandler::resolve_event(*this->channel, m, true);
-            free(interruptData);
+            Interrupt_send_JSON_success_message(*this->channel,
+                                                interruptPOPEvent, msg->id);
             break;
         case interruptPUSHEvent:
             this->handlePushedEvent(msg);
