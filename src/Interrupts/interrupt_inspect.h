@@ -1,4 +1,9 @@
 #pragma once
+#include <sys/types.h>
+
+#include <cstdint>
+
+#include "../Debug/debug_msg.h"
 #include "../Utils/sockets.h"
 #include "../WARDuino/structs.h"
 
@@ -29,11 +34,10 @@ typedef struct InspectStateRequest {
 typedef InspectStateRequest StateToInspect;
 
 void Interrupt_Inspect_handle_request(const Channel &requester, Module *m,
-                                      uint8_t *encoded_request);
+                                      DebugMessage *msg);
 
 bool Interrupt_Inspect_deserialize_request(InspectStateRequest &request,
-                                           uint8_t *encoded_request,
-                                           uint8_t &error_code);
+                                           uint8_t *data, uint8_t &error_code);
 
 bool Interrupt_Inspect_inspect_json_output(const Channel &requester,
                                            const Module *m,
