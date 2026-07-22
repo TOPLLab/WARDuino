@@ -44,6 +44,8 @@ class Debugger {
     bool connected_to_proxy = false;
     std::mutex *supervisor_mutex;
 
+    uint32_t step_id = 0;
+
     // Private methods
 
     void printValue(StackValue *v, uint32_t idx, bool end) const;
@@ -62,9 +64,10 @@ class Debugger {
     void handleInterruptRUN(DebugMessage *msg, Module *m,
                             RunningState *program_state);
 
-    void handleSTEP(Module *m, RunningState *program_state);
+    void handleSTEP(DebugMessage *msg, Module *m, RunningState *program_state);
 
-    void handleSTEPOver(Module *m, RunningState *program_state);
+    void handleSTEPOver(DebugMessage *msg, Module *m,
+                        RunningState *program_state);
 
     void handleInterruptBP(Module *m, uint8_t *interruptData);
 

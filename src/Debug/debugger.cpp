@@ -143,7 +143,10 @@ void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) {
     this->channel->write("AT %" PRIu32 "!\n", bp);
 }
 
-void Debugger::notifyStepCompleted() { this->channel->write("STEP!\n"); }
+void Debugger::notifyStepCompleted() {
+    Interrupt_send_JSON_success_message(*this->channel, interruptSTEP,
+                                        this->step_id);
+}
 
 /**
  * Validate if there are interrupts and execute them
@@ -189,12 +192,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptSTEP:
-            this->handleSTEP(m, program_state);
-            free(interruptData);
+            this->handleSTEP(msg, m, program_state);
             break;
         case interruptSTEPOver:
-            this->handleSTEPOver(m, program_state);
-            free(interruptData);
+            this->handleSTEPOver(msg, m, program_state);
             break;
         case interruptBPAdd:  // Breakpoint
         case interruptBPRem:  // Breakpoint remove
@@ -402,9 +403,11 @@ void Debugger::handleInterruptRUN(DebugMessage *msg, Module *m,
     Interrupt_send_JSON_success_message(*this->channel, interruptRUN, msg->id);
 }
 
-void Debugger::handleSTEP(Module *m, RunningState *program_state) {
+void Debugger::handleSTEP(DebugMessage *msg, Module *m,
+                          RunningState *program_state) {
     *program_state = WARDUINOstep;
     this->skipBreakpoint = m->pc_ptr;
+    this->step_id = msg->id;
 }
 
 void Debugger::handleSTEPOver(Module *m, RunningState *program_state) {
