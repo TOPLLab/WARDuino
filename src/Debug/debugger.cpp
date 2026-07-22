@@ -1282,6 +1282,13 @@ void Debugger::handleHookOnAddress(Module *m, DebugMessage *msg) {
     Interrupt_HookOnAddr_handle_request(*this->channel, *m, this->instrument,
                                         msg);
 }
+
+void Debugger::handleHookOnEvent(DebugMessage *msg) {
+    Interrupt_HookOnEvent_handle_request(*this->channel, this->instrument, msg);
+}
+
+void Debugger::handleHookOnError(DebugMessage *msg) {
+    Interrupt_HookOnError_handle_request(*this->channel, this->instrument, msg);
 }
 
 void Debugger::loadSnapshot(Module *m, DebugMessage *msg) {
