@@ -214,8 +214,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleDump(m, msg, true);
             break;
         case interruptReset:
-            this->reset(m);
-            free(interruptData);
+            this->reset(m, msg);
             break;
         case interruptUPDATEFun:
             this->channel->write("CHANGE function!\n");
@@ -1237,11 +1236,12 @@ bool Debugger::handleUpdateStackValue(Module *m, uint8_t *data) {
     return true;
 }
 
-bool Debugger::reset(Module *m) {
+bool Debugger::reset(Module *m, DebugMessage *msg) {
     auto wasm = (uint8_t *)malloc(sizeof(uint8_t) * m->byte_count);
     memcpy(wasm, m->bytes, m->byte_count);
     m->warduino->update_module(m, wasm, m->byte_count);
-    this->channel->write("Reset WARDuino.\n");
+    Interrupt_send_JSON_success_message(*this->channel, msg->interrupt,
+                                        msg->id);
     return true;
 }
 
