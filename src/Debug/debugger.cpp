@@ -420,8 +420,10 @@ void Debugger::handleSTEP(DebugMessage *msg, Module *m,
     this->step_id = msg->id;
 }
 
-void Debugger::handleSTEPOver(Module *m, RunningState *program_state) {
+void Debugger::handleSTEPOver(DebugMessage *msg, Module *m,
+                              RunningState *program_state) {
     uint8_t const opcode = *m->pc_ptr;
+    this->step_id = msg->id;
     if (opcode == 0x10) {  // step over direct call
         this->mark = m->pc_ptr + 2;
         *program_state = WARDUINOrun;
@@ -431,7 +433,7 @@ void Debugger::handleSTEPOver(Module *m, RunningState *program_state) {
         *program_state = WARDUINOrun;
     } else {
         // normal step
-        this->handleSTEP(m, program_state);
+        this->handleSTEP(msg, m, program_state);
     }
 }
 
