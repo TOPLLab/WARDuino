@@ -303,6 +303,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
     }
+    DebugMessage_free(msg);
     fflush(stdout);
     return true;
 }
