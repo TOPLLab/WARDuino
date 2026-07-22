@@ -1,8 +1,10 @@
 #include "interrupt_around_function.h"
 
+#include <cstdint>
+
 #include "../Interrupts/interrupt_response.h"
-#include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "interrupts.h"
 
 /*
  * Declaration private functions
@@ -15,24 +17,16 @@ bool registerOrUnregisterAroundFunctionHook(
  * Public functions
  */
 
-ssize_t Interrupt_AroundFunction_serialize_response(
-    const AroundFunctionResponse &response, char *dest) {
-    return Interrupt_serialize_JSON_response(
-        interruptAroundFunction, response.type, response.error_code, dest);
-}
-
 void Interrupt_AroundFunction_send_response(
     const Channel &channel, const AroundFunctionResponse &response) {
-    char buffer[100]{};
-    if (Interrupt_AroundFunction_serialize_response(response, buffer) > 0) {
-        channel.write(buffer);
-    }
+    char *subContent = nullptr;
+    Interrupt_send_JSON_message(channel, interruptAroundFunction, response.type,
+                                response.id, subContent, response.error_code);
 }
 
 void Interrupt_AroundFunction_handle_request(const Channel &channel,
                                              InstrumentationManager &manager,
-                                             Module *m,
-                                             uint8_t *encoded_request) {
+                                             Module *m, DebugMessage *msg) {
     AroundFunctionRequest request;
     StackValue val;
     request.hook.value.result = &val;  // trick to avoid malloc
@@ -40,33 +34,32 @@ void Interrupt_AroundFunction_handle_request(const Channel &channel,
     AroundFunctionResponse response;
     uint8_t error{};
 
-    if (Interrupt_AroundFunction_deserialize_request(request, encoded_request,
-                                                     error) &&
+    if (Interrupt_AroundFunction_deserialize_request(request, msg, error) &&
         registerOrUnregisterAroundFunctionHook(manager, *m, request, error)) {
         response.type = INTERRUPT_RESPONSE_TYPE_SUCCESS;
     } else {
         response.type = INTERRUPT_RESPONSE_TYPE_ERROR;
         response.error_code = error;
     }
-
+    response.id = msg->id;
     Interrupt_AroundFunction_send_response(channel, response);
 }
 
 bool Interrupt_AroundFunction_deserialize_request(AroundFunctionRequest &dest,
-                                                  uint8_t *encoded_data,
+                                                  DebugMessage *msg,
                                                   uint8_t &error_code) {
     // format: interrupt nr (1 byte) | Target func (LEB32)
     // | add or Remove (1 byte) | Schedule | Hook
-    uint8_t *data = encoded_data;
-    if (*data++ != interruptAroundFunction) {
+    if (msg->interrupt != interruptAroundFunction) {
         error_code = AROUND_FUNC_ERROR_CODE_REQUEST_HAS_WRONG_INTERRUPT_NR;
         return false;
     }
+    uint8_t *data = msg->data;
     dest.func_idx = read_LEB_32(&data);
     dest.addHook = *data++;
     bool success = true;
     if (dest.addHook) {
-        success = Hooks_deserialize_hook(dest.hook, &data, error_code);
+        success = Hooks_deserialize_hook(dest.hook, msg->id, &data, error_code);
         if (success) {
             switch (dest.hook.kind) {
                 case ValueSubstitution:
@@ -82,6 +75,7 @@ bool Interrupt_AroundFunction_deserialize_request(AroundFunctionRequest &dest,
             }
         }
     }
+    dest.id = msg->id;
     return success;
 }
 
