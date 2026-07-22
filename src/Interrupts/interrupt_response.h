@@ -2,10 +2,7 @@
 #include <unistd.h>
 
 #include <cstdint>
-#include <functional>
-#include <string>  // tmp import
 
-#include "../Instrumentation/instrumentation_structs.h"
 #include "../Utils/sockets.h"
 #include "./interrupts.h"
 
@@ -13,31 +10,31 @@
 #define INTERRUPT_RESPONSE_TYPE_ERROR 02
 #define INTERRUPT_RESPONSE_TYPE_SUBSCRIPTION 03
 
-/**
- * Function that serializes a generic interrupt response as a json string into
- * `dest`. Function ignores error_code if
- *
- * @param interrupt_nr the interrupt number for which the response is being
- * serialized
- * @param response_type type of response (either
- * INTERRUPT_RESPONSE_TYPE_SUCCESS, INTERRUPT_RESPONSE_TYPE_ERROR, or
- * INTERRUPT_RESPONSE_TYPE_SUBSCRIPTION)
- * @param error_code the error number that occurred. `error_code` is isgnored
- * when `response_type != INTERRUPT_RESPONSE_TYPE_ERROR`.
- * @param dest where to write the serialized response
- * @return returns nr of bytes written in `dest`. Returns -1 in when an error
- * occurred during serialization
- */
-ssize_t Interrupt_serialize_JSON_response(const InterruptTypes interrupt_nr,
-                                          const uint8_t response_type,
-                                          const uint8_t error_code, char *dest);
+bool Interrupt_send_JSON_message(const Channel &output,
+                                 InterruptTypes interrupt_nr,
+                                 const uint8_t response_type, uint32_t id,
+                                 char *subContent, uint8_t error_code);
 
-void Interrupt_send_JSON_subscribe_message(
-    const Channel &output, InterruptTypes interrupt_nr,
-    std::function<void()> outputMessageBody);
+bool Interrupt_send_JSON_start_message(const Channel &output,
+                                       const InterruptTypes interrupt_nr,
+                                       const uint8_t response_type,
+                                       const uint32_t id, bool hasSubContent,
+                                       const uint8_t error_code);
+
+bool Interrupt_send_JSON_end_message(const Channel &output,
+                                     bool newline = true);
+
+void Interrupt_send_JSON_success_message(const Channel &output,
+                                         InterruptTypes interrupt_nr,
+                                         uint32_t id,
+                                         char *subContent = nullptr);
+
+void Interrupt_send_JSON_failure_message(const Channel &output,
+                                         InterruptTypes interrupt_nr,
+                                         uint32_t id, const uint8_t error_code,
+                                         char *subContent = nullptr);
+
 
 ssize_t Interrupt_serialize_hexa_string_response(
-    const InterruptTypes interrupt_nr, const uint8_t response_type, char *dest);
-
-// Tmp function for debug
-void getHumanReadableInterrupt(std::string &s, uint8_t interruptNr);
+    const InterruptTypes interrupt_nr, const uint32_t id, uint8_t response_type,
+    char *dest);

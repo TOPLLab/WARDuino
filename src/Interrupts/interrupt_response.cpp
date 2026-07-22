@@ -2,160 +2,92 @@
 
 #include <stdio.h>
 
+#include <cstdint>
+#include <cstdio>
+
 #include "../Utils/util.h"
 
-ssize_t Interrupt_serialize_JSON_response(const InterruptTypes interrupt_nr,
-                                          const uint8_t response_type,
-                                          const uint8_t error_code,
-                                          char *dest) {
-    ssize_t offset = 0;
-    offset += sprintf(dest, R"({"interrupt":"%02X","kind":"%02X")",
-                      interrupt_nr, response_type);
+void Interrupt_send_JSON_subscribe_start_message(const Channel &output,
+                                                 InterruptTypes interrupt_nr,
+                                                 uint32_t id) {
+    output.write(R"({"interrupt":"%02X","id":"%02X","kind":"%02X","sub":)",
+                 interrupt_nr, id, INTERRUPT_RESPONSE_TYPE_SUBSCRIPTION);
+}
+
+void Interrupt_send_JSON_subscribe_end_message(const Channel &output) {
+    output.write("}\n");
+}
+
+bool Interrupt_send_JSON_message(const Channel &output,
+                                 InterruptTypes interrupt_nr,
+                                 const uint8_t response_type, uint32_t id,
+                                 char *subContent, uint8_t error_code) {
+    if (!Interrupt_send_JSON_start_message(output, interrupt_nr, response_type,
+                                           id, subContent != nullptr,
+                                           error_code))
+        return false;
+
+    if (subContent != nullptr) output.write(subContent);
+
+    return Interrupt_send_JSON_end_message(output);
+}
+
+bool Interrupt_send_JSON_start_message(const Channel &output,
+                                       InterruptTypes interrupt_nr,
+                                       const uint8_t response_type, uint32_t id,
+                                       bool subContent, uint8_t error_code) {
+    output.write(R"({"interrupt":"%02X","kind":"%02X","id":"%02X")",
+                 interrupt_nr, response_type, id);
     switch (response_type) {
         case INTERRUPT_RESPONSE_TYPE_ERROR:
-            offset +=
-                sprintf(dest + offset, R"(,"error_code":"%02X")", error_code);
+            output.write(R"(,"error_code":"%02X")", error_code);
         case INTERRUPT_RESPONSE_TYPE_SUCCESS:
+        case INTERRUPT_RESPONSE_TYPE_SUBSCRIPTION:
             break;
         default:
             printf(
                 "Interrupt_serialize_json_response: response type is "
                 "unknown %02X\n",
                 response_type);
-            return -1;
+            return false;
     }
-    offset += sprintf(dest + offset, "}\n");
-    return offset;
+
+    if (subContent) output.write(R"(,"sub":)");
+    return true;
 }
 
-void Interrupt_send_JSON_subscribe_message(
-    const Channel &output, InterruptTypes interrupt_nr,
-    std::function<void()> outputMessageBody) {
-    output.write(R"({"interrupt":"%02X","kind":"%02X","sub":)", interrupt_nr,
-                 INTERRUPT_RESPONSE_TYPE_SUBSCRIPTION);
-    outputMessageBody();
-    output.write("}\n");
+bool Interrupt_send_JSON_end_message(const Channel &output, bool newline) {
+    return output.write("}%s", newline ? "\n" : "") > 0;
+}
+
+void Interrupt_send_JSON_success_message(const Channel &output,
+                                         InterruptTypes interrupt_nr,
+                                         uint32_t id, char *subContent) {
+    Interrupt_send_JSON_message(output, interrupt_nr,
+                                INTERRUPT_RESPONSE_TYPE_SUCCESS, id, subContent,
+                                NO_ERROR);
+}
+
+void Interrupt_send_JSON_failure_message(const Channel &output,
+                                         InterruptTypes interrupt_nr,
+                                         uint32_t id, const uint8_t error_code,
+                                         char *subContent) {
+    Interrupt_send_JSON_message(output, interrupt_nr,
+                                INTERRUPT_RESPONSE_TYPE_ERROR, id, subContent,
+                                error_code);
 }
 
 ssize_t Interrupt_serialize_hexa_string_response(
-    const InterruptTypes interrupt_nr, const uint8_t response_type,
-    char *dest) {
-    // format: interrupt_nr (1byte) | message_type (1byte)
-    uint8_t buffer[2] = {};
+    const InterruptTypes interrupt_nr, const uint32_t id,
+    const uint8_t response_type, char *dest) {
+    // format: interrupt_nr (1byte) | message_type (1byte) | id (LEB32)
+    uint8_t buffer[100] = {};
     buffer[0] = interrupt_nr;
     buffer[1] = response_type;
+
+    ssize_t written = write_32BIT_LEB(id, buffer + 2);
     HexUInt8Encoding result{};
     result.encoding = dest;
-    uint8_to_hex(buffer, 2, &result);
+    uint8_to_hex(buffer, 2 + written, &result);
     return result.bytesWritten;
-}
-
-void getHumanReadableInterrupt(std::string &s, uint8_t interruptNr) {
-    switch (interruptNr) {
-        case interruptRUN:
-            s = "interruptRun";
-            break;
-        case interruptHALT:
-            s = "interruptHALT";
-            break;
-        case interruptPAUSE:
-            s = "interruptPAUSE";
-            break;
-        case interruptSTEP:
-            s = "interruptSTEP";
-            break;
-        case interruptSTEPOver:
-            s = "interruptSTEPOver";
-            break;
-        case interruptBPAdd:
-            s = "interruptBPAdd";
-            break;
-        case interruptBPRem:
-            s = "interruptBPRem";
-            break;
-        case interruptInspect:
-            s = "interruptInspect";
-            break;
-        case interruptDUMP:
-            s = "interruptDUMP";
-            break;
-        case interruptDUMPLocals:
-            s = "interruptDUMPLocals";
-            break;
-        case interruptDUMPFull:
-            s = "interruptDUMPFull";
-            break;
-        case interruptReset:
-            s = "interruptReset";
-            break;
-        case interruptUPDATEFun:
-            s = "interruptUPDATEFun";
-            break;
-        case interruptUPDATELocal:
-            s = "interruptUPDATELocal";
-            break;
-        case interruptUPDATEModule:
-            s = "interruptUPDATEModule";
-            break;
-        case interruptUPDATEGlobal:
-            s = "interruptUPDATEGlobal";
-            break;
-        case interruptUPDATEStackValue:
-            s = "interruptUPDATEStackValue";
-            break;
-        case interruptINVOKE:
-            s = "interruptINVOKE";
-            break;
-        case interruptFunCall:
-            s = "interruptFunCall";
-            break;
-        case interruptAroundFunction:
-            s = "interruptAroundFunction";
-            break;
-        case interruptHookOnAddress:
-            s = "interruptHookOnAddress";
-            break;
-        case interruptHookOnEvent:
-            s = "interruptHookOnEvent";
-            break;
-        case interruptSnapshot:
-            s = "interruptSnapshot";
-            break;
-        case interruptLoadSnapshot:
-            s = "interruptLoadSnapshot";
-            break;
-        case interruptMonitorProxies:
-            s = "interruptMonitorProxies";
-            break;
-        case interruptProxyCall:
-            s = "interruptProxyCall";
-            break;
-        case interruptProxify:
-            s = "interruptProxify";
-            break;
-        case interruptDUMPAllEvents:
-            s = "interruptDUMPAllEvents";
-            break;
-        case interruptDUMPEvents:
-            s = "interruptDUMPEvents";
-            break;
-        case interruptPOPEvent:
-            s = "interruptPOPEvent";
-            break;
-        case interruptPUSHEvent:
-            s = "interruptPUSHEvent";
-            break;
-        case interruptDUMPCallbackmapping:
-            s = "interruptDUMPCallbackmapping";
-            break;
-        case interruptRecvCallbackmapping:
-            s = "interruptRecvCallbackmappin";
-            break;
-        case interruptHookOnError:
-            s = "interruptHookOnError";
-            break;
-        default:
-            s = "unknwon interrupt";
-            break;
-    }
 }
