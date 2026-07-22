@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <functional>
 #include <stack>
 #include <unordered_map>
 
@@ -37,7 +36,12 @@ typedef struct HookArgs {
     uint32_t addr;
     RunningState &runningState;
     uint32_t local_fidx;
-    std::function<void(std::function<void()>)> sendSubscriptionMsg;
+
+    void (*hookOnAddressSubContent)(const Channel &, HookMoment, uint32_t,
+                                    uint32_t, bool);
+    void (*hookOnErrorSubContent)(const Channel &, uint32_t, bool);
+    void (*hookOnEventSubContent)(const Channel &, uint32_t, HookEventMoment,
+                                  bool);
     HookMoment moment;
     HookEventMoment eventMoment;
     Event *ev;
