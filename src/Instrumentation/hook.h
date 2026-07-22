@@ -39,6 +39,7 @@ enum HookKind {
 
 struct Hook {
     HookKind kind;
+    uint32_t id;
     union {
         uint32_t target_fidx;
         StackValue *result{};
@@ -78,7 +79,7 @@ void Hooks_free_hook(Hook *hook);
 
 void Hooks_free_hooks(Hook *hook);
 
-bool Hooks_deserialize_hook(Hook &dest, uint8_t **encoded_hook,
+bool Hooks_deserialize_hook(Hook &dest, uint32_t id, uint8_t **encoded_hook,
                             uint8_t &error_code);
 
 bool Hooks_deserialize_schedule(Schedule &dest, uint8_t **encoded_schedule,
