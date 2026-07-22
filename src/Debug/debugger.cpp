@@ -264,8 +264,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptHookOnAddress:
-            this->handleHookOnAddress(m, interruptData);
-            free(interruptData);
+            this->handleHookOnAddress(m, msg);
             break;
         case interruptHookOnEvent:
             this->handleHookOnEvent(msg);
@@ -1279,9 +1278,10 @@ void Debugger::handleFuncCall(Module *m, uint8_t *data) {
     Interrupt_RemoteCall_handle_request(*this->channel, m, data);
 }
 
-void Debugger::handleHookOnAddress(Module *m, uint8_t *data) {
+void Debugger::handleHookOnAddress(Module *m, DebugMessage *msg) {
     Interrupt_HookOnAddr_handle_request(*this->channel, *m, this->instrument,
-                                        data);
+                                        msg);
+}
 }
 
 void Debugger::loadSnapshot(Module *m, DebugMessage *msg) {

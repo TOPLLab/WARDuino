@@ -208,7 +208,7 @@ class Debugger {
 
     void handleFuncCall(Module *m, uint8_t *data);
 
-    void handleHookOnAddress(Module *m, uint8_t *data);
+    void handleHookOnAddress(Module *m, DebugMessage *msg);
 
     void handleHookOnEvent(DebugMessage *msg);
 
