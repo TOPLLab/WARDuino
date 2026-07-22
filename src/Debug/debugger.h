@@ -69,7 +69,7 @@ class Debugger {
     void handleSTEPOver(DebugMessage *msg, Module *m,
                         RunningState *program_state);
 
-    void handleInterruptBP(Module *m, uint8_t *interruptData);
+    void handleInterruptBP(Module *m, DebugMessage *msg);
 
     //// Information dumps
 
