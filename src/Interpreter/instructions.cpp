@@ -1829,6 +1829,12 @@ bool interpret(Module *m, bool waiting) {
               program_done ? "expectedly" : "unexpectedly",
               success ? "ok" : "error");
 
+    if (success && m->warduino->debugger->instrument.awakeOnNextInstruction) {
+        // after hooks left to run on the last instr
+        success = m->warduino->debugger->instrument.runHooksAfterWasmAddr(
+            *m->warduino->debugger->channel, m, lc, m->warduino->program_state);
+    }
+
     if (!success && m->warduino->debugger->instrument.interceptError) {
         m->warduino->debugger->instrument.runHooksOnError(
             *m->warduino->debugger->channel, m, lc);
