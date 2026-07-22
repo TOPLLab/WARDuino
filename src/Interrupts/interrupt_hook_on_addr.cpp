@@ -1,7 +1,10 @@
 #include "interrupt_hook_on_addr.h"
 
+#include <cstdint>
+
 #include "../Utils/util.h"
 #include "interrupt_response.h"
+#include "interrupts.h"
 
 /*
  * Declaration private functions
@@ -15,7 +18,7 @@ bool registerHookOnAddr(InstrumentationManager &manager, Module &m,
 
 void Interrupt_HookOnAddr_handle_request(const Channel &channel, Module &module,
                                          InstrumentationManager &manager,
-                                         uint8_t *encoded_request) {
+                                         DebugMessage *msg) {
     Hook hook{};
     HookOnAddrRequest request;
     request.hook = &hook;
@@ -23,29 +26,29 @@ void Interrupt_HookOnAddr_handle_request(const Channel &channel, Module &module,
     HookOnAddrResponse response;
     uint8_t error{};
 
-    if (Interrupt_HookOnAddr_deserialize_request(request, encoded_request,
-                                                 error) &&
+    if (Interrupt_HookOnAddr_deserialize_request(request, msg, error) &&
         registerHookOnAddr(manager, module, request, error)) {
         response.type = INTERRUPT_RESPONSE_TYPE_SUCCESS;
     } else {
         response.type = INTERRUPT_RESPONSE_TYPE_ERROR;
         response.error_code = error;
     }
-
+    response.id = msg->id;
     Interrupt_HookOnAddr_send_response(channel, response);
 }
 
 bool Interrupt_HookOnAddr_deserialize_request(HookOnAddrRequest &dest,
-                                              uint8_t *encoded_request,
+                                              DebugMessage *msg,
                                               uint8_t &error_code) {
     // format: InterruptNr (1 byte)| addr (LEB32) | HookMoment (1 byte)
     // | add or remove (1 byte) |hook
 
-    uint8_t *data = encoded_request;
-    if (*data++ != interruptHookOnAddress) {
+    if (msg->interrupt != interruptHookOnAddress) {
         error_code = HOOK_ON_ADDR_ERROR_CODE_REQUEST_HAS_WRONG_INTERRUPT_NR;
         return false;
     }
+
+    uint8_t *data = msg->data;
     dest.addr = read_LEB_32(&data);
     dest.moment = (HookMoment)*data++;
     switch (dest.moment) {
@@ -58,26 +61,19 @@ bool Interrupt_HookOnAddr_deserialize_request(HookOnAddrRequest &dest,
     }
 
     dest.add = *data++;
+    dest.id = msg->id;
     if (dest.add) {
-        return Hooks_deserialize_hook(*dest.hook, &data, error_code);
+        return Hooks_deserialize_hook(*dest.hook, msg->id, &data, error_code);
     }
     // removing hooks so nothing to deserialize
     dest.hook = nullptr;
     return true;
 }
 
-ssize_t Interrupt_HookOnAddr_serialize_response(
-    const HookOnAddrResponse &response, char *dest) {
-    return Interrupt_serialize_JSON_response(
-        interruptHookOnAddress, response.type, response.error_code, dest);
-}
-
 void Interrupt_HookOnAddr_send_response(const Channel &channel,
                                         const HookOnAddrResponse &response) {
-    char buffer[100]{};
-    if (Interrupt_HookOnAddr_serialize_response(response, buffer) > 0) {
-        channel.write(buffer);
-    }
+    Interrupt_send_JSON_message(channel, interruptHookOnAddress, response.type,
+                                response.id, nullptr, response.error_code);
 }
 
 /*
@@ -106,14 +102,18 @@ bool registerHookOnAddr(InstrumentationManager &manager, Module &m,
     return true;
 }
 
-void Interrupt_HookOnAddr_send_JSON_subscribe_message(
-    const Channel &output, HookMoment moment, uint32_t addr,
-    std::function<void()> hookOutput) {
-    auto subscriptionMsgBody = [&output, moment, hookOutput, addr]() {
+void Interrupt_HookOnAddr_send_subscription(const Channel &output,
+                                            HookMoment moment, uint32_t addr,
+                                            uint32_t id, bool start) {
+    if (start) {
+        bool hasSubContent = true;
+        Interrupt_send_JSON_start_message(output, interruptHookOnAddress,
+                                          INTERRUPT_RESPONSE_TYPE_SUBSCRIPTION,
+                                          id, hasSubContent, NO_ERROR);
         output.write(R"({"moment":"%02X","addr":"%02X","val":)", moment, addr);
-        hookOutput();
-        output.write("}");
-    };
-    Interrupt_send_JSON_subscribe_message(output, interruptHookOnAddress,
-                                          subscriptionMsgBody);
+        return;
+    }
+
+    output.write("}");  // close sub object
+    Interrupt_send_JSON_end_message(output);
 }
