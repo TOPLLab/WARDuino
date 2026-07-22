@@ -207,9 +207,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptDUMPLocals:
             this->pauseRuntime(m);
-            this->dumpLocals(m);
-            this->channel->write("\n");
-            free(interruptData);
+            this->handleDumpLocals(m, msg);
             break;
         case interruptDUMPFull:
             this->pauseRuntime(m);
@@ -546,6 +544,15 @@ void Debugger::dumpCallstack(Module *m) const {
                              toVA(f->block->start_ptr), retaddr,
                              callsite_retaddr, (i < m->csp) ? "," : "],");
     }
+}
+
+void Debugger::handleDumpLocals(Module *m, DebugMessage *msg) const {
+    bool includeSubContent = true;
+    Interrupt_send_JSON_start_message(*this->channel, msg->interrupt,
+                                      INTERRUPT_RESPONSE_TYPE_SUCCESS, msg->id,
+                                      includeSubContent, NO_ERROR);
+    this->dumpLocals(m);
+    Interrupt_send_JSON_end_message(*this->channel);
 }
 
 void Debugger::dumpLocals(Module *m) const {
