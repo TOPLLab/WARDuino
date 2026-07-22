@@ -89,7 +89,7 @@ class Debugger {
 
     void dumpCallstack(Module *m) const;
 
-    void dumpCallbackmapping() const;
+    void dumpCallbackmapping(DebugMessage *msg) const;
 
     void dumpHeapInfo(Module *m) const;
 
@@ -115,7 +115,7 @@ class Debugger {
 
     static uintptr_t readPointer(uint8_t **data);
 
-    static void updateCallbackmapping(Module *m, const uint8_t *interruptData);
+    static void updateCallbackmapping(Module *m, DebugMessage *msg);
 
    public:
     // Public fields
