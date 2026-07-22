@@ -235,8 +235,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                                                 interruptUPDATEModule, msg->id);
             break;
         case interruptUPDATEGlobal:
-            this->handleUpdateGlobalValue(m, interruptData + 1);
-            free(interruptData);
+            this->handleUpdateGlobalValue(m, msg);
             break;
         case interruptUPDATEStackValue:
             this->handleUpdateStackValue(m, interruptData + 1);
@@ -1213,17 +1212,24 @@ bool Debugger::handleUpdateModule(Module *m, DebugMessage *msg) {
     return true;
 }
 
-bool Debugger::handleUpdateGlobalValue(Module *m, uint8_t *data) {
-    this->channel->write("Global updates: %x\n", *data);
+bool Debugger::handleUpdateGlobalValue(Module *m, DebugMessage *msg) {
+    uint8_t *data = msg->data;
     uint32_t index = read_LEB_32(&data);
 
-    if (index >= m->global_count) return false;
+    if (index >= m->global_count) {
+        Interrupt_send_JSON_failure_message(
+            *this->channel, msg->interrupt, msg->id,
+            UPDATE_GLOBAL_VALUE_WRONG_INDEX_ERROR_CODE);
+        return false;
+    }
 
-    this->channel->write("Global %u being changed\n", index);
     StackValue *v = &m->globals[index];
     bool decodeType = false;
     deserialiseStackValue(data, decodeType, v);
-    this->channel->write("Global %u changed to %u\n", index, v->value.uint32);
+    char value[50]{};
+    snprintf(value, 50, R"({"idx":%u,"value":%u})", index, v->value.uint32);
+    Interrupt_send_JSON_success_message(*this->channel, msg->interrupt, msg->id,
+                                        value);
     return true;
 }
 

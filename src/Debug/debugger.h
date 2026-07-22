@@ -103,7 +103,7 @@ class Debugger {
 
     bool handleUpdateModule(Module *m, DebugMessage *msg);
 
-    bool handleUpdateGlobalValue(Module *m, uint8_t *data);
+    bool handleUpdateGlobalValue(Module *m, DebugMessage *msg);
 
     bool handleUpdateStackValue(Module *m, uint8_t *bytes);
 
