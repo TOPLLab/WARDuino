@@ -439,26 +439,6 @@ HookRunResult InstrumentationManager::run_hook(const Channel &output,
     return hook_success ? HookCompleted : HookFailed;
 }
 
-// HookRunResult InstrumentationManager::run_hook_on_new_event(
-//     const Channel &output, Module &module, Hook &hook, Event *ev) {
-//     auto printSubMsg = [&output](std::function<void()> hookOutput) {
-//         Interrupt_HookOnEvent_send_JSON_subscribe_message(
-//             output, HookOnNewEvent, hookOutput);
-//     };
-//     return this->run_hook_event(output, module, hook, printSubMsg, ev,
-//                                 HookOnNewEvent);
-// }
-
-// HookRunResult InstrumentationManager::run_hook_on_handled_event(
-//     const Channel &output, Module &module, Hook &hook, Event *ev) {
-//     auto printSubMsg = [&output](std::function<void()> hookOutput) {
-//         Interrupt_HookOnEvent_send_JSON_subscribe_message(
-//             output, HookOnEventHandling, hookOutput);
-//     };
-//     return this->run_hook_event(output, module, hook, printSubMsg, ev,
-//                                 HookOnEventHandling);
-// }
-
 void InstrumentationManager::runHooksOnError(const Channel &output,
                                              Module *module,
                                              LogicalClock *currentTime) {
