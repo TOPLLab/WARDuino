@@ -260,8 +260,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptAroundFunction:
-            this->handleAroundFunction(m, interruptData);
-            free(interruptData);
+            this->handleAroundFunction(m, msg);
             break;
         case interruptHookOnAddress:
             this->handleHookOnAddress(m, msg);
@@ -1269,9 +1268,9 @@ Debugger::~Debugger() {
     delete this->supervisor;
 }
 
-void Debugger::handleAroundFunction(Module *m, uint8_t *data) {
+void Debugger::handleAroundFunction(Module *m, DebugMessage *msg) {
     Interrupt_AroundFunction_handle_request(*this->channel, this->instrument, m,
-                                            data);
+                                            msg);
 }
 
 void Debugger::handleFuncCall(Module *m, uint8_t *data) {

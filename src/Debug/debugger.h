@@ -204,7 +204,7 @@ class Debugger {
 
     bool handlePushedEvent(DebugMessage *msg) const;
 
-    void handleAroundFunction(Module *m, uint8_t *data);
+    void handleAroundFunction(Module *m, DebugMessage *msg);
 
     void handleFuncCall(Module *m, uint8_t *data);
 
