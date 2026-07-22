@@ -123,9 +123,9 @@ bool deserialiseStackValue(uint8_t *input, bool decodeType, StackValue *value) {
         uint8_t valtypes[] = {I32, I64, F32, F64};
         uint8_t type_index = *input++;
         if (type_index >= sizeof(valtypes)) return false;
-        value->value.uint64 = 0;  // init whole union to 0
         value->value_type = valtypes[type_index];
     }
+    value->value.uint64 = 0;  // init whole union to 0
     switch (value->value_type) {
         case I32:
             // TODO figure out whether read_LEB_signed or read_LEB is needed
