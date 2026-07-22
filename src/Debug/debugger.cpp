@@ -765,7 +765,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
     debug("freeing the program state\n");
     uint8_t *first_msg = nullptr;
     uint8_t *endfm = nullptr;
-    first_msg = interruptData + 1;  // skip interruptLoadSnapshot
+    first_msg = interruptData;
     endfm = first_msg + read_B32(&first_msg);
 
     // nullify state
@@ -848,7 +848,7 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
 bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     uint8_t *program_state = nullptr;
     uint8_t *end_state = nullptr;
-    program_state = interruptData + 1;  // skip interruptLoadSnapshot
+    program_state = interruptData;
     end_state = program_state + read_B32(&program_state);
 
     debug("saving program_state\n");
