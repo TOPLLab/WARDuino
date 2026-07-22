@@ -2,13 +2,17 @@
 
 #include <algorithm>
 #include <cinttypes>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
+
 #ifndef ARDUINO
 #include <nlohmann/json.hpp>
 #else
 #include "../../lib/json/single_include/nlohmann/json.hpp"
 #endif
 
+#include "../Debug/debug_msg.h"
 #include "../Interrupts/interrupt_around_function.h"
 #include "../Interrupts/interrupt_hook_on_addr.h"
 #include "../Interrupts/interrupt_hook_on_error.h"
@@ -41,7 +45,7 @@ void Debugger::setChannel(Channel *duplex) {
 
 void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     this->parseDebugBuffer(len, buff);
-    uint8_t *data{};
+    DebugMessage *data{};
     while (!this->parsedInterrupts.empty()) {
         data = this->parsedInterrupts.front();
         this->parsedInterrupts.pop();
@@ -49,7 +53,7 @@ void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
     }
 }
 
-void Debugger::pushMessage(uint8_t *msg) {
+void Debugger::pushMessage(DebugMessage *msg) {
     std::lock_guard<std::mutex> const lg(messageQueueMutex);
     this->debugMessages.push_back(msg);
     this->freshMessages = !this->debugMessages.empty();
@@ -86,7 +90,13 @@ void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
                     memcpy(data, this->interruptBuffer.data(),
                            this->interruptBuffer.size() * sizeof(uint8_t));
                     data[this->interruptBuffer.size()] = '\0';
-                    this->parsedInterrupts.push(data);
+                    auto dm =
+                        DebugMessage_new(data, this->interruptBuffer.size());
+                    if (dm == nullptr) {
+                        printf("msg dropped as it has no id\n");
+                    } else {
+                        this->parsedInterrupts.push(dm);
+                    }
                     this->interruptBuffer.clear();
                 }
             } else {
@@ -107,15 +117,15 @@ void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
     }
 }
 
-uint8_t *Debugger::getDebugMessage() {
+DebugMessage *Debugger::getDebugMessage() {
     std::lock_guard<std::mutex> const lg(messageQueueMutex);
-    uint8_t *ret = nullptr;
+    DebugMessage *msg = nullptr;
     if (!this->debugMessages.empty()) {
-        ret = this->debugMessages.front();
+        msg = this->debugMessages.front();
         this->debugMessages.pop_front();
     }
     this->freshMessages = !this->debugMessages.empty();
-    return ret;
+    return msg;
 }
 
 void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
@@ -157,21 +167,14 @@ void Debugger::notifyStepCompleted() { this->channel->write("STEP!\n"); }
  *            as payload (immediately following `0x10`), see #readChange
  */
 bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
-    uint8_t *interruptData = this->getDebugMessage();
-    if (interruptData == nullptr) {
+    DebugMessage *msg = this->getDebugMessage();
+    if (msg == nullptr) {
         fflush(stdout);
         return false;
     }
-    printf("received interrupt %x\n", *interruptData);
     fflush(stdout);
 
-    std::string s{};
-    getHumanReadableInterrupt(s, *interruptData);
-    printf("received %s\n", s.c_str());
-    this->channel->write("Interrupt: %x\n", *interruptData);
-
-    long start = 0, size = 0;
-    switch (*interruptData) {
+    switch (msg->interrupt) {
         case interruptRUN:
             this->handleInterruptRUN(m, program_state);
             free(interruptData);
