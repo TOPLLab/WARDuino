@@ -57,7 +57,7 @@ class Debugger {
 
     //// Handle REPL interrupts
 
-    void handleInvoke(Module *m, uint8_t *interruptData);
+    void handleInvoke(Module *m, DebugMessage *msg);
 
     //// Handle Interrupt Types
 

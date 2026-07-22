@@ -248,8 +248,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptINVOKE:
-            this->handleInvoke(m, interruptData + 1);
-            free(interruptData);
+            this->handleInvoke(m, msg);
             break;
         case interruptSnapshot:
             this->pauseRuntime(m);
@@ -374,11 +373,15 @@ void Debugger::printValue(StackValue *v, uint32_t idx, bool end = false) const {
     this->channel->write(R"({"idx":%d,%s}%s)", idx, buff, end ? "" : ",");
 }
 
-void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
+void Debugger::handleInvoke(Module *m, DebugMessage *msg) {
+    uint8_t *interruptData = msg->data;
     uint32_t fidx = read_LEB_32(&interruptData);
 
     if (fidx < 0 || fidx >= m->function_count) {
         debug("no function available for fidx %" PRIi32 "\n", fidx);
+        Interrupt_send_JSON_failure_message(
+            *this->channel, interruptINVOKE, msg->id,
+            HANDLE_INVOKE_NO_FUNC_WITH_GIVEN_ID_ERROR_CODE);
         return;
     }
 
@@ -391,7 +394,14 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
 
     WARDuino::instance()->invoke(m, fidx, func.param_count, args);
     instance->program_state = current;
-    this->dumpStack(m);
+
+    bool includeSubContent = true;
+    Interrupt_send_JSON_start_message(*this->channel, msg->interrupt,
+                                      INTERRUPT_RESPONSE_TYPE_SUCCESS, msg->id,
+                                      includeSubContent, NO_ERROR);
+    bool newline = false;
+    this->dumpStack(m, newline);
+    Interrupt_send_JSON_end_message(*this->channel);
 }
 
 void Debugger::handleInterruptRUN(DebugMessage *msg, Module *m,
