@@ -256,8 +256,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptProxyCall:
         case interruptFunCall:
-            this->handleFuncCall(m, interruptData);
-            free(interruptData);
+            // TODO handle ith with ID msg
+            // TODO keep in mind the remote call from local VM to MCU VM
+            this->handleFuncCall(m, msg);
             break;
         case interruptAroundFunction:
             this->handleAroundFunction(m, msg);
@@ -1273,8 +1274,8 @@ void Debugger::handleAroundFunction(Module *m, DebugMessage *msg) {
                                             msg);
 }
 
-void Debugger::handleFuncCall(Module *m, uint8_t *data) {
-    Interrupt_RemoteCall_handle_request(*this->channel, m, data);
+void Debugger::handleFuncCall(Module *m, DebugMessage *msg) {
+    Interrupt_RemoteCall_handle_request(*this->channel, m, msg);
 }
 
 void Debugger::handleHookOnAddress(Module *m, DebugMessage *msg) {

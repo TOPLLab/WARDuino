@@ -1,5 +1,7 @@
 #include "interrupt_remote_call.h"
 
+#include <cstdint>
+
 #include "../Interrupts/interrupt_response.h"
 #include "../Utils/macros.h"
 #include "../WARDuino/vm_exception.h"
@@ -232,7 +234,7 @@ bool sendRemoteCallRequest(Channel &channel, FunCallRequest &request,
     }
 
     int written = channel.write("%s\n", request_encoded);
-    if (written == -1 || written != (request_size + 1)) {
+    if (written == -1 || written != (ssize_t)(request_size + 1)) {
         error_code = REMOTE_CALL_ERROR_CODE_WRITE_TO_CLIENT;
         return false;
     }
@@ -329,6 +331,7 @@ uint8_t *serialize_success_response(const FunCallResponse &response,
     // body 1: has_value (1 byte) | StackValue (optional)
     // body 2: has_excp_msg (1 byte) | excp_msg (optional)
 
+    // TODO encode ID
     ValueSerializationConfig config{};
     config.includeType = true;
     config.includeIndex = false;
@@ -405,24 +408,23 @@ char *Interrupt_RemoteCall_serialize_response(const FunCallResponse &response,
 
 bool Interrupt_RemoteCall_deserialize_request(const Module *m,
                                               FunCallRequest &request,
-                                              uint8_t *encoded_request,
+                                              DebugMessage *msg,
                                               uint8_t &error_code) {
     // format: interrupt nr | LEB32 funcid | LEB32 nr args | StackValues |
     // newline
-    uint8_t interruptNr = *encoded_request++;
+    uint8_t interruptNr = msg->interrupt;
     if (interruptNr != interruptFunCall && interruptNr != interruptProxyCall) {
         error_code = REMOTE_CALL_ERROR_CODE_MALFORMED_REQUEST_INTERRUPT_NR;
         // TODO remove
-        std::string s{};
-        getHumanReadableInterrupt(s, interruptNr);
         WARDuino::instance()->debugger->channel->write(
             "ProxyCall request has malformed interruptNr received interrupt "
-            "%s\n",
-            s.c_str());
+            "%" PRIu8 "\n",
+            interruptNr);
         return false;
     }
 
     request.isProxyCall = interruptNr == interruptProxyCall;
+    uint8_t *encoded_request = msg->data;
 
     request.fun = read_LEB_32(&encoded_request);
     if (request.fun > m->function_count) {
@@ -524,7 +526,7 @@ void Interrupt_RemoteCall_do_proxy_call(Module *m, const uint32_t func,
 }
 
 void Interrupt_RemoteCall_handle_request(const Channel &requester, Module *m,
-                                         uint8_t *data) {
+                                         DebugMessage *msg) {
     FunCallRequest request{};
     FunCallResponse response{};
     StackValue resultValue{};
@@ -534,8 +536,7 @@ void Interrupt_RemoteCall_handle_request(const Channel &requester, Module *m,
     result.value = &resultValue;  // trick to avoid malloc
     response.result = &result;
 
-    if (Interrupt_RemoteCall_deserialize_request(m, request, data,
-                                                 error_code)) {
+    if (Interrupt_RemoteCall_deserialize_request(m, request, msg, error_code)) {
         if (request.isProxyCall) {
             Interrupt_RemoteCall_do_proxy_call(m, request.fun, request.args,
                                                result);
@@ -548,6 +549,7 @@ void Interrupt_RemoteCall_handle_request(const Channel &requester, Module *m,
         response.type = INTERRUPT_RESPONSE_TYPE_ERROR;
         response.error_code = error_code;
     }
+    response.id = msg->id;
 
     sendResponse(requester, response);
 }
