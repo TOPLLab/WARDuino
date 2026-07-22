@@ -268,8 +268,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptHookOnEvent:
-            this->handleHookOnEvent(interruptData);
-            free(interruptData);
+            this->handleHookOnEvent(msg);
             break;
         case interruptHookOnError:
             this->handleHookOnError(msg);

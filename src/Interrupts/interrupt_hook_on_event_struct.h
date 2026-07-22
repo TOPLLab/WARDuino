@@ -9,6 +9,7 @@ enum HookEventMoment {
 };
 
 typedef struct OnEventHookRequest {
+    uint32_t id{};
     HookEventMoment moment{};
     Hook *hook;
 } OnEventHookRequest;
