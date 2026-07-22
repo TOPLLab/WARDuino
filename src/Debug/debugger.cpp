@@ -298,9 +298,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->dumpCallbackmapping(msg);
             break;
         default:
-            // handle later
-            this->channel->write("COULD not parse interrupt data!\n");
-            free(interruptData);
+            this->channel->write("No valid Debug API!\n");
             break;
     }
     DebugMessage_free(msg);
