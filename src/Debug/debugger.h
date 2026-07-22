@@ -202,7 +202,7 @@ class Debugger {
 
     void notifyPushedEvent() const;
 
-    bool handlePushedEvent(char *bytes) const;
+    bool handlePushedEvent(DebugMessage *msg) const;
 
     void handleAroundFunction(Module *m, uint8_t *data);
 
