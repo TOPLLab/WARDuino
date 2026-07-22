@@ -710,7 +710,11 @@ bool Debugger::handleChangedLocal(Module *m, DebugMessage *msg) const {
             break;
     }
     char value[50]{};
-    snprintf(value, 50, R"("idx":%u,"value":%u)", localId, v->value.uint32);
+    snprintf(value, 50,
+             R"("idx":)"
+             "%" PRIu32 R"(,"value":)"
+             "%" PRIu32 ")",
+             localId, v->value.uint32);
     Interrupt_send_JSON_success_message(*this->channel, msg->interrupt,
                                         msg->id);
     return true;
@@ -1222,7 +1226,11 @@ bool Debugger::handleUpdateGlobalValue(Module *m, DebugMessage *msg) {
     bool decodeType = false;
     deserialiseStackValue(data, decodeType, v);
     char value[50]{};
-    snprintf(value, 50, R"({"idx":%u,"value":%u})", index, v->value.uint32);
+    snprintf(value, 50,
+             R"("idx":)"
+             "%" PRIu32 R"(,"value":)"
+             "%" PRIu32 ")",
+             index, v->value.uint32);
     Interrupt_send_JSON_success_message(*this->channel, msg->interrupt, msg->id,
                                         value);
     return true;
