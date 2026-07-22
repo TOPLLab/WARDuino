@@ -245,8 +245,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptSnapshot:
             this->pauseRuntime(m);
-            free(interruptData);
-            snapshot(m);
+            this->handleSnapshot(m, msg);
             break;
         case interruptInspect:
             Interrupt_Inspect_handle_request(*this->channel, m, interruptData);
@@ -755,7 +754,18 @@ bool Debugger::handlePushedEvent(char *bytes) const {
     return true;
 }
 
-void Debugger::snapshot(Module *m) {
+void Debugger::handleSnapshot(Module *m, DebugMessage *msg) {
+    bool includeSubContent = true;
+    Interrupt_send_JSON_start_message(*this->channel, msg->interrupt,
+                                      INTERRUPT_RESPONSE_TYPE_SUCCESS, msg->id,
+                                      includeSubContent, NO_ERROR);
+    bool includeHeader = false;
+    bool includeNewline = false;
+    this->snapshot(m, includeHeader, includeNewline);
+    Interrupt_send_JSON_end_message(*this->channel);
+}
+
+void Debugger::snapshot(Module *m, bool includeHeader, bool includeNewline) {
     StateToInspect inspect{};
     inspect.numberOfInspects = 12;
     ExecutionState state[] = {
@@ -764,7 +774,8 @@ void Debugger::snapshot(Module *m) {
         callbacksState, eventsState,      errorState,          logicalClock,
         heapState};
     inspect.requestedState = state;
-    Interrupt_Inspect_inspect_json_output(*this->channel, m, inspect);
+    Interrupt_Inspect_inspect_json_output(*this->channel, m, inspect,
+                                          includeHeader, includeNewline);
 }
 
 void Debugger::freeState(Module *m, uint8_t *interruptData) {

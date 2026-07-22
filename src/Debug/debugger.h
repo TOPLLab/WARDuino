@@ -171,7 +171,10 @@ class Debugger {
 
     // Out-of-place debugging: EDWARD
 
-    void snapshot(Module *m);
+    void handleSnapshot(Module *m, DebugMessage *msg);
+
+    void snapshot(Module *m, bool includeHeader = true,
+                  bool includeNewline = true);
 
     void proxify();
 
