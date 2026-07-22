@@ -176,8 +176,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
 
     switch (msg->interrupt) {
         case interruptRUN:
-            this->handleInterruptRUN(m, program_state);
-            free(interruptData);
+            this->handleInterruptRUN(msg, m, program_state);
             break;
         case interruptHALT:
             this->channel->write("STOP!\n");
@@ -394,12 +393,13 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) {
     this->dumpStack(m);
 }
 
-void Debugger::handleInterruptRUN(Module *m, RunningState *program_state) {
-    this->channel->write("GO!\n");
+void Debugger::handleInterruptRUN(DebugMessage *msg, Module *m,
+                                  RunningState *program_state) {
     if (*program_state == WARDUINOpause && this->isBreakpoint(m->pc_ptr)) {
         this->skipBreakpoint = m->pc_ptr;
     }
     *program_state = WARDUINOrun;
+    Interrupt_send_JSON_success_message(*this->channel, interruptRUN, msg->id);
 }
 
 void Debugger::handleSTEP(Module *m, RunningState *program_state) {

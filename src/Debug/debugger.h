@@ -59,7 +59,8 @@ class Debugger {
 
     //// Handle Interrupt Types
 
-    void handleInterruptRUN(Module *m, RunningState *program_state);
+    void handleInterruptRUN(DebugMessage *msg, Module *m,
+                            RunningState *program_state);
 
     void handleSTEP(Module *m, RunningState *program_state);
 
