@@ -274,11 +274,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptHookOnError:
             this->handleHookOnError(interruptData);
             break;
-        case interruptMonitorProxies: {
-            printf("receiving functions list to proxy\n");
-            this->handleMonitorProxies(m, interruptData + 1);
-            free(interruptData);
-        } break;
+        case interruptMonitorProxies:
+            this->handleMonitorProxies(m, msg);
+            break;
         case interruptProxify: {
             dbg_info("Converting to proxy settings.\n");
             this->proxify(msg);
@@ -1135,18 +1133,18 @@ bool Debugger::isProxied(uint32_t fidx) const {
     return this->supervisor != nullptr && this->supervisor->isProxied(fidx);
 }
 
-void Debugger::handleMonitorProxies(Module *m, uint8_t *interruptData) {
+void Debugger::handleMonitorProxies(Module *m, DebugMessage *msg) {
+    uint8_t *interruptData = msg->data;
     uint32_t amount_funcs = read_B32(&interruptData);
-    printf("funcs_total %" PRIu32 "\n", amount_funcs);
 
     m->warduino->debugger->supervisor->unregisterAllProxiedCalls();
     for (uint32_t i = 0; i < amount_funcs; i++) {
         uint32_t fidx = read_B32(&interruptData);
-        printf("registering fid=%" PRIu32 "\n", fidx);
         m->warduino->debugger->supervisor->registerProxiedCall(fidx);
     }
 
-    this->channel->write("done!\n");
+    Interrupt_send_JSON_success_message(*this->channel, interruptMonitorProxies,
+                                        msg->id, (char *)"done!");
 }
 
 void Debugger::startProxySupervisor(Channel *socket) {

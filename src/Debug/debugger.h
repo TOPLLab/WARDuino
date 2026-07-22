@@ -196,7 +196,7 @@ class Debugger {
 
     // Pull-based
 
-    void handleMonitorProxies(Module *m, uint8_t *interruptData);
+    void handleMonitorProxies(Module *m, DebugMessage *msg);
 
     // Push-based
 
