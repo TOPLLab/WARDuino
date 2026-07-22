@@ -1,9 +1,11 @@
 #include "interrupt_inspect.h"
 
-#include "../Interrupts/interrupts.h"
+#include <cstdint>
+
 #include "../Utils/macros.h"
 #include "../Utils/util.h"
 #include "../WARDuino/vm_exception.h"
+#include "interrupt_response.h"
 
 void printValue(const Channel &output, StackValue *v, uint32_t idx,
                 bool end = false);
@@ -11,26 +13,30 @@ void printValue(const Channel &output, StackValue *v, uint32_t idx,
 uint8_t *findOpcode(Module *m, Block *block);
 
 void Interrupt_Inspect_handle_request(const Channel &requester, Module *m,
-                                      uint8_t *encoded_request) {
+                                      DebugMessage *msg) {
     InspectStateRequest request{};
     uint8_t error_code{};
-    if (!Interrupt_Inspect_deserialize_request(request, encoded_request,
+    if (!Interrupt_Inspect_deserialize_request(request, msg->data,
                                                error_code)) {
+        Interrupt_send_JSON_failure_message(requester, msg->interrupt, msg->id,
+                                            error_code);
         return;
     }
-    Interrupt_Inspect_inspect_json_output(requester, m, request);
+
+    bool includeSubContent = true;
+    Interrupt_send_JSON_start_message(requester, msg->interrupt,
+                                      INTERRUPT_RESPONSE_TYPE_SUCCESS, msg->id,
+                                      includeSubContent, NO_ERROR);
+    bool includeNewLine = false, includeHeader = false;
+    Interrupt_Inspect_inspect_json_output(requester, m, request, includeHeader,
+                                          includeNewLine);
+    Interrupt_send_JSON_end_message(requester);
 }
 
 bool Interrupt_Inspect_deserialize_request(InspectStateRequest &request,
-                                           uint8_t *encoded_request,
-                                           uint8_t &error_code) {
-    // format: interrupt nr | nr of inspects | state x | state y | ...
+                                           uint8_t *data, uint8_t &error_code) {
+    // format: nr of inspects | state x | state y | ...
 
-    if (encoded_request[0] != interruptInspect) {
-        error_code = INSPECT_ERROR_CODE_REQUEST_HAS_INVALID_INTERRUPT_NR;
-        return false;
-    }
-    uint8_t *data = encoded_request + 1;
     request.numberOfInspects = read_B16(&data);
     if (request.numberOfInspects == 0) {
         return false;
@@ -79,7 +85,6 @@ bool Interrupt_Inspect_inspect_json_output(const Channel &requester,
         requester.write("DUMP!\n");
     }
     requester.write("{");
-
     while (idx < state.numberOfInspects) {
         switch (state.requestedState[idx++]) {
             case pcState: {  // PC
@@ -232,6 +237,7 @@ bool Interrupt_Inspect_inspect_json_output(const Channel &requester,
     }
     return true;
 }
+
 uint8_t *findOpcode(Module *m, Block *block) {
     auto find =
         std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
