@@ -188,8 +188,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             exit(0);
         case interruptPAUSE:
             this->pauseRuntime(m);
-            this->channel->write("PAUSE!\n");
-            free(interruptData);
+            Interrupt_send_JSON_success_message(*this->channel, msg->interrupt,
+                                                msg->id);
             break;
         case interruptSTEP:
             this->handleSTEP(msg, m, program_state);
