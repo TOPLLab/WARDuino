@@ -469,11 +469,18 @@ void InstrumentationManager::runHooksOnError(const Channel &output,
 
 bool InstrumentationManager::runHooksAfterWasmAddr(const Channel &output,
                                                    Module *module,
+                                                   LogicalClock *currentTime,
                                                    RunningState &runningState) {
     // Only called when tool client wants to do something after some wasm
     // addr. Inefficiently called after each instruction execution.
     // Benchmark needed to determine whether an alternative approach is
     // required
+
+    if (LogicalClock_is_t1_equal_t2(this->lastObservedTime, *currentTime)) {
+        // Reentering an addr for which the before hooks were just run
+        // do not run the hooks but advance computation
+        return true;
+    }
 
     while (!this->frames_to_monitor.empty()) {
         MonitoredFrame frame = this->frames_to_monitor.top();

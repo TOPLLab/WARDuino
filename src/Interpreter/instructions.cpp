@@ -1,6 +1,7 @@
 #include "instructions.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include "../Memory/mem.h"
@@ -1585,9 +1586,8 @@ bool interpret(Module *m, bool waiting) {
 
         if (m->warduino->debugger->instrument.awakeOnNextInstruction) {
             success = m->warduino->debugger->instrument.runHooksAfterWasmAddr(
-                *m->warduino->debugger->channel, m, m->warduino->program_state);
-            if (!success) {
-                break;
+                *m->warduino->debugger->channel, m, lc,
+                m->warduino->program_state);
             }
         }
 
