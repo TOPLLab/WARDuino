@@ -15,6 +15,16 @@
 #include "../Instrumentation/instrumentation.h"
 #include "../Utils/sockets.h"
 
+// Error Codes
+#define NO_ERROR 0
+#define INTERRUPT_NR_DOES_NOT_MATCH_ERROR_CODE 1  // duplicate already
+#define UPDATE_GLOBAL_VALUE_WRONG_INDEX_ERROR_CODE 90
+#define UPDATE_STACK_VALUE_WRONG_INDEX_ERROR_CODE 91
+#define UPDATE_STACK_VALUE_INVALID_DESERIALISE_ERROR_CODE 92
+#define HANDLE_INVOKE_NO_FUNC_WITH_GIVEN_ID_ERROR_CODE 93
+#define UPDATE_LOCAL_INVALID_INTERRUPT_NR 94
+#define INVALID_BP_ADDR 99
+
 class Debugger {
    private:
     std::deque<DebugMessage *> debugMessages = {};
