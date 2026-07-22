@@ -252,22 +252,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptLoadSnapshot:
-            if (!this->receivingData) {
-                this->pauseRuntime(m);
-                debug("paused program execution\n");
-                CallbackHandler::manual_event_resolution = true;
-                dbg_info("Manual event resolution is on.");
-                this->receivingData = true;
-                this->freeState(m, interruptData);
-                free(interruptData);
-                this->channel->write("ack!\n");
-            } else {
-                debug("receiving state\n");
-                receivingData = !this->saveState(m, interruptData);
-                free(interruptData);
-                debug("sending %s!\n", receivingData ? "ack" : "done");
-                this->channel->write("%s!\n", receivingData ? "ack" : "done");
-            }
+            this->loadSnapshot(m, msg);
             break;
         case interruptProxyCall:
         case interruptFunCall:
@@ -1297,12 +1282,23 @@ void Debugger::handleHookOnAddress(Module *m, uint8_t *data) {
                                         data);
 }
 
-void Debugger::handleHookOnEvent(uint8_t *data) {
-    Interrupt_HookOnEvent_handle_request(*this->channel, this->instrument,
-                                         data);
-}
+void Debugger::loadSnapshot(Module *m, DebugMessage *msg) {
+    if (!this->receivingData) {
+        this->pauseRuntime(m);
+        debug("paused program execution\n");
+        CallbackHandler::manual_event_resolution = true;
+        dbg_info("Manual event resolution is on.");
+        this->receivingData = true;
+        this->freeState(m, msg->data);
+        Interrupt_send_JSON_success_message(
+            *this->channel, interruptLoadSnapshot, msg->id, (char *)"ack!");
+    } else {
+        debug("receiving state\n");
+        receivingData = !this->saveState(m, msg->data);
+        debug("sending %s!\n", receivingData ? "ack" : "done");
 
-void Debugger::handleHookOnError(uint8_t *data) {
-    Interrupt_HookOnError_handle_request(*this->channel, this->instrument,
-                                         data);
+        char *reply = (char *)(receivingData ? "ack!" : "done!");
+        Interrupt_send_JSON_success_message(
+            *this->channel, interruptLoadSnapshot, msg->id, reply);
+    }
 }

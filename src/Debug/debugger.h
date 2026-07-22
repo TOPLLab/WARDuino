@@ -171,6 +171,8 @@ class Debugger {
 
     // Out-of-place debugging: EDWARD
 
+    void loadSnapshot(Module *m, DebugMessage *msg);
+
     void handleSnapshot(Module *m, DebugMessage *msg);
 
     void snapshot(Module *m, bool includeHeader = true,
