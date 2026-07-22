@@ -34,7 +34,6 @@ void Interrupt_send_JSON_failure_message(const Channel &output,
                                          uint32_t id, const uint8_t error_code,
                                          char *subContent = nullptr);
 
-
 ssize_t Interrupt_serialize_hexa_string_response(
     const InterruptTypes interrupt_nr, const uint32_t id, uint8_t response_type,
     char *dest);
