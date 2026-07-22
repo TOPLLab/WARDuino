@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 
 #include "../Interrupts/interrupt_hook_on_addr.h"
 #include "../Interrupts/interrupt_hook_on_error.h"
@@ -319,7 +320,9 @@ bool InstrumentationManager::runHooksOnInterceptedFuncCall(
                      .addr = 0,
                      .runningState = runningState,
                      .local_fidx = primitive_called,
-                     .sendSubscriptionMsg = nullptr,
+                     .hookOnAddressSubContent = nullptr,
+                     .hookOnErrorSubContent = nullptr,
+                     .hookOnEventSubContent = nullptr,
                      .moment = HookAround,
                      .eventMoment = HookOnNewEvent,
                      .ev = nullptr};
@@ -347,52 +350,19 @@ bool InstrumentationManager::runHooksOnInterceptedFuncCall(
     return result.success;
 }
 
-// HookRunResult InstrumentationManager::run_hook_event(
-//     const Channel &output, Module &module, Hook &hook,
-//     std::function<void(std::function<void()>)> sendSubscriptionMsg, Event
-//     *ev, HookEventMoment hookMoment) { switch (hook.kind) {
-//         case StateInspect: {
-//             const Module *m = &module;
-//             bool success = true;
-//             std::function<void()> printState = [&output, m, hook, &success]()
-//             {
-//                 bool includeHeader = false;
-//                 bool includeNewline = false;
-//                 success = Interrupt_Inspect_inspect_json_output(
-//                     output, m, *hook.value.state, includeHeader,
-//                     includeNewline);
-//             };
-//             sendSubscriptionMsg(printState);
-//             if (!success) {
-//                 VM_Exception_write("Unexisting State to inspect");
-//                 return HookFailed;
-//             }
-//             return HookCompleted;
-//         }
-//         case EventRemove:
-//             if (hookMoment == HookOnNewEvent) {
-//                 if (!CallbackHandler::pendingEvents->empty()) {
-//                     CallbackHandler::pendingEvents->pop_front();
-//                 }
-//                 return HookCompleted;
-//             } else if (hookMoment == HookOnEventHandling) {
-//                 if (!CallbackHandler::events->empty()) {
-//                     CallbackHandler::events->pop_front();
-//                 }
-//                 return HookCompleted;
-//             } else {
-//                 VM_Exception_write("Unsupported event hook moment");
-//                 return HookFailed;
-//             }
-//             break;
-//         case EventInspect:
-//             Interrupt_HookOnEvent_send_Binary_subscribe_message(output, *ev);
-//             return HookCompleted;
-//         default:
-//             VM_Exception_write("unsupported event hook");
-//             return HookFailed;
-//     }
-// }
+void writeSubscriptionContent(const Channel &output, HookArgs &args, Hook &hook,
+                              bool start) {
+    if (args.hookOnAddressSubContent != nullptr) {
+        args.hookOnAddressSubContent(output, args.moment, args.addr, hook.id,
+                                     start);
+    } else if (args.hookOnEventSubContent != nullptr) {
+        args.hookOnEventSubContent(output, hook.id, args.eventMoment, start);
+    } else if (args.hookOnErrorSubContent != nullptr) {
+        args.hookOnErrorSubContent(output, hook.id, start);
+    } else {
+        FATAL("Forgot to register subcontent writer for start subscription\n");
+    }
+}
 
 HookRunResult InstrumentationManager::run_hook(const Channel &output,
                                                Module &module, Hook &hook,
@@ -404,20 +374,6 @@ HookRunResult InstrumentationManager::run_hook(const Channel &output,
         return HookDelayed;
     }
     bool hook_success = false;
-    // TODO integrate hook removal here i.e., onto result
-    // while (hookToRun != nullptr) {
-    //     this->run_hook_on_new_event(output, *module, *hookToRun, ev);
-    //     Hooks_remove_completed_hook(res, this->hooksForOnNewEvent,
-    //                                 hookToRun);
-    //     this->hooksForOnNewEvent = res.newList;
-    //     if (CallbackHandler::pendingEvents->empty() ||
-    //         ev != CallbackHandler::pendingEvents->front()) {
-    //         // event got removed by last hook
-    //         // do no run remaining hooks
-    //         break;
-    //     }
-    //     hookToRun = res.nextHook;
-    // }
     switch (hook.kind) {
         case ProxyCall:
         case RemoteCall:
@@ -431,15 +387,12 @@ HookRunResult InstrumentationManager::run_hook(const Channel &output,
             break;
         case StateInspect: {
             const Module *m = &module;
-            bool success = true;
-            std::function<void()> printState = [&output, m, hook, &success]() {
-                bool includeHeader = false;
-                bool includeNewline = false;
-                success = Interrupt_Inspect_inspect_json_output(
-                    output, m, *hook.value.state, includeHeader,
-                    includeNewline);
-            };
-            args.sendSubscriptionMsg(printState);
+            writeSubscriptionContent(output, args, hook, true);
+            bool includeHeader = false;
+            bool includeNewline = false;
+            bool success = Interrupt_Inspect_inspect_json_output(
+                output, m, *hook.value.state, includeHeader, includeNewline);
+            writeSubscriptionContent(output, args, hook, false);
             if (!success) {
                 VM_Exception_write("Unexisting State to inspect");
             }
@@ -474,7 +427,7 @@ HookRunResult InstrumentationManager::run_hook(const Channel &output,
             }
             break;
         case EventInspect:
-            Interrupt_HookOnEvent_send_Binary_subscribe_message(output,
+            Interrupt_HookOnEvent_send_Binary_subscribe_message(output, hook.id,
                                                                 *(args.ev));
             hook_success = true;
             break;
@@ -514,21 +467,21 @@ void InstrumentationManager::runHooksOnError(const Channel &output,
         return;
     }
 
-    auto printSubMsg = [&output](std::function<void()> hookOutput) {
-        Interrupt_HookOnError_send_JSON_subscribe_message(output, hookOutput);
-    };
     RunningState unusedState = WARDUINOpause;
     HookMoment unusedMoment = HookBefore;
     HookEventMoment unusedEventMoment = HookOnNewEvent;
     Hook *hooks = this->hooksForOnError;
-    HookArgs args = {.currentTime = *currentTime,
-                     .addr = 0,
-                     .runningState = unusedState,
-                     .local_fidx = 0,
-                     .sendSubscriptionMsg = printSubMsg,
-                     .moment = unusedMoment,
-                     .eventMoment = unusedEventMoment,
-                     .ev = nullptr};
+    HookArgs args = {
+        .currentTime = *currentTime,
+        .addr = 0,
+        .runningState = unusedState,
+        .local_fidx = 0,
+        .hookOnAddressSubContent = nullptr,
+        .hookOnErrorSubContent = &Interrupt_HookOnError_send_JSON_subscription,
+        .hookOnEventSubContent = nullptr,
+        .moment = unusedMoment,
+        .eventMoment = unusedEventMoment,
+        .ev = nullptr};
     HooksResult result{};
     this->run_hooks(output, *module, hooks, args, result);
     this->hooksForOnError = result.hooks_left;
@@ -555,22 +508,22 @@ bool InstrumentationManager::runHooksAfterWasmAddr(const Channel &output,
             continue;
         }
         HooksWasmAddr *instr = this->instr_wasm_addr_after[addr];
-        auto printSubMsg = [&output, addr](std::function<void()> hookOutput) {
-            Interrupt_HookOnAddr_send_JSON_subscribe_message(output, HookAfter,
-                                                             addr, hookOutput);
-        };
 
         auto lc = module->warduino->logicalClock;
         Hook *hooks = instr->hook;
         HookEventMoment unusedEventMoment = HookOnNewEvent;
-        HookArgs args = {.currentTime = lc,
-                         .addr = addr,
-                         .runningState = runningState,
-                         .local_fidx = 0,
-                         .sendSubscriptionMsg = printSubMsg,
-                         .moment = HookAfter,
-                         .eventMoment = unusedEventMoment,
-                         .ev = nullptr};
+        HookArgs args = {
+            .currentTime = lc,
+            .addr = addr,
+            .runningState = runningState,
+            .local_fidx = 0,
+            .hookOnAddressSubContent = &Interrupt_HookOnAddr_send_subscription,
+            .hookOnErrorSubContent = nullptr,
+            .hookOnEventSubContent = nullptr,
+            .moment = HookAfter,
+            .eventMoment = unusedEventMoment,
+            .ev = nullptr,
+        };
         HooksResult res;
         this->run_hooks(output, *module, hooks, args, res);
         instr->hook = res.hooks_left;
@@ -677,20 +630,19 @@ bool InstrumentationManager::do_before_wasm_addr_hooks(
         return false;
     }
 
-    auto printSubMsg = [&output, addr](std::function<void()> hookOutput) {
-        Interrupt_HookOnAddr_send_JSON_subscribe_message(output, HookBefore,
-                                                         addr, hookOutput);
-    };
     HooksWasmAddr *instr = this->instr_wasm_addr_before[addr];
     HookEventMoment unusedMoment = HookOnNewEvent;
-    HookArgs args = {.currentTime = currentTime,
-                     .addr = addr,
-                     .runningState = runningState,
-                     .local_fidx = 0,
-                     .sendSubscriptionMsg = printSubMsg,
-                     .moment = HookBefore,
-                     .eventMoment = unusedMoment,
-                     .ev = nullptr};
+    HookArgs args = {
+        .currentTime = currentTime,
+        .addr = addr,
+        .runningState = runningState,
+        .local_fidx = 0,
+        .hookOnAddressSubContent = &Interrupt_HookOnAddr_send_subscription,
+        .hookOnErrorSubContent = nullptr,
+        .hookOnEventSubContent = nullptr,
+        .moment = HookBefore,
+        .eventMoment = unusedMoment,
+        .ev = nullptr};
     HooksResult result{};
     this->run_hooks(output, module, instr->hook, args, result);
     if (result.success) opcode = instr->original_opcode;
@@ -773,10 +725,6 @@ bool InstrumentationManager::runHookForOnEventHandling(const Channel &output,
         return false;
     }
 
-    auto printSubMsg = [&output](std::function<void()> hookOutput) {
-        Interrupt_HookOnEvent_send_JSON_subscribe_message(
-            output, HookOnEventHandling, hookOutput);
-    };
     WARDuino *wd = WARDuino::instance();
     uint32_t sizeBeforeHooks = CallbackHandler::events->size();
     Event event = CallbackHandler::events->front();
@@ -784,7 +732,10 @@ bool InstrumentationManager::runHookForOnEventHandling(const Channel &output,
                      .addr = 0,
                      .runningState = wd->program_state,
                      .local_fidx = 0,
-                     .sendSubscriptionMsg = printSubMsg,
+
+                     .hookOnAddressSubContent = nullptr,
+                     .hookOnErrorSubContent = nullptr,
+                     .hookOnEventSubContent = nullptr,
                      .moment = HookBefore,
                      .eventMoment = HookOnEventHandling,
                      .ev = &event};
@@ -806,19 +757,18 @@ bool InstrumentationManager::runHookForOnEventHandling(const Channel &output,
 
 void InstrumentationManager::runHooksForOnNewEvent(const Channel &output,
                                                    Module *module) {
-    auto printSubMsg = [&output](std::function<void()> hookOutput) {
-        Interrupt_HookOnEvent_send_JSON_subscribe_message(
-            output, HookOnNewEvent, hookOutput);
-    };
     WARDuino *wd = WARDuino::instance();
-    HookArgs args = {.currentTime = wd->logicalClock,
-                     .addr = 0,
-                     .runningState = wd->program_state,
-                     .local_fidx = 0,
-                     .sendSubscriptionMsg = printSubMsg,
-                     .moment = HookBefore,
-                     .eventMoment = HookOnNewEvent,
-                     .ev = nullptr};
+    HookArgs args = {
+        .currentTime = wd->logicalClock,
+        .addr = 0,
+        .runningState = wd->program_state,
+        .local_fidx = 0,
+        .hookOnAddressSubContent = nullptr,
+        .hookOnErrorSubContent = nullptr,
+        .hookOnEventSubContent = &Interrupt_HookOnEvent_send_JSON_subscription,
+        .moment = HookBefore,
+        .eventMoment = HookOnNewEvent,
+        .ev = nullptr};
     HooksResult result{};
     while (!CallbackHandler::pendingEvents->empty()) {
         Hook *hookToRun = this->hooksForOnNewEvent;
