@@ -24,12 +24,14 @@ class SnapshotBinaryEncoder {
    public:
     SnapshotBinaryEncoder(uint8_t t_interruptNumber, Module* t_module);
 
-    void createFirstMessage(std::string* dest, uint32_t amount_globals,
-                            uint32_t table_initial, uint32_t table_max,
-                            uint32_t table_size, uint32_t mem_max,
-                            uint32_t mem_initial, uint32_t mem_size);
+    void createFirstMessage(std::string& dest, uint8_t idAck,
+                            uint32_t amount_globals, uint32_t table_initial,
+                            uint32_t table_max, uint32_t table_size,
+                            uint32_t mem_max, uint32_t mem_initial,
+                            uint32_t mem_size);
 
-    void createStateMessage(std::string* dest, bool isLastMessage = true);
+    void createStateMessage(std::string& dest, uint8_t idAck,
+                            bool isLastMessage = true);
 
     void encodePC(uint32_t pc);
 

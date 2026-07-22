@@ -5,38 +5,29 @@
 #include "gtest/gtest.h"
 #include "shared/interruptfixture.h"
 #include "shared/json_companion.h"
+#include "shared/serialisation.h"
 
 class Inspect : public InterruptFixture {
    private:
-    void encodeB16(uint16_t value, uint8_t* buff) {
-        buff[0] = (value >> 8) & 0xFF;
-        buff[1] = value & 0xFF;
-    }
+    void prepareInterrupt(std::string& dest, uint8_t ackId) {
+        std::string interruptStr{};
+        Serialiser::uint8ToHexString(this->interruptNr, interruptStr);
 
-    void prepareInterrupt(std::string* dest) {
-        // interruptSize
-        // 1: store interrupt
-        // + 2: store size of interrupt
-        // + size: one byte per kind of state inspected
-        uint32_t interruptSize = 1 + 2 + this->stateToInspect.size();
+        std::string ackStr{};
+        Serialiser::uint8ToHexString(ackId, ackStr);
 
-        uint8_t* interrupt = (uint8_t*)malloc(interruptSize);
-        uint32_t offset = 0;
-        interrupt[offset++] = this->interruptNr;
-        encodeB16(this->stateToInspect.size(), interrupt + offset);
-        offset += 2;
+        std::string sizeStr{};
+        uint8_t sizeBuffer[2]{};
+        Serialiser::encodeB16(this->stateToInspect.size(), sizeBuffer);
+        Serialiser::uint8BufferToHex(sizeBuffer, 2, sizeStr);
 
+        dest = interruptStr + ackStr + sizeStr;
         for (uint8_t state : stateToInspect) {
-            interrupt[offset++] = state;
+            std::string stateStr{};
+            Serialiser::uint8ToHexString(state, stateStr);
+            dest += stateStr;
         }
-
-        char* hexa = (char*)malloc(interruptSize * 2 + 1);  // +1 for newline
-
-        chars_as_hexa((unsigned char*)hexa, interrupt, interruptSize);
-        hexa[interruptSize * 2] = '\n';
-
-        free(interrupt);
-        dest->assign(hexa);
+        dest += "\n";
     }
 
    protected:
@@ -62,9 +53,9 @@ class Inspect : public InterruptFixture {
             "Snapshot did not print expected JSON. Received lines:\n");
     }
 
-    void inspect() {
+    void inspect(uint8_t idAck) {
         std::string msg{};
-        this->prepareInterrupt(&msg);
+        this->prepareInterrupt(msg, idAck);
         this->debugger->addDebugMessage(msg.size(), (uint8_t*)msg.c_str());
         this->debugger->checkDebugMessages(this->wasm_module,
                                            &this->warduino->program_state);
@@ -73,13 +64,20 @@ class Inspect : public InterruptFixture {
 
 TEST_F(Inspect, InspectPC) {
     this->stateToInspect.push_back(pcState);
-    this->inspect();
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    uint8_t idAck = 33;
+    this->inspect(idAck);
+
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"pc"}))
@@ -90,13 +88,19 @@ TEST_F(Inspect, InspectPC) {
 
 TEST_F(Inspect, InspectBreakpoints) {
     this->stateToInspect.push_back(breakpointsState);
-    this->inspect();
+    uint8_t idAck = 33;
+    this->inspect(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"breakpoints"})) << fullErrorMessage(
@@ -107,13 +111,20 @@ TEST_F(Inspect, InspectBreakpoints) {
 
 TEST_F(Inspect, InspectCallstack) {
     this->stateToInspect.push_back(callstackState);
-    this->inspect();
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    uint8_t idAck = 1;
+    this->inspect(idAck);
+
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"callstack"})) << fullErrorMessage(
@@ -124,13 +135,19 @@ TEST_F(Inspect, InspectCallstack) {
 
 TEST_F(Inspect, InspectGlobals) {
     this->stateToInspect.push_back(globalsState);
-    this->inspect();
+    uint8_t idAck = 1;
+    this->inspect(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"globals"}))
@@ -141,13 +158,19 @@ TEST_F(Inspect, InspectGlobals) {
 
 TEST_F(Inspect, InspectTable) {
     this->stateToInspect.push_back(tableState);
-    this->inspect();
+    uint8_t idAck = 1;
+    this->inspect(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"table"}))
@@ -158,13 +181,19 @@ TEST_F(Inspect, InspectTable) {
 
 TEST_F(Inspect, InspectMemory) {
     this->stateToInspect.push_back(memoryState);
-    this->inspect();
+    uint8_t idAck = 1;
+    this->inspect(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"memory"}))
@@ -175,13 +204,19 @@ TEST_F(Inspect, InspectMemory) {
 
 TEST_F(Inspect, InspectBranchingTable) {
     this->stateToInspect.push_back(branchingTableState);
-    this->inspect();
+    uint8_t idAck = 1;
+    this->inspect(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"br_table"})) << fullErrorMessage(
@@ -192,13 +227,19 @@ TEST_F(Inspect, InspectBranchingTable) {
 
 TEST_F(Inspect, InspectStack) {
     this->stateToInspect.push_back(stackState);
-    this->inspect();
+    uint8_t idAck = 1;
+    this->inspect(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"stack"}))
@@ -209,13 +250,19 @@ TEST_F(Inspect, InspectStack) {
 
 TEST_F(Inspect, InspectCallbacks) {
     this->stateToInspect.push_back(callbacksState);
-    this->inspect();
+    uint8_t idAck = 1;
+    this->inspect(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"callbacks"})) << fullErrorMessage(
@@ -226,13 +273,19 @@ TEST_F(Inspect, InspectCallbacks) {
 
 TEST_F(Inspect, InspectEvents) {
     this->stateToInspect.push_back(eventsState);
-    this->inspect();
+    uint8_t idAck = 1;
+    this->inspect(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failInspectNotReceived();
         return;
     }
+
+    JSONCompanion compReply{reply};
+    ASSERT_TRUE(compReply.containsKey({"sub"}))
+        << fullErrorMessage("Inspect did not print the sub content");
+    auto parsed = reply["sub"];
 
     JSONCompanion comp{parsed};
     ASSERT_TRUE(comp.containsKey({"events"}))

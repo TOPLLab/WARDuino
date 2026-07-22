@@ -5,6 +5,7 @@
 #include "../../src/Interrupts/interrupt_inspect.h"
 #include "../../src/Interrupts/interrupts.h"
 #include "../../src/Utils/util.h"
+#include "serialisation.h"
 
 uint8_t* getCodePointer(Block* block, Module* m) {
     auto find =
@@ -28,21 +29,22 @@ void SnapshotBinaryEncoder::encodePC(uint32_t pc) {
     encodeB32(pc);
 }
 
-void SnapshotBinaryEncoder::createStateMessage(std::string* dest,
+void SnapshotBinaryEncoder::createStateMessage(std::string& dest, uint8_t idAck,
                                                bool isLastMessage) {
     // marking the end or not of the state transmission
     this->stateToTransmit.push_back(isLastMessage ? 1 : 0);
 
+    dest.clear();
+
     // copy bytes to buffer
-    // 1: one byte to store the interruptkind
     // 4: 4 bytes to store the payload size
     // encoding.size(): payload size
     // + 1: to inform whether this message is the last
     uint32_t sizePayload = this->stateToTransmit.size();
-    uint32_t sizeMessage = 1 + 4 + sizePayload;
+    uint32_t sizeMessage = 4 + sizePayload;
     uint8_t* encoding = (uint8_t*)malloc(sizeMessage);
     uint32_t offset = 0;
-    encoding[offset++] = this->interruptNr;
+    //    encoding[offset++] = this->interruptNr;
     // tmp -1 will be fixed as part of the refactoring of snapshot
     encodeB32(sizePayload - 1, encoding + offset);
     offset += 4;
@@ -63,84 +65,101 @@ void SnapshotBinaryEncoder::createStateMessage(std::string* dest,
     hexa[sizeMsgInHexa] = '\n';
     // string termination
     hexa[sizeMsgInHexa + 1] = '\0';
-    dest->assign(hexa);
+
+    std::string interruptHex{};
+    Serialiser::uint8ToHexString(this->interruptNr, interruptHex);
+
+    std::string idHex{};
+    Serialiser::uint8ToHexString(idAck, idHex);
+
+    dest = interruptHex + idHex + hexa;
 }
 
 void SnapshotBinaryEncoder::createFirstMessage(
-    std::string* dest, uint32_t amount_globals, uint32_t table_initial,
-    uint32_t table_max, uint32_t table_size, uint32_t mem_max,
-    uint32_t mem_initial, uint32_t mem_size) {
+    std::string& dest, uint8_t idAck, uint32_t amount_globals,
+    uint32_t table_initial, uint32_t table_max, uint32_t table_size,
+    uint32_t mem_max, uint32_t mem_initial, uint32_t mem_size) {
+    dest.clear();
+
+    std::string interruptHex{};
+    Serialiser::uint8ToHexString(interruptLoadSnapshot, interruptHex);
+    dest = interruptHex;
+
+    // id ack
+    std::string idHex{};
+    Serialiser::uint8ToHexString(idAck, idHex);
+    dest += idHex;
+
+    // size payload
     // 4: to tell size payload
     // 1*3: one byte to tell the kind of state send
     // 7*4: bytes per argument encoded as B32
     uint32_t sizePayload = 3 + 7 * 4;
-    // 1: interrupt kind
-    // 4: used to store the size of payload
-    uint32_t sizeMessage = 1 + 4 + sizePayload;
-    uint8_t message[sizeMessage];
-
-    uint32_t offset = 0;
-    // interrupt
-    message[offset++] = interruptLoadSnapshot;
-
-    // size payload
     uint8_t sizePayloadB32[4] = {0};
-    encodeB32(sizePayload, sizePayloadB32);
-    memcpy(message + offset, sizePayloadB32, 4);
-    offset += 4;
+    this->encodeB32(sizePayload, sizePayloadB32);
+    std::string sizePayloadHex{};
+    Serialiser::uint8BufferToHex(sizePayloadB32, 4, sizePayloadHex);
+    dest += sizePayloadHex;
 
     // amount globals
-    message[offset++] = globalsState;
+    std::string globalHex{};
+    Serialiser::uint8ToHexString(globalsState, globalHex);
+    dest += globalHex;
 
     uint8_t amountGlobalsB32[4] = {0};
-    encodeB32(amount_globals, amountGlobalsB32);
-    memcpy(message + offset, amountGlobalsB32, 4);
-    offset += 4;
+    this->encodeB32(amount_globals, amountGlobalsB32);
+    //    memcpy(message + offset, amountGlobalsB32, 4);
+    //    offset += 4;
+    std::string globalsAmountHex{};
+    Serialiser::uint8BufferToHex(amountGlobalsB32, 4, globalsAmountHex);
+    dest += globalsAmountHex;
 
     // table
-    message[offset++] = tableState;
+    std::string tableHex{};
+    Serialiser::uint8ToHexString(tableState, tableHex);
+    dest += tableHex;
 
     uint8_t tableInitB32[4] = {0};
-    encodeB32(table_initial, tableInitB32);
-    memcpy(message + offset, tableInitB32, 4);
-    offset += 4;
+    this->encodeB32(table_initial, tableInitB32);
+    std::string tableInitHex{};
+    Serialiser::uint8BufferToHex(tableInitB32, 4, tableInitHex);
+    dest += tableInitHex;
 
     uint8_t tableMaxB32[4] = {0};
-    encodeB32(table_max, tableMaxB32);
-    memcpy(message + offset, tableMaxB32, 4);
-    offset += 4;
+    this->encodeB32(table_max, tableMaxB32);
+    std::string tableMaxHex{};
+    Serialiser::uint8BufferToHex(tableMaxB32, 4, tableMaxHex);
+    dest += tableMaxHex;
 
     uint8_t tableSizeB32[4] = {0};
-    encodeB32(table_size, tableSizeB32);
-    memcpy(message + offset, tableSizeB32, 4);
-    offset += 4;
+    this->encodeB32(table_size, tableSizeB32);
+    std::string tableSizeHex{};
+    Serialiser::uint8BufferToHex(tableSizeB32, 4, tableSizeHex);
+    dest += tableSizeHex;
 
     // memory
-    message[offset++] = memoryState;
+    std::string memHex{};
+    Serialiser::uint8ToHexString(memoryState, memHex);
+    dest += memHex;
 
     uint8_t memMaxB32[4] = {0};
-    encodeB32(mem_max, memMaxB32);
-    memcpy(message + offset, memMaxB32, 4);
-    offset += 4;
+    this->encodeB32(mem_max, memMaxB32);
+    std::string memMaxHex{};
+    Serialiser::uint8BufferToHex(memMaxB32, 4, memMaxHex);
+    dest += memMaxHex;
 
     uint8_t memInitB32[4] = {0};
-    encodeB32(mem_initial, memInitB32);
-    memcpy(message + offset, memInitB32, 4);
-    offset += 4;
+    this->encodeB32(mem_initial, memInitB32);
+    std::string memInitHex{};
+    Serialiser::uint8BufferToHex(memInitB32, 4, memInitHex);
+    dest += memInitHex;
 
     uint8_t memSizeB32[4] = {0};
-    encodeB32(mem_size, memSizeB32);
-    memcpy(message + offset, memSizeB32, 4);
-
-    // transform to hexastring
-    uint32_t sizeMessageInHexa = sizeMessage * 2;
-    char* hexa = (char*)malloc(sizeMessageInHexa +
-                               2);  // + 2 for newline and string termination
-
-    chars_as_hexa((unsigned char*)hexa, message, sizeMessage);
-    hexa[sizeMessageInHexa] = '\n';
-    hexa[sizeMessageInHexa + 1] = '\0';
-    dest->assign(hexa);
+    this->encodeB32(mem_size, memSizeB32);
+    std::string memSizeHex{};
+    Serialiser::uint8BufferToHex(memSizeB32, 4, memSizeHex);
+    dest += memSizeHex;
+    dest += "\n";
 }
 
 void SnapshotBinaryEncoder::encodeBreakpoints(std::set<uint32_t> breakpoints) {
@@ -205,10 +224,10 @@ void SnapshotBinaryEncoder::encodeCallbacks(std::vector<Callback>& callbacks) {
 }
 void SnapshotBinaryEncoder::encodeEvents(std::vector<Event>& events) {
     this->stateToTransmit.push_back(eventsState);
-    encodeB32(events.size());
+    this->encodeB32(events.size());
     for (auto ev : events) {
-        encodeString(ev.topic);
-        encodeString(ev.payload);
+        this->encodeString(ev.topic);
+        this->encodeString(ev.payload);
     }
 }
 

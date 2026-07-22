@@ -34,7 +34,7 @@ class LoadSnapshot : public InterruptFixture {
         delete this->state;
     }
 
-    void sendMessage(std::string msg) {
+    void sendMessage(std::string& msg) {
         auto size = msg.size();
         const uint8_t* content = (const uint8_t*)msg.c_str();
         this->debugger->addDebugMessage(size, content);
@@ -42,7 +42,7 @@ class LoadSnapshot : public InterruptFixture {
                                            &this->warduino->program_state);
     }
 
-    void sendFirstMessageWithEmptyState() {
+    void sendFirstMessageWithEmptyState(uint8_t idAck) {
         uint32_t amountGlobals = 0;
         uint32_t table_initial = 0;
         uint32_t table_max = 0;
@@ -51,7 +51,7 @@ class LoadSnapshot : public InterruptFixture {
         uint32_t mem_initial = 0;
         uint32_t mem_size = 0;
         std::string firstMessage{};
-        this->state->createFirstMessage(&firstMessage, amountGlobals,
+        this->state->createFirstMessage(firstMessage, idAck, amountGlobals,
                                         table_initial, table_max, table_size,
                                         mem_max, mem_initial, mem_size);
         this->sendMessage(firstMessage);
@@ -68,15 +68,16 @@ TEST_F(LoadSnapshot, FirstMessage) {
     uint32_t mem_max = 2;
     uint32_t mem_initial = 0;
     uint32_t mem_size = 1;
+    uint8_t idAck = 22;
     std::string firstMessage{};
-    state->createFirstMessage(&firstMessage, amountGlobals, table_initial,
+    state->createFirstMessage(firstMessage, idAck, amountGlobals, table_initial,
                               table_max, table_size, mem_max, mem_initial,
                               mem_size);
     this->sendMessage(firstMessage);
 
     // send no state
     std::string msg;
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
 
     // the first message sets global count to 0
@@ -99,12 +100,13 @@ TEST_F(LoadSnapshot, FirstMessage) {
 }
 
 TEST_F(LoadSnapshot, PC) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 22;
+    this->sendFirstMessageWithEmptyState(idAck);
     uint32_t expectedPC = 33;  // random value within wasm
     this->state->encodePC(expectedPC);
     std::string msg{};
     bool isLastMessage = true;
-    this->state->createStateMessage(&msg, isLastMessage);
+    this->state->createStateMessage(msg, idAck, isLastMessage);
     this->sendMessage(msg);
     uint32_t pc =
         toVirtualAddress(this->wasm_module->pc_ptr, this->wasm_module);
@@ -113,12 +115,13 @@ TEST_F(LoadSnapshot, PC) {
 }
 
 TEST_F(LoadSnapshot, Breakpoints) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 22;
+    this->sendFirstMessageWithEmptyState(idAck);
     std::set<uint32_t> breakpoints = {1, 2, 3, 4};  // all valid bps
 
     this->state->encodeBreakpoints(breakpoints);
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
     ASSERT_EQ(this->debugger->breakpoints.size(), 4)
         << "expected 4 breakpoints to be loaded";
@@ -131,7 +134,8 @@ TEST_F(LoadSnapshot, Breakpoints) {
 }
 
 TEST_F(LoadSnapshot, InvalidBreakpointsAreNotLoaded) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 33;
+    this->sendFirstMessageWithEmptyState(idAck);
     std::set<uint32_t> breakpoints{};
     uint32_t validBP = 1;
     breakpoints.insert(validBP);             // valid bp
@@ -141,7 +145,7 @@ TEST_F(LoadSnapshot, InvalidBreakpointsAreNotLoaded) {
 
     this->state->encodeBreakpoints(breakpoints);
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
     ASSERT_EQ(this->debugger->breakpoints.size(), 1)
         << "only one breakpoint was valid and should have been kept";
@@ -153,7 +157,8 @@ TEST_F(LoadSnapshot, InvalidBreakpointsAreNotLoaded) {
 }
 
 TEST_F(LoadSnapshot, Callbacks) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 33;
+    this->sendFirstMessageWithEmptyState(idAck);
     std::vector<Callback> callbacks{};
 
     // register 3 callbacks for topic10
@@ -172,7 +177,7 @@ TEST_F(LoadSnapshot, Callbacks) {
 
     this->state->encodeCallbacks(callbacks);
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
 
     std::string dumpedCallbacks{};
@@ -234,7 +239,8 @@ TEST_F(LoadSnapshot, Callbacks) {
 }
 
 TEST_F(LoadSnapshot, Events) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 33;
+    this->sendFirstMessageWithEmptyState(idAck);
 
     // creating events
     std::map<std::string, std::string> eventsMap{
@@ -248,11 +254,11 @@ TEST_F(LoadSnapshot, Events) {
     // sending the events to load  via loadsnapshot
     this->state->encodeEvents(expectedEvents);
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
 
     // printing the current events
-    this->sendInterruptNoPayload(interruptDUMPAllEvents);
+    this->sendInterruptNoPayload(interruptDUMPAllEvents, idAck);
     nlohmann::basic_json<> reply{};
     if (!this->dbgOutput->getJSONReply(&reply)) {
         FAIL() << fullErrorMessage(
@@ -262,7 +268,8 @@ TEST_F(LoadSnapshot, Events) {
 
     // testing if the printed events match the expected events
     try {
-        auto events = reply["events"];
+        auto sub = reply["sub"];
+        auto events = sub["events"];
         ASSERT_EQ(events.size(), 3) << "the two events did not get printed";
         for (auto ev : events) {
             std::string topic = ev["topic"];
@@ -283,7 +290,8 @@ TEST_F(LoadSnapshot, Events) {
 }
 
 TEST_F(LoadSnapshotCallstack, FuncFrame) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 22;
+    this->sendFirstMessageWithEmptyState(idAck);
 
     std::vector<Frame> frames = {};
     uint32_t returnAddress = 33;  // random
@@ -299,7 +307,7 @@ TEST_F(LoadSnapshotCallstack, FuncFrame) {
     this->state->encodeCallstack(&frames);
 
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
     ASSERT_EQ(this->wasm_module->csp, 0);
 
@@ -313,7 +321,8 @@ TEST_F(LoadSnapshotCallstack, FuncFrame) {
 }
 
 TEST_F(LoadSnapshotCallstack, ProxyFrame) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 22;
+    this->sendFirstMessageWithEmptyState(idAck);
 
     std::vector<Frame> frames = {};
     uint32_t returnAddress = 33;  // random
@@ -330,7 +339,7 @@ TEST_F(LoadSnapshotCallstack, ProxyFrame) {
     this->state->encodeCallstack(&frames);
 
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
     ASSERT_EQ(this->wasm_module->csp, 0);
 
@@ -343,7 +352,8 @@ TEST_F(LoadSnapshotCallstack, ProxyFrame) {
 }
 
 TEST_F(LoadSnapshotCallstack, EventFrame) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 22;
+    this->sendFirstMessageWithEmptyState(idAck);
 
     std::vector<Frame> frames = {};
     uint32_t returnAddress = 33;  // random
@@ -360,7 +370,7 @@ TEST_F(LoadSnapshotCallstack, EventFrame) {
     this->state->encodeCallstack(&frames);
 
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
     ASSERT_EQ(this->wasm_module->csp, 0);
 
@@ -373,7 +383,8 @@ TEST_F(LoadSnapshotCallstack, EventFrame) {
 }
 
 TEST_F(LoadSnapshotCallstack, IfFrame) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 22;
+    this->sendFirstMessageWithEmptyState(idAck);
 
     std::vector<Frame> frames = {};
     uint32_t returnAddress = 33;  // random
@@ -390,7 +401,7 @@ TEST_F(LoadSnapshotCallstack, IfFrame) {
     this->state->encodeCallstack(&frames);
 
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
     ASSERT_EQ(this->wasm_module->csp, 0);
 
@@ -404,7 +415,8 @@ TEST_F(LoadSnapshotCallstack, IfFrame) {
 }
 
 TEST_F(LoadSnapshotCallstack, LoopFrame) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 22;
+    this->sendFirstMessageWithEmptyState(idAck);
 
     std::vector<Frame> frames = {};
     uint32_t returnAddress = 33;  // random
@@ -421,7 +433,7 @@ TEST_F(LoadSnapshotCallstack, LoopFrame) {
     this->state->encodeCallstack(&frames);
 
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
     ASSERT_EQ(this->wasm_module->csp, 0);
 
@@ -435,7 +447,8 @@ TEST_F(LoadSnapshotCallstack, LoopFrame) {
 }
 
 TEST_F(LoadSnapshotCallstack, FrameWithNegativeSPAndFP) {
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 22;
+    this->sendFirstMessageWithEmptyState(idAck);
 
     std::vector<Frame> frames = {};
     Frame f{};
@@ -448,7 +461,7 @@ TEST_F(LoadSnapshotCallstack, FrameWithNegativeSPAndFP) {
     this->state->encodeCallstack(&frames);
 
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
     Frame f2 = this->wasm_module->callstack[0];
     ASSERT_EQ(f2.sp, -1) << "A frame with a negative sp should be loaded";
@@ -457,7 +470,8 @@ TEST_F(LoadSnapshotCallstack, FrameWithNegativeSPAndFP) {
 
 TEST_F(LoadSnapshotCallstack, FrameWithNullPtrAsReturnAddresShouldBeLoaded) {
     // the return address should become a nullptr
-    this->sendFirstMessageWithEmptyState();
+    uint8_t idAck = 22;
+    this->sendFirstMessageWithEmptyState(idAck);
 
     std::vector<Frame> frames = {};
     Frame f{};
@@ -470,7 +484,7 @@ TEST_F(LoadSnapshotCallstack, FrameWithNullPtrAsReturnAddresShouldBeLoaded) {
     this->state->encodeCallstack(&frames);
 
     std::string msg{};
-    this->state->createStateMessage(&msg);
+    this->state->createStateMessage(msg, idAck);
     this->sendMessage(msg);
     Frame f2 = this->wasm_module->callstack[0];
     ASSERT_EQ(f2.ra_ptr, nullptr);

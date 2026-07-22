@@ -1,5 +1,8 @@
+#include <cstdint>
 #include <iostream>
+#include <string>
 
+#include "../../src/Interrupts/interrupt_response.h"
 #include "../../src/Interrupts/interrupts.h"
 #include "../../src/Utils/util.h"
 #include "example_code/fac/fac_wasm.h"
@@ -19,23 +22,19 @@ class BreakpointInterrupt : public InterruptFixture {
         this->callstackBuilder->pushFunctionCall(mainFunc->fidx);
     }
 
-    void sendBpInterrupt(uint32_t bpAddress) {
+    void sendBpInterrupt(uint32_t bpAddress, uint8_t id) {
         std::string nr{};
         Serialiser::uint8ToHexString(this->interruptNr, nr);
         std::string bp{};
+        std::string idStr{};
+        Serialiser::uint8ToHexString(id, idStr);
         Serialiser::uint32ToHexString(bpAddress, bp);
 
-        std::string interrupt = nr + bp + "\n";
+        std::string interrupt = nr + idStr + bp + "\n";
         this->debugger->addDebugMessage(interrupt.size(),
                                         (uint8_t*)interrupt.c_str());
         this->debugger->checkDebugMessages(this->wasm_module,
                                            &this->warduino->program_state);
-    }
-
-    void failInterruptAckNotReceived() {
-        this->failAndPrintAllReceivedMessages(
-            "Debugger's ack for receiving interrupt was not send. "
-            "DBGOutput:\n ");
     }
 
     void failBPAckNotReceived() {
@@ -53,7 +52,9 @@ class AddBreakpointInterrupt : public BreakpointInterrupt {
     AddBreakpointInterrupt()
         : BreakpointInterrupt("addBreakpoint", interruptBPAdd) {}
 
-    void addBreakpoint(uint32_t bpaddress) { this->sendBpInterrupt(bpaddress); }
+    void addBreakpoint(uint32_t bpaddress, uint8_t id) {
+        this->sendBpInterrupt(bpaddress, id);
+    }
 };
 
 class RemoveBreakpointInterrupt : public BreakpointInterrupt {
@@ -61,37 +62,26 @@ class RemoveBreakpointInterrupt : public BreakpointInterrupt {
     RemoveBreakpointInterrupt()
         : BreakpointInterrupt("removeBreakpoint", interruptBPRem) {}
 
-    void removeBreakpoint(uint32_t bpaddress) {
-        this->sendBpInterrupt(bpaddress);
+    void removeBreakpoint(uint32_t bpaddress, uint8_t id) {
+        this->sendBpInterrupt(bpaddress, id);
     }
 };
 
-TEST_F(AddBreakpointInterrupt,
-       AddingBreakpointExpectsVirtualAddressAndPrintsVirtualAddressAck) {
+TEST_F(AddBreakpointInterrupt, AddingBreakpointExpectsVirtualAddress) {
     auto bpsSizePriorInterrupt = this->debugger->breakpoints.size();
     uint32_t bp = 2;
-    this->addBreakpoint(bp);
+    uint8_t idAck = 1;
+    this->addBreakpoint(bp, idAck);
 
-    // first message is about confirmation interrupt was received
-    std::string* confirmInterruptReceived = this->dbgOutput->getLine();
-    if (*confirmInterruptReceived == "") {
-        this->failInterruptAckNotReceived();
-        return;
-    }
+    std::string expectedMessage{};
+    createSuccessReplyMessage(expectedMessage, interruptBPAdd, idAck);
 
-    std::string expectedMessage = "Interrupt: 6";
-    ASSERT_EQ(*confirmInterruptReceived, expectedMessage)
-        << "invalid ack for confirming reception of interrupt";
-
-    // second message is about confirmation that bp got added
     std::string* confirmBpAdded = this->dbgOutput->getLine();
     if (*confirmBpAdded == "") {
         this->failBPAckNotReceived();
         return;
     }
-    expectedMessage = "BP ";
-    expectedMessage += std::to_string(bp);
-    expectedMessage += "!";
+
     ASSERT_EQ(*confirmBpAdded, expectedMessage)
         << "invalid ack for confirming adding the breakpoint";
     ASSERT_EQ(bpsSizePriorInterrupt + 1, this->debugger->breakpoints.size())
@@ -101,49 +91,30 @@ TEST_F(AddBreakpointInterrupt,
 TEST_F(AddBreakpointInterrupt, InvalidBreakpointIsNotAdded) {
     auto bpsSizePriorInterrupt = this->debugger->breakpoints.size();
     uint32_t bp = this->wasm_module->byte_count + 2;
-    this->addBreakpoint(bp);
+    uint8_t idAck = 1;
+    this->addBreakpoint(bp, 1);
 
-    // first message is about confirmation interrupt was received
-    std::string* confirmInterruptReceived = this->dbgOutput->getLine();
-    if (*confirmInterruptReceived == "") {
-        this->failInterruptAckNotReceived();
-        return;
-    }
-    std::string expectedMessage = "Interrupt: 6";
-    ASSERT_EQ(*confirmInterruptReceived, expectedMessage)
-        << "invalid ack for confirming reception of interrupt";
-
-    // second message is about confirming that bp got supposedly added
     std::string* confirmBpAdded = this->dbgOutput->getLine();
     if (*confirmBpAdded == "") {
         this->failBPAckNotReceived();
         return;
     }
-    expectedMessage = "BP ";
-    expectedMessage += std::to_string(bp);
-    expectedMessage += "!";
+
+    std::string expectedMessage{};
+    createFailureReplyMessage(expectedMessage, interruptBPAdd, idAck,
+                              INVALID_BP_ADDR);
+
     ASSERT_EQ(*confirmBpAdded, expectedMessage)
         << "invalid ack for confirming adding the breakpoint";
     ASSERT_EQ(bpsSizePriorInterrupt, this->debugger->breakpoints.size())
         << "invalid breakpoint should not be added";
 }
 
-TEST_F(RemoveBreakpointInterrupt,
-       RemovingBreakpointExpectsVirtualAddressAndPrintsVirtualAddressAck) {
+TEST_F(RemoveBreakpointInterrupt, RemovingBreakpointExpectsVirtualAddress) {
     auto bpsSizePriorInterrupt = this->debugger->breakpoints.size();
     uint32_t bp = 2;
-    this->removeBreakpoint(bp);
-
-    // first message is about confirmation interrupt was received
-    std::string* confirmInterruptReceived = this->dbgOutput->getLine();
-    if (*confirmInterruptReceived == "") {
-        this->failInterruptAckNotReceived();
-        return;
-    }
-
-    std::string expectedMessage = "Interrupt: 7";
-    ASSERT_EQ(*confirmInterruptReceived, expectedMessage)
-        << "invalid ack for confirming reception of interrupt";
+    uint8_t idAck = 1;
+    this->removeBreakpoint(bp, idAck);
 
     // second message is about confirmation that bp got removed
     std::string* confirmBpRemoved = this->dbgOutput->getLine();
@@ -151,9 +122,8 @@ TEST_F(RemoveBreakpointInterrupt,
         this->failBPAckNotReceived();
         return;
     }
-    expectedMessage = "BP ";
-    expectedMessage += std::to_string(bp);
-    expectedMessage += "!";
+    std::string expectedMessage{};
+    createSuccessReplyMessage(expectedMessage, interruptBPRem, idAck);
     ASSERT_EQ(*confirmBpRemoved, expectedMessage)
         << "invalid ack for confirming removing the breakpoint";
     ASSERT_EQ(bpsSizePriorInterrupt, this->debugger->breakpoints.size())
@@ -163,33 +133,23 @@ TEST_F(RemoveBreakpointInterrupt,
 
 TEST_F(RemoveBreakpointInterrupt, InvalidBreakpointIsNotRemoved) {
     auto bpsSizePriorInterrupt = this->debugger->breakpoints.size();
-    uint32_t bp = 2;
-    this->removeBreakpoint(bp);
+    uint32_t bp = this->wasm_len + 2;
+    uint8_t idAck = 33;
+    this->removeBreakpoint(bp, idAck);
 
-    // first message is about confirmation interrupt was received
-    std::string* confirmInterruptReceived = this->dbgOutput->getLine();
-    if (*confirmInterruptReceived == "") {
-        this->failInterruptAckNotReceived();
-        return;
-    }
-
-    std::string expectedMessage = "Interrupt: 7";
-    ASSERT_EQ(*confirmInterruptReceived, expectedMessage)
-        << "invalid ack for confirming reception of interrupt";
-
-    // second message is about confirmation that bp got removed
     std::string* confirmBpRemoved = this->dbgOutput->getLine();
     if (*confirmBpRemoved == "") {
         this->failBPAckNotReceived();
         return;
     }
-    expectedMessage = "BP ";
-    expectedMessage += std::to_string(bp);
-    expectedMessage += "!";
-    ASSERT_EQ(*confirmBpRemoved, expectedMessage)
-        << "invalid ack for confirming removing the breakpoint";
+
+    std::string expectedMessage{};
+    createFailureReplyMessage(expectedMessage, interruptBPRem, idAck,
+                              INVALID_BP_ADDR);
     ASSERT_EQ(bpsSizePriorInterrupt, this->debugger->breakpoints.size())
         << "breakpoints should remain same size as invalid bp is ignored";
+    ASSERT_EQ(*confirmBpRemoved, expectedMessage)
+        << "invalid ack for confirming removing the breakpoint";
 }
 
 TEST_F(AddBreakpointInterrupt, NotifyBreakpointReachedPrintsVirtualAddress) {

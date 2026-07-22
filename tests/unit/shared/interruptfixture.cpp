@@ -1,6 +1,7 @@
 #include "interruptfixture.h"
 
 #include "../../../src/Utils/util.h"
+#include "serialisation.h"
 
 InterruptFixture::InterruptFixture(const char* t_interruptName,
                                    uint8_t t_interruptNr, uint8_t* t_wasm,
@@ -36,8 +37,7 @@ void InterruptFixture::failAndPrintAllReceivedMessages(const char* failReason) {
     std::string errorMsg{};
     this->dbgOutput->appendReadLines(&errorMsg);
     FAIL() << "Valid Answer for " << this->interruptName
-           << " was not received. Received following "
-              "lines:\n"
+           << " was not received. Received following lines:\n"
            << errorMsg;
 }
 
@@ -59,13 +59,17 @@ void InterruptFixture::TearDown() {
 }
 
 // creates an interruptMsg that does not expect any payload
-void InterruptFixture::sendInterruptNoPayload(uint8_t interruptNr) {
-    char hexa[3] = {};
-    chars_as_hexa((unsigned char*)hexa, &interruptNr, 1);
-    hexa[2] = '\n';
+void InterruptFixture::sendInterruptNoPayload(uint8_t interruptNr,
+                                              uint8_t idMsg) {
+    std::string interruptStr{};
+    Serialiser::uint8ToHexString(interruptNr, interruptStr);
 
-    const uint8_t* content = (uint8_t*)hexa;
-    this->debugger->addDebugMessage(3, content);
+    std::string idStr{};
+    Serialiser::uint8ToHexString(idMsg, idStr);
+
+    std::string content{};
+    content = interruptStr + idStr + "\n";
+    this->debugger->addDebugMessage(content.size(), (uint8_t*)content.c_str());
     this->debugger->checkDebugMessages(this->wasm_module,
                                        &this->warduino->program_state);
 }
