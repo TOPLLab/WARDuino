@@ -77,7 +77,7 @@ class Debugger {
 
     void handleDump(Module *m, DebugMessage *msg, bool full = false) const;
 
-    void dumpStack(Module *m) const;
+    void dumpStack(Module *m, bool newline = true) const;
 
     void dumpLocals(Module *m) const;
 

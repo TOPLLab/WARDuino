@@ -487,14 +487,14 @@ void Debugger::dump(Module *m, bool full, bool newline) const {
     this->channel->write(newline ? "}\n\n" : "}");
 }
 
-void Debugger::dumpStack(Module *m) const {
+void Debugger::dumpStack(Module *m, bool newline) const {
     this->channel->write("{\"stack\": [");
     int32_t i = m->sp;
     while (0 <= i) {
         this->printValue(&m->stack[i], i, i < 1);
         i--;
     }
-    this->channel->write("]}\n\n");
+    this->channel->write(newline ? "]}\n\n" : "]}");
 }
 
 void Debugger::dumpBreakpoints(Module *m) const {
