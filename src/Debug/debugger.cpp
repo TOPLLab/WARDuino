@@ -203,8 +203,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptDUMP:
             this->pauseRuntime(m);
-            this->dump(m);
-            free(interruptData);
+            this->handleDump(m, msg);
             break;
         case interruptDUMPLocals:
             this->pauseRuntime(m);
@@ -214,8 +213,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptDUMPFull:
             this->pauseRuntime(m);
-            this->dump(m, true);
-            free(interruptData);
+            this->handleDump(m, msg, true);
             break;
         case interruptReset:
             this->reset(m);
@@ -452,9 +450,18 @@ void Debugger::handleInterruptBP(Module *m, DebugMessage *msg) {
                                             msg->id, INVALID_BP_ADDR);
     }
 }
+
+void Debugger::handleDump(Module *m, DebugMessage *msg, bool full) const {
+    bool newline = false;
+    bool includeSubContent = true;
+    Interrupt_send_JSON_start_message(*this->channel, msg->interrupt,
+                                      INTERRUPT_RESPONSE_TYPE_SUCCESS, msg->id,
+                                      includeSubContent, NO_ERROR);
+    this->dump(m, full, newline);
+    Interrupt_send_JSON_end_message(*this->channel);
 }
 
-void Debugger::dump(Module *m, bool full) const {
+void Debugger::dump(Module *m, bool full, bool newline) const {
     auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
     this->channel->write("{");
 
@@ -477,8 +484,7 @@ void Debugger::dump(Module *m, bool full) const {
 
     this->dumpHeapInfo(m);
 
-    this->channel->write("}\n\n");
-    //    fflush(stdout);
+    this->channel->write(newline ? "}\n\n" : "}");
 }
 
 void Debugger::dumpStack(Module *m) const {
