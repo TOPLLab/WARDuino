@@ -14,16 +14,17 @@
 class InstrumentationManager;  // Fix cyclic dependency by moving struct in
                                // separate file
 typedef struct OnEventHookResponse {
+    uint32_t id{};
     uint8_t type{};
     uint8_t error_code{};
 } OnEventHookResponse;
 
 void Interrupt_HookOnEvent_handle_request(const Channel &requester,
                                           InstrumentationManager &manager,
-                                          uint8_t *encoded_request);
+                                          DebugMessage *msg);
 
 bool Interrupt_HookOnEvent_deserialize_request(OnEventHookRequest &dest,
-                                               uint8_t *encoded_request,
+                                               DebugMessage *msg,
                                                uint8_t &error_code);
 
 void Interrupt_HookOnEvent_send_response(const Channel &output,
@@ -35,9 +36,11 @@ bool Interrupt_OnEventHook_serialize_response(
 bool Interrupt_HookOnEvent_serialize_hexa_string_response(
     const OnEventHookResponse &response, char *dest);
 
-void Interrupt_HookOnEvent_send_JSON_subscribe_message(
-    const Channel &output, HookEventMoment moment,
-    std::function<void()> hookOutput);
+void Interrupt_HookOnEvent_send_JSON_subscription(const Channel &output,
+                                                  uint32_t id,
+                                                  HookEventMoment moment,
+                                                  bool start);
 
 void Interrupt_HookOnEvent_send_Binary_subscribe_message(const Channel &output,
+                                                         const uint32_t id,
                                                          const Event &ev);

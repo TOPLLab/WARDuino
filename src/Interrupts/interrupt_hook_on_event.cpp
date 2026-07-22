@@ -1,8 +1,10 @@
 #include "interrupt_hook_on_event.h"
 
+#include <cstdint>
+
 #include "../Interrupts/interrupt_response.h"
-#include "../Utils/macros.h"
 #include "../Utils/util.h"
+#include "interrupts.h"
 
 #define RESPONSE_BUFFER_SIZE 10
 
@@ -11,13 +13,13 @@ bool addHook(InstrumentationManager &manager, Hook &hook,
 
 void Interrupt_HookOnEvent_handle_request(const Channel &requester,
                                           InstrumentationManager &manager,
-                                          uint8_t *encoded_request) {
+                                          DebugMessage *msg) {
     OnEventHookRequest request{};
     OnEventHookResponse response{};
     Hook hook;
     request.hook = &hook;
 
-    if (Interrupt_HookOnEvent_deserialize_request(request, encoded_request,
+    if (Interrupt_HookOnEvent_deserialize_request(request, msg,
                                                   response.error_code) &&
         addHook(manager, *request.hook, request.moment, response.error_code)) {
         response.type = INTERRUPT_RESPONSE_TYPE_SUCCESS;
@@ -25,18 +27,20 @@ void Interrupt_HookOnEvent_handle_request(const Channel &requester,
         response.type = INTERRUPT_RESPONSE_TYPE_ERROR;
     }
 
+    response.id = msg->id;
     Interrupt_HookOnEvent_send_response(requester, response);
 }
 
 bool Interrupt_HookOnEvent_deserialize_request(OnEventHookRequest &dest,
-                                               uint8_t *encoded_request,
+                                               DebugMessage *msg,
                                                uint8_t &error_code) {
     // format: interrupt nr | hook moment | Hook
-
-    if (*encoded_request++ != interruptHookOnEvent) {
+    if (msg->interrupt != interruptHookOnEvent) {
         error_code = ON_EVENT_HOOK_ERROR_CODE_INVALID_INTERRUPT_NR;
         return false;
     }
+
+    uint8_t *encoded_request = msg->data;
     dest.moment = (HookEventMoment)*encoded_request++;
     switch (dest.moment) {
         case HookOnNewEvent:
@@ -47,7 +51,9 @@ bool Interrupt_HookOnEvent_deserialize_request(OnEventHookRequest &dest,
             error_code = ON_EVENT_HOOK_ERROR_CODE_INVALID_HOOK_MOMENT;
             return false;
     }
-    return Hooks_deserialize_hook(*dest.hook, &encoded_request, error_code);
+    dest.id = msg->id;
+    return Hooks_deserialize_hook(*dest.hook, msg->id, &encoded_request,
+                                  error_code);
 }
 
 void Interrupt_HookOnEvent_send_response(const Channel &output,
@@ -65,33 +71,40 @@ bool Interrupt_OnEventHook_serialize_response(
 
 bool Interrupt_HookOnEvent_serialize_hexa_string_response(
     const OnEventHookResponse &response, char *dest) {
-    return Interrupt_serialize_hexa_string_response(interruptHookOnEvent,
-                                                    response.type, dest) > -1;
+    return Interrupt_serialize_hexa_string_response(
+               interruptHookOnEvent, response.id, response.type, dest) > -1;
 }
 
-void Interrupt_HookOnEvent_send_JSON_subscribe_message(
-    const Channel &output, HookEventMoment moment,
-    std::function<void()> hookOutput) {
-    auto subscriptionMsgBody = [&output, moment, hookOutput]() {
+void Interrupt_HookOnEvent_send_JSON_subscription(const Channel &output,
+                                                  uint32_t id,
+                                                  HookEventMoment moment,
+                                                  bool start) {
+    if (start) {
+        bool hasSubContent = true;
+        Interrupt_send_JSON_start_message(output, interruptHookOnEvent,
+                                          INTERRUPT_RESPONSE_TYPE_SUBSCRIPTION,
+                                          id, hasSubContent, NO_ERROR);
         output.write(R"({"moment":"%02X","val":)", moment);
-        hookOutput();
-        output.write("}");
-    };
-    Interrupt_send_JSON_subscribe_message(output, interruptHookOnEvent,
-                                          subscriptionMsgBody);
+        return;
+    }
+    output.write("}");
+    Interrupt_send_JSON_end_message(output);
 }
 
 void Interrupt_HookOnEvent_send_Binary_subscribe_message(const Channel &output,
+                                                         const uint32_t id,
                                                          const Event &ev) {
-    // format: interrupt_nr (1byte) | message_type (1byte) | event
+    // format: interrupt_nr (1byte) | message_type (1byte) | id | event
+    // id: LEB encoding
     // event: topic | payload
     // topic: size topic (LEB32) | topic (LEB32)
     // payload: size payload (LEB32) | payload (LEB32)
 
     // calculate total size buffer:
     size_t encodingSize =
-        1 + 1 + size_for_64BIT_LEB(ev.topic.size()) + ev.topic.size() +
-        size_for_64BIT_LEB(ev.payload.size()) + ev.payload.size();
+        1 + 1 + size_for_32BIT_LEB(id) + size_for_64BIT_LEB(ev.topic.size()) +
+        ev.topic.size() + size_for_64BIT_LEB(ev.payload.size()) +
+        ev.payload.size();
     uint8_t *buffer = (uint8_t *)malloc(encodingSize);
     if (buffer == nullptr) {
         return;
@@ -104,6 +117,7 @@ void Interrupt_HookOnEvent_send_Binary_subscribe_message(const Channel &output,
     // TODO refactor the following event encoding
     // write Topic size and content
     size_t offset = 2;
+    offset += write_32BIT_LEB(id, buffer + offset);
     offset += write_64BIT_LEB(ev.topic.size(), buffer + offset);
     std::memcpy(buffer + offset, ev.topic.c_str(), ev.topic.size());
     offset += ev.topic.size();
