@@ -322,13 +322,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptRecvCallbackmapping:
-            Debugger::updateCallbackmapping(
-                m, reinterpret_cast<const uint8_t *>(interruptData));
-            free(interruptData);
+            Debugger::updateCallbackmapping(m, msg);
             break;
         case interruptDUMPCallbackmapping:
-            this->dumpCallbackmapping();
-            free(interruptData);
+            this->dumpCallbackmapping(msg);
             break;
         default:
             // handle later
@@ -625,8 +622,13 @@ void Debugger::dumpEvents(long start, long size) const {
     CallbackHandler::resolving_event = previous;
 }
 
-void Debugger::dumpCallbackmapping() const {
-    this->channel->write("%s\n", CallbackHandler::dump_callbacks().c_str());
+void Debugger::dumpCallbackmapping(DebugMessage *msg) const {
+    bool includeSubContent = true;
+    Interrupt_send_JSON_start_message(*this->channel, msg->interrupt,
+                                      INTERRUPT_RESPONSE_TYPE_SUCCESS, msg->id,
+                                      includeSubContent, NO_ERROR);
+    this->channel->write("%s", CallbackHandler::dump_callbacks().c_str());
+    Interrupt_send_JSON_end_message(*this->channel);
 }
 
 void Debugger::dumpHeapInfo(Module *m) const {
@@ -1149,24 +1151,26 @@ void Debugger::disconnect_proxy() {
     this->supervisor->thread.join();
 }
 
-void Debugger::updateCallbackmapping(Module *m, const uint8_t *data) {
+void Debugger::updateCallbackmapping(Module *m, DebugMessage *msg) {
     CallbackHandler::clear_callbacks();
-    uint8_t *encoding = (uint8_t *)data + 1;
+    uint8_t *encoding = msg->data;
     uint32_t numberOfMappings = read_LEB_32(&encoding);
-    for (auto idx = 0; idx < numberOfMappings; ++idx) {
+    for (uint32_t idx = 0; idx < numberOfMappings; ++idx) {
         uint32_t callbackKeySize = read_LEB_32(&encoding);
         char *callbackKey = (char *)malloc(callbackKeySize + 1);
         memcpy((void *)callbackKey, encoding, callbackKeySize);
         callbackKey[callbackKeySize] = '\0';
         encoding += callbackKeySize;
         uint32_t numberTableIndexes = read_LEB_32(&encoding);
-        for (auto j = 0; j < numberTableIndexes; ++j) {
+        for (uint32_t j = 0; j < numberTableIndexes; ++j) {
             uint32_t tidx = read_LEB_32(&encoding);
             std::string key{callbackKey};
             CallbackHandler::add_callback(Callback(m, key, tidx));
         }
     }
-    m->warduino->debugger->channel->write("mappings updated!\n");
+
+    Interrupt_send_JSON_success_message(*m->warduino->debugger->channel,
+                                        interruptRecvCallbackmapping, msg->id);
 }
 
 // Stop the debugger
