@@ -230,9 +230,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleChangedLocal(m, msg);
             break;
         case interruptUPDATEModule:
-            this->handleUpdateModule(m, interruptData);
-            this->channel->write("CHANGE Module!\n");
-            free(interruptData);
+            this->handleUpdateModule(m, msg);
+            Interrupt_send_JSON_success_message(*this->channel,
+                                                interruptUPDATEModule, msg->id);
             break;
         case interruptUPDATEGlobal:
             this->handleUpdateGlobalValue(m, interruptData + 1);
@@ -1203,8 +1203,8 @@ void Debugger::pauseRuntime(Module *m) {
     this->mark = nullptr;
 }
 
-bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
-    uint8_t *wasm_data = data + 1;
+bool Debugger::handleUpdateModule(Module *m, DebugMessage *msg) {
+    uint8_t *wasm_data = msg->data;
     uint32_t wasm_len = read_LEB_32(&wasm_data);
     uint8_t *wasm = (uint8_t *)malloc(sizeof(uint8_t) * wasm_len);
     memcpy(wasm, wasm_data, wasm_len);

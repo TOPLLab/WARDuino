@@ -101,7 +101,7 @@ class Debugger {
 
     bool handleChangedLocal(Module *m, DebugMessage *msg) const;
 
-    bool handleUpdateModule(Module *m, uint8_t *data);
+    bool handleUpdateModule(Module *m, DebugMessage *msg);
 
     bool handleUpdateGlobalValue(Module *m, uint8_t *data);
 
