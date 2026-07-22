@@ -23,11 +23,14 @@ class DumpFull : public InterruptFixture {
             "Dumpfull did not print expected JSON. Received lines:\n");
     }
 
-    void doFullDump() { this->sendInterruptNoPayload(interruptDUMPFull); }
+    void doFullDump(uint8_t idMsg) {
+        this->sendInterruptNoPayload(interruptDUMPFull, idMsg);
+    }
 };
 
 TEST_F(DumpFull, IsValidJSON) {
-    this->doFullDump();
+    uint8_t idAck = 1;
+    this->doFullDump(idAck);
     nlohmann::basic_json<> fullDump{};
     if (!this->dbgOutput->getJSONReply(&fullDump)) {
         this->failDumpFullNotReceived();
@@ -41,13 +44,15 @@ TEST_F(DumpFull, IsPCVirtualAddress) {
     Block* main = this->moduleCompanion->getMainFunction();
     uint32_t expectedPC = main->start_ptr - this->wasm_module->bytes;
 
-    this->doFullDump();
+    uint8_t idAck = 1;
+    this->doFullDump(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failDumpFullNotReceived();
     }
     try {
+        auto parsed = reply["sub"];
         uint32_t pc = parsed["pc"];
         ASSERT_EQ(pc, expectedPC)
             << "dumpfull does not print the expected pc virtual address";
@@ -66,13 +71,15 @@ TEST_F(DumpFull, BreakpointsAreVirtualAddresses) {
         this->warduino->debugger->addBreakpoint(bp);
     }
 
-    this->doFullDump();
+    uint8_t idAck = 1;
+    this->doFullDump(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failDumpFullNotReceived();
     }
     try {
+        auto parsed = reply["sub"];
         std::set<uint32_t> bps = parsed["breakpoints"];
         ASSERT_EQ(bps.size(), virtualBPs.size())
             << "expected #" << virtualBPs.size() << " breakpoints";
@@ -91,14 +98,16 @@ TEST_F(DumpFull, BreakpointsAreVirtualAddresses) {
 }
 
 TEST_F(DumpFull, FunctionsFromAndToAreVirtualAddresses) {
-    this->doFullDump();
+    uint8_t idAck = 1;
+    this->doFullDump(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failDumpFullNotReceived();
         return;
     }
     try {
+        auto parsed = reply["sub"];
         auto funcs = parsed["functions"];
         uint32_t nonPrimitiveFuncs =
             this->wasm_module->function_count - this->wasm_module->import_count;
@@ -131,14 +140,16 @@ using DumpFullCallstackFrame = DumpFull;
 
 TEST_F(DumpFullCallstackFrame, FirstFramePreservedReturnAddressIsZero) {
     // in setup() main already pushed on top of the callstack
-    this->doFullDump();
+    uint8_t idAck = 1;
+    this->doFullDump(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failDumpFullNotReceived();
         return;
     }
     try {
+        auto parsed = reply["sub"];
         nlohmann::basic_json<> frame = parsed["callstack"][0];
         ASSERT_EQ(-1, frame["ra"]) << "First Frame should have as return "
                                       "address -1 since it points to nothing";
@@ -153,14 +164,16 @@ TEST_F(DumpFullCallstackFrame, FirstFramePreservedReturnAddressIsZero) {
 
 TEST_F(DumpFullCallstackFrame, FirstFramePreservedCallsiteAddressIsZero) {
     // in setup() main already pushed on top of the callstack
-    this->doFullDump();
+    uint8_t idAck = 1;
+    this->doFullDump(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failDumpFullNotReceived();
         return;
     }
     try {
+        auto parsed = reply["sub"];
         nlohmann::basic_json<> frame = parsed["callstack"][0];
         ASSERT_EQ(-1, frame["callsite"])
             << "First Frame callsite address should be "
@@ -180,14 +193,16 @@ TEST_F(DumpFullCallstackFrame, FunctionFrameStartAddressIsVirtual) {
     uint32_t startAddr = mainFunc->start_ptr - this->wasm_module->bytes;
     uint32_t endAddr = mainFunc->end_ptr - this->wasm_module->bytes;
 
-    this->doFullDump();
+    uint8_t idAck = 1;
+    this->doFullDump(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failDumpFullNotReceived();
         return;
     }
     try {
+        auto parsed = reply["sub"];
         nlohmann::basic_json<> mainFunFrame = parsed["callstack"][0];
         ASSERT_EQ(startAddr, mainFunFrame["start"])
             << "Function Frame start address does not match expected start "
@@ -218,14 +233,16 @@ TEST_F(DumpFullCallstackFrame, FunctionFrameReturnAddressIsVirtual) {
     uint32_t expectedReturnAddr =
         this->wasm_module->pc_ptr - this->wasm_module->bytes;
 
-    this->doFullDump();
+    uint8_t idAck = 1;
+    this->doFullDump(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failDumpFullNotReceived();
         return;
     }
     try {
+        auto parsed = reply["sub"];
         nlohmann::basic_json<> frame1 = parsed["callstack"][0];
         ASSERT_EQ(-1, frame1["ra"]) << "invalid first frame's return addr";
         ASSERT_EQ(-1, frame1["sp"]) << "invalid first frame's sp";
@@ -267,14 +284,16 @@ TEST_F(DumpFullCallstackFrame, FunctionFrameCallsiteAdressIsVirtual) {
     uint32_t frame2ExpectedCallsite =
         (this->wasm_module->pc_ptr - 2) - this->wasm_module->bytes;
 
-    this->doFullDump();
+    uint8_t idAck = 1;
+    this->doFullDump(idAck);
 
-    nlohmann::basic_json<> parsed{};
-    if (!this->dbgOutput->getJSONReply(&parsed)) {
+    nlohmann::basic_json<> reply{};
+    if (!this->dbgOutput->getJSONReply(&reply)) {
         this->failDumpFullNotReceived();
         return;
     }
     try {
+        auto parsed = reply["sub"];
         nlohmann::basic_json<> frame1 = parsed["callstack"][0];
         ASSERT_EQ(frame1ExpectedCallsite, frame1["callsite"])
             << "invalid first frame's callsite address";

@@ -1,6 +1,9 @@
 #pragma once
 #include "dbgoutput.h"
 
+#include "../../src/Interrupts/interrupt_response.h"
+#include "serialisation.h"
+
 bool DBGOutput::openTmpFile() {
     this->fd = mkstemp(filename);
     if (fd == -1) {
@@ -68,4 +71,39 @@ bool DBGOutput::getJSONReply(nlohmann::basic_json<>* dest) {
         }
     }
     return false;
+}
+
+void createReplyMessage(std::string& msg, InterruptTypes interrupt_nr,
+                        const uint8_t response_type, uint8_t id,
+                        uint8_t error_code) {
+    std::string interruptHex{};
+    Serialiser::uint8ToHexString(interrupt_nr, interruptHex);
+
+    std::string idHex{};
+    Serialiser::uint8ToHexString(id, idHex);
+
+    std::string kindHex{};
+    Serialiser::uint8ToHexString(response_type, kindHex);
+
+    msg = R"({"interrupt":")" + interruptHex + R"(","kind":")" + kindHex +
+          R"(","id":")" + idHex + "\"";
+    if (error_code != NO_ERROR) {
+        std::string errStr{};
+        Serialiser::uint8ToHexString(error_code, errStr);
+        msg += R"(,"error_code":")" + errStr + "\"";
+    }
+
+    msg += "}";
+}
+
+void createSuccessReplyMessage(std::string& msg, InterruptTypes interrupt_nr,
+                               uint8_t id) {
+    createReplyMessage(msg, interrupt_nr, INTERRUPT_RESPONSE_TYPE_SUCCESS, id,
+                       NO_ERROR);
+}
+
+void createFailureReplyMessage(std::string& msg, InterruptTypes interrupt_nr,
+                               uint8_t id, uint8_t error_code) {
+    createReplyMessage(msg, interrupt_nr, INTERRUPT_RESPONSE_TYPE_ERROR, id,
+                       error_code);
 }
