@@ -97,7 +97,7 @@ class Debugger {
 
     //// Handle live code update
 
-    static bool handleChangedFunction(Module *m, uint8_t *bytes);
+    static bool handleChangedFunction(Module *m, DebugMessage *msg);
 
     bool handleChangedLocal(Module *m, uint8_t *bytes) const;
 
