@@ -93,6 +93,8 @@ class Debugger {
 
     void dumpHeapInfo(Module *m) const;
 
+    void handleDumpEvents(DebugMessage *msg, long start = 0, long size = 0);
+
     //// Handle live code update
 
     static bool handleChangedFunction(Module *m, uint8_t *bytes);

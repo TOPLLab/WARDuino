@@ -307,11 +307,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             printf("InterruptDUMPEvents\n");
             size = (long)CallbackHandler::event_count();
         case interruptDUMPEvents:
-            // TODO get start and size from message
-            this->channel->write("{");
-            this->dumpEvents(start, size);
-            this->channel->write("}\n");
-            free(interruptData);
+            this->handleDumpEvents(msg);
             break;
         case interruptPOPEvent:
             CallbackHandler::resolve_event(*this->channel, m, true);
@@ -596,6 +592,22 @@ void Debugger::dumpLocals(Module *m) const {
     }
     this->channel->write("]}");
     //    fflush(stdout);
+}
+
+void Debugger::handleDumpEvents(DebugMessage *msg, long start, long size) {
+    // TODO get start and size from message
+    if (size == 0) {
+        size = (long)CallbackHandler::event_count();
+    }
+
+    bool includeSubContent = true;
+    Interrupt_send_JSON_start_message(*this->channel, msg->interrupt,
+                                      INTERRUPT_RESPONSE_TYPE_SUCCESS, msg->id,
+                                      includeSubContent, NO_ERROR);
+    this->channel->write("{");
+    this->dumpEvents(start, size);
+    this->channel->write("}");
+    Interrupt_send_JSON_end_message(*this->channel);
 }
 
 void Debugger::dumpEvents(long start, long size) const {
