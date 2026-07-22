@@ -430,9 +430,11 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                             break;
                     }
 
+                    size_t symbol_size = module_len + field_len + 5;
                     void *val;
                     char *err,
-                        *sym = (char *)malloc(module_len + field_len + 5);
+
+                        *sym = (char *)malloc(symbol_size);
 
                     // TODO add special case form primitives with resolvePrim
                     do {
@@ -445,7 +447,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                         // Try concatenating module and field using underscores
                         // Also, replace '-' with '_'
-                        sprintf(sym, "_%s__%s_", import_module, import_field);
+                        snprintf(sym, symbol_size, "_%s__%s_", import_module,
+                                 import_field);
                         int sidx = -1;
                         while (sym[++sidx]) {
                             if (sym[sidx] == '-') {
@@ -462,7 +465,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         if (m->options.dlsym_trim_underscore &&
                             (strncmp("env", import_module, 4) == 0) &&
                             (strncmp("_", import_field, 1) == 0)) {
-                            sprintf(sym, "%s", import_field + 1);
+                            snprintf(sym, symbol_size, "%s", import_field + 1);
                             if (resolvesym(nullptr, sym, external_kind, &val,
                                            &err,
                                            !m->options.disable_strict_load)) {
@@ -472,7 +475,7 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
 
                         // Try the plain symbol by itself with module
                         // name/handle
-                        sprintf(sym, "%s", import_field);
+                        snprintf(sym, symbol_size, "%s", import_field);
                         if (resolvesym(nullptr, sym, external_kind, &val, &err,
                                        !m->options.disable_strict_load)) {
                             break;
