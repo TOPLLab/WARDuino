@@ -7,20 +7,22 @@
 #define HOOK_ON_ERROR_ERROR_CODE_UNALLOWED_HOOK 2;
 
 typedef struct HookOnErrorRequest {
+    uint32_t id{};
     Hook *hook{};
 } HookOnErrorRequest;
 
 typedef struct HookOnErrorResponse {
+    uint32_t id{};
     uint8_t type{};
     uint8_t error_code{};
 } HookOnErrorResponse;
 
 void Interrupt_HookOnError_handle_request(const Channel &requester,
                                           InstrumentationManager &manager,
-                                          uint8_t *encoded_request);
+                                          DebugMessage *msg);
 
 bool Interrupt_HookOnError_deserialize_request(HookOnErrorRequest &dest,
-                                               uint8_t *encoded_request,
+                                               DebugMessage *msg,
                                                uint8_t &error_code);
 
 ssize_t Interrupt_HookOnError_serialize_response(
@@ -29,5 +31,5 @@ ssize_t Interrupt_HookOnError_serialize_response(
 void Interrupt_HookOnError_send_response(const Channel &channel,
                                          const HookOnErrorResponse &response);
 
-void Interrupt_HookOnError_send_JSON_subscribe_message(
-    const Channel &ouput, std::function<void()> hookOutput);
+void Interrupt_HookOnError_send_JSON_subscription(const Channel &output,
+                                                  uint32_t id, bool start);

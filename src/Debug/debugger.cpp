@@ -272,7 +272,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptHookOnError:
-            this->handleHookOnError(interruptData);
+            this->handleHookOnError(msg);
             break;
         case interruptMonitorProxies:
             this->handleMonitorProxies(m, msg);
