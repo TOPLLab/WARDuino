@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cerrno>
 #include <csignal>
 #include <cstdarg>
 #include <cstdio>
@@ -74,6 +75,8 @@ int listenForIncomingConnection(int socket_fd, struct sockaddr_in address) {
     int size = sizeof(address);
     if ((new_socket = accept(socket_fd, (struct sockaddr *)&address,
                              (socklen_t *)&size)) < 0) {
+        fprintf(stderr, "accept() failed: errno=%d (%s)\n", (int)errno,
+                strerror(errno));
         perror("Failed to listen for incoming connections");
         exit(EXIT_FAILURE);
     }
@@ -174,6 +177,7 @@ void sendAlarm() {
 void WebSocket::close() {
     sendAlarm();  // stop possible blocking accept call
     shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
+    ::close(this->fileDescriptor);
 }
 
 ClientSideSocket::ClientSideSocket(const char *t_host, int t_port)
