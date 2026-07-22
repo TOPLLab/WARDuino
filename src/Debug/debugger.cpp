@@ -295,8 +295,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             free(interruptData);
             break;
         case interruptPUSHEvent:
-            this->handlePushedEvent(reinterpret_cast<char *>(interruptData));
-            free(interruptData);
+            this->handlePushedEvent(msg);
             break;
         case interruptRecvCallbackmapping:
             Debugger::updateCallbackmapping(m, msg);
@@ -728,13 +727,20 @@ void Debugger::notifyPushedEvent() const {
     this->channel->write("new pushed event\n");
 }
 
-bool Debugger::handlePushedEvent(char *bytes) const {
-    if (*bytes != interruptPUSHEvent) return false;
-    auto parsed = nlohmann::json::parse(bytes + 1);
+bool Debugger::handlePushedEvent(DebugMessage *msg) const {
+    if (msg->interrupt != interruptPUSHEvent) {
+        Interrupt_send_JSON_failure_message(
+            *this->channel, msg->interrupt, msg->id,
+            INTERRUPT_NR_DOES_NOT_MATCH_ERROR_CODE);
+        return false;
+    }
+    auto parsed = nlohmann::json::parse(msg->data);
     std::string topic{*parsed.find("topic")};
     const std::string payload{*parsed.find("payload")};
     CallbackHandler::push_event(topic, payload.c_str(), payload.length());
     this->notifyPushedEvent();
+    Interrupt_send_JSON_success_message(*this->channel, interruptPUSHEvent,
+                                        msg->id);
     return true;
 }
 
