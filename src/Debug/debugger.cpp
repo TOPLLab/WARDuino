@@ -296,8 +296,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         } break;
         case interruptProxify: {
             dbg_info("Converting to proxy settings.\n");
-            this->proxify();
-            free(interruptData);
+            this->proxify(msg);
             break;
         }
         case interruptDUMPAllEvents:
@@ -1102,13 +1101,15 @@ uintptr_t Debugger::readPointer(uint8_t **data) {
     return bp;
 }
 
-void Debugger::proxify() {
+void Debugger::proxify(DebugMessage *msg) {
     WARDuino::instance()->program_state = PROXYhalt;
     this->proxy = new Proxy();  // TODO delete
+    Interrupt_send_JSON_success_message(*this->channel, msg->interrupt,
+                                        msg->id);
 }
 
-void Debugger::handleProxyCall(Module *m, RunningState *program_state,
-                               uint8_t *interruptData) {
+void Debugger::handleProxyCall(Module *m, uint8_t *interruptData) {
+    // TODO remove method in favor of interruptFuncCall?
     if (this->proxy == nullptr) {
         dbg_info("No proxy available to send proxy call to.\n");
         // TODO how to handle this error?

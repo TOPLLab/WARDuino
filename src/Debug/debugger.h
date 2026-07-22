@@ -176,10 +176,9 @@ class Debugger {
     void snapshot(Module *m, bool includeHeader = true,
                   bool includeNewline = true);
 
-    void proxify();
+    void proxify(DebugMessage *msg);
 
-    void handleProxyCall(Module *m, RunningState *program_state,
-                         uint8_t *interruptData);
+    void handleProxyCall(Module *m, uint8_t *interruptData);
 
     RFC *topProxyCall();
 
