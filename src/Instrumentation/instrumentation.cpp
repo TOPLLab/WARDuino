@@ -682,6 +682,16 @@ bool InstrumentationManager::stop_primitive_call_interception(
     return true;
 }
 
+uint8_t InstrumentationManager::getOriginalOpcode(Module &module,
+                                                  uint32_t addr) {
+    if (this->has_HookOnWasmAddr(addr, HookBefore)) {
+        return this->instr_wasm_addr_before[addr]->original_opcode;
+    } else if (this->has_HookOnWasmAddr(addr, HookAfter)) {
+        return this->instr_wasm_addr_after[addr]->original_opcode;
+    }
+    return module.bytes[addr];
+}
+
 HooksWasmAddr *InstrumentationManager::start_wasm_addr_intercept(
     Module &module, const uint32_t addr, HookMoment moment) {
     if (this->has_HookOnWasmAddr(addr, moment)) {
@@ -694,10 +704,11 @@ HooksWasmAddr *InstrumentationManager::start_wasm_addr_intercept(
 
     // The first time for which an instrumentation occurs for the wasm
     // address
+    uint8_t original = this->getOriginalOpcode(module, addr);
     HooksWasmAddr *instr = this->new_WasmAddress_Instrumentation();
     if (instr != nullptr) {
         instr->address = addr;
-        instr->original_opcode = module.bytes[addr];
+        instr->original_opcode = original;
         module.bytes[addr] = INSTRUMENTATION_INTERCEPT_OPCODE;
         instr->hook = nullptr;
         if (moment == HookBefore) {
