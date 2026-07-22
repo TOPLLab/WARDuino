@@ -165,6 +165,7 @@ Hook *Hooks_copyHook(const Hook &hook) {
                 return nullptr;
         }
     }
+    cpy->id = hook.id;
     return cpy;
 }
 
@@ -187,9 +188,10 @@ void Hooks_free_hooks(Hook *hook) {
 /*
  * Private functions
  */
-bool Hooks_deserialize_hook(Hook &dest, uint8_t **encoded_hook,
+bool Hooks_deserialize_hook(Hook &dest, uint32_t id, uint8_t **encoded_hook,
                             uint8_t &error_code) {
     // format expected: Schedule | Hook
+    dest.id = id;
     return Hooks_deserialize_schedule(dest.schedule, encoded_hook,
                                       error_code) &&
            Hooks_deserialize_hook_rest(dest, encoded_hook, error_code);
