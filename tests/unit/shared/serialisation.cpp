@@ -1,5 +1,7 @@
 #include "serialisation.h"
 
+#include <sstream>
+
 #include "../../../src/Utils/util.h"
 
 uint8_t* Serialiser::encodeUInt32(uint32_t value, uint8_t* dest) {
