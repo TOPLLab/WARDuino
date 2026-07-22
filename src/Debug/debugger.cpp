@@ -238,8 +238,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->handleUpdateGlobalValue(m, msg);
             break;
         case interruptUPDATEStackValue:
-            this->handleUpdateStackValue(m, interruptData + 1);
-            free(interruptData);
+            this->handleUpdateStackValue(m, msg);
             break;
         case interruptINVOKE:
             this->handleInvoke(m, msg);
@@ -1233,17 +1232,26 @@ bool Debugger::handleUpdateGlobalValue(Module *m, DebugMessage *msg) {
     return true;
 }
 
-bool Debugger::handleUpdateStackValue(Module *m, uint8_t *data) {
+bool Debugger::handleUpdateStackValue(Module *m, DebugMessage *msg) {
+    uint8_t *data = msg->data;
     uint32_t idx = read_LEB_32(&data);
     if (idx >= STACK_SIZE) {
+        Interrupt_send_JSON_failure_message(
+            *this->channel, interruptUPDATEStackValue, msg->id,
+            UPDATE_STACK_VALUE_WRONG_INDEX_ERROR_CODE);
         return false;
     }
     StackValue *sv = &m->stack[idx];
     bool decodeType = false;
     if (!deserialiseStackValue(data, decodeType, sv)) {
+        Interrupt_send_JSON_failure_message(
+            *this->channel, interruptUPDATEStackValue, msg->id,
+            UPDATE_STACK_VALUE_INVALID_DESERIALISE_ERROR_CODE);
         return false;
     }
-    this->channel->write("StackValue %" PRIu32 " changed\n", idx);
+
+    Interrupt_send_JSON_success_message(*this->channel,
+                                        interruptUPDATEStackValue, msg->id);
     return true;
 }
 
