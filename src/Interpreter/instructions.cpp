@@ -1588,6 +1588,8 @@ bool interpret(Module *m, bool waiting) {
             success = m->warduino->debugger->instrument.runHooksAfterWasmAddr(
                 *m->warduino->debugger->channel, m, lc,
                 m->warduino->program_state);
+            if (!success || m->warduino->program_state == WARDUINOpause) {
+                continue;
             }
         }
 
