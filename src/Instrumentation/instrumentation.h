@@ -179,6 +179,7 @@ class InstrumentationManager {
                          LogicalClock *currentTime);
 
     bool runHooksAfterWasmAddr(const Channel &output, Module *module,
+                               LogicalClock *currenTime,
                                RunningState &runningState);
 
     bool runHooksOnInterceptedFuncCall(const Channel &output, Module *module,
