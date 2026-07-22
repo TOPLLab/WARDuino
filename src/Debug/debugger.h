@@ -99,7 +99,7 @@ class Debugger {
 
     static bool handleChangedFunction(Module *m, DebugMessage *msg);
 
-    bool handleChangedLocal(Module *m, uint8_t *bytes) const;
+    bool handleChangedLocal(Module *m, DebugMessage *msg) const;
 
     bool handleUpdateModule(Module *m, uint8_t *data);
 

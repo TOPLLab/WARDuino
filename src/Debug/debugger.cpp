@@ -227,9 +227,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             msg->fullData = nullptr;
             break;
         case interruptUPDATELocal:
-            this->channel->write("CHANGE local!\n");
-            this->handleChangedLocal(m, interruptData);
-            free(interruptData);
+            this->handleChangedLocal(m, msg);
             break;
         case interruptUPDATEModule:
             this->handleUpdateModule(m, interruptData);
@@ -713,13 +711,16 @@ bool Debugger::handleChangedFunction(Module *m, DebugMessage *msg) {
  * @param bytes
  * @return
  */
-bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
-    if (*bytes != interruptUPDATELocal) return false;
-    uint8_t *pos = bytes + 1;
-    this->channel->write("Local updates: %x\n", *pos);
+bool Debugger::handleChangedLocal(Module *m, DebugMessage *msg) const {
+    if (msg->interrupt != interruptUPDATELocal) {
+        Interrupt_send_JSON_failure_message(*this->channel, msg->interrupt,
+                                            msg->id,
+                                            UPDATE_LOCAL_INVALID_INTERRUPT_NR);
+        return false;
+    }
+    uint8_t *pos = msg->data;
     uint32_t localId = read_LEB_32(&pos);
 
-    this->channel->write("Local %u being changed\n", localId);
     auto v = &m->stack[m->fp + localId];
     switch (v->value_type) {
         case I32:
@@ -735,7 +736,10 @@ bool Debugger::handleChangedLocal(Module *m, uint8_t *bytes) const {
             memcpy(&v->value.uint64, pos, 8);
             break;
     }
-    this->channel->write("Local %u changed to %u\n", localId, v->value.uint32);
+    char value[50]{};
+    snprintf(value, 50, R"("idx":%u,"value":%u)", localId, v->value.uint32);
+    Interrupt_send_JSON_success_message(*this->channel, msg->interrupt,
+                                        msg->id);
     return true;
 }
 
