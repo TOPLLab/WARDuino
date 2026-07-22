@@ -285,8 +285,6 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         }
         case interruptDUMPAllEvents:
-            printf("InterruptDUMPEvents\n");
-            size = (long)CallbackHandler::event_count();
         case interruptDUMPEvents:
             this->handleDumpEvents(msg);
             break;
