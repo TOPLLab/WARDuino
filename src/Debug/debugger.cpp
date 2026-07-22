@@ -217,11 +217,14 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             this->reset(m, msg);
             break;
         case interruptUPDATEFun:
-            this->channel->write("CHANGE function!\n");
-            Debugger::handleChangedFunction(m, interruptData);
-            //  do not free(interruptData);
+            Debugger::handleChangedFunction(m, msg);
+            Interrupt_send_JSON_success_message(*this->channel, msg->interrupt,
+                                                msg->id);
+
+            //  do not free(msg->fullData);
             // we need it to run that code
             // TODO: free double replacements
+            msg->fullData = nullptr;
             break;
         case interruptUPDATELocal:
             this->channel->write("CHANGE local!\n");
@@ -653,13 +656,11 @@ void Debugger::dumpHeapInfo(Module *m) const {
  * [0x10, index, ... new function body 0x0b]
  * Where index is the index without imports
  */
-bool Debugger::handleChangedFunction(Module *m, uint8_t *bytes) {
+bool Debugger::handleChangedFunction(Module *m, DebugMessage *msg) {
     // Check if this was a change request
-    if (*bytes != interruptUPDATEFun) return false;
+    if (msg->interrupt != interruptUPDATEFun) return false;
 
-    // SKIP the first byte (0x10), type of change
-    uint8_t *pos = bytes + 1;
-
+    uint8_t *pos = msg->data;
     uint32_t b = read_LEB_32(&pos);  // read id
 
     Block *function = &m->functions[m->import_count + b];
