@@ -113,6 +113,8 @@ class InstrumentationManager {
 
     void stopRunningHooksOnError();
 
+    uint8_t getOriginalOpcode(Module &module, uint32_t addr);
+
    public:
     bool awakeOnNextInstruction = false;
     bool interceptEvents = false;
