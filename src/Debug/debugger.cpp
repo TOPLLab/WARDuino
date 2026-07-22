@@ -1029,14 +1029,14 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
             }
             case callbacksState: {
                 uint32_t numberMappings = read_B32(&program_state);
-                for (auto idx = 0; idx < numberMappings; ++idx) {
+                for (uint32_t idx = 0; idx < numberMappings; ++idx) {
                     uint32_t callbackKeySize = read_B32(&program_state);
                     char *callbackKey = (char *)malloc(callbackKeySize + 1);
                     memcpy((void *)callbackKey, program_state, callbackKeySize);
                     callbackKey[callbackKeySize] = '\0';
                     program_state += callbackKeySize;
                     uint32_t numberTableIndexes = read_B32(&program_state);
-                    for (auto j = 0; j < numberTableIndexes; ++j) {
+                    for (uint32_t j = 0; j < numberTableIndexes; ++j) {
                         uint32_t tidx = read_B32(&program_state);
                         std::string key{callbackKey};
                         CallbackHandler::add_callback(Callback(m, key, tidx));
@@ -1046,7 +1046,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
             }
             case eventsState: {
                 uint32_t numberEvents = read_B32(&program_state);
-                for (auto idx = 0; idx < numberEvents; ++idx) {
+                for (uint32_t idx = 0; idx < numberEvents; ++idx) {
                     // read topic
                     uint32_t topicSize = read_B32(&program_state);
                     char *topic = (char *)malloc(topicSize + 1);
