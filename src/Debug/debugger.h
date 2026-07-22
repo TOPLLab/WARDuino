@@ -8,6 +8,7 @@
 #include <set>
 #include <vector>
 
+#include "../Debug/debug_msg.h"
 #include "../Debug/runningstate.h"
 #include "../Edward/proxy.h"
 #include "../Edward/proxy_supervisor.h"
@@ -16,7 +17,7 @@
 
 class Debugger {
    private:
-    std::deque<uint8_t *> debugMessages = {};
+    std::deque<DebugMessage *> debugMessages = {};
 
     // Help variables
     volatile bool interruptWrite{};
@@ -24,7 +25,7 @@ class Debugger {
     bool interruptEven = true;
     uint8_t interruptLastChar{};
     std::vector<uint8_t> interruptBuffer;
-    std::queue<uint8_t *> parsedInterrupts{};
+    std::queue<DebugMessage *> parsedInterrupts{};
     long interruptSize{};
     bool receivingData = false;
 
@@ -40,7 +41,7 @@ class Debugger {
     // TODO Move parsing to WARDuino class?
     void parseDebugBuffer(size_t len, const uint8_t *buff);
 
-    void pushMessage(uint8_t *msg);
+    void pushMessage(DebugMessage *msg);
 
     //// Handle REPL interrupts
 
@@ -132,7 +133,7 @@ class Debugger {
 
     void addDebugMessage(size_t len, const uint8_t *buff);
 
-    uint8_t *getDebugMessage();
+    DebugMessage *getDebugMessage();
 
     bool checkDebugMessages(Module *m, RunningState *program_state);
 
