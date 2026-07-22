@@ -199,8 +199,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             break;
         case interruptBPAdd:  // Breakpoint
         case interruptBPRem:  // Breakpoint remove
-            this->handleInterruptBP(m, interruptData);
-            free(interruptData);
+            this->handleInterruptBP(m, msg);
             break;
         case interruptDUMP:
             this->pauseRuntime(m);
@@ -437,18 +436,22 @@ void Debugger::handleSTEPOver(DebugMessage *msg, Module *m,
     }
 }
 
-void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
-    uint8_t *bpData = interruptData + 1;
+void Debugger::handleInterruptBP(Module *m, DebugMessage *msg) {
+    uint8_t *bpData = msg->data;
     uint32_t virtualAddress = read_B32(&bpData);
     if (isToPhysicalAddrPossible(virtualAddress, m)) {
         uint8_t *bpt = toPhysicalAddress(virtualAddress, m);
-        if (*interruptData == 0x06) {
+        if (msg->interrupt == interruptBPAdd)
             this->addBreakpoint(bpt);
-        } else {
+        else
             this->deleteBreakpoint(bpt);
-        }
+        Interrupt_send_JSON_success_message(*this->channel, msg->interrupt,
+                                            msg->id);
+    } else {
+        Interrupt_send_JSON_failure_message(*this->channel, msg->interrupt,
+                                            msg->id, INVALID_BP_ADDR);
     }
-    this->channel->write("BP %" PRIu32 "!\n", virtualAddress);
+}
 }
 
 void Debugger::dump(Module *m, bool full) const {
