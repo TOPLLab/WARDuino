@@ -212,5 +212,5 @@ class Debugger {
 
     void handleHookOnEvent(uint8_t *data);
 
-    void handleHookOnError(uint8_t *data);
+    void handleHookOnError(DebugMessage *msg);
 };
