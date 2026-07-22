@@ -370,7 +370,10 @@ int main(int argc, const char *argv[]) {
     if (m) {
         if (strcmp(mode, "proxy") == 0) {
             // Run in proxy mode
-            wac->debugger->proxify();
+            DebugMessage msg{};
+            msg.interrupt = interruptProxyCall;
+            msg.id = 0;
+            wac->debugger->proxify(&msg);
         } else if (proxy) {
             // Connect to proxy device
             Channel *connection = nullptr;
