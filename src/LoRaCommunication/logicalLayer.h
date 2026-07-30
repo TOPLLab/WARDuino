@@ -2,15 +2,15 @@
 
 #include "LoRaHash.h"
 
-struct LogicalAdjacencyMatrix {   
+struct AdjacencyMatrix {   
     uint16_t nodeIDs[MAX_NODES]; //map the index to the node ID
     //matrix of node IDs representing a connection between nodes. 
     // 0 means no connection, nodeID means connection to the node with that ID. 
-    uint16_t Adjacency[MAX_NODES][MAX_NODES];
+    uint16_t adjacency[MAX_NODES][MAX_NODES];
     uint16_t nodeCount; //number of nodes in the logical network
 };
 
-extern LogicalAdjacencyMatrix logicalNetwork;
+extern AdjacencyMatrix logicalNetwork;
 
 void addLogicalConnection(uint16_t nodeA, uint16_t nodeB);
 void clearLogicalConnections();

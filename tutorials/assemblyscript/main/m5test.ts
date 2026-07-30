@@ -27,10 +27,7 @@ function setup(): void {
 }
 
 export function main(): void {
-    if (Setup.check_initialised() == false) {
-        setup();
-        Setup.set_initialised();
-    }
+    setup();
 
     let state: i32 = 1;
     

@@ -58,6 +58,11 @@ static void updatePeersFromCell(ControlCell cell) {
 //Updates its local peers table and sends an acknowledgement.
 static void handleAnnounce(ControlCell cell) {
     printf("handleAnnounce\n");
+    if (cell.srcNodeID == nodeID) {
+        printf("ID collision detected !!!\n");
+        //TODO: handle collision: re-announce cell with new ID?
+        return;
+    }
     updatePeersFromCell(cell);
     sendAnnounceAck(LocalPeers, cell.srcNodeID);
 }
@@ -363,19 +368,10 @@ Circuit* buildCircuit(uint16_t destNodeID) {
     circuit->circID = (rand() % 65536) + 1;
     circuit->hopCount = 0;
     circuit->state = CircuitState::IDLE;
-
-    //create the logical network. Add all node's IDs and their edges.
-    logicalNetwork.nodeCount = 4;
-    logicalNetwork.nodeIDs[0] = 111;
-    logicalNetwork.nodeIDs[1] = 222;
-    logicalNetwork.nodeIDs[2] = 333;
-    logicalNetwork.nodeIDs[3] = 444;
-    addLogicalConnection(111, 222);
-    addLogicalConnection(222, 333);
-    addLogicalConnection(444, 333);
+    
     //build the route for the circuit
-    uint16_t route[4];
-    uint16_t routeLength = determineRoute(nodeID, destNodeID, route, 4);
+    uint16_t route[MAX_HOPS];
+    uint16_t routeLength = determineRoute(nodeID, destNodeID, route, MAX_HOPS);
     if (routeLength == 0) {
         printf("Error: no route found from %d to %d.\n", nodeID, destNodeID);
         return nullptr;
@@ -531,8 +527,6 @@ static void dispatchRelay(Circuit* circuit, uint8_t* data, uint16_t circID) {
     uint8_t hash[HASH_SIZE];
     hashData(cell.payload, hash);
     bool digestMatch = (memcmp(hash, cell.digest, HASH_SIZE) == 0);
-    printf("digest match: %d\n", digestMatch);
-    printf("relayCommand: %d payloadLength: %d\n", cell.relayCommand, cell.payloadLength);
     //If the cell is not meant for us, forward it.
     if (!digestMatch) {
         ForwardRelayCell(circuit, data, copy, incomingCircID, incomingSrcNodeID);
@@ -644,7 +638,7 @@ static void createEntry(uint16_t prevCircID, uint16_t prevNodeID, uint16_t nextC
             FORWARDING_TABLE[i].prevNodeID = prevNodeID;
             FORWARDING_TABLE[i].nextCircID = nextCircID;
             FORWARDING_TABLE[i].nextNodeID = nextNodeID;
-            printf("prevCircID: %d, prevNodeID: %d, nextCircID: %d, nextNodeID: %d\n", FORWARDING_TABLE[i].prevCircID, FORWARDING_TABLE[i].prevNodeID, FORWARDING_TABLE[i].nextCircID, FORWARDING_TABLE[i].nextNodeID);
+            //printf("prevCircID: %d, prevNodeID: %d, nextCircID: %d, nextNodeID: %d\n", FORWARDING_TABLE[i].prevCircID, FORWARDING_TABLE[i].prevNodeID, FORWARDING_TABLE[i].nextCircID, FORWARDING_TABLE[i].nextNodeID);
             return;
         }
     }

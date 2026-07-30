@@ -12,7 +12,7 @@
 // -------------------------------------------------
 
 
-// One shared FIFO; TX enqueues, RX dequeues.
+// One shared FIFO; transmit enqueues, receives dequeues.
 static std::queue<std::vector<uint8_t>> queue;
  
 extern "C" {
@@ -42,11 +42,6 @@ uint16_t radio_receive_bytes_extern(uint8_t* data, size_t length) {
     printf("MOCK: transmit %zu bytes\n", len);
     return 0;
 }
-
-uint16_t radio_startReceive_extern() {
-    return 0; // Not implemented
-}
- 
 }
 
 #endif //RADIO_MOCK

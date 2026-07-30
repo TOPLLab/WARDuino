@@ -743,14 +743,10 @@ def_prim(radio_begin, sixToOneU32) {
     uint32_t codingRate = arg2.uint32;
     uint32_t syncWord = arg1.uint32;
     uint32_t outputPower = arg0.uint32;
-
-    Serial.println("Initializing radio...");
-    uint32_t state = radio_begin_extern(frequency, bandwidth, spreadingFactor, codingRate, syncWord, outputPower);
+    uint32_t state = radio_begin_extern(frequency, bandwidth, spreadingFactor, 
+                                        codingRate, syncWord, outputPower);
     pop_args(6);
     pushInt32((int)state);
-
-    //startLoRaCommunication()
-
     return true;
 }
 

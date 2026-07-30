@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cstdio>
+#include <algorithm>
 
 //globals
 #define MAX_NODES 16
@@ -31,6 +32,8 @@ struct LoRaNode {
 class LoraHashTable {
 public:
     void init(); // Initialize hash table
+    int countNodes(); // Count the number of nodes in the table
+    int sortedNodeIDs(uint16_t* buffer, size_t amount); // Get sorted node IDs
     int addNode(uint16_t nodeID, NodeRole role, uint32_t position, uint32_t timestamp); // Add a node to the hash table
     void updateNode(uint16_t nodeID, NodeRole role, uint32_t position, uint32_t timestamp);  // Update a given nodes timestamp/information (needed?)
     void removeNode(uint16_t nodeID);  // Remove a node from the hash table

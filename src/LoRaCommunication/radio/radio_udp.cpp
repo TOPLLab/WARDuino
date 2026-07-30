@@ -2,12 +2,7 @@
 
 #if defined(RADIO_UDP)
 
-#include <cstring>
 #include <cstdio>
-#include <cstdlib>
- 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h> //sleep
 #include <fcntl.h> //socket options
@@ -23,11 +18,11 @@
 #endif
  
 // All ports in the simulation
-static uint16_t    PEER_PORTS[]     = {5001, 5002, 5003, 5004};
-static uint16_t    PEER_COUNT       = 4;
+static uint16_t    PEER_PORTS[]     = {5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008};
+static uint16_t    PEER_COUNT       = 8;
 static const char* LOCALHOST        = "127.0.0.1";
 static uint16_t    TIMEOUT_MS       = 5000;
-static uint16_t    POLL_INTERVAL_MS = 50'000;
+static uint16_t    POLL_INTERVAL_MS = 50000;
  
 static int SOCKET = -1; // UDP socket, bound to NODE_PORT
  
@@ -37,7 +32,7 @@ uint16_t radio_begin_extern(uint32_t freq, uint32_t bw, uint32_t sf, uint32_t cr
     if (SOCKET >= 0) return 0; // socket already established
  
     //socket creation
-    SOCKET = socket(AF_INET, SOCK_DGRAM, 0);
+    SOCKET = socket(AF_INET, SOCK_DGRAM, 0); //IPv4, UDP, default protocol
     if (SOCKET < 0) { 
         perror("UDP begin: socket creation failed"); 
         exit(1); 
@@ -84,8 +79,8 @@ uint16_t radio_transmit_bytes_extern(uint8_t* data, size_t length) {
         ssize_t sent = sendto(SOCKET, data, length, 0, (sockaddr*)&dest, sizeof(dest));
 
         if (sent < 0) {
-            //no ressources found
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            //no ressources found 
+            if (errno == EAGAIN) {
                 usleep(POLL_INTERVAL_MS);
                 continue;
             }
@@ -117,7 +112,7 @@ uint16_t radio_receive_bytes_extern(uint8_t* data, size_t length) {
         }
         if (n < 0) {
             //no ressources found
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            if (errno == EAGAIN) {
                 usleep(POLL_INTERVAL_MS);
                 continue;
             }
@@ -130,11 +125,6 @@ uint16_t radio_receive_bytes_extern(uint8_t* data, size_t length) {
     printf("UDP receive: timeout after %d ms\n", TIMEOUT_MS);
     return 1;
 }
-
-uint16_t radio_startReceive_extern() {
-    return 0; // Not implemented
-}
- 
 }
 
 #endif //RADIO_UDP

@@ -1,7 +1,7 @@
 #include "logicalLayer.h"
 #include <queue>
 
-LogicalAdjacencyMatrix logicalNetwork;
+AdjacencyMatrix logicalNetwork;
 
 //finds the index of a node in the matrix given its ID.
 static int16_t findNodeIndex(uint16_t nodeID) {
@@ -18,8 +18,8 @@ void addLogicalConnection(uint16_t nodeA, uint16_t nodeB) {
     int16_t indexA = findNodeIndex(nodeA);
     int16_t indexB = findNodeIndex(nodeB);
     if (indexA != -1 && indexB != -1) {
-        logicalNetwork.Adjacency[indexA][indexB] = nodeB;
-        logicalNetwork.Adjacency[indexB][indexA] = nodeA; //undirected connection
+        logicalNetwork.adjacency[indexA][indexB] = nodeB;
+        logicalNetwork.adjacency[indexB][indexA] = nodeA; //undirected connection
     }
 }
 
@@ -27,7 +27,7 @@ void addLogicalConnection(uint16_t nodeA, uint16_t nodeB) {
 void clearLogicalConnections() {
     for (uint16_t i = 0; i < logicalNetwork.nodeCount; i++) {
         for (uint16_t j = 0; j < logicalNetwork.nodeCount; j++) {
-            logicalNetwork.Adjacency[i][j] = 0;
+            logicalNetwork.adjacency[i][j] = 0;
         }
     }
     logicalNetwork.nodeCount = 0;
@@ -65,7 +65,7 @@ uint16_t determineRoute(uint16_t srcNodeID, uint16_t destNodeID, uint16_t* route
 
         for (uint16_t neighbor = 0; neighbor < logicalNetwork.nodeCount; neighbor++) {
             //check if there's a connection and if the neighbor hasn't been visited
-            if (logicalNetwork.Adjacency[current][neighbor] != 0 && visited[neighbor] == 0) {
+            if (logicalNetwork.adjacency[current][neighbor] != 0 && visited[neighbor] == 0) {
                 visited[neighbor] = 1;
                 prev[neighbor] = current;
                 q.push(neighbor);
@@ -84,7 +84,7 @@ uint16_t determineRoute(uint16_t srcNodeID, uint16_t destNodeID, uint16_t* route
         reverseRoute[pathLength] = logicalNetwork.nodeIDs[current];
         pathLength++;
         if (pathLength > maxHops) {
-            printf("Error: route from %d to %d exceeds maxHops.\n", srcNodeID, destNodeID);
+            printf("Error: shortest route from %d to %d exceeds maxHops. Cannot create circuit.\n", srcNodeID, destNodeID);
             return 0;
         }
     }

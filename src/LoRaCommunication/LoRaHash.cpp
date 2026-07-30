@@ -15,11 +15,35 @@ int findSlot(LoRaNode* table, size_t size, uint16_t nodeID) {
 }
 
 //initialize hash table
+/*
 void LoraHashTable::init() {
     size = MAX_NODES;
     table = (LoRaNode*)malloc(MAX_NODES * sizeof(LoRaNode)); //reserve memory
     // 0 is start value, indicates empty slot
     memset(table, 0, MAX_NODES * sizeof(LoRaNode)); //fill memory
+}
+*/
+
+//count the number of nodes in the table
+int LoraHashTable::countNodes() {
+    size_t count = 0;
+    for (size_t i = 0; i < MAX_NODES; i++) {
+        if (table[i].nodeID != 0) {
+            count++;
+        }
+    }
+    return count;
+}
+
+int LoraHashTable::sortedNodeIDs(uint16_t* buffer, size_t length) {
+    size_t count = 0;
+    for (size_t i = 0; i < MAX_NODES && count < length; i++) {
+        if (table[i].nodeID != 0) {
+            buffer[count++] = table[i].nodeID;
+        }
+    }
+    std::sort(buffer, buffer + count);
+    return count;
 }
 
 //add a node to the hash table

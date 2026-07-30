@@ -11,7 +11,6 @@
 
 #define GLOBAL_ID 65535
 #define MAX_HOPS 4
-#define MAX_STREAMS 5
 #define KEY_SIZE ECC_PUB_KEY_SIZE //size of ECDH keys
 #define CIRCUIT_AMOUNT 32
 
