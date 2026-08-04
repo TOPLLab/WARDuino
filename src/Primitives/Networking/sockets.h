@@ -67,8 +67,7 @@ inline int socket_accept(const int socket) {
 
 inline int socket_send(const int socket, const char *message,
                        const size_t len) {
-    printf("socket_send(%d, \"%s\" (len = %d))\n", socket, message,
-           len);
+    printf("socket_send(%d, \"%s\" (len = %d))\n", socket, message, len);
     return send(socket, message, len, 0);
 }
 
