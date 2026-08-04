@@ -100,6 +100,12 @@ def_prim(random_int, NoneToOneU32) {
     return true;
 }
 
+def_prim(random_set_seed, oneToNoneI32) {
+    srand(arg0.uint32);
+    pop_args(1);
+    return true;
+}
+
 // call callback test function (temporary)
 def_prim(test, oneToNoneU32) {
     uint32_t fidx = arg0.uint32;
@@ -593,6 +599,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(millis);
     install_primitive(micros);
     install_primitive(random_int);
+    install_primitive(random_set_seed);
 
     install_primitive(print_int);
     install_primitive(print_string);
