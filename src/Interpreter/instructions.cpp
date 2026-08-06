@@ -1831,6 +1831,13 @@ bool interpret(Module *m, bool waiting) {
 
     if (success && m->warduino->debugger->instrument.awakeOnNextInstruction) {
         // after hooks left to run on the last instr
+        if (m->pc_ptr == nullptr) {
+            // case where the last frame got popped
+            // and the pc points to nullptr
+            // make pc point to the last instruction executed
+            Frame f = m->callstack[1];
+            m->pc_ptr = f.ra_ptr;
+        }
         success = m->warduino->debugger->instrument.runHooksAfterWasmAddr(
             *m->warduino->debugger->channel, m, lc, m->warduino->program_state);
     }
