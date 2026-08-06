@@ -50,6 +50,7 @@ typedef struct HookArgs {
 class InstrumentationManager {
    private:
     LogicalClock lastObservedTime{};
+    bool clockStarted = false;
 
     Channel *fun_call_channel{};
 

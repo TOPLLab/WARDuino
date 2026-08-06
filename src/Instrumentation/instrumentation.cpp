@@ -550,7 +550,8 @@ bool InstrumentationManager::runHooksOnWasmAddr(const Channel &output,
     bool success = true;
     bool upcodeRestored = false;
 
-    if (LogicalClock_is_t1_equal_t2(this->lastObservedTime, *currentTime)) {
+    if (this->clockStarted &&
+        LogicalClock_is_t1_equal_t2(this->lastObservedTime, *currentTime)) {
         // Reentering an addr for which the hooks were just run
         // do not run the hooks but advance computation
         auto instr = this->has_HookOnWasmAddr(addr, HookBefore)
@@ -560,6 +561,7 @@ bool InstrumentationManager::runHooksOnWasmAddr(const Channel &output,
         module->pc_ptr += 1;
     } else {
         this->lastObservedTime = *currentTime;
+        this->clockStarted = true;
         if (this->has_HookOnWasmAddr(addr, HookBefore)) {
             success = this->do_before_wasm_addr_hooks(
                 output, *module, *currentTime, addr, opcode, runningState);
