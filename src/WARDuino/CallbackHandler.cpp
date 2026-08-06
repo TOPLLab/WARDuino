@@ -119,8 +119,9 @@ bool CallbackHandler::resolve_event(const Channel &output, Module *module,
         CallbackHandler::manager->runHookForOnEventHandling(output, module)) {
     }
 
-    // empty events case is possible since hook can remove events
-    if (CallbackHandler::events->empty()) {
+    // check empty events or pause since hook can remove events or pause
+    if (CallbackHandler::events->empty() ||
+        WARDuino::instance()->program_state == WARDUINOpause) {
         return false;
     }
 

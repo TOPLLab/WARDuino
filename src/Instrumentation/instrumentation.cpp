@@ -62,6 +62,7 @@ bool InstrumentationManager::isAddHookOnEventAllowed(Hook &hook) {
         case EventInspect:
         case EventRemove:
         case StateInspect:
+        case ChangeRunningState:
             return true;
         default:
             return false;
@@ -711,6 +712,11 @@ HooksWasmAddr *InstrumentationManager::start_wasm_addr_intercept(
 
 bool InstrumentationManager::runHookForOnEventHandling(const Channel &output,
                                                        Module *module) {
+    if (this->hooksForOnEventHandlingPaused) {
+        this->hooksForOnEventHandlingPaused = false;
+        return false;
+    }
+
     Hook *hookToRun = this->hooksForOnEventHandling;
     if (hookToRun == nullptr || CallbackHandler::events->empty()) {
         if (hookToRun == nullptr) {
@@ -752,11 +758,14 @@ bool InstrumentationManager::runHookForOnEventHandling(const Channel &output,
             "because of hooks. You need to introduce IDs for each event to "
             "know when to stop the isntrumentation.\n");
     }
+    this->hooksForOnEventHandlingPaused = wd->program_state == WARDUINOpause;
     return eventRemoved && !CallbackHandler::events->empty();
 }
 
-void InstrumentationManager::runHooksForOnNewEvent(const Channel &output,
+bool InstrumentationManager::runHooksForOnNewEvent(const Channel &output,
                                                    Module *module) {
+    if (CallbackHandler::pendingEvents->empty()) return true;
+
     WARDuino *wd = WARDuino::instance();
     HookArgs args = {
         .currentTime = wd->logicalClock,
@@ -779,12 +788,13 @@ void InstrumentationManager::runHooksForOnNewEvent(const Channel &output,
                 "the instrumentation but we still need to decide what "
                 "would be the default behaviour. Pause for instance?\n");
             this->stopRunningHooksOnNewEvents();
-            return;
+            return false;
         }
         Event *ev = CallbackHandler::pendingEvents->front();
         args.ev = ev;
         this->run_hooks(output, *module, hookToRun, args, result);
         this->hooksForOnNewEvent = result.hooks_left;
+
         if (!CallbackHandler::pendingEvents->empty() &&
             ev == CallbackHandler::pendingEvents->front()) {
             // event did not get removed by any hook
@@ -796,11 +806,12 @@ void InstrumentationManager::runHooksForOnNewEvent(const Channel &output,
             if (!VM_Exception_has_exception()) {
                 VM_Exception_write("failed to run a hook on new event");
             }
-            return;
         }
-        // if (result.success) opcode = instr->original_opcode;
-        // return result.success;
+
+        if (wd->program_state == WARDUINOpause) break;
     }
+
+    return result.success;
 }
 
 /*

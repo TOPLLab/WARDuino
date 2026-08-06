@@ -65,6 +65,7 @@ class InstrumentationManager {
 
     Hook *hooksForOnNewEvent{};
 
+    bool hooksForOnEventHandlingPaused = false;
     Hook *hooksForOnEventHandling{};
 
     Hook *hooksForOnError{};
@@ -174,7 +175,7 @@ class InstrumentationManager {
      */
     bool runHookForOnEventHandling(const Channel &output, Module *module);
 
-    void runHooksForOnNewEvent(const Channel &output, Module *module);
+    bool runHooksForOnNewEvent(const Channel &output, Module *module);
 
     void runHooksOnError(const Channel &output, Module *module,
                          LogicalClock *currentTime);

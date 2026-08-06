@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #include "../Memory/mem.h"
@@ -1544,8 +1545,9 @@ bool interpret(Module *m, bool waiting) {
 
         // run hooks registered for newly events pushed
         if (CallbackHandler::pendingEventsActivated) {
-            m->warduino->debugger->instrument.runHooksForOnNewEvent(
+            success = m->warduino->debugger->instrument.runHooksForOnNewEvent(
                 *m->warduino->debugger->channel, m);
+            if (!success) continue;
         }
 
         // Resolve 1 callback event if queue is not empty and VM that should not
