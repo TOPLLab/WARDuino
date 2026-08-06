@@ -4,7 +4,7 @@ CONFIG = .config
 -include ${CONFIG}
 
 ifdef PAUSED
-	COMMAND := uint8_t command[] = {'0', '3', '0', '1', '\\\n'}; wac->handleInterrupt(5, command);
+	COMMAND := wac->program_state = WARDUINOpause;
 else
 	COMMAND :=
 endif
