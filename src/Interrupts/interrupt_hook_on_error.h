@@ -25,9 +25,6 @@ bool Interrupt_HookOnError_deserialize_request(HookOnErrorRequest &dest,
                                                DebugMessage *msg,
                                                uint8_t &error_code);
 
-ssize_t Interrupt_HookOnError_serialize_response(
-    const HookOnErrorResponse &response, char *dest);
-
 void Interrupt_HookOnError_send_response(const Channel &channel,
                                          const HookOnErrorResponse &response);
 

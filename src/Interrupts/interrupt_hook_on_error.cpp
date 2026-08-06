@@ -25,7 +25,7 @@ void Interrupt_HookOnError_handle_request(const Channel &requester,
         response.type = INTERRUPT_RESPONSE_TYPE_ERROR;
     }
     request.id = msg->id;
-
+    response.id = msg->id;
     Interrupt_HookOnError_send_response(requester, response);
 }
 
@@ -45,16 +45,8 @@ bool Interrupt_HookOnError_deserialize_request(HookOnErrorRequest &dest,
 
 void Interrupt_HookOnError_send_response(const Channel &channel,
                                          const HookOnErrorResponse &response) {
-    char serialization[10];
-    if (Interrupt_HookOnError_serialize_response(response, serialization) > 0) {
-        channel.write("%s\n", serialization);
-    }
-}
-
-ssize_t Interrupt_HookOnError_serialize_response(
-    const HookOnErrorResponse &response, char *dest) {
-    return Interrupt_serialize_hexa_string_response(
-        interruptHookOnError, response.id, response.type, dest);
+    Interrupt_send_JSON_message(channel, interruptHookOnError, response.type,
+                                response.id, nullptr, response.error_code);
 }
 
 bool addHook(InstrumentationManager &manager, Hook &hook, uint8_t &error_code) {
