@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cstdio>
+#include <cstdint>
 
 #define CELL_SIZE 512
 #define CONTROL_HEADER_SIZE 7

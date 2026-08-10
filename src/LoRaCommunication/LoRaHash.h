@@ -2,6 +2,7 @@
 #include <string.h>
 #include <cstdio>
 #include <algorithm>
+#include <cstdint>
 
 //globals
 #define MAX_NODES 16

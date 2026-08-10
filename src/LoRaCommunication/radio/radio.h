@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <cstdint>
 
 extern "C" {
     uint16_t radio_begin_extern(uint32_t freq, uint32_t bw, uint32_t sf, uint32_t cr, uint32_t sw, uint32_t pwr);
