@@ -121,6 +121,7 @@ typedef struct Global {
     char *import_field;   // import field name
     bool mutability;      // 0: immutable, 1: mutable
     StackValue *value;    // current value
+    bool imported;        // whether value is imported/shared
 } Global;
 
 typedef struct Options {

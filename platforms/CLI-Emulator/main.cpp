@@ -93,7 +93,7 @@ std::string getModuleName(const char *path) {
 
 Module *load(WARDuino *wac, const char *file_name, const char *module_name,
              Options opt) {
-    uint8_t *wasm;
+    uint8_t *wasm = nullptr;
     unsigned int file_size;
 
     FILE *file = fopen(file_name, "rb");
@@ -127,8 +127,15 @@ Module *load(WARDuino *wac, const char *file_name, const char *module_name,
 
 error:
     fclose(file);
+    free(wasm);
 
     return nullptr;
+}
+
+void unload(WARDuino *wac, Module *module) {
+    uint8_t *wasm = module->bytes;
+    wac->unload_module(module);
+    free(wasm);
 }
 
 void startDebuggerCommunication() {
@@ -504,7 +511,7 @@ int main(int argc, const char *argv[]) {
             json["primitives"] = primitives;
 
             std::cout << json << std::endl;
-            for (auto mod : loaded_modules) wac->unload_module(mod);
+            for (auto mod : loaded_modules) unload(wac, mod);
             exit(0);
         }
 
@@ -571,7 +578,7 @@ int main(int argc, const char *argv[]) {
 
         // Unload all
         for (auto mod : loaded_modules) {
-            wac->unload_module(mod);
+            unload(wac, mod);
         }
         wac->debugger->stop();
 

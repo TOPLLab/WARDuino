@@ -626,7 +626,14 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                                 m->globals, m->global_count - 1,
                                 m->global_count, sizeof(Global *), "globals");
                             Global **glob = &m->globals[m->global_count - 1];
-                            *glob = gval;
+                            auto *imported_global = (Global *)acalloc(
+                                1, sizeof(Global), "imported global");
+                            imported_global->import_module = import_module;
+                            imported_global->import_field = import_field;
+                            imported_global->mutability = mutability;
+                            imported_global->value = gval->value;
+                            imported_global->imported = true;
+                            *glob = imported_global;
                             debug(
                                 "    setting global %d (content_type %d) to "
                                 "%p: %s\n",
@@ -637,6 +644,10 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
                         default:
                             FATAL("Import of kind %d not supported\n",
                                   external_kind);
+                    }
+                    if (external_kind == 0x01 || external_kind == 0x02) {
+                        free(import_module);
+                        free(import_field);
                     }
                 }
                 break;
@@ -1178,9 +1189,16 @@ void WARDuino::free_module_state(Module *m) {
     }
 
     if (m->globals != nullptr) {
-        for (uint32_t i = 0; i < m->global_count; ++i)
-            if (m->globals[i]->export_name != nullptr)
-                free(m->globals[i]->export_name);
+        for (uint32_t i = 0; i < m->global_count; ++i) {
+            Global *global = m->globals[i];
+            if (global == nullptr) continue;
+
+            if (global->export_name != nullptr) free(global->export_name);
+            if (global->import_module != nullptr) free(global->import_module);
+            if (global->import_field != nullptr) free(global->import_field);
+            if (!global->imported && global->value != nullptr) free(global->value);
+            free(global);
+        }
         free(m->globals);
         m->globals = nullptr;
     }
