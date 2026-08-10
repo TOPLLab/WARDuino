@@ -155,8 +155,10 @@ class Debugger {
 
     // Checkpointing
     SnapshotPolicy snapshotPolicy;
-    uint32_t checkpointInterval;          // #instructions between checkpoints
-    uint32_t instructions_executed;       // #instructions since last checkpoint
+    uint32_t checkpointInterval;     // #instructions between checkpoints
+    uint32_t instructions_executed;  // #instructions since last checkpoint
+    uint32_t instructions_since_full_snapshot;  // #instructions since last full
+                                                // snapshot
     std::optional<uint32_t> fidx_called;  // The primitive that was executed
     uint32_t prim_args[8];                // The arguments of the executed prim
     uint32_t min_return_values;
@@ -336,6 +338,6 @@ class Debugger {
     bool getMockForArgs(Module *m, uint32_t fidx, uint32_t &result);
 
     // Checkpointing
-    void checkpoint(Module *m, bool force = false);
+    void checkpoint(Module *m, bool force = false, bool full = false);
     inline SnapshotPolicy getSnapshotPolicy() { return snapshotPolicy; }
 };

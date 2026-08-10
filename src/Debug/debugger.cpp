@@ -24,6 +24,7 @@ Debugger::Debugger(Channel *duplex) {
     this->snapshotPolicy = SnapshotPolicy::none;
     this->checkpointInterval = 10;
     this->instructions_executed = 0;
+    this->instructions_since_full_snapshot = 0;
     this->fidx_called = {};
     this->min_return_values = 0;
     this->checkpoint_state = nullptr;
@@ -1015,6 +1016,7 @@ void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
         }
         checkpoint_state = nullptr;
         checkpoint_state_size = 0;
+        *data_ptr += 1;
     } else {
         snapshotPolicy = SnapshotPolicy::checkpointing;
         *data_ptr += 1;
@@ -1032,8 +1034,9 @@ void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
 
     // Make a checkpoint when you first enable checkpointing
     if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-        uint8_t *ptr = *data_ptr + 1;
-        checkpointInterval = read_B32(&ptr);
+        checkpointInterval = read_B32(data_ptr);
+        instructions_executed = 0;
+        instructions_since_full_snapshot = 0;
         checkpoint(m, true);
     }
     printf("ack%x\n", interruptSetSnapshotPolicy);
@@ -1076,6 +1079,18 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         }
         instructions_executed++;
 
+        // When using tracing, optionally (if the interval is 0xffffffff no full
+        // snapshots will be taken) take full checkpoints every
+        // checkpointInterval instructions.
+        if (checkpoint_state != nullptr) {
+            instructions_since_full_snapshot++;
+            if (checkpointInterval != UINT32_MAX &&
+                instructions_since_full_snapshot >= checkpointInterval) {
+                checkpoint(m, true, true);
+                instructions_since_full_snapshot = 0;
+            }
+        }
+
         ExecutionContext *ectx = m->warduino->execution_context;
         // Store arguments of last primitive call.
         if ((fidx_called = getPrimitiveBeingCalled(m, ectx->pc_ptr))) {
@@ -1090,7 +1105,7 @@ void Debugger::handleSnapshotPolicy(Module *m) {
     }
 }
 
-void Debugger::checkpoint(Module *m, const bool force) {
+void Debugger::checkpoint(Module *m, const bool force, const bool full) {
     if (instructions_executed == 0 && !force) {
         return;
     }
@@ -1119,7 +1134,7 @@ void Debugger::checkpoint(Module *m, const bool force) {
         this->channel->write("], ");
     }
     this->channel->write(R"("snapshot": )");
-    if (!checkpoint_state) {
+    if (!checkpoint_state || full) {
         snapshot(m);
     } else {
         inspect(m, checkpoint_state_size, checkpoint_state);
@@ -1661,6 +1676,7 @@ bool Debugger::handleUpdateStackValue(const Module *m, uint8_t *bytes) const {
 bool Debugger::reset(Module *m) {
     m->warduino->reset_module(m);
     instructions_executed = 0;
+    instructions_since_full_snapshot = 0;
     this->channel->write("Reset WARDuino.\n");
     return true;
 }
