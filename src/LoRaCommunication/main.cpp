@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
 
     radio_begin_extern(0, 0, 0, 0, 0, 0);
 
-    //LocalPeers.init(); //initialise the table of the local peers
+    LocalPeers.init(); //initialise the table of the local peers
     LocalPeers.addNode(nodeID, nodeRole, 0, 1000); //add self to the hash table
     sendAnnounce(LocalPeers); //send table information to other nodes, response is handled by LoRaMessageListener
 
