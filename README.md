@@ -41,61 +41,46 @@ This project is released under the Mozilla Public License 2.0, and is being deve
 If you use just, the most common project commands are collected in the justfile.
 To run the virtual machine locally (emulator) for the first time, use:
 
+```bash
+just setup emulator ; just run emulator tutorials/wat/main/fac.wat
 ```
-just setup ; just run emulator tutorials/wat/main/fac.wat
+
+You can use the debugger by running:
+
+```bash
+just monitor emulator 8119
 ```
 
 ## Build and Development Instructions
 
 > [!NOTE]
-> **Supported platforms:** Linux (Ubuntu), macOS, ESP-IDF, Arduino
+> **Supported platforms:** Linux (Ubuntu), macOS, Zephyr, ESP-IDF, Arduino
 
 The project uses CMake. Quick install looks like this:
 
 ```bash
 git clone --recursive git@github.com:TOPLLab/WARDuino.git
 cd WARDuino
-mkdir build-emu
-cd build-emu
-cmake .. -D BUILD_EMULATOR=ON
-make
+just build emulator
 ```
 
 This will build the command-line tool (`emulator`), which has been tested on both linux and macOS.
 
-The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, and has been extensively tested on different ESP8266 and ESP32 microcontrollers.
-
-### Build for ESP-IDF
-
-> [!WARNING]
-> Primitive support for IDF is under construction.
-
-Before you can compile and flash with ESP-IDF, you must install and enable [the toolchain](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html).
-You also need to disable the watchdog timer:
-
-1. Go to the root folder of the WARDuino repo
-2. run `idf.py menuconfig`
-3. Under **Component config → ESP System Settings** disable the following options:
-   - Interrupt watchdog
-   - Initialize Task Watchdog Timer on startup
-4. Save and quit the menu
-
-Make sure the ESP-IDF tools are enabled, otherwise these steps will not work.
-
-To install the WARDuino with the ESP-IDF toolchain perform the following steps starting from the project root folder:
-
 ```bash
-mkdir build
-cd build
-cmake .. -D BUILD_ESP=ON
-make flash
+./build-emu/wdcli --help
 ```
 
-Or simply run `idf.py flash`.
+The WARDuino VM can be compiled with both the Arduino and ESP-IDF toolchains, and has been extensively tested on different ESP8266 and ESP32 microcontrollers.
 
 ### Build for Zephyr
 
-First, install the [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#getting-started-guide), then follow these steps:
+First, install the [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#getting-started-guide), then run:
+
+```bash
+just build zephyr tutorials/wat/main/blink.wat ; just flash zephyr ; just monitor zephyr
+```
+
+Alternative, when you do not have just, you can follow the following steps:
 
 1. Activate your Zephyr environment:
 ```bash
@@ -165,7 +150,6 @@ arduino-cli lib install --git-url https://github.com/me-no-dev/AsyncTCP.git
 
 If you haven't done so already, clone (or symlink) this repository to `~/Arduino/libraries` to make WARDuino available to Arduino.
 
-
 After this initial installation steps you can start using WARDuino with the Arduino toolchain.
 You can upload the example file as follows, starting from the project root:
 
@@ -186,17 +170,51 @@ The CLI is also used to run the various unit and specification tests for WARDuin
 To install the CLI perform the following steps starting from the project root folder:
 
 ```bash
+just build emulator ; echo ; ./build-emu/wdcli --help
+```
+
+Alternative, when you do not have just, use:
+
+```bash
 mkdir build-emu
 cd build-emu
 cmake .. -D BUILD_EMULATOR=ON
 make
 ```
 
-## WebAssembly Specification tests
+### Build for ESP-IDF
 
-```shell
-cd tests/latch
-npm run spectest
+> [!WARNING]
+> Primitive support for IDF is under construction.
+
+Before you can compile and flash with ESP-IDF, you must install and enable [the toolchain](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html).
+You also need to disable the watchdog timer:
+
+1. Go to the root folder of the WARDuino repo
+2. run `idf.py menuconfig`
+3. Under **Component config → ESP System Settings** disable the following options:
+   - Interrupt watchdog
+   - Initialize Task Watchdog Timer on startup
+4. Save and quit the menu
+
+Make sure the ESP-IDF tools are enabled, otherwise these steps will not work.
+
+To install the WARDuino with the ESP-IDF toolchain perform the following steps starting from the project root folder:
+
+```bash
+mkdir build
+cd build
+cmake .. -D BUILD_ESP=ON
+make flash
+```
+
+Or simply run `idf.py flash`.
+
+## Run test suites
+
+```bash
+just build emulator
+just test all
 ```
 
 ## Technical support and feedback
@@ -205,7 +223,7 @@ For a feature request or bug report, create a [GitHub issue](https://github.com/
 
 ## Acknowledgments
 
-WARDuino by Robbert Gurdeep Singh, Tom Lauwaerts, Carlos Rojas Castillo, Maarten Steevens and Christophe Scholliers is licensed under a [MPL-2.0 License](./LICENSE).
+WARDuino by Tom Lauwaerts, Maarten Steevens, Carlos Rojas Castillo, and Christophe Scholliers is licensed under a [MPL-2.0 License](./LICENSE).
 An early version of this work was derived from [kanaka/wac](https://github.com/kanaka/wac) by Joel Martin.
 
 If you need to cite WARDuino in your research, use:
