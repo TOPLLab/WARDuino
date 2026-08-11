@@ -35,6 +35,12 @@ wat program:
 clean:
     rm -rf build-emu build-doctest build
 
+[group('clean')]
+[doc('Reset repo (warn: aggresive)')]
+[confirm("Hard reset repository?")]
+reset: clean prune
+
+
 ## Build
 
 has(flags, flag) := if flags =~ ('(^| )' + flag + '($| )') { "true" } else { "false" }
@@ -148,6 +154,20 @@ integration:
 [working-directory: 'tests/latch/']
 all: 
     WABT="../../lib/wabt/build/" npm run tests:all
+
+## QoL / Maintenance
+
+[group('maintenance')]
+maintain:
+    git maintenance run
+
+[group('maintenance')]
+[doc('Aggressive GC for git (use wisely)')]
+[confirm("GC git and delete stale files?")]
+prune:
+    git maintenance run --task=gc
+    git remote prune origin
+
 
 ## Private recipes
 
