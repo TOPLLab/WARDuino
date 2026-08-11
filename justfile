@@ -1,7 +1,5 @@
 set unstable
-
-default:
-    just --list
+set default-list := true
 
 
 ## Run
@@ -36,9 +34,14 @@ clean:
     rm -rf build-emu build-doctest build
 
 [group('clean')]
-[doc('Reset repo (warn: aggresive)')]
-[confirm("Hard reset repository?")]
-reset: clean prune
+[doc('Clean tests folders')]
+clean-tests:
+    rm -rf tests/latch/node-modules
+
+[group('clean')]
+[doc("Hard reset repository")]
+[confirm("Clean all generated files and Git data?")]
+reset: clean clean-tests _prune
 
 
 ## Build
@@ -66,9 +69,9 @@ build platform *flags:
 [group('build')]
 [working-directory: 'build-emu']
 [doc('Platform: emulator')]
-emulator *flags: _mkdir-emu
-    cmake .. -D BUILD_EMULATOR=ON {{cmake(flags)}} -G Ninja
-    ninja
+emulator *flags:
+    cmake -S . -B build-emu -D BUILD_EMULATOR=ON {{cmake(flags)}} -G Ninja
+    cmake --build build-emu
 
 [group('build')]
 [doc('Platform: zephyr')]
@@ -96,6 +99,7 @@ cli program *flags:
 
 ## Monitor
 
+[group('monitor')]
 monitor platform port='8119':
     just _monitor_{{platform}} {{port}}
 
@@ -111,8 +115,9 @@ _monitor_zephyr port:
 ## Setup
 
 [group('setup')]
-[doc('Setup toolchains & platforms')]
-setup platform: _setup-emulator
+[doc('Setup toolchains & platforms (target: emulator, tests)')]
+setup target:
+    just _setup-{{target}}
 
 [confirm('You are about to install nanopb using Homebrew. Proceed? [y/n]')]
 _nanopb:
@@ -122,6 +127,10 @@ _nanopb:
 [doc('Setup: emulator')]
 _setup-emulator: _nanopb
     git submodule update --init --recursive
+
+[working-directory: 'tests/latch/']
+_setup-tests:
+    npm i
 
 [group('lint')]
 [doc('Lint src folder')]
@@ -155,25 +164,25 @@ integration:
 all: 
     WABT="../../lib/wabt/build/" npm run tests:all
 
+
 ## QoL / Maintenance
 
 [group('maintenance')]
+[doc('Run routine Git maintenance')]
 maintain:
     git maintenance run
 
 [group('maintenance')]
-[doc('Aggressive GC for git (use wisely)')]
+[doc('Aggressively prune Git objects and stale remote refs')]
 [confirm("GC git and delete stale files?")]
-prune:
+prune: _prune
+
+_prune:
     git maintenance run --task=gc
     git remote prune origin
 
 
 ## Private recipes
-
-# make build folder
-_mkdir-emu:
-    mkdir -p build-emu
 
 # make build folder
 _mkdir-doctest:
