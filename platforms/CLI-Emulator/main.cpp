@@ -534,16 +534,16 @@ struct Model {
         return max;
     }
 
-    int min_fanout() {
-        int min = -1;
-        if (!subpaths.empty() && (min < 0 || subpaths.size() < min)) {
+    [[nodiscard]] std::optional<size_t> min_fanout() const {
+        std::optional<size_t> min = {};
+        if (!subpaths.empty() && (!min.has_value() || subpaths.size() < min.value())) {
             min = subpaths.size();
         }
 
-        for (Model path : subpaths) {
-            int val = path.min_fanout();
-            if (val > 0) {
-                min = std::min(val, min);
+        for (const Model& path : subpaths) {
+            std::optional<size_t> val = path.min_fanout();
+            if (val.has_value()) {
+                min = std::min(val.value(), min.value());
             }
         }
         return min;
@@ -578,7 +578,7 @@ struct Model {
 
         BigInt::bigint v = prim_states(values["x_" + std::to_string(depth)].primitive_origin);
         BigInt::bigint max = v;
-        for (int i = 0; i < subpaths.size(); i++) {
+        for (size_t i = 0; i < subpaths.size(); i++) {
             BigInt::bigint value = v * subpaths[i].max_states(depth + 1); // Might overflow (Gesture-robot)
             if (value > max) {
                 max = value;

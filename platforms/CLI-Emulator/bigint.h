@@ -869,7 +869,7 @@ namespace BigInt {
     std::vector<long long> bigint::string_to_vector(std::string input) {
         // Break into chunks of 18 characters
         std::vector<long long> result;
-        int chunk_size = 18;
+        const size_t chunk_size = 18;
 
         if (input.size() > chunk_size)
         {
@@ -879,7 +879,7 @@ namespace BigInt {
                 input.insert(0, "0");
             }
         }
-        for (int i = 0; i < input.size(); i+=chunk_size)
+        for (size_t i = 0; i < input.size(); i+=chunk_size)
         {
             std::string temp_str = input.substr(i, chunk_size);
             result.emplace_back(stoll(temp_str));
