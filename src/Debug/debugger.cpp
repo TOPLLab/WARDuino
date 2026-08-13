@@ -1077,7 +1077,6 @@ void Debugger::handleSnapshotPolicy(Module *m) {
                 }
             }
         }
-        instructions_executed++;
 
         // When using tracing, optionally (if the interval is 0xffffffff no full
         // snapshots will be taken) take full checkpoints every
@@ -1090,6 +1089,8 @@ void Debugger::handleSnapshotPolicy(Module *m) {
                 instructions_since_full_snapshot = 0;
             }
         }
+
+        instructions_executed++;
 
         ExecutionContext *ectx = m->warduino->execution_context;
         // Store arguments of last primitive call.
