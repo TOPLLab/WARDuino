@@ -1052,7 +1052,7 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
             f = d * e;
             break;  // i64.mul
         case 0x7f:
-            if (d == 0x8000000000000000 && e == (uint32_t)-1) {
+            if (d == 0x8000000000000000ULL && e == UINT64_MAX) {
                 sprintf(exception, "integer overflow");
                 return false;
             }
@@ -1062,7 +1062,7 @@ bool i_instr_binary_i64(Module *m, uint8_t opcode) {
             f = d / e;
             break;  // i64.div_u
         case 0x81:
-            if (d == 0x8000000000000000 && e == (uint32_t)-1) {
+            if (d == 0x8000000000000000ULL && e == UINT64_MAX) {
                 f = 0;
             } else {
                 f = (int64_t)d % (int64_t)e;
