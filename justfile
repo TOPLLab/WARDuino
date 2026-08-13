@@ -67,7 +67,6 @@ build platform *flags:
     just {{platform}} {{flags}}
 
 [group('build')]
-[working-directory: 'build-emu']
 [doc('Platform: emulator')]
 emulator *flags:
     cmake -S . -B build-emu -D BUILD_EMULATOR=ON {{cmake(flags)}} -G Ninja
