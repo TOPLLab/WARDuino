@@ -1,9 +1,10 @@
-import {EmulatorSpecification, Framework, Kind, Message, StyleType, Suite, TestScenario} from 'latch';
+import {EmulatorSpecification, Framework, Kind, Message, StyleType, Suite, TestScenario, Verbosity} from 'latch';
 import * as fs from 'fs';
 import * as path from 'path';
 
 const framework = Framework.getImplementation();
 framework.reporter.style(StyleType.github);
+framework.reporter.verbosity(Verbosity.short);
 
 // TODO disclaimer: file is currently disabled until latch supports AS compilation
 

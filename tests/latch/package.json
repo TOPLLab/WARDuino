@@ -6,6 +6,7 @@
     "tests:prim": "npx ts-node ./src/primitives.test.ts",
     "tests:spec": "npx ts-node ./src/spec.test.ts",
     "tests:comp": "npx ts-node ./src/comp.test.ts",
+    "tests:r3": "npx ts-node ./src/r3.test.ts",
     "tests:integration": "npm run tests:debug ; npm run tests:prim",
     "tests:all": "npm run tests:spec ; npm run tests:integration"
   },
