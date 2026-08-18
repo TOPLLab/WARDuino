@@ -16,6 +16,9 @@
 #include "../Threading/warduino-thread.h"
 #include "../Utils/sockets.h"
 
+#include <pb_encode.h>
+#include "debug.pb.h"
+
 struct Module;
 struct Block;
 struct StackValue;
