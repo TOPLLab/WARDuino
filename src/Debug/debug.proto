@@ -9,45 +9,6 @@ option cc_enable_arenas = false;
 
 ////
 
-enum State {
-    WARDUINOrun = 0;
-    WARDUINOpause = 1;
-    WARDUINOstep = 2;
-    PROXYrun = 3;
-    PROXYhalt = 4;
-}
-
-enum Command {
-    // standard debug operations
-    run = 0;
-    halt = 1;
-    pause = 2;
-    step = 3;
-    bpadd = 4;
-    bprem = 5;
-
-    // inspection operations
-    dump = 6;
-    dumplocals = 7;
-    snapshot = 8;
-    dumpevents = 9;
-    dumpcallbacks = 10;
-
-    // update operations
-    updatefunc = 11;
-    updatelocal = 12;
-    updatecallbacks = 13;
-
-    // edward debug operations
-    loadsnapshot = 14;
-    proxify = 15;
-    proxyadd = 16;
-    proxyrem = 17;
-    proxycall = 18;
-    popevent = 19;
-    pushevent = 20;
-}
-
 //// 2 types of messages: DebugMessage or Notification:
 
 message DebugMessage {  // messages FROM frontend
@@ -59,7 +20,7 @@ message DebugMessage {  // messages FROM frontend
 
 message Notification {  // messages TO frontend
     enum Type {
-        // simple notifications:
+        // simple notifications: TODO a single acknowledgement
         continued = 0;
         halted = 1;
         paused = 2;
@@ -82,6 +43,61 @@ message Notification {  // messages TO frontend
 
     Type type = 1;
     optional Payload payload = 2;
+}
+
+
+// DebugMessage contents
+
+enum State {
+    WARDUINOrun   = 0;
+    WARDUINOpause = 1;
+    WARDUINOstep  = 2;
+    PROXYrun      = 3;  // Running state used when executing a proxy call. During
+                        // this state the call is set up and executed by the main
+                        // loop. After execution, the state is restored to
+                        // PROXYhalt
+    PROXYhalt     = 4;  // Do not run the program (program runs on computer, which
+                        // sends messages for primitives, do forward interrupts)
+}
+
+enum Command {
+    // standard debug operations
+    run = 0;
+    halt = 1;
+    pause = 2;
+    step = 3;
+    stepover = 4;
+    bpadd = 5;
+    bprem = 6;
+
+    // inspection operations
+    dump = 7;
+    dumplocals = 8;
+    snapshot = 9;
+    dumpevents = 10;
+    dumpcallbacks = 11;
+
+    // update operations
+    updatefunc = 12;
+    updatelocal = 13;
+    updatecallbacks = 14;
+
+    // edward debug operations
+    loadsnapshot = 15;
+    proxify = 16;
+    proxyadd = 17;
+    proxyrem = 18;
+    proxycall = 19;
+    popevent = 20;
+    pushevent = 21;
+
+    // new instructions
+    continuefor = 22;
+    inspect = 23;
+    reset = 24;
+    invoke = 25;
+
+    // todo overrides
 }
 
 //// content of messages:
