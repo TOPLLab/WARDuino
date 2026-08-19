@@ -1,4 +1,15 @@
-//// WARDUINO DEBUG API
+// WARDuino debug protocol.
+//
+// Command and NotificationType are transport-level discriminators. They are
+// written as a single byte before the protobuf payload; they are not encoded
+// as fields inside another protobuf message.
+//
+// If the transport does not already preserve packet boundaries, frame packets
+// as:
+//
+//   [type: uint8][payload length: varint][protobuf payload]
+//
+// Empty commands and notifications have a zero-length protobuf payload.
 
 syntax = "proto3";
 
@@ -7,192 +18,181 @@ package debug;
 option optimize_for = LITE_RUNTIME;
 option cc_enable_arenas = false;
 
-////
+// Frontend -> WARDuino.
+// The receiver selects the payload schema from the command byte.
+enum Command {
+  COMMAND_RUN = 0;                 // no payload
+  COMMAND_HALT = 1;                // no payload
+  COMMAND_PAUSE = 2;               // no payload
+  COMMAND_STEP = 3;                // no payload
+  COMMAND_STEP_OVER = 4;           // no payload
+  COMMAND_ADD_BREAKPOINT = 5;      // Breakpoint
+  COMMAND_REMOVE_BREAKPOINT = 6;   // Breakpoint
 
-//// 2 types of messages: DebugMessage or Notification:
+  COMMAND_DUMP = 7;                // no payload
+  COMMAND_DUMP_LOCALS = 8;         // no payload
+  COMMAND_SNAPSHOT = 9;            // no payload
+  COMMAND_DUMP_EVENTS = 10;        // Range
+  COMMAND_DUMP_CALLBACKS = 11;     // no payload
 
-message DebugMessage {  // messages FROM frontend
-    Command command = 1;
+  COMMAND_UPDATE_FUNCTION = 12;    // Function
+  COMMAND_UPDATE_LOCAL = 13;       // LocalUpdate
+  COMMAND_UPDATE_CALLBACKS = 14;   // CallbackMapping
 
-    // optional payload
-    optional Payload payload = 2;
+  COMMAND_LOAD_SNAPSHOT = 15;      // Snapshot
+  COMMAND_PROXIFY = 16;            // no payload
+  COMMAND_ADD_PROXY = 17;          // FunctionRef
+  COMMAND_REMOVE_PROXY = 18;       // FunctionRef
+  COMMAND_PROXY_CALL = 19;         // RemoteFunctionCall
+  COMMAND_POP_EVENT = 20;          // no payload
+  COMMAND_PUSH_EVENT = 21;         // Event
+
+  COMMAND_CONTINUE_FOR = 22;       // ContinueFor
+  COMMAND_INSPECT = 23;            // Inspect
+  COMMAND_RESET = 24;              // no payload
+  COMMAND_INVOKE = 25;             // RemoteFunctionCall
 }
 
-message Notification {  // messages TO frontend
-    enum Type {
-        // simple notifications: TODO a single acknowledgement
-        continued = 0;
-        halted = 1;
-        paused = 2;
-        stepped = 3;
-        hitbreakpoint = 4;
-        newevent = 5;  // a new event got pushed from proxy
-        changeaffected = 11;
+// WARDuino -> frontend.
+// The receiver selects the payload schema from the notification byte.
+enum NotificationType {
+  NOTIFICATION_CONTINUED = 0;            // no payload
+  NOTIFICATION_HALTED = 1;               // no payload
+  NOTIFICATION_PAUSED = 2;               // no payload
+  NOTIFICATION_STEPPED = 3;              // no payload
+  NOTIFICATION_HIT_BREAKPOINT = 4;       // HitBreakpoint
+  NOTIFICATION_NEW_EVENT = 5;            // NewEvent (zero-length payload)
 
-        // payload responses:
-        dump = 6;
-        dumplocals = 7;
-        snapshot = 8;
-        dumpevents = 9;
-        dumpcallbacks = 10;
+  NOTIFICATION_FUNCTION_DUMP = 6;        // Function
+  NOTIFICATION_LOCALS_DUMP = 7;          // Locals
+  NOTIFICATION_SNAPSHOT = 8;             // Snapshot
+  NOTIFICATION_EVENTS_DUMP = 9;          // EventsQueue
+  NOTIFICATION_CALLBACKS_DUMP = 10;      // CallbackMapping
+  NOTIFICATION_CHANGE_AFFECTED = 11;     // no payload
 
-        // errors:
-        malformed = 12;  // received message was malformed
-        unknown = 13;    // received unknown command
-    }
-
-    Type type = 1;
-    optional Payload payload = 2;
+  NOTIFICATION_MALFORMED = 12;           // no payload
+  NOTIFICATION_UNKNOWN_COMMAND = 13;     // no payload
 }
-
-
-// DebugMessage contents
 
 enum State {
-    WARDUINOrun   = 0;
-    WARDUINOpause = 1;
-    WARDUINOstep  = 2;
-    PROXYrun      = 3;  // Running state used when executing a proxy call. During
-                        // this state the call is set up and executed by the main
-                        // loop. After execution, the state is restored to
-                        // PROXYhalt
-    PROXYhalt     = 4;  // Do not run the program (program runs on computer, which
-                        // sends messages for primitives, do forward interrupts)
+  STATE_WARDUINO_RUN = 0;
+  STATE_WARDUINO_PAUSE = 1;
+  STATE_WARDUINO_STEP = 2;
+  STATE_PROXY_RUN = 3;
+  STATE_PROXY_HALT = 4;
 }
 
-enum Command {
-    // standard debug operations
-    run = 0;
-    halt = 1;
-    pause = 2;
-    step = 3;
-    stepover = 4;
-    bpadd = 5;
-    bprem = 6;
-
-    // inspection operations
-    dump = 7;
-    dumplocals = 8;
-    snapshot = 9;
-    dumpevents = 10;
-    dumpcallbacks = 11;
-
-    // update operations
-    updatefunc = 12;
-    updatelocal = 13;
-    updatecallbacks = 14;
-
-    // edward debug operations
-    loadsnapshot = 15;
-    proxify = 16;
-    proxyadd = 17;
-    proxyrem = 18;
-    proxycall = 19;
-    popevent = 20;
-    pushevent = 21;
-
-    // new instructions
-    continuefor = 22;
-    inspect = 23;
-    reset = 24;
-    invoke = 25;
-
-    // todo overrides
+// A virtual program address.
+message CodeLocation {
+    uint32 module_index = 1;
+    uint32 program_counter = 2;
 }
 
-//// content of messages:
+message Breakpoint {
+    CodeLocation location = 1;
+}
 
-message Payload {
-    oneof payload {
-        Snapshot snapshot = 1;          // dumps
-        Locals locals = 2;              // dumplocals
-        Function function = 3;          // dumps, updatefunc, proxyadd/rem
-        uint32 breakpoint = 4;          // bpadd, bprem
-        EventsQueue queue = 5;          // dumps
-        Event event = 6;                // event operations
-        Range range = 7;                // dump eventsqueue
-        CallbackMapping callbacks = 8;  // dump/update callbacks
-        RFC call = 9;                   // proxycall
-    }
+message HitBreakpoint {
+    CodeLocation location = 1;
+}
+
+// The notification type carries all information for this event. The empty
+// message exists for host-side reflection, but no protobuf bytes are sent.
+message NewEvent {}
+
+message ContinueFor {
+  uint32 count = 1;
+}
+
+// Execution-state selectors understood by the VM. Keeping them as bytes lets
+// the protocol add selectors without changing this schema.
+message Inspect {
+  bytes state = 1;
+}
+
+message FunctionRef {
+  uint32 function_index = 1;
+}
+
+message LocalUpdate {
+  uint32 index = 1;
+  Value value = 2;
 }
 
 message Snapshot {
-    // minimal state fields
-    uint32 program_counter = 1;
-    State state = 2;
-    repeated uint32 breakpoints = 3;
-    repeated Function functions = 4;
-    repeated CallstackEntry callstack = 5;
+  uint32 program_counter = 1;
+  State state = 2;
+  repeated uint32 breakpoints = 3;
+  repeated Function functions = 4;
+  repeated CallstackEntry callstack = 5;
 
-    // optional extending state fields
-    optional Locals locals = 6;
-    optional EventsQueue queue = 7;
-    optional CallbackMapping callbacks = 8;
+  Locals locals = 6;
+  EventsQueue queue = 7;
+  CallbackMapping callbacks = 8;
 }
 
 message Function {
-    int32 fidx = 1;
-
-    // optional fields for updating:
-    Range range = 2;  // from, to
-    Locals locals = 3;
-    bytes instructions = 4;  // implementation
+  uint32 function_index = 1;
+  Range range = 2;
+  Locals locals = 3;
+  bytes instructions = 4;
 }
 
-message RFC {  // Remote Function Call
-    int32 fidx = 1;
-    int32 argcount = 2;
-    repeated Value args = 3;
+message RemoteFunctionCall {
+  uint32 function_index = 1;
+  repeated Value arguments = 2;
 }
 
 message CallstackEntry {
-    int32 type = 1;
-    int32 fidx = 2;
-    int32 sp = 3;
-    int32 fp = 4;
-    int32 start = 5;
-    int32 ra = 6;
+  uint32 type = 1;
+  uint32 function_index = 2;
+  uint32 stack_pointer = 3;
+  uint32 frame_pointer = 4;
+  uint32 start = 5;
+  uint32 return_address = 6;
 }
 
 message Locals {
-    int32 count = 1;
-    repeated Value values = 2;
+  repeated Value values = 1;
 }
 
+// The oneof tag is the value type, so a separate type enum and a decimal
+// string are unnecessary. Fixed-width fields preserve WebAssembly bits and
+// are fast to construct on the MCU.
 message Value {
-    enum Type {
-        i32 = 0;
-        i64 = 1;
-        f32 = 2;
-        f64 = 3;
-        any = 4;
-    }
-    Type type = 1;
-    string value = 2;  // can be any wasm value
-    int32 index = 3;
+  oneof data {
+    fixed32 i32_bits = 1;
+    fixed64 i64_bits = 2;
+    fixed32 f32_bits = 3;
+    fixed64 f64_bits = 4;
+    bytes raw = 5;
+  }
+
+  uint32 index = 6;
 }
 
 message CallbackMapping {
-    repeated CallbackEntry entries = 1;
+  repeated CallbackEntry entries = 1;
 }
 
 message CallbackEntry {
-    string topic = 1;
-    repeated int32 tidx = 2;
+  string topic = 1;
+  repeated uint32 table_indexes = 2;
 }
 
 message EventsQueue {
-    int32 count = 1;            // total count of events in queue
-    repeated Event events = 2;  // slice of events
-    optional Range range = 3;   // range of returned slice
+  // Total events in the queue; this can exceed the returned slice length.
+  uint32 total_count = 1;
+  repeated Event events = 2;
+  Range range = 3;
 }
 
 message Event {
-    string topic = 1;
-    string payload = 2;
+  string topic = 1;
+  bytes payload = 2;
 }
 
 message Range {
-    int32 start = 1;  // start index
-    int32 end = 2;    // end index
+  uint32 start = 1;
+  uint32 end = 2;
 }
