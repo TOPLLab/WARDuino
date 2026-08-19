@@ -8,9 +8,11 @@
 
 #include <csignal>
 #include <cstdarg>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cerrno>
 
 #ifdef WIFI_ENABLED
 // Socket Debugger Interface
@@ -97,6 +99,18 @@ int Sink::write(const char *fmt, ...) {
     return written;
 }
 
+ssize_t Sink::writeBytes(const uint8_t *data, const size_t size) {
+    if (data == nullptr && size != 0) return -1;
+    size_t offset = 0;
+    while (offset < size) {
+        const size_t written = fwrite(data + offset, 1, size - offset, this->outStream);
+        if (written == 0) return -1;
+        offset += written;
+    }
+    fflush(this->outStream);
+    return static_cast<ssize_t>(offset);
+}
+
 Duplex::Duplex(FILE *inStream, FILE *outStream) : Sink(outStream) {
     this->inDescriptor = fileno(inStream);
 }
@@ -116,6 +130,17 @@ int FileDescriptorChannel::write(const char *fmt, ...) {
     int written = vdprintf(this->fd, fmt, args);
     va_end(args);
     return written;
+}
+
+ssize_t FileDescriptorChannel::writeBytes(const uint8_t *data, const size_t size) {
+    size_t offset = 0;
+    while (offset < size) {
+        const ssize_t written = ::write(this->fd, data + offset, size - offset);
+        if (written > 0) { offset += static_cast<size_t>(written); continue; }
+        if (written < 0 && errno == EINTR) continue;
+        return -1;
+    }
+    return static_cast<ssize_t>(offset);
 }
 
 ssize_t FileDescriptorChannel::read(void *out, size_t size) {
@@ -172,6 +197,18 @@ int WebSocket::write(const char *fmt, ...) {
     int written = vdprintf(this->socket, fmt, args);
     va_end(args);
     return written;
+}
+
+ssize_t WebSocket::writeBytes(const uint8_t *data, const size_t size) {
+    if (this->socket < 0) return -1;
+    size_t offset = 0;
+    while (offset < size) {
+        const ssize_t written = ::write(this->socket, data + offset, size - offset);
+        if (written > 0) { offset += static_cast<size_t>(written); continue; }
+        if (written < 0 && errno == EINTR) continue;
+        return -1;
+    }
+    return static_cast<ssize_t>(offset);
 }
 
 ssize_t WebSocket::read(void *out, size_t size) {

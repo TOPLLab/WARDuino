@@ -48,31 +48,12 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
 
 RFC *Proxy::topRFC() { return this->calls->top(); }
 
-void Proxy::returnResult(Module *m) {
+RFC *Proxy::returnResult(Module *m) {
+    (void)m;
+    if (this->calls->empty()) return nullptr;
     RFC *rfc = this->calls->top();
-
-    // remove call from lifo queue
     this->calls->pop();
-
-    if (!rfc->success) {
-        // TODO exception msg
-        WARDuino::instance()->debugger->channel->write(R"({"success":false})");
-        return;
-    }
-
-    if (rfc->type->result_count == 0) {
-        // reading result from stack
-        WARDuino::instance()->debugger->channel->write(R"({"success":true})");
-        return;
-    }
-
-    // send the result to the client
-    ExecutionContext *ectx = m->warduino->execution_context;
-    rfc->result = &ectx->stack[ectx->sp];
-    char *val = printValue(rfc->result);
-    WARDuino::instance()->debugger->channel->write(R"({"success":true,%s})",
-                                                   val);
-    free(val);
+    return rfc;
 }
 
 char *printValue(StackValue *v) {

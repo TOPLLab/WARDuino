@@ -36,13 +36,9 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 set(WARDUINO_VERSION_STRING "${PROJECT_VERSION}")
 configure_file(src/config.h.in include/warduino/config.h)
 
-# Build the emulator version of WARDuino
-if (BUILD_EMULATOR)
-    set(EXTERNAL_LIB_HEADERS lib/json/single_include)
-    set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib)
-
-    find_package(Threads REQUIRED)
-
+# Both host targets use one generated nanopb schema target.
+if (BUILD_EMULATOR OR BUILD_UNITTEST)
+    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib)
     include(FetchContent)
     FetchContent_Declare(
         nanopb
@@ -52,14 +48,15 @@ if (BUILD_EMULATOR)
     )
     FetchContent_MakeAvailable(nanopb)
     set(NANOPB_SRC_ROOT_FOLDER ${nanopb_SOURCE_DIR})
-    find_program(NANOPB_GENERATOR_PLUGIN
-        NAMES protoc-gen-nanopb
-        DOC "nanopb protoc plugin"
-        REQUIRED
-    )
+    find_program(NANOPB_GENERATOR_PLUGIN NAMES protoc-gen-nanopb REQUIRED)
     find_package(Nanopb REQUIRED)
-
     nanopb_generate_cpp(TARGET proto src/Debug/debug.proto)
+endif ()
+
+# Build the emulator version of WARDuino
+if (BUILD_EMULATOR)
+    set(EXTERNAL_LIB_HEADERS lib/json/single_include)
+    find_package(Threads REQUIRED)
 
     set(SOURCE_FILES
             src/WARDuino/WARDuino.cpp
@@ -141,7 +138,7 @@ if (BUILD_UNITTEST)
         get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
         message(DEBUG "Add executable for " ${TEST_FILE})
         add_executable(${TEST_NAME} ${TEST_FILE} ${SOURCE_FILES} ${SHARED_SRC})
-        target_link_libraries(${TEST_NAME} PRIVATE doctest::doctest)
+        target_link_libraries(${TEST_NAME} PRIVATE doctest::doctest proto)
         target_include_directories(${TEST_NAME} PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
         add_test(${TEST_NAME} ${TEST_NAME})
     endforeach ()

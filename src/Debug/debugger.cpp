@@ -4,11 +4,6 @@
 #include <cinttypes>
 #include <cstring>
 #include <optional>
-#ifndef ARDUINO
-#include <nlohmann/json.hpp>
-#else
-#include "../../lib/json/single_include/nlohmann/json.hpp"
-#endif
 
 #include "../Memory/mem.h"
 #include "../Utils//util.h"
@@ -39,101 +34,136 @@ void Debugger::setChannel(Channel *duplex) {
     this->channel = duplex;
 }
 
-void Debugger::addDebugMessage(size_t len, const uint8_t *buff) {
-    this->parseDebugBuffer(len, buff);
-    uint8_t *data{};
-    while (!this->parsedInterrupts.empty()) {
-        data = this->parsedInterrupts.front();
-        this->parsedInterrupts.pop();
-        if (*data == interruptRecvCallbackmapping) {
-            size_t startIdx = 0;
-            while (buff[startIdx] != '7' || buff[startIdx + 1] != '5' ||
-                   buff[startIdx + 2] != '{') {
-                startIdx++;
-            }
-            size_t endIdx = startIdx;
-            while (buff[endIdx] != '\n') {
-                endIdx++;
-            }
-            auto *msg = static_cast<uint8_t *>(acalloc(
-                sizeof(uint8_t), (endIdx - startIdx), "interrupt buffer"));
-            memcpy(msg, buff + startIdx, (endIdx - startIdx) * sizeof(uint8_t));
-            *msg = *data;
-            free(data);
-            this->pushMessage(msg);
-        } else {
-            this->pushMessage(data);
+namespace {
+
+bool decodeFrameLength(const std::vector<uint8_t> &bytes, size_t *headerSize,
+                       size_t *payloadSize) {
+    if (bytes.size() < 2) return false;
+    uint32_t value = 0;
+    for (size_t i = 0; i < 5; ++i) {
+        const size_t offset = i + 1;
+        if (offset >= bytes.size()) return false;
+        const uint8_t byte = bytes[offset];
+        if (i == 4 && (byte & 0xf0U) != 0) { *headerSize = SIZE_MAX; return false; }
+        value |= static_cast<uint32_t>(byte & 0x7fU) << (i * 7U);
+        if ((byte & 0x80U) == 0) {
+            if (i > 0 && value < (1U << (i * 7U))) { *headerSize = SIZE_MAX; return false; }
+            *headerSize = offset + 1;
+            *payloadSize = value;
+            return true;
         }
     }
+    return false;
 }
 
-void Debugger::pushMessage(uint8_t *msg) {
+bool isKnownCommand(const uint8_t type) {
+    return type <= static_cast<uint8_t>(debug_Command_COMMAND_REMOVE_OVERRIDE);
+}
+
+template <typename T>
+bool decodePayload(const std::vector<uint8_t> &payload, const pb_msgdesc_t *fields,
+                   T *message) {
+    pb_istream_t stream = pb_istream_from_buffer(payload.data(), payload.size());
+    return pb_decode(&stream, fields, message);
+}
+
+}  // namespace
+
+void Debugger::addDebugMessage(const size_t len, const uint8_t *buff) {
+    if (len == 0 || buff == nullptr) return;
+    parseDebugBuffer(len, buff);
+}
+
+void Debugger::pushMessage(DebugMessage msg) {
     warduino::lock_guard const lg(messageQueueMutex);
-    this->debugMessages.push_back(msg);
-    this->freshMessages = !this->debugMessages.empty();
-    this->messageQueueConditionVariable.notify_one();
+    debugMessages.emplace_back(std::move(msg));
+    freshMessages = !debugMessages.empty();
+    messageQueueConditionVariable.notify_one();
 }
 
-void Debugger::parseDebugBuffer(size_t len, const uint8_t *buff) {
-    for (size_t i = 0; i < len; i++) {
-        bool success = true;
-        int r = 0;
-
-        // TODO replace by real binary
-        switch (buff[i]) {
-            case '0' ... '9':
-                r = buff[i] - '0';
-                break;
-            case 'A' ... 'F':
-                r = buff[i] - 'A' + 10;
-                break;
-            case 'a' ... 'f':
-                r = buff[i] - 'a' + 10;
-                break;
-            default:
-                success = false;
+void Debugger::parseDebugBuffer(const size_t len, const uint8_t *buff) {
+    pendingFrameBytes.insert(pendingFrameBytes.end(), buff, buff + len);
+    while (!pendingFrameBytes.empty()) {
+        if (!isKnownCommand(pendingFrameBytes.front())) {
+            pendingFrameBytes.clear();
+            sendNotification(debug_NotificationType_NOTIFICATION_UNKNOWN_COMMAND);
+            continue;
         }
 
-        if (!success) {
-            if (this->interruptEven) {
-                if (!this->interruptBuffer.empty()) {
-                    // done, send to process
-                    // TODO: pointer gets leaked!
-                    auto data = static_cast<uint8_t *>(
-                        acalloc(sizeof(uint8_t), this->interruptBuffer.size(),
-                                "interrupt buffer"));
-                    memcpy(data, this->interruptBuffer.data(),
-                           this->interruptBuffer.size() * sizeof(uint8_t));
-                    this->parsedInterrupts.push(data);
-                    this->interruptBuffer.clear();
-                }
-            } else {
-                this->interruptBuffer.clear();
-                this->interruptEven = true;
-                dbg_warn("Dropped interrupt: could not process");
+        size_t headerSize = 0;
+        size_t payloadSize = 0;
+        const bool completeLength = decodeFrameLength(pendingFrameBytes, &headerSize,
+                                                       &payloadSize);
+        if (!completeLength) {
+            if (headerSize == SIZE_MAX || pendingFrameBytes.size() >= 6) {
+                pendingFrameBytes.clear();
+                sendNotification(debug_NotificationType_NOTIFICATION_MALFORMED);
             }
-        } else {  // good parse
-            if (!this->interruptEven) {
-                this->interruptLastChar =
-                    (this->interruptLastChar << 4u) + static_cast<uint8_t>(r);
-                this->interruptBuffer.push_back(this->interruptLastChar);
-            } else {
-                this->interruptLastChar = static_cast<uint8_t>(r);
-            }
-            this->interruptEven = !this->interruptEven;
+            return;
         }
+        if (payloadSize > maxFramePayload) {
+            pendingFrameBytes.clear();
+            sendNotification(debug_NotificationType_NOTIFICATION_MALFORMED);
+            return;
+        }
+        if (pendingFrameBytes.size() < headerSize + payloadSize) return;
+
+        DebugMessage message{static_cast<debug_Command>(pendingFrameBytes[0]), {}};
+        message.payload.assign(pendingFrameBytes.begin() + static_cast<std::ptrdiff_t>(headerSize),
+                               pendingFrameBytes.begin() + static_cast<std::ptrdiff_t>(headerSize + payloadSize));
+        pendingFrameBytes.erase(pendingFrameBytes.begin(),
+                                pendingFrameBytes.begin() + static_cast<std::ptrdiff_t>(headerSize + payloadSize));
+        pushMessage(std::move(message));
     }
 }
 
-uint8_t *Debugger::getDebugMessage() {
+std::optional<DebugMessage> Debugger::getDebugMessage() {
     warduino::lock_guard const lg(messageQueueMutex);
-    uint8_t *ret = nullptr;
-    if (!this->debugMessages.empty()) {
-        ret = this->debugMessages.front();
-        this->debugMessages.pop_front();
+    if (debugMessages.empty()) {
+        freshMessages = false;
+        return std::nullopt;
     }
-    this->freshMessages = !this->debugMessages.empty();
-    return ret;
+    DebugMessage message = std::move(debugMessages.front());
+    debugMessages.pop_front();
+    freshMessages = !debugMessages.empty();
+    return message;
+}
+
+bool Debugger::sendNotification(const debug_NotificationType type,
+                                const pb_msgdesc_t *fields,
+                                const void *payload) const {
+    if (channel == nullptr) return false;
+    size_t payloadSize = 0;
+    if (fields != nullptr && payload != nullptr &&
+        !pb_get_encoded_size(&payloadSize, fields, payload)) {
+        return false;
+    }
+    std::vector<uint8_t> frame;
+    frame.reserve(1 + 5 + payloadSize);
+    frame.push_back(static_cast<uint8_t>(type));
+    size_t length = payloadSize;
+    do {
+        uint8_t byte = static_cast<uint8_t>(length & 0x7fU);
+        length >>= 7U;
+        if (length != 0) byte |= 0x80U;
+        frame.push_back(byte);
+    } while (length != 0);
+    if (payloadSize != 0) {
+        const size_t offset = frame.size();
+        frame.resize(offset + payloadSize);
+        pb_ostream_t stream = pb_ostream_from_buffer(frame.data() + offset, payloadSize);
+        if (!pb_encode(&stream, fields, payload)) return false;
+    }
+    return channel->writeBytes(frame.data(), frame.size()) ==
+           static_cast<ssize_t>(frame.size());
+}
+
+void Debugger::sendOperationResult(const debug_Command command, const bool success) const {
+    debug_OperationResult result = debug_OperationResult_init_zero;
+    result.command = command;
+    result.success = success;
+    sendNotification(debug_NotificationType_NOTIFICATION_OPERATION_RESULT,
+                     debug_OperationResult_fields, &result);
 }
 
 void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
@@ -147,12 +177,14 @@ bool Debugger::isBreakpoint(uint8_t *loc) {
 }
 
 void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) {
-    if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-        checkpoint(m);
-    }
-    this->mark = nullptr;
-    const uint32_t bp = toVirtualAddress(pc_ptr, m);
-    this->channel->write("AT %" PRIu32 "!\n", bp);
+    if (snapshotPolicy == SnapshotPolicy::checkpointing) checkpoint(m);
+    mark = nullptr;
+    debug_HitBreakpoint hit = debug_HitBreakpoint_init_zero;
+    hit.has_location = true;
+    hit.location.module_index = 0;
+    hit.location.program_counter = toVirtualAddress(pc_ptr, m);
+    sendNotification(debug_NotificationType_NOTIFICATION_HIT_BREAKPOINT,
+                     debug_HitBreakpoint_fields, &hit);
 }
 
 /**
@@ -176,239 +208,370 @@ void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) {
  * - `0x20` : Replace the content body of a function by a new function given
  *            as payload (immediately following `0x10`), see #readChange
  */
-bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
-    uint8_t *interruptData = this->getDebugMessage();
-    if (interruptData == nullptr) {
-        fflush(stdout);
-        return false;
+namespace {
+
+bool collectBytes(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
+    auto *out = static_cast<std::vector<uint8_t> *>(*arg);
+    out->resize(stream->bytes_left);
+    return out->empty() || pb_read(stream, out->data(), out->size());
+}
+
+[[maybe_unused]] bool collectWords(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
+    auto *out = static_cast<std::vector<uint32_t> *>(*arg);
+    while (stream->bytes_left != 0) {
+        uint32_t value = 0;
+        if (!pb_decode_fixed32(stream, &value)) return false;
+        out->push_back(value);
     }
-    debug("received interrupt %x\n", *interruptData);
-    fflush(stdout);
+    return true;
+}
 
-    this->channel->write("Interrupt: %x\n", *interruptData);
+void setDecodeCallback(pb_callback_t *callback, std::vector<uint8_t> *out) {
+    callback->funcs.decode = collectBytes;
+    callback->arg = out;
+}
 
-    long start = 0, size = 0;
-    switch (*interruptData) {
-        case interruptRUN:
-            this->handleInterruptRUN(m, program_state);
-            free(interruptData);
+bool collectVarints(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
+    auto *out = static_cast<std::vector<uint32_t> *>(*arg);
+    while (stream->bytes_left != 0) {
+        uint64_t value = 0;
+        if (!pb_decode_varint(stream, &value) || value > UINT32_MAX) return false;
+        out->push_back(static_cast<uint32_t>(value));
+    }
+    return true;
+}
+
+struct DecodedCallbackEntry { std::string topic; std::vector<uint32_t> indexes; };
+bool collectCallbackEntries(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
+    auto *entries = static_cast<std::vector<DecodedCallbackEntry> *>(*arg);
+    debug_CallbackEntry entry = debug_CallbackEntry_init_zero;
+    std::vector<uint8_t> topic;
+    std::vector<uint32_t> indexes;
+    setDecodeCallback(&entry.topic, &topic);
+    entry.table_indexes.funcs.decode = collectVarints;
+    entry.table_indexes.arg = &indexes;
+    if (!pb_decode(stream, debug_CallbackEntry_fields, &entry)) return false;
+    entries->push_back({std::string(topic.begin(), topic.end()), std::move(indexes)});
+    return true;
+}
+
+std::optional<uint32_t> findImportedFunction(Module *m, const std::string &name) {
+    for (uint32_t index = 0; index < m->import_count; ++index) {
+        if (m->functions[index].import_field != nullptr &&
+            name == m->functions[index].import_field) return index;
+    }
+    return std::nullopt;
+}
+
+bool collectValues(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
+    auto *out = static_cast<std::vector<debug_Value> *>(*arg);
+    debug_Value value = debug_Value_init_zero;
+    if (!pb_decode(stream, debug_Value_fields, &value)) return false;
+    out->push_back(value);
+    return true;
+}
+
+bool valueFromProto(const debug_Value &from, StackValue *to) {
+    switch (from.which_data) {
+        case debug_Value_i32_bits_tag: to->value_type = I32; to->value.uint32 = from.data.i32_bits; return true;
+        case debug_Value_i64_bits_tag: to->value_type = I64; to->value.uint64 = from.data.i64_bits; return true;
+        case debug_Value_f32_bits_tag: to->value_type = F32; to->value.uint32 = from.data.f32_bits; return true;
+        case debug_Value_f64_bits_tag: to->value_type = F64; to->value.uint64 = from.data.f64_bits; return true;
+        default: return false;
+    }
+}
+
+[[maybe_unused]] void valueToProto(const StackValue &from, const uint32_t index, debug_Value *to) {
+    *to = debug_Value_init_zero;
+    to->index = index;
+    switch (from.value_type) {
+        case I32: to->which_data = debug_Value_i32_bits_tag; to->data.i32_bits = from.value.uint32; break;
+        case I64: to->which_data = debug_Value_i64_bits_tag; to->data.i64_bits = from.value.uint64; break;
+        case F32: to->which_data = debug_Value_f32_bits_tag; to->data.f32_bits = from.value.uint32; break;
+        case F64: to->which_data = debug_Value_f64_bits_tag; to->data.f64_bits = from.value.uint64; break;
+        default: break;
+    }
+}
+
+}  // namespace
+
+bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
+    std::optional<DebugMessage> message = getDebugMessage();
+    if (!message) return false;
+
+    const auto malformed = [this]() {
+        sendNotification(debug_NotificationType_NOTIFICATION_MALFORMED);
+    };
+    const auto requireEmpty = [&message, &malformed]() {
+        if (!message->payload.empty()) { malformed(); return false; }
+        return true;
+    };
+
+    switch (message->type) {
+        case debug_Command_COMMAND_RUN:
+            if (!requireEmpty()) break;
+            handleInterruptRUN(m, program_state);
+            sendNotification(debug_NotificationType_NOTIFICATION_CONTINUED);
             break;
-        case interruptHALT:
-            this->channel->write("STOP!\n");
-            this->channel->close();
-            free(interruptData);
-            delete m->warduino;
-            exit(0);
-        case interruptPAUSE:
-            this->pauseRuntime(m);
-            // Make a checkpoint so the debugger knows the current state and
-            // knows how many instructions were executed since the last
-            // checkpoint.
-            if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-                checkpoint(m, true);
+        case debug_Command_COMMAND_HALT:
+            if (!requireEmpty()) break;
+            sendNotification(debug_NotificationType_NOTIFICATION_HALTED);
+            if (channel != nullptr) channel->close();
+            break;
+        case debug_Command_COMMAND_PAUSE:
+            if (!requireEmpty()) break;
+            pauseRuntime(m);
+            if (snapshotPolicy == SnapshotPolicy::checkpointing) checkpoint(m, true);
+            sendNotification(debug_NotificationType_NOTIFICATION_PAUSED);
+            break;
+        case debug_Command_COMMAND_STEP:
+            if (!requireEmpty()) break;
+            handleSTEP(m, program_state);
+            break;
+        case debug_Command_COMMAND_STEP_OVER:
+            if (!requireEmpty()) break;
+            handleSTEPOver(m, program_state);
+            break;
+        case debug_Command_COMMAND_ADD_BREAKPOINT:
+        case debug_Command_COMMAND_REMOVE_BREAKPOINT: {
+            debug_Breakpoint breakpoint = debug_Breakpoint_init_zero;
+            if (!decodePayload(message->payload, debug_Breakpoint_fields, &breakpoint) ||
+                !breakpoint.has_location || breakpoint.location.module_index != 0 ||
+                !isToPhysicalAddrPossible(breakpoint.location.program_counter, m)) {
+                malformed();
+                break;
             }
-            this->channel->write("PAUSE!\n");
-            free(interruptData);
+            uint8_t *address = toPhysicalAddress(breakpoint.location.program_counter, m);
+            if (message->type == debug_Command_COMMAND_ADD_BREAKPOINT) addBreakpoint(address);
+            else deleteBreakpoint(address);
+            sendOperationResult(message->type, true);
             break;
-        case interruptSTEP:
-            this->handleSTEP(m, program_state);
-            free(interruptData);
-            break;
-        case interruptSTEPOver:
-            this->handleSTEPOver(m, program_state);
-            free(interruptData);
-            break;
-        case interruptBPAdd:  // Breakpoint
-        case interruptBPRem:  // Breakpoint remove
-            this->handleInterruptBP(m, interruptData);
-            free(interruptData);
-            break;
-        case interruptContinueFor: {
-            uint8_t *data = interruptData + 1;
-            uint32_t amount = read_B32(&data);
-            debug("Continue for %" PRIu32 " instruction(s)\n", amount);
-            remaining_instructions = (int32_t)amount;
+        }
+        case debug_Command_COMMAND_CONTINUE_FOR: {
+            debug_ContinueFor request = debug_ContinueFor_init_zero;
+            if (!decodePayload(message->payload, debug_ContinueFor_fields, &request) || request.count == 0) {
+                malformed();
+                break;
+            }
+            remaining_instructions = static_cast<int32_t>(request.count);
             *program_state = WARDUINOrun;
-            free(interruptData);
+            sendNotification(debug_NotificationType_NOTIFICATION_CONTINUED);
             break;
         }
-        case interruptDUMP:
-            this->pauseRuntime(m);
-            this->dump(m);
-            free(interruptData);
-            break;
-        case interruptDUMPLocals:
-            this->pauseRuntime(m);
-            this->dumpLocals(m);
-            this->channel->write("\n");
-            free(interruptData);
-            break;
-        case interruptDUMPFull:
-            this->pauseRuntime(m);
-            this->dump(m, true);
-            free(interruptData);
-            break;
-        case interruptReset:
-            this->reset(m);
-            free(interruptData);
-            break;
-        case interruptUPDATEFun:
-            this->channel->write("CHANGE function!\n");
-            Debugger::handleChangedFunction(m, interruptData);
-            //  do not free(interruptData);
-            // we need it to run that code
-            // TODO: free double replacements
-            break;
-        case interruptUPDATELocal:
-            this->channel->write("CHANGE local!\n");
-            this->handleChangedLocal(m, interruptData);
-            free(interruptData);
-            break;
-        case interruptUPDATEModule:
-            handleUpdateModule(m, interruptData);
-            this->channel->write("CHANGE Module!\n");
-            free(interruptData);
-            break;
-        case interruptUPDATEGlobal:
-            this->handleUpdateGlobalValue(m, interruptData + 1);
-            free(interruptData);
-            break;
-        case interruptUPDATEStackValue:
-            this->handleUpdateStackValue(m, interruptData + 1);
-            free(interruptData);
-            break;
-        case interruptINVOKE:
-            this->handleInvoke(m, interruptData + 1);
-            free(interruptData);
-            break;
-        case interruptSnapshot:
-            this->pauseRuntime(m);
-            free(interruptData);
+        case debug_Command_COMMAND_DUMP:
+            if (!requireEmpty()) break;
+            pauseRuntime(m);
             snapshot(m);
-            this->channel->write("\n");
             break;
-        case interruptSetSnapshotPolicy:
-            setSnapshotPolicy(m, interruptData + 1);
-            free(interruptData);
+        case debug_Command_COMMAND_DUMP_LOCALS:
+            if (!requireEmpty()) break;
+            pauseRuntime(m);
+            dumpLocals(m);
             break;
-        case interruptInspect: {
-            uint8_t *data = interruptData + 1;
-            uint16_t numberBytes = read_B16(&data);
-            uint8_t *state = interruptData + 3;
-            inspect(m, numberBytes, state);
-            this->channel->write("\n");
-            free(interruptData);
+        case debug_Command_COMMAND_SNAPSHOT:
+            if (!requireEmpty()) break;
+            pauseRuntime(m);
+            snapshot(m);
+            break;
+        case debug_Command_COMMAND_DUMP_EVENTS: {
+            debug_Range range = debug_Range_init_zero;
+            if (!decodePayload(message->payload, debug_Range_fields, &range) || range.end < range.start) { malformed(); break; }
+            dumpEvents(range.start, range.end - range.start);
             break;
         }
-        case interruptLoadSnapshot:
-            if (!this->receivingData) {
-                this->pauseRuntime(m);
-                debug("paused program execution\n");
-                CallbackHandler::manual_event_resolution = true;
-                dbg_info("Manual event resolution is on.");
-                this->receivingData = true;
-                this->freeState(m, interruptData);
-                free(interruptData);
-                this->channel->write("ack!\n");
+        case debug_Command_COMMAND_DUMP_CALLBACKS:
+            if (!requireEmpty()) break;
+            dumpCallbackmapping();
+            break;
+        case debug_Command_COMMAND_UPDATE_LOCAL:
+        case debug_Command_COMMAND_UPDATE_GLOBAL:
+        case debug_Command_COMMAND_UPDATE_STACK: {
+            debug_ValueUpdate update = debug_ValueUpdate_init_zero;
+            if (!decodePayload(message->payload, debug_ValueUpdate_fields, &update) || !update.has_value) { malformed(); break; }
+            StackValue *value = nullptr;
+            if (message->type == debug_Command_COMMAND_UPDATE_LOCAL) {
+                ExecutionContext *ectx = m->warduino->execution_context;
+                if (ectx->fp + static_cast<int>(update.index) > ectx->sp) { malformed(); break; }
+                value = &ectx->stack[ectx->fp + update.index];
+            } else if (message->type == debug_Command_COMMAND_UPDATE_GLOBAL) {
+                if (update.index >= m->global_count) { malformed(); break; }
+                value = m->globals[update.index]->value;
             } else {
-                debug("receiving state\n");
-                receivingData = !this->saveState(m, interruptData);
-                free(interruptData);
-                debug("sending %s!\n", receivingData ? "ack" : "done");
-                this->channel->write("%s!\n", receivingData ? "ack" : "done");
+                ExecutionContext *ectx = m->warduino->execution_context;
+                if (update.index > static_cast<uint32_t>(ectx->sp)) { malformed(); break; }
+                value = &ectx->stack[update.index];
             }
-            break;
-        case interruptProxyCall: {
-            this->handleProxyCall(m, program_state, interruptData + 1);
-            free(interruptData);
-        } break;
-        case interruptMonitorProxies: {
-            debug("receiving functions list to proxy\n");
-            this->handleMonitorProxies(m, interruptData + 1);
-            free(interruptData);
-        } break;
-        case interruptProxify: {
-            dbg_info("Converting to proxy settings.\n");
-            this->proxify();
-            free(interruptData);
+            const bool success = valueFromProto(update.value, value);
+            if (!success) malformed(); else sendOperationResult(message->type, true);
             break;
         }
-        case interruptDUMPAllEvents:
-            debug("InterruptDUMPEvents\n");
-            size = static_cast<long>(CallbackHandler::event_count());
-            [[fallthrough]];
-        case interruptDUMPEvents:
-            // TODO get start and size from message
-            this->channel->write("{");
-            this->dumpEvents(start, size);
-            this->channel->write("}\n");
-            free(interruptData);
+        case debug_Command_COMMAND_UPDATE_MODULE: {
+            debug_ModuleUpdate update = debug_ModuleUpdate_init_zero;
+            std::vector<uint8_t> wasm;
+            setDecodeCallback(&update.wasm, &wasm);
+            if (!decodePayload(message->payload, debug_ModuleUpdate_fields, &update) || wasm.empty()) { malformed(); break; }
+            auto *copy = static_cast<uint8_t *>(malloc(wasm.size()));
+            if (copy == nullptr) { sendOperationResult(message->type, false); break; }
+            memcpy(copy, wasm.data(), wasm.size());
+            m->warduino->update_module(m, copy, wasm.size());
+            sendOperationResult(message->type, true);
             break;
-        case interruptPOPEvent:
-            CallbackHandler::resolve_event(true);
-            free(interruptData);
+        }
+        case debug_Command_COMMAND_UPDATE_FUNCTION: {
+            debug_Function update = debug_Function_init_zero;
+            std::vector<uint8_t> instructions;
+            setDecodeCallback(&update.instructions, &instructions);
+            if (!decodePayload(message->payload, debug_Function_fields, &update) ||
+                update.function_index >= m->function_count || instructions.empty() ||
+                instructions.back() != 0x0b) { malformed(); break; }
+            functionBodies[update.function_index] = std::move(instructions);
+            Block &function = m->functions[update.function_index];
+            function.start_ptr = functionBodies[update.function_index].data();
+            function.end_ptr = function.start_ptr + functionBodies[update.function_index].size() - 1;
+            function.br_ptr = function.end_ptr;
+            sendOperationResult(message->type, true);
             break;
-        case interruptPUSHEvent:
-            this->handlePushedEvent(reinterpret_cast<char *>(interruptData));
-            free(interruptData);
+        }
+        case debug_Command_COMMAND_UPDATE_CALLBACKS: {
+            debug_CallbackMapping mapping = debug_CallbackMapping_init_zero;
+            std::vector<DecodedCallbackEntry> entries;
+            mapping.entries.funcs.decode = collectCallbackEntries;
+            mapping.entries.arg = &entries;
+            if (!decodePayload(message->payload, debug_CallbackMapping_fields, &mapping)) { malformed(); break; }
+            CallbackHandler::clear_callbacks();
+            for (const auto &entry : entries) {
+                for (uint32_t index : entry.indexes) CallbackHandler::add_callback(Callback(m, entry.topic, index));
+            }
+            sendOperationResult(message->type, true);
             break;
-        case interruptRecvCallbackmapping:
-            Debugger::updateCallbackmapping(
-                m, reinterpret_cast<const char *>(interruptData + 2));
-            free(interruptData);
+        }
+        case debug_Command_COMMAND_SET_SNAPSHOT_POLICY: {
+            debug_SnapshotPolicyConfig config = debug_SnapshotPolicyConfig_init_zero;
+            std::vector<uint8_t> selectedState;
+            setDecodeCallback(&config.selected_state, &selectedState);
+            if (!decodePayload(message->payload, debug_SnapshotPolicyConfig_fields, &config) ||
+                config.policy > debug_SnapshotPolicy_SNAPSHOT_POLICY_CHECKPOINTING) { malformed(); break; }
+            snapshotPolicy = static_cast<SnapshotPolicy>(config.policy);
+            checkpointInterval = config.interval == 0 ? 1 : config.interval;
+            min_return_values = config.minimum_return_count;
+            free(checkpoint_state);
+            checkpoint_state = nullptr;
+            checkpoint_state_size = static_cast<uint32_t>(selectedState.size());
+            if (!selectedState.empty()) {
+                checkpoint_state = static_cast<uint8_t *>(malloc(selectedState.size()));
+                if (checkpoint_state == nullptr) { sendOperationResult(message->type, false); break; }
+                memcpy(checkpoint_state, selectedState.data(), selectedState.size());
+            }
+            if (snapshotPolicy == SnapshotPolicy::checkpointing) checkpoint(m, true);
+            sendOperationResult(message->type, true);
             break;
-        case interruptDUMPCallbackmapping:
-            this->dumpCallbackmapping();
-            free(interruptData);
+        }
+        case debug_Command_COMMAND_SET_OVERRIDE:
+        case debug_Command_COMMAND_REMOVE_OVERRIDE: {
+            debug_Override request = debug_Override_init_zero;
+            std::vector<uint8_t> nameBytes;
+            std::vector<uint32_t> words;
+            setDecodeCallback(&request.primitive_name, &nameBytes);
+            request.argument_words.funcs.decode = collectWords;
+            request.argument_words.arg = &words;
+            if (!decodePayload(message->payload, debug_Override_fields, &request)) { malformed(); break; }
+            const auto fidx = findImportedFunction(m, std::string(nameBytes.begin(), nameBytes.end()));
+            if (!fidx || words.size() != m->functions[*fidx].type->param_count) { sendOperationResult(message->type, false); break; }
+            words.push_back(*fidx);
+            if (message->type == debug_Command_COMMAND_SET_OVERRIDE) overrides[words] = request.result;
+            else if (overrides.erase(words) == 0) { sendOperationResult(message->type, false); break; }
+            sendOperationResult(message->type, true);
             break;
-        case interruptSetOverridePinValue:
-            this->addOverride(m, interruptData + 1);
-            free(interruptData);
+        }
+        case debug_Command_COMMAND_INSPECT: {
+            debug_Inspect inspectRequest = debug_Inspect_init_zero;
+            std::vector<uint8_t> ignored;
+            setDecodeCallback(&inspectRequest.state, &ignored);
+            if (!decodePayload(message->payload, debug_Inspect_fields, &inspectRequest)) { malformed(); break; }
+            snapshot(m);
             break;
-        case interruptUnsetOverridePinValue:
-            this->removeOverride(m, interruptData + 1);
-            free(interruptData);
+        }
+        case debug_Command_COMMAND_LOAD_SNAPSHOT: {
+            debug_Snapshot state = debug_Snapshot_init_zero;
+            if (!decodePayload(message->payload, debug_Snapshot_fields, &state) ||
+                !isToPhysicalAddrPossible(state.program_counter, m)) { malformed(); break; }
+            pauseRuntime(m);
+            m->warduino->execution_context->pc_ptr = toPhysicalAddress(state.program_counter, m);
+            sendOperationResult(message->type, true);
+            break;
+        }
+        case debug_Command_COMMAND_ADD_PROXY:
+        case debug_Command_COMMAND_REMOVE_PROXY: {
+            debug_FunctionRef reference = debug_FunctionRef_init_zero;
+            if (!decodePayload(message->payload, debug_FunctionRef_fields, &reference) ||
+                supervisor == nullptr || reference.function_index >= m->function_count) { sendOperationResult(message->type, false); break; }
+            if (message->type == debug_Command_COMMAND_ADD_PROXY) supervisor->registerProxiedCall(reference.function_index);
+            else supervisor->unregisterProxiedCall(reference.function_index);
+            sendOperationResult(message->type, true);
+            break;
+        }
+        case debug_Command_COMMAND_PROXY_CALL:
+        case debug_Command_COMMAND_INVOKE: {
+            debug_RemoteFunctionCall call = debug_RemoteFunctionCall_init_zero;
+            std::vector<debug_Value> values;
+            call.arguments.funcs.decode = collectValues;
+            call.arguments.arg = &values;
+            if (!decodePayload(message->payload, debug_RemoteFunctionCall_fields, &call) ||
+                call.function_index >= m->function_count ||
+                values.size() != m->functions[call.function_index].type->param_count) { malformed(); break; }
+            auto *arguments = new StackValue[values.size()];
+            bool valid = true;
+            for (size_t index = 0; index < values.size(); ++index) valid &= valueFromProto(values[index], &arguments[index]);
+            if (!valid) { delete[] arguments; malformed(); break; }
+            if (message->type == debug_Command_COMMAND_PROXY_CALL) {
+                if (proxy == nullptr) { delete[] arguments; sendOperationResult(message->type, false); break; }
+                proxy->pushRFC(m, new RFC(call.function_index, m->functions[call.function_index].type, arguments));
+                break;
+            }
+            const RunningState current = m->warduino->program_state;
+            m->warduino->program_state = WARDUINOrun;
+            m->warduino->invoke(m, call.function_index, static_cast<uint32_t>(values.size()), arguments);
+            m->warduino->program_state = current;
+            debug_RemoteFunctionResult result = debug_RemoteFunctionResult_init_zero;
+            result.success = true;
+            sendNotification(debug_NotificationType_NOTIFICATION_REMOTE_FUNCTION_RESULT,
+                             debug_RemoteFunctionResult_fields, &result);
+            break;
+        }
+        case debug_Command_COMMAND_PROXIFY:
+            if (!requireEmpty()) break;
+            proxify();
+            sendOperationResult(message->type, true);
+            break;
+        case debug_Command_COMMAND_POP_EVENT:
+            if (!requireEmpty()) break;
+            sendOperationResult(message->type, CallbackHandler::resolve_event(true));
+            break;
+        case debug_Command_COMMAND_PUSH_EVENT: {
+            debug_Event event = debug_Event_init_zero;
+            std::vector<uint8_t> topic;
+            std::vector<uint8_t> payload;
+            setDecodeCallback(&event.topic, &topic);
+            setDecodeCallback(&event.payload, &payload);
+            if (!decodePayload(message->payload, debug_Event_fields, &event) || topic.empty()) { malformed(); break; }
+            CallbackHandler::push_event(std::string(topic.begin(), topic.end()),
+                                        reinterpret_cast<const char *>(payload.data()), payload.size());
+            notifyPushedEvent();
+            break;
+        }
+        case debug_Command_COMMAND_RESET:
+            if (!requireEmpty()) break;
+            sendOperationResult(message->type, reset(m));
             break;
         default:
-            // handle later
-            this->channel->write("COULD not parse interrupt data!\n");
-            free(interruptData);
+            malformed();
             break;
     }
-    fflush(stdout);
     return true;
 }
 
 // Private methods
-void Debugger::printValue(const StackValue *v, const uint32_t idx,
-                          const bool end = false) const {
-    char buff[256];
-
-#define FMT(fmt0) "%" fmt0
-
-    switch (v->value_type) {
-        case I32:
-            snprintf(buff, 255, R"("type":"i32","value":)" FMT(PRIu32),
-                     v->value.uint32);
-            break;
-        case I64:
-            snprintf(buff, 255, R"("type":"i64","value":)" FMT(PRIu64),
-                     v->value.uint64);
-            break;
-        case F32:
-            snprintf(buff, 255, R"("type":"F32","value":")" FMT(PRIu32) "\"",
-                     v->value.uint32);
-            break;
-        case F64:
-            snprintf(buff, 255, R"("type":"F64","value":")" FMT(PRIu64) "\"",
-                     v->value.uint64);
-            break;
-        default:
-            snprintf(buff, 255, R"("type":"%02x","value":")" FMT(PRIu64) "\"",
-                     v->value_type, v->value.uint64);
-    }
-    this->channel->write(R"({"idx":%d,%s}%s)", idx, buff, end ? "" : ",");
-}
+void Debugger::printValue(const StackValue *, const uint32_t, const bool) const {}
 
 uint8_t *Debugger::findOpcode(Module *m, const Block *block) {
     const auto find =
@@ -450,7 +613,6 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) const {
 void Debugger::handleInterruptRUN(const Module *m,
                                   RunningState *program_state) {
     ExecutionContext *ectx = m->warduino->execution_context;
-    this->channel->write("GO!\n");
     if (*program_state == WARDUINOpause && this->isBreakpoint(ectx->pc_ptr)) {
         this->skipBreakpoint = ectx->pc_ptr;
     }
@@ -496,193 +658,49 @@ void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
             this->deleteBreakpoint(bpt);
         }
     }
-    this->channel->write("BP %" PRIu32 "!\n", virtualAddress);
+    debug("BP %" PRIu32 "!\n", virtualAddress);
 }
 
-void Debugger::dump(Module *m, bool full) const {
-    ExecutionContext *ectx = m->warduino->execution_context;
-    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
-    this->channel->write("{");
+void Debugger::dump(Module *m, bool) const { snapshot(m); }
 
-    // current PC
-    this->channel->write("\"pc\":%" PRIu32 ",", toVA(ectx->pc_ptr));
-
-    this->dumpBreakpoints(m);
-
-    this->dumpFunctions(m);
-
-    this->dumpCallstack(m);
-
-    if (full) {
-        this->channel->write(R"( "locals": )");
-        this->dumpLocals(m);
-        this->channel->write(", ");
-        this->dumpEvents(0, static_cast<long>(CallbackHandler::event_count()));
-        this->channel->write(", ");
-    }
-
-    this->dumpHeapInfo(m);
-
-    this->channel->write("}\n\n");
-    //    fflush(stdout);
+void Debugger::dumpStack(const Module *) const {
+    debug_Locals locals = debug_Locals_init_zero;
+    sendNotification(debug_NotificationType_NOTIFICATION_LOCALS_DUMP,
+                     debug_Locals_fields, &locals);
 }
 
-void Debugger::dumpStack(const Module *m) const {
-    ExecutionContext *ectx = m->warduino->execution_context;
-    this->channel->write("{\"stack\": [");
-    int32_t i = ectx->sp;
-    while (0 <= i) {
-        this->printValue(&ectx->stack[i], i, i < 1);
-        i--;
-    }
-    this->channel->write("]}\n\n");
-}
+void Debugger::dumpBreakpoints(Module *) const {}
 
-void Debugger::dumpBreakpoints(Module *m) const {
-    this->channel->write("\"breakpoints\":[");
-    {
-        size_t i = 0;
-        for (auto bp : this->breakpoints) {
-            this->channel->write("%" PRIu32 "%s", toVirtualAddress(bp, m),
-                                 (++i < this->breakpoints.size()) ? "," : "");
-        }
-    }
-    this->channel->write("],");
-}
-
-void Debugger::dumpFunctions(Module *m) const {
-    this->channel->write("\"functions\":[");
-
-    for (size_t i = m->import_count; i < m->function_count; i++) {
-        this->channel->write(R"({"fidx":"0x%x",)", m->functions[i].fidx);
-        this->channel->write("\"from\":%" PRIu32 ",\"to\":%" PRIu32 "}%s",
-                             toVirtualAddress(m->functions[i].start_ptr, m),
-                             toVirtualAddress(m->functions[i].end_ptr, m),
-                             (i < m->function_count - 1) ? "," : "],");
-    }
-}
+void Debugger::dumpFunctions(Module *) const {}
 
 /*
  * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
  */
-void Debugger::dumpCallstack(Module *m) const {
-    ExecutionContext *ectx = m->warduino->execution_context;
-    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
-    this->channel->write("\"callstack\":[");
+void Debugger::dumpCallstack(Module *) const {}
 
-    if (ectx->csp < 0) {
-        this->channel->write("]");
-        return;
-    }
-
-    for (int i = 0; i <= ectx->csp; i++) {
-        const Frame *f = &ectx->callstack[i];
-        int callsite_retaddr = -1;
-        int retaddr = -1;
-        // first frame has no retrun address
-        if (f->ra_ptr != nullptr) {
-            uint8_t *callsite = nullptr;
-            callsite = f->ra_ptr - 2;  // callsite of function (if type 0)
-            callsite_retaddr = static_cast<int>(toVA(callsite));
-            retaddr = static_cast<int>(toVA(f->ra_ptr));
-        }
-        this->channel->write(R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,)",
-                             f->block->block_type, f->block->fidx, f->sp,
-                             f->fp);
-        this->channel->write("\"start\":%" PRIu32
-                             ",\"ra\":%d,\"callsite\":%d}%s",
-                             toVA(f->block->start_ptr), retaddr,
-                             callsite_retaddr, (i < ectx->csp) ? "," : "],");
-    }
-}
-
-void Debugger::dumpLocals(const Module *m) const {
-    //    fflush(stdout);
-    ExecutionContext *ectx = m->warduino->execution_context;
-    int firstFunFramePtr = ectx->csp;
-
-    if (firstFunFramePtr < 0) {
-        this->channel->write("[]");
-        return;
-    }
-
-    while (ectx->callstack[firstFunFramePtr].block->block_type != 0) {
-        firstFunFramePtr--;
-        if (firstFunFramePtr < 0) {
-            FATAL("Not in a function!");
-        }
-    }
-    Frame *f = &ectx->callstack[firstFunFramePtr];
-    this->channel->write(R"({"count":%u,"locals":[)", f->block->local_count);
-    //    fflush(stdout);  // FIXME: this is needed for ESP to properly print
-    for (uint32_t i = 0; i < f->block->local_count; i++) {
-        char _value_str[256];
-        auto v = &ectx->stack[ectx->fp + i];
-        switch (v->value_type) {
-            case I32:
-                snprintf(_value_str, 255,
-                         R"("type":"i32","value":)" FMT(PRIu32),
-                         v->value.uint32);
-                break;
-            case I64:
-                snprintf(_value_str, 255,
-                         R"("type":"i64","value":)" FMT(PRIu64),
-                         v->value.uint64);
-                break;
-            case F32:
-                snprintf(_value_str, 255, R"("type":"F32","value":%.7f)",
-                         v->value.f32);
-                break;
-            case F64:
-                snprintf(_value_str, 255, R"("type":"F64","value":%.7f)",
-                         v->value.f64);
-                break;
-            default:
-                snprintf(_value_str, 255,
-                         R"("type":"%02x","value":")" FMT(PRIu64) "\"",
-                         v->value_type, v->value.uint64);
-        }
-
-        this->channel->write("{%s, \"index\":%u}%s", _value_str,
-                             i + f->block->type->param_count,
-                             (i + 1 < f->block->local_count) ? "," : "");
-    }
-    this->channel->write("]}");
-    //    fflush(stdout);
-#undef FMT
+void Debugger::dumpLocals(const Module *) const {
+    debug_Locals locals = debug_Locals_init_zero;
+    sendNotification(debug_NotificationType_NOTIFICATION_LOCALS_DUMP,
+                     debug_Locals_fields, &locals);
 }
 
 void Debugger::dumpEvents(long start, long size) const {
-    bool previous = CallbackHandler::resolving_event;
-    CallbackHandler::resolving_event = true;
-    if (size > EVENTS_SIZE) {
-        size = EVENTS_SIZE;
-    }
-
-    this->channel->write(R"("events": [)");
-    long index = start, end = start + size;
-    std::for_each(CallbackHandler::event_begin() + start,
-                  CallbackHandler::event_begin() + end,
-                  [this, &index, &end](const Event &e) {
-                      this->channel->write(
-                          R"({"topic": "%s", "payload": "%s"})",
-                          e.topic.c_str(), e.payload.c_str());
-                      if (++index < end) {
-                          this->channel->write(", ");
-                      }
-                  });
-    this->channel->write("]");
-
-    CallbackHandler::resolving_event = previous;
+    debug_EventsQueue events = debug_EventsQueue_init_zero;
+    events.total_count = static_cast<uint32_t>(CallbackHandler::event_count());
+    events.has_range = true;
+    events.range.start = start < 0 ? 0 : static_cast<uint32_t>(start);
+    events.range.end = size < 0 ? events.range.start : events.range.start + static_cast<uint32_t>(size);
+    sendNotification(debug_NotificationType_NOTIFICATION_EVENTS_DUMP,
+                     debug_EventsQueue_fields, &events);
 }
 
 void Debugger::dumpCallbackmapping() const {
-    this->channel->write("%s\n", CallbackHandler::dump_callbacks().c_str());
+    debug_CallbackMapping callbacks = debug_CallbackMapping_init_zero;
+    sendNotification(debug_NotificationType_NOTIFICATION_CALLBACKS_DUMP,
+                     debug_CallbackMapping_fields, &callbacks);
 }
 
-void Debugger::dumpHeapInfo(Module *m) const {
-    this->channel->write(R"("heap":{"used":%u})", m->warduino->get_heap_used());
-}
+void Debugger::dumpHeapInfo(Module *) const {}
 
 /**
  * Read the change in bytes array.
@@ -752,10 +770,10 @@ bool Debugger::handleChangedFunction(const Module *m, uint8_t *bytes) {
 bool Debugger::handleChangedLocal(const Module *m, uint8_t *bytes) const {
     if (*bytes != interruptUPDATELocal) return false;
     uint8_t *pos = bytes + 1;
-    this->channel->write("Local updates: %x\n", *pos);
+    debug("Local updates: %x\n", *pos);
     uint32_t localId = read_LEB_32(&pos);
 
-    this->channel->write("Local %u being changed\n", localId);
+    debug("Local %u being changed\n", localId);
     ExecutionContext *ectx = m->warduino->execution_context;
     auto v = &ectx->stack[ectx->fp + localId];
     switch (v->value_type) {
@@ -774,236 +792,35 @@ bool Debugger::handleChangedLocal(const Module *m, uint8_t *bytes) const {
         default:  // nothing to do :(
             break;
     }
-    this->channel->write("Local %u changed to %u\n", localId, v->value.uint32);
+    debug("Local %u changed to %u\n", localId, v->value.uint32);
     return true;
 }
 
 void Debugger::notifyPushedEvent() const {
-    this->channel->write("new pushed event\n");
+    this->sendNotification(debug_NotificationType_NOTIFICATION_NEW_EVENT);
 }
 
-bool Debugger::handlePushedEvent(char *bytes) const {
-    if (*bytes != interruptPUSHEvent) return false;
-    auto parsed = nlohmann::json::parse(bytes + 1);
-    debug("handle pushed event: %s\n", bytes + 1);
-    auto *event = new Event(*parsed.find("topic"), *parsed.find("payload"));
-    CallbackHandler::push_event(event);
-    this->notifyPushedEvent();
-    return true;
-}
+bool Debugger::handlePushedEvent(char *) const { return false; }
 
 void Debugger::snapshot(Module *m) const {
-    uint16_t numberBytes = 12;
-    uint8_t state[] = {pcState,
-                       breakpointsState,
-                       callstackState,
-                       globalsState,
-                       tableState,
-                       memoryState,
-                       branchingTableState,
-                       stackState,
-                       callbacksState,
-                       eventsState,
-                       ioState,
-                       overridesState};
-    inspect(m, numberBytes, state);
+    ExecutionContext *ectx = m->warduino->execution_context;
+    debug_Snapshot state = debug_Snapshot_init_zero;
+    state.program_counter = toVirtualAddress(ectx->pc_ptr, m);
+    state.heap_used = m->warduino->get_heap_used();
+    switch (m->warduino->program_state) {
+        case WARDUINOrun: state.state = debug_State_STATE_WARDUINO_RUN; break;
+        case WARDUINOpause: state.state = debug_State_STATE_WARDUINO_PAUSE; break;
+        case WARDUINOstep: state.state = debug_State_STATE_WARDUINO_STEP; break;
+        case PROXYrun: state.state = debug_State_STATE_PROXY_RUN; break;
+        case PROXYhalt: state.state = debug_State_STATE_PROXY_HALT; break;
+        default: state.state = debug_State_STATE_WARDUINO_PAUSE; break;
+    }
+    sendNotification(debug_NotificationType_NOTIFICATION_SNAPSHOT,
+                     debug_Snapshot_fields, &state);
 }
 
-void Debugger::inspect(Module *m, const uint16_t sizeStateArray,
-                       const uint8_t *state) const {
-    ExecutionContext *ectx = m->warduino->execution_context;
-    debug("asked for inspect\n");
-    uint16_t idx = 0;
-    auto toVA = [m](uint8_t *addr) { return toVirtualAddress(addr, m); };
-    bool addComma = false;
-
-    this->channel->write("{");
-
-    while (idx < sizeStateArray) {
-        switch (state[idx++]) {
-            case pcState: {  // PC
-                this->channel->write("\"pc\":%" PRIu32 "", toVA(ectx->pc_ptr));
-                addComma = true;
-
-                break;
-            }
-            case breakpointsState: {
-                this->channel->write("%s\"breakpoints\":[",
-                                     addComma ? "," : "");
-                addComma = true;
-                size_t i = 0;
-                for (auto bp : this->breakpoints) {
-                    this->channel->write(
-                        "%" PRIu32 "%s", toVA(bp),
-                        (++i < this->breakpoints.size()) ? "," : "");
-                }
-                this->channel->write("]");
-                break;
-            }
-            case callstackState: {
-                this->channel->write("%s\"callstack\":[", addComma ? "," : "");
-                addComma = true;
-                for (int j = 0; j <= ectx->csp; j++) {
-                    const Frame *f = &ectx->callstack[j];
-                    const uint8_t bt = f->block->block_type;
-                    const uint32_t block_key =
-                        (bt == 0 || bt == 0xff || bt == 0xfe)
-                            ? 0
-                            : toVA(findOpcode(m, f->block));
-                    const uint32_t fidx = bt == 0 ? f->block->fidx : 0;
-                    const auto ra = f->ra_ptr == nullptr ? -1 : toVA(f->ra_ptr);
-                    this->channel->write(
-                        R"({"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"idx":%d,)",
-                        bt, fidx, f->sp, f->fp, j);
-                    this->channel->write(
-                        "\"block_key\":%" PRIu32 ",\"ra\":%d}%s", block_key, ra,
-                        (j < ectx->csp) ? "," : "");
-                }
-                this->channel->write("]");
-                break;
-            }
-            case stackState: {
-                this->channel->write("%s\"stack\":[", addComma ? "," : "");
-                addComma = true;
-                for (int j = 0; j <= ectx->sp; j++) {
-                    auto v = &ectx->stack[j];
-                    printValue(v, j, j == ectx->sp);
-                }
-                this->channel->write("]");
-                break;
-            }
-            case globalsState: {
-                this->channel->write("%s\"globals\":[", addComma ? "," : "");
-                addComma = true;
-                for (uint32_t j = 0; j < m->global_count; j++) {
-                    auto v = (*(m->globals + j))->value;
-                    printValue(v, j, j == (m->global_count - 1));
-                }
-                this->channel->write("]");  // closing globals
-                break;
-            }
-            case tableState: {
-                this->channel->write(
-                    R"(%s"table":{"max":%d, "init":%d, "elements":[)",
-                    addComma ? "," : "", m->table.maximum, m->table.initial);
-                addComma = true;
-                for (uint32_t j = 0; j < m->table.size; j++) {
-                    this->channel->write("%" PRIu32 "%s", m->table.entries[j],
-                                         (j + 1) == m->table.size ? "" : ",");
-                }
-                this->channel->write("]}");  // closing table
-                break;
-            }
-            case branchingTableState: {
-                this->channel->write(
-                    R"(%s"br_table":{"size":"0x%x","labels":[)",
-                    addComma ? "," : "", BR_TABLE_SIZE);
-                for (uint32_t j = 0; j < BR_TABLE_SIZE; j++) {
-                    this->channel->write("%" PRIu32 "%s", ectx->br_table[j],
-                                         (j + 1) == BR_TABLE_SIZE ? "" : ",");
-                }
-                this->channel->write("]}");
-                break;
-            }
-            case memoryState: {
-                uint32_t total_elems =
-                    m->memory.pages * static_cast<uint32_t>(PAGE_SIZE);
-                this->channel->write(
-                    R"(%s"memory":{"pages":%d,"max":%d,"init":%d,"bytes":[)",
-                    addComma ? "," : "", m->memory.pages, m->memory.maximum,
-                    m->memory.initial);
-                addComma = true;
-                if (total_elems != 0) {
-                    uint8_t data = m->memory.bytes[0];
-                    uint32_t count = 1;
-                    bool arrayComma = false;
-                    for (uint32_t j = 1; j < total_elems; j++) {
-                        if (m->memory.bytes[j] == data) {
-                            count++;
-                        } else {
-                            this->channel->write("%s%" PRIu8 ",%d",
-                                                 arrayComma ? "," : "", data,
-                                                 count);
-                            arrayComma = true;
-                            data = m->memory.bytes[j];
-                            count = 1;
-                        }
-                    }
-                    this->channel->write("%s%" PRIu8 ",%d",
-                                         arrayComma ? "," : "", data, count);
-                }
-                this->channel->write("]}");  // closing memory
-                break;
-            }
-            case callbacksState: {
-                bool noOuterBraces = false;
-                this->channel->write(
-                    "%s%s", addComma ? "," : "",
-                    CallbackHandler::dump_callbacksV2(noOuterBraces).c_str());
-                addComma = true;
-                break;
-            }
-            case eventsState: {
-                this->channel->write("%s", addComma ? "," : "");
-                this->dumpEvents(
-                    0, static_cast<long>(CallbackHandler::event_count()));
-                addComma = true;
-                break;
-            }
-            case ioState: {
-                this->channel->write("%s", addComma ? "," : "");
-                this->channel->write("\"io\": [");
-                bool comma = false;
-                std::vector<IOStateElement *> external_state =
-                    m->warduino->interpreter->get_io_state(m);
-                for (auto state_elem : external_state) {
-                    this->channel->write("%s{", comma ? ", " : "");
-                    this->channel->write(
-                        R"("key": "%s", "output": %s, "value": %d)",
-                        state_elem->key.c_str(),
-                        state_elem->output ? "true" : "false",
-                        state_elem->value);
-                    this->channel->write("}");
-                    comma = true;
-                    delete state_elem;
-                }
-                this->channel->write("]");
-                addComma = true;
-                break;
-            }
-            case overridesState: {
-                this->channel->write("%s", addComma ? "," : "");
-                this->channel->write(R"("overrides": [)");
-                bool comma = false;
-                for (const auto &[key, return_value] : overrides) {
-                    this->channel->write("%s", comma ? ", " : "");
-                    const uint32_t fidx = key[key.size() - 1];
-                    this->channel->write(R"({"fidx": %d, "args": [)", fidx);
-                    for (uint32_t i = 0; i < key.size() - 1; i++) {
-                        this->channel->write("%s%d", i > 0 ? ", " : "", key[i]);
-                    }
-                    this->channel->write(R"(], "return_value": %d})",
-                                         return_value);
-                    comma = true;
-                }
-                this->channel->write("]");
-                addComma = true;
-                break;
-            }
-            case heapState: {
-                uint32_t heap_used = m->warduino->get_heap_used();
-                this->channel->write(R"(%s"heap":{"used":%d})",
-                                     addComma ? "," : "", heap_used);
-                addComma = true;
-                break;
-            }
-            default: {
-                debug("dumpExecutionState: Received unknown state request\n");
-                break;
-            }
-        }
-    }
-    this->channel->write("}");
+void Debugger::inspect(Module *m, const uint16_t, const uint8_t *) const {
+    snapshot(m);
 }
 
 void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
@@ -1061,9 +878,9 @@ std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
 
 void Debugger::handleSnapshotPolicy(Module *m) {
     if (snapshotPolicy == SnapshotPolicy::atEveryInstruction) {
-        this->channel->write("SNAPSHOT ");
+        debug("SNAPSHOT ");
         snapshot(m);
-        this->channel->write("\n");
+        debug("\n");
     } else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
         if (instructions_executed >= checkpointInterval || fidx_called) {
             if (min_return_values == 0) {
@@ -1102,45 +919,23 @@ void Debugger::handleSnapshotPolicy(Module *m) {
             }
         }
     } else if (snapshotPolicy != SnapshotPolicy::none) {
-        this->channel->write("WARNING: Invalid snapshot policy.");
+        debug("WARNING: Invalid snapshot policy.");
     }
 }
 
-void Debugger::checkpoint(Module *m, const bool force, const bool full) {
-    if (instructions_executed == 0 && !force) {
-        return;
-    }
+void Debugger::checkpoint(Module *, const bool force, const bool full) {
+        if (instructions_executed == 0 && !force) {
+            return;
+        }
 
-    this->channel->write(R"(CHECKPOINT {"instructions_executed": %d, )",
-                         instructions_executed);
+    debug_Checkpoint notification = debug_Checkpoint_init_zero;
+    notification.instruction_count = instructions_executed;
     if (fidx_called) {
-        this->channel->write(R"("fidx_called": %d, "args": [)", *fidx_called);
-        const Block &func_block = m->functions[*fidx_called];
-        bool comma = false;
-        for (uint32_t i = 0; i < func_block.type->param_count; i++) {
-            channel->write("%s%d", comma ? ", " : "", prim_args[i]);
-            comma = true;
-        }
-        this->channel->write("], ");
-
-        // Return values:
-        this->channel->write(R"("returns": [)");
-        comma = false;
-        for (uint32_t i = 0; i < func_block.type->result_count; i++) {
-            ExecutionContext *ectx = m->warduino->execution_context;
-            channel->write("%s%d", comma ? ", " : "",
-                           ectx->stack[ectx->sp - i].value.uint32);
-            comma = true;
-        }
-        this->channel->write("], ");
+        notification.has_primitive_call = true;
+        notification.primitive_function_index = *fidx_called;
     }
-    this->channel->write(R"("snapshot": )");
-    if (!checkpoint_state || full) {
-        snapshot(m);
-    } else {
-        inspect(m, checkpoint_state_size, checkpoint_state);
-    }
-    this->channel->write("}\n");
+    sendNotification(debug_NotificationType_NOTIFICATION_CHECKPOINT,
+                     debug_Checkpoint_fields, &notification);
     instructions_executed = 0;
 }
 
@@ -1568,10 +1363,14 @@ RFC *Debugger::topProxyCall() const {
 }
 
 void Debugger::sendProxyCallResult(Module *m) const {
-    if (proxy == nullptr) {
-        return;
-    }
-    this->proxy->returnResult(m);
+    if (proxy == nullptr) return;
+    RFC *rfc = proxy->returnResult(m);
+    if (rfc == nullptr) return;
+    debug_RemoteFunctionResult result = debug_RemoteFunctionResult_init_zero;
+    result.success = rfc->success;
+    sendNotification(debug_NotificationType_NOTIFICATION_REMOTE_FUNCTION_RESULT,
+                     debug_RemoteFunctionResult_fields, &result);
+    delete rfc;
 }
 
 bool Debugger::isProxy() const { return this->proxy != nullptr; }
@@ -1592,7 +1391,7 @@ void Debugger::handleMonitorProxies(const Module *m,
         m->warduino->debugger->supervisor->registerProxiedCall(fidx);
     }
 
-    this->channel->write("done!\n");
+    debug("done!\n");
 }
 
 void Debugger::startProxySupervisor(Channel *socket) {
@@ -1612,17 +1411,8 @@ void Debugger::disconnect_proxy() const {
     this->supervisor->thread.join();
 }
 
-void Debugger::updateCallbackmapping(Module *m, const char *interruptData) {
-    nlohmann::basic_json<> parsed = nlohmann::json::parse(interruptData);
-    CallbackHandler::clear_callbacks();
-    nlohmann::basic_json<> callbacks = *parsed.find("callbacks");
-    for (auto &array : callbacks.items()) {
-        auto callback = array.value().begin();
-        for (auto &functions : callback.value().items()) {
-            CallbackHandler::add_callback(
-                Callback(m, callback.key(), functions.value()));
-        }
-    }
+void Debugger::updateCallbackmapping(Module *, const char *) {
+    // Legacy JSON callback mapping input is intentionally unsupported.
 }
 
 // Stop the debugger
@@ -1650,16 +1440,16 @@ bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
 }
 
 bool Debugger::handleUpdateGlobalValue(const Module *m, uint8_t *data) const {
-    this->channel->write("Global updates: %x\n", *data);
+    debug("Global updates: %x\n", *data);
     const uint32_t index = read_LEB_32(&data);
 
     if (index >= m->global_count) return false;
 
-    this->channel->write("Global %u being changed\n", index);
+    debug("Global %u being changed\n", index);
     StackValue *v = m->globals[index]->value;
     constexpr bool decodeType = false;
     deserialiseStackValue(data, decodeType, v);
-    this->channel->write("Global %u changed to %u\n", index, v->value.uint32);
+    debug("Global %u changed to %u\n", index, v->value.uint32);
     return true;
 }
 
@@ -1675,7 +1465,7 @@ bool Debugger::handleUpdateStackValue(const Module *m, uint8_t *bytes) const {
     if (!deserialiseStackValue(bytes, decodeType, sv)) {
         return false;
     }
-    this->channel->write("StackValue %" PRIu32 " changed\n", idx);
+    debug("StackValue %" PRIu32 " changed\n", idx);
     return true;
 }
 
@@ -1683,7 +1473,7 @@ bool Debugger::reset(Module *m) {
     m->warduino->reset_module(m);
     instructions_executed = 0;
     instructions_since_full_snapshot = 0;
-    this->channel->write("Reset WARDuino.\n");
+    debug("Reset WARDuino.\n");
     return true;
 }
 
@@ -1712,10 +1502,10 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     const std::optional<uint32_t> fidx =
         resolve_imported_function(m, primitive_name);
     if (!fidx) {
-        channel->write(
+        debug(
             "Cannot override the result for unknown function \"%s\".\n",
             primitive_name.c_str());
-        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
+        debug("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
@@ -1727,7 +1517,7 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     key[param_count] = fidx.value();
 
     const uint32_t result = read_B32(&interruptData);
-    channel->write("ack%x;1\n", interruptSetOverridePinValue);
+    debug("ack%x;1\n", interruptSetOverridePinValue);
     overrides[key] = result;
 }
 
@@ -1736,9 +1526,9 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     const std::optional<uint32_t> fidx =
         resolve_imported_function(m, primitive_name);
     if (!fidx) {
-        channel->write("Cannot remove override for unknown function \"%s\".\n",
+        debug("Cannot remove override for unknown function \"%s\".\n",
                        primitive_name.c_str());
-        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
+        debug("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
 
@@ -1750,10 +1540,10 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     key[param_count] = fidx.value();
 
     if (overrides.erase(key) == 0) {
-        channel->write("ack%x;0\n", interruptUnsetOverridePinValue);
+        debug("ack%x;0\n", interruptUnsetOverridePinValue);
         return;
     }
-    channel->write("ack%x;1\n", interruptUnsetOverridePinValue);
+    debug("ack%x;1\n", interruptUnsetOverridePinValue);
 }
 
 bool Debugger::getMockForArgs(Module *m, uint32_t fidx, uint32_t &result) {
@@ -1780,7 +1570,7 @@ bool Debugger::handleContinueFor(Module *m) {
         if (snapshotPolicy == SnapshotPolicy::checkpointing) {
             checkpoint(m);
         }
-        this->channel->write("DONE!\n");
+        this->sendNotification(debug_NotificationType_NOTIFICATION_PAUSED);
         pauseRuntime(m);
         return true;
     }
@@ -1794,7 +1584,7 @@ void Debugger::notifyCompleteStep(Module *m) const {
         SnapshotPolicy::checkpointing) {
         m->warduino->debugger->checkpoint(m);
     }
-    this->channel->write("STEP!\n");
+    this->sendNotification(debug_NotificationType_NOTIFICATION_STEPPED);
 }
 
 Debugger::~Debugger() {
