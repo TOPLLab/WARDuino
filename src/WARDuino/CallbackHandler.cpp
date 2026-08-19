@@ -88,7 +88,6 @@ bool CallbackHandler::resolve_event(bool force) {
         CallbackHandler::events->empty()) {
         if (force) {
             printf("No events to be processed!\n");
-
         }
         return false;
     }

@@ -1,9 +1,9 @@
 #pragma once
 
 #include <condition_variable>
-#include <deque>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <mutex>
 #include <optional>
 #include <queue>  // std::queue
@@ -16,7 +16,6 @@
 #include "../Edward/proxy_supervisor.h"
 #include "../Threading/warduino-thread.h"
 #include "../Utils/sockets.h"
-
 #include "nanopb/debug.pb.h"
 #include "nanopb/pb_decode.h"
 #include "nanopb/pb_encode.h"
