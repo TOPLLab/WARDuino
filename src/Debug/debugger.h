@@ -1,6 +1,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <deque>
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
@@ -16,12 +17,18 @@
 #include "../Threading/warduino-thread.h"
 #include "../Utils/sockets.h"
 
-#include <pb_encode.h>
-#include "debug.pb.h"
+#include "nanopb/debug.pb.h"
+#include "nanopb/pb_decode.h"
+#include "nanopb/pb_encode.h"
 
 struct Module;
 struct Block;
 struct StackValue;
+
+struct DebugMessage {
+    debug_Command type;
+    std::vector<uint8_t> payload;
+};
 
 enum operation {
     STORE = 0,
@@ -135,17 +142,14 @@ struct FNV1aVectorHash {
 
 class Debugger {
    private:
-    std::deque<uint8_t *> debugMessages = {};
+    std::deque<DebugMessage> debugMessages = {};
 
-    // Help variables
-    volatile bool interruptWrite{};
-    volatile bool interruptRead{};
-    bool interruptEven = true;
-    uint8_t interruptLastChar{};
-    std::vector<uint8_t> interruptBuffer;
-    std::queue<uint8_t *> parsedInterrupts{};
-    long interruptSize{};
-    bool receivingData = false;
+    // Incomplete bytes from the binary framed stream.
+    std::vector<uint8_t> pendingFrameBytes;
+    static constexpr size_t maxFramePayload = 65536;
+
+    // Function replacement storage must outlive decoded queue frames.
+    std::unordered_map<uint32_t, std::vector<uint8_t>> functionBodies;
 
     Proxy *proxy = nullptr;  // proxy module for debugger
 
@@ -178,7 +182,12 @@ class Debugger {
     // TODO Move parsing to WARDuino class?
     void parseDebugBuffer(size_t len, const uint8_t *buff);
 
-    void pushMessage(uint8_t *msg);
+    void pushMessage(DebugMessage msg);
+
+    bool sendNotification(debug_NotificationType type,
+                          const pb_msgdesc_t *fields = nullptr,
+                          const void *payload = nullptr) const;
+    void sendOperationResult(debug_Command command, bool success) const;
 
     //// Handle REPL interrupts
 
@@ -284,7 +293,7 @@ class Debugger {
 
     void addDebugMessage(size_t len, const uint8_t *buff);
 
-    uint8_t *getDebugMessage();
+    std::optional<DebugMessage> getDebugMessage();
 
     bool checkDebugMessages(Module *m, RunningState *program_state);
 

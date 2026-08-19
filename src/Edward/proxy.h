@@ -21,7 +21,7 @@ class Proxy {
 
     void pushRFC(Module *m, RFC *rfc);
     RFC *topRFC();
-    void returnResult(Module *m);
+    RFC *returnResult(Module *m);
 
     // Server side ( arduino side )
     static StackValue *readRFCArgs(Block *func, uint8_t *data);

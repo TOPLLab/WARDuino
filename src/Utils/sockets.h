@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include <cstdio>
+#include <cstdint>
 
 #ifdef __ZEPHYR__
 #if IS_ENABLED(CONFIG_WIFI)
@@ -31,6 +32,10 @@ class Channel {
    public:
     virtual void open() {}
     virtual int write(char const *, ...) { return 0; }
+    virtual ssize_t writeBytes(const uint8_t *data, size_t size) {
+        (void)data;
+        return static_cast<ssize_t>(size);
+    }
     virtual ssize_t read(void *, size_t) { return 0; }
     virtual void close() {}
     virtual ~Channel() = default;
@@ -47,6 +52,7 @@ class Sink : public Channel {
    public:
     explicit Sink(FILE *out);
     int write(char const *fmt, ...) override;
+    ssize_t writeBytes(const uint8_t *data, size_t size) override;
 };
 
 class Duplex : public Sink {
@@ -67,6 +73,7 @@ class FileDescriptorChannel : public Channel {
     explicit FileDescriptorChannel(int fileDescriptor);
 
     int write(char const *fmt, ...) override;
+    ssize_t writeBytes(const uint8_t *data, size_t size) override;
     ssize_t read(void *out, size_t size) override;
 };
 
@@ -81,6 +88,7 @@ class WebSocket : public Channel {
 
     void open() override;
     int write(char const *fmt, ...) override;
+    ssize_t writeBytes(const uint8_t *data, size_t size) override;
     ssize_t read(void *out, size_t size) override;
     void close() override;
 };
