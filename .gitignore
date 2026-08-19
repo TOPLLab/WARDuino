@@ -1,6 +1,9 @@
 .idea/
+.air/
 .vscode/
 .ccls
+
+.cache
 
 *.bin
 *.ipch
@@ -35,3 +38,4 @@ core
 venv
 
 *.wasm
+
