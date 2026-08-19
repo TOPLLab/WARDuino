@@ -1082,12 +1082,12 @@ void Debugger::handleSnapshotPolicy(Module *m) {
         // snapshots will be taken) take full checkpoints every
         // checkpointInterval instructions.
         if (checkpoint_state != nullptr) {
-            instructions_since_full_snapshot++;
             if (checkpointInterval != UINT32_MAX &&
                 instructions_since_full_snapshot >= checkpointInterval) {
                 checkpoint(m, true, true);
                 instructions_since_full_snapshot = 0;
             }
+            instructions_since_full_snapshot++;
         }
 
         instructions_executed++;
@@ -1157,6 +1157,11 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
     ectx->csp = -1;
     ectx->sp = -1;
     memset(ectx->br_table, 0, BR_TABLE_SIZE);
+
+    // Reset checkpointing counters, new checkpoints will have instructions
+    // executed since this snapshot.
+    instructions_since_full_snapshot = 0;
+    instructions_executed = 0;
 
     while (first_msg < endfm) {
         switch (*first_msg++) {
