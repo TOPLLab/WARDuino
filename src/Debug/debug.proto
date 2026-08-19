@@ -4,8 +4,7 @@
 // written as a single byte before the protobuf payload; they are not encoded
 // as fields inside another protobuf message.
 //
-// If the transport does not already preserve packet boundaries, frame packets
-// as:
+// Frame packet structure:
 //
 //   [type: uint8][payload length: varint][protobuf payload]
 //
@@ -84,16 +83,16 @@ enum State {
 
 // A virtual program address.
 message CodeLocation {
-    uint32 module_index = 1;
-    uint32 program_counter = 2;
+  uint32 module_index = 1;
+  uint32 program_counter = 2;
 }
 
 message Breakpoint {
-    CodeLocation location = 1;
+  CodeLocation location = 1;
 }
 
 message HitBreakpoint {
-    CodeLocation location = 1;
+  CodeLocation location = 1;
 }
 
 // The notification type carries all information for this event. The empty
