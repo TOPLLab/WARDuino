@@ -6,13 +6,12 @@
 #include <sys/socket.h>
 #endif
 
+#include <cerrno>
 #include <csignal>
 #include <cstdarg>
-#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <cerrno>
 
 #ifdef WIFI_ENABLED
 // Socket Debugger Interface
@@ -103,7 +102,8 @@ ssize_t Sink::writeBytes(const uint8_t *data, const size_t size) {
     if (data == nullptr && size != 0) return -1;
     size_t offset = 0;
     while (offset < size) {
-        const size_t written = fwrite(data + offset, 1, size - offset, this->outStream);
+        const size_t written =
+            fwrite(data + offset, 1, size - offset, this->outStream);
         if (written == 0) return -1;
         offset += written;
     }
@@ -132,11 +132,15 @@ int FileDescriptorChannel::write(const char *fmt, ...) {
     return written;
 }
 
-ssize_t FileDescriptorChannel::writeBytes(const uint8_t *data, const size_t size) {
+ssize_t FileDescriptorChannel::writeBytes(const uint8_t *data,
+                                          const size_t size) {
     size_t offset = 0;
     while (offset < size) {
         const ssize_t written = ::write(this->fd, data + offset, size - offset);
-        if (written > 0) { offset += static_cast<size_t>(written); continue; }
+        if (written > 0) {
+            offset += static_cast<size_t>(written);
+            continue;
+        }
         if (written < 0 && errno == EINTR) continue;
         return -1;
     }
@@ -203,8 +207,12 @@ ssize_t WebSocket::writeBytes(const uint8_t *data, const size_t size) {
     if (this->socket < 0) return -1;
     size_t offset = 0;
     while (offset < size) {
-        const ssize_t written = ::write(this->socket, data + offset, size - offset);
-        if (written > 0) { offset += static_cast<size_t>(written); continue; }
+        const ssize_t written =
+            ::write(this->socket, data + offset, size - offset);
+        if (written > 0) {
+            offset += static_cast<size_t>(written);
+            continue;
+        }
         if (written < 0 && errno == EINTR) continue;
         return -1;
     }

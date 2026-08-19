@@ -2,8 +2,8 @@
 
 #include <unistd.h>
 
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 
 #ifdef __ZEPHYR__
 #if IS_ENABLED(CONFIG_WIFI)
