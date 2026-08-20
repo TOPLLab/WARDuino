@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 dap = {
     path = "../dap",
+    package = "warduino-dap",
     default-features = false,
 }
 
