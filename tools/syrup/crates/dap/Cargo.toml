@@ -1,0 +1,25 @@
+[package]
+name = "dap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "dap"
+path = "src/bin/server.rs"
+required-features = ["stdio"]
+
+[features]
+default = []
+stdio = []
+
+[dependencies]
+debug = {
+    path = "../debug",
+}
+
+serde.workspace = true
+serde_json.workspace = true

@@ -1,0 +1,19 @@
+[package]
+name = "console"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "syrup"
+path = "src/main.rs"
+
+[dependencies]
+dap = {
+    path = "../dap",
+    default-features = false,
+}
+
+ratatui.workspace = true
+crossterm.workspace = true
