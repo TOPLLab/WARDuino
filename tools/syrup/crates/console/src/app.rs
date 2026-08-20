@@ -81,6 +81,7 @@ pub struct App {
     pub completions: Vec<Completion>,
     pub completion_index: usize,
     pub notice: Option<String>,
+    pub help_visible: bool,
     history: Vec<String>,
     history_index: Option<usize>,
     completions_dismissed: bool,
@@ -101,6 +102,7 @@ impl App {
             completions: Vec::new(),
             completion_index: 0,
             notice: None,
+            help_visible: false,
             history: Vec::new(),
             history_index: None,
             completions_dismissed: false,
@@ -157,6 +159,7 @@ impl App {
             completions: Vec::new(),
             completion_index: 0,
             notice: None,
+            help_visible: false,
             history: Vec::new(),
             history_index: None,
             completions_dismissed: false,
@@ -224,6 +227,12 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyEvent, viewport_rows: u16) -> Option<CommandIntent> {
+        if self.help_visible {
+            if matches!(key.code, KeyCode::Esc | KeyCode::Char('?')) {
+                self.help_visible = false;
+            }
+            return None;
+        }
         if key.modifiers.contains(KeyModifiers::SHIFT) {
             match key.code {
                 KeyCode::Up => {
@@ -238,6 +247,7 @@ impl App {
             }
         }
         match key.code {
+            KeyCode::Char('?') => self.help_visible = true,
             KeyCode::PageUp => self.page(-1, viewport_rows),
             KeyCode::PageDown => self.page(1, viewport_rows),
             KeyCode::End if self.prompt.is_empty() => self.select_latest(),
