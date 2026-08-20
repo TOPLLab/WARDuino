@@ -1,5 +1,5 @@
 [package]
-name = "dap"
+name = "warduino-dap"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,13 +8,8 @@ license.workspace = true
 path = "src/lib.rs"
 
 [[bin]]
-name = "dap"
+name = "warduino-dap"
 path = "src/bin/server.rs"
-required-features = ["stdio"]
-
-[features]
-default = []
-stdio = []
 
 [dependencies]
 debug = {
