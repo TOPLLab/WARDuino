@@ -18,3 +18,4 @@ dap = {
 
 ratatui.workspace = true
 crossterm.workspace = true
+serde_json.workspace = true

@@ -1,7 +1,9 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VmState {
+    Connected,
     Paused,
     Running,
     Disconnected,
@@ -10,11 +12,18 @@ pub enum VmState {
 impl VmState {
     pub const fn label(self) -> &'static str {
         match self {
+            Self::Connected => "CONNECTED",
             Self::Paused => "PAUSED",
             Self::Running => "RUNNING",
             Self::Disconnected => "DISCONNECTED",
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CommandIntent {
+    Continue,
+    Pause,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -78,6 +87,26 @@ pub struct App {
 }
 
 impl App {
+    #[allow(dead_code)]
+    pub fn live(connection: String) -> Self {
+        Self {
+            connection,
+            vm_name: "WARDuino".into(),
+            vm_state: VmState::Connected,
+            timeline: Vec::new(),
+            selected: 0,
+            follow_latest: true,
+            prompt: String::new(),
+            cursor: 0,
+            completions: Vec::new(),
+            completion_index: 0,
+            notice: None,
+            history: Vec::new(),
+            history_index: None,
+            completions_dismissed: false,
+        }
+    }
+    #[allow(dead_code)]
     pub fn sample() -> Self {
         let timeline = vec![
             entry(
@@ -194,11 +223,17 @@ impl App {
         }
     }
 
-    pub fn handle_key(&mut self, key: KeyEvent, viewport_rows: u16) {
+    pub fn handle_key(&mut self, key: KeyEvent, viewport_rows: u16) -> Option<CommandIntent> {
         if key.modifiers.contains(KeyModifiers::SHIFT) {
             match key.code {
-                KeyCode::Up => return self.select_delta(-1),
-                KeyCode::Down => return self.select_delta(1),
+                KeyCode::Up => {
+                    self.select_delta(-1);
+                    return None;
+                }
+                KeyCode::Down => {
+                    self.select_delta(1);
+                    return None;
+                }
                 _ => {}
             }
         }
@@ -209,7 +244,7 @@ impl App {
             KeyCode::Up => self.previous_choice(),
             KeyCode::Down => self.next_choice(),
             KeyCode::Tab => self.accept_completion(),
-            KeyCode::Enter => self.submit(),
+            KeyCode::Enter => return self.submit(),
             KeyCode::Esc => self.escape(),
             KeyCode::Left => self.cursor = self.cursor.saturating_sub(1),
             KeyCode::Right => self.cursor = (self.cursor + 1).min(self.char_len()),
@@ -222,6 +257,7 @@ impl App {
             }
             _ => {}
         }
+        None
     }
 
     fn previous_choice(&mut self) {
@@ -312,7 +348,7 @@ impl App {
         self.notice = None;
     }
 
-    fn submit(&mut self) {
+    fn submit(&mut self) -> Option<CommandIntent> {
         let command = self.prompt.trim();
         let Some(completion) = COMMANDS
             .iter()
@@ -321,7 +357,7 @@ impl App {
         else {
             self.notice = Some("Unknown command — use continue or pause".into());
             self.completions.clear();
-            return;
+            return None;
         };
         if self
             .history
@@ -331,42 +367,16 @@ impl App {
             self.history.push(command.into());
         }
         self.history_index = None;
-        let sequence = self.timeline.last().map_or(1, |entry| entry.sequence + 1);
-        self.append(entry(
-            sequence,
-            Direction::Outgoing,
-            completion.command,
-            "local command",
-            vec![format!("{} requested", completion.command)],
-        ));
-        match completion.command {
-            "continue" => {
-                self.vm_state = VmState::Running;
-                self.append(entry(
-                    sequence + 1,
-                    Direction::Incoming,
-                    "continued",
-                    "local effect",
-                    vec!["VM running"],
-                ));
-            }
-            "pause" => {
-                self.vm_state = VmState::Paused;
-                self.append(entry(
-                    sequence + 1,
-                    Direction::Incoming,
-                    "stopped",
-                    "local effect",
-                    vec!["VM paused"],
-                ));
-            }
-            _ => unreachable!(),
-        }
         self.prompt.clear();
         self.cursor = 0;
         self.completions.clear();
         self.completions_dismissed = false;
         self.notice = None;
+        Some(match completion.command {
+            "continue" => CommandIntent::Continue,
+            "pause" => CommandIntent::Pause,
+            _ => unreachable!(),
+        })
     }
 
     fn escape(&mut self) {
@@ -423,6 +433,7 @@ impl App {
     }
 }
 
+#[allow(dead_code)]
 fn entry(
     sequence: u64,
     direction: Direction,

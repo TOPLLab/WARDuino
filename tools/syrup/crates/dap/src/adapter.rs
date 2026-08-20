@@ -29,18 +29,36 @@ impl AdapterOutput {
     }
 }
 
-pub struct Adapter<S> {
+pub trait SessionConnector<S> {
+    fn connect(&mut self, device: &str) -> Result<S, String>;
+}
+
+impl<S, F, E> SessionConnector<S> for F
+where
+    F: FnMut(&str) -> Result<S, E>,
+    E: std::fmt::Display,
+{
+    fn connect(&mut self, device: &str) -> Result<S, String> {
+        self(device).map_err(|error| error.to_string())
+    }
+}
+
+pub struct Adapter<S, C> {
     session: Option<S>,
+    connector: C,
     state: AdapterState,
+    paused: bool,
     next_seq: u64,
     pending_attach: Option<Request>,
 }
 
-impl<S: DebugSession> Adapter<S> {
-    pub fn new(session: S) -> Self {
+impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
+    pub fn new(connector: C) -> Self {
         Self {
-            session: Some(session),
+            session: None,
+            connector,
             state: AdapterState::AwaitingInitialize,
+            paused: false,
             next_seq: 1,
             pending_attach: None,
         }
@@ -55,8 +73,8 @@ impl<S: DebugSession> Adapter<S> {
             "attach" => self.attach(request),
             "configurationDone" => self.configuration_done(request),
             "threads" => self.threads(request),
-            "continue" => self.command(request, DebugCommand::Continue, true, false),
-            "pause" => self.command(request, DebugCommand::Pause, false, true),
+            "continue" => self.command(request, DebugCommand::Continue, true),
+            "pause" => self.command(request, DebugCommand::Pause, false),
             "disconnect" => self.disconnect(request),
             _ => AdapterOutput::one(self.failure(&request, "unsupported DAP request")),
         }
@@ -96,9 +114,21 @@ impl<S: DebugSession> Adapter<S> {
         if self.state != AdapterState::Ready {
             return AdapterOutput::one(self.failure(&request, "attach requires initialize"));
         }
-        if self.session.is_none() {
-            return AdapterOutput::one(self.failure(&request, "debug session is disconnected"));
-        }
+        let Some(device) = request
+            .arguments
+            .get("device")
+            .and_then(Value::as_str)
+            .filter(|device| !device.is_empty())
+        else {
+            return AdapterOutput::one(
+                self.failure(&request, "attach requires a non-empty device"),
+            );
+        };
+        let session = match self.connector.connect(device) {
+            Ok(session) => session,
+            Err(error) => return AdapterOutput::one(self.failure(&request, &error)),
+        };
+        self.session = Some(session);
         self.pending_attach = Some(request);
         self.state = AdapterState::Configuring;
         AdapterOutput::one(self.event("initialized", json!({})))
@@ -137,14 +167,13 @@ impl<S: DebugSession> Adapter<S> {
         request: Request,
         command: DebugCommand,
         continued: bool,
-        require_thread_id: bool,
     ) -> AdapterOutput {
         if self.state != AdapterState::Attached {
             return AdapterOutput::one(
                 self.failure(&request, "request requires an attached session"),
             );
         }
-        if !has_synthetic_thread(&request.arguments, require_thread_id) {
+        if !has_synthetic_thread(&request.arguments) {
             return AdapterOutput::one(self.failure(&request, "unknown threadId"));
         }
         let send = match self.session.as_mut() {
@@ -175,13 +204,22 @@ impl<S: DebugSession> Adapter<S> {
             return AdapterOutput::one(self.failure(&request, "session is already disconnected"));
         }
         let pending_attach = self.pending_attach.take();
+        let attached = self.state == AdapterState::Attached;
+        let mut messages = Vec::new();
+        if attached && self.paused {
+            if let Some(session) = self.session.as_mut() {
+                if let Err(error) = session.send(DebugCommand::Continue) {
+                    messages.push(self.output_event(&error.to_string()));
+                }
+            }
+        }
         self.session.take();
         self.state = AdapterState::Disconnected;
-        let mut messages = Vec::new();
         if let Some(attach) = pending_attach {
             messages.push(self.failure(&attach, "attach cancelled by disconnect"));
         }
         messages.push(self.success(&request, json!({})));
+        messages.push(self.event("terminated", json!({})));
         AdapterOutput {
             messages,
             terminate: true,
@@ -190,11 +228,15 @@ impl<S: DebugSession> Adapter<S> {
 
     fn translate_event(&mut self, event: DebugEvent, output: &mut AdapterOutput) {
         match event {
-            DebugEvent::Continued => output.messages.push(self.event(
-                "continued",
-                json!({"threadId": THREAD_ID, "allThreadsContinued": true}),
-            )),
+            DebugEvent::Continued => {
+                self.paused = false;
+                output.messages.push(self.event(
+                    "continued",
+                    json!({"threadId": THREAD_ID, "allThreadsContinued": true}),
+                ));
+            }
             DebugEvent::Stopped(stopped) => {
+                self.paused = true;
                 let reason = match stopped.reason {
                     StopReason::Pause => "pause",
                     StopReason::Step => "step",
@@ -301,9 +343,9 @@ impl<S: DebugSession> Adapter<S> {
     }
 }
 
-fn has_synthetic_thread(arguments: &Value, required: bool) -> bool {
+fn has_synthetic_thread(arguments: &Value) -> bool {
     match arguments.get("threadId") {
         Some(thread_id) => thread_id.as_i64() == Some(THREAD_ID),
-        None => !required,
+        None => false,
     }
 }

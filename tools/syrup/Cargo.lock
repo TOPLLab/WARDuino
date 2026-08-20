@@ -82,6 +82,7 @@ version = "1.0.0"
 dependencies = [
  "crossterm",
  "ratatui",
+ "serde_json",
  "warduino-dap",
 ]
 

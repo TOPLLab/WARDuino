@@ -1,4 +1,5 @@
 mod app;
+mod session;
 mod ui;
 
 use std::{
@@ -15,6 +16,7 @@ use crossterm::{
 use ratatui::{Terminal, backend::CrosstermBackend};
 
 use app::App;
+use session::Session;
 
 struct TerminalGuard;
 
@@ -36,20 +38,23 @@ impl Drop for TerminalGuard {
     }
 }
 
-fn run() -> io::Result<()> {
+fn run(device: String) -> io::Result<()> {
+    let mut app = App::live(device.clone());
+    let mut session = Session::connect(&device, &mut app).map_err(io::Error::other)?;
     let _guard = TerminalGuard::enter()?;
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
-    let mut app = App::sample();
 
     loop {
         terminal.draw(|frame| ui::draw(frame, &app))?;
         if !event::poll(Duration::from_millis(250))? {
+            session.poll(&mut app);
             continue;
         }
         match event::read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => {
                 if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                    session.disconnect(&mut app);
                     return Ok(());
                 }
                 let viewport = ui::calculate(
@@ -60,7 +65,10 @@ fn run() -> io::Result<()> {
                 .timeline
                 .height
                 .saturating_sub(1);
-                app.handle_key(key, viewport);
+                if let Some(intent) = app.handle_key(key, viewport) {
+                    session.dispatch(intent, &mut app);
+                }
+                session.poll(&mut app);
             }
             Event::Resize(_, _) => terminal.autoresize()?,
             _ => {}
@@ -69,5 +77,13 @@ fn run() -> io::Result<()> {
 }
 
 fn main() -> io::Result<()> {
-    run()
+    let mut arguments = std::env::args().skip(1);
+    match (
+        arguments.next().as_deref(),
+        arguments.next(),
+        arguments.next(),
+    ) {
+        (Some("--device"), Some(device), None) => run(device),
+        _ => Err(io::Error::other("usage: syrup --device <host:port>")),
+    }
 }
