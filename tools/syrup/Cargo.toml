@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/debug",
+    "crates/wdebug",
     "crates/dap",
     "crates/console",
 ]
