@@ -1,0 +1,18 @@
+root := "../.."
+proto := root + "/src/Debug/debug.proto"
+
+schema:
+    protoc -I {{root}}/src/Debug --include_imports --include_source_info --descriptor_set_out=debug.pb {{proto}}
+
+check:
+    cargo check --workspace
+
+test:
+    cargo test --workspace
+
+run: schema
+    cargo run -p console
+
+build: schema
+    cargo build --release -p console
+
