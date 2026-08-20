@@ -89,28 +89,28 @@ fn prompt_edits_completes_submits_and_rejects_unsupported_commands() {
 fn responsive_buffers_preserve_prompt_and_selected_result() {
     let app = App::sample();
     let wide = render(&app, 140, 40);
-    assert!(wide.contains("SYRUP"));
-    assert!(wide.contains("SESSION"));
-    assert!(wide.contains("RESULT"));
+    assert!(!wide.contains("SYRUP"));
+    assert!(wide.contains("Session"));
+    assert!(wide.contains("Result"));
     assert!(wide.contains("VM paused by request"));
     assert!(wide.contains("›"));
 
     let medium = render(&app, 100, 30);
-    assert!(medium.contains("SESSION"));
-    assert!(medium.contains("RESULT"));
-    assert!(medium.find("SESSION").unwrap() < medium.find("RESULT").unwrap());
+    assert!(medium.contains("Session"));
+    assert!(medium.contains("Result"));
+    assert!(medium.find("Session").unwrap() < medium.find("Result").unwrap());
 
     let narrow = render(&app, 72, 24);
-    assert!(narrow.contains("SESSION"));
-    assert!(narrow.contains("tab complete"));
+    assert!(narrow.contains("Session"));
+    assert!(narrow.contains("history"));
     assert!(narrow.contains("›"));
 
     let minimum = render(&app, 50, 14);
-    assert!(minimum.contains("SESSION"));
-    assert!(minimum.contains("RESULT"));
+    assert!(minimum.contains("Session"));
+    assert!(minimum.contains("Result"));
     assert!(minimum.contains("›"));
 
     let too_small = render(&app, 49, 13);
     assert!(too_small.contains("Terminal too small — minimum 50×14"));
-    assert!(!too_small.contains("SESSION"));
+    assert!(!too_small.contains("Session"));
 }
