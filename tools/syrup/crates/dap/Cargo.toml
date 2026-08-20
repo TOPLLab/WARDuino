@@ -13,7 +13,7 @@ path = "src/bin/server.rs"
 
 [dependencies]
 debug = {
-    path = "../debug",
+    path = "../wdebug",
 }
 
 serde.workspace = true
