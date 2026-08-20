@@ -66,10 +66,11 @@ fn prompt_edits_completes_submits_and_rejects_unsupported_commands() {
     assert_eq!(app.active_completion().unwrap().command, "continue");
     app.handle_key(key(KeyCode::Tab), 4);
     assert_eq!(app.prompt, "continue");
-    app.handle_key(key(KeyCode::Enter), 4);
+    let intent = app.handle_key(key(KeyCode::Enter), 4);
     assert!(app.prompt.is_empty());
-    assert_eq!(app.timeline.last().unwrap().kind, "continued");
-    assert_eq!(app.vm_state.label(), "RUNNING");
+    assert_eq!(intent, Some(app::CommandIntent::Continue));
+    assert_eq!(app.timeline.last().unwrap().kind, "stopped");
+    assert_eq!(app.vm_state.label(), "PAUSED");
 
     app.insert('x');
     app.insert('🙂');

@@ -21,6 +21,15 @@ struct FakeState {
 #[derive(Clone, Default)]
 struct FakeSession(Rc<RefCell<FakeState>>);
 
+#[derive(Clone)]
+struct FakeConnector(FakeSession);
+
+impl warduino_dap::SessionConnector<FakeSession> for FakeConnector {
+    fn connect(&mut self, _device: &str) -> std::result::Result<FakeSession, String> {
+        Ok(self.0.clone())
+    }
+}
+
 impl DebugSession for FakeSession {
     fn send(&mut self, command: DebugCommand) -> Result<()> {
         self.0.borrow_mut().commands.push(command);
@@ -36,7 +45,9 @@ fn request(seq: u64, command: &str, arguments: Value) -> Value {
     json!({"seq": seq, "type": "request", "command": command, "arguments": arguments})
 }
 
-fn dispatch(adapter: &mut Adapter<FakeSession>, input: Value) -> Vec<Value> {
+type FakeAdapter = Adapter<FakeSession, FakeConnector>;
+
+fn dispatch(adapter: &mut FakeAdapter, input: Value) -> Vec<Value> {
     let mut incoming = Vec::new();
     write_message(&mut incoming, &input).unwrap();
     let request = read_message(&mut BufReader::new(Cursor::new(incoming)))
@@ -76,7 +87,7 @@ fn framed_values(output: AdapterOutput) -> Vec<Value> {
 fn smoke_transcript_is_framed_and_ordered() {
     let fake = FakeSession::default();
     let state = fake.0.clone();
-    let mut adapter = Adapter::new(fake);
+    let mut adapter = Adapter::new(FakeConnector(fake));
 
     let initialize = dispatch(&mut adapter, request(1, "initialize", json!({})));
     assert_eq!(initialize[0]["success"], true);
@@ -85,7 +96,10 @@ fn smoke_transcript_is_framed_and_ordered() {
         true
     );
 
-    let attach = dispatch(&mut adapter, request(2, "attach", json!({})));
+    let attach = dispatch(
+        &mut adapter,
+        request(2, "attach", json!({"device": "test"})),
+    );
     assert_eq!(attach[0]["event"], "initialized");
 
     let configured = dispatch(&mut adapter, request(3, "configurationDone", json!({})));
@@ -142,7 +156,14 @@ fn debug_library_error_becomes_diagnostic_and_termination() {
         .borrow_mut()
         .events
         .push_back(Err(DebugError::NotConnected));
-    let mut adapter = Adapter::new(fake);
+    let mut adapter = Adapter::new(FakeConnector(fake));
+
+    dispatch(&mut adapter, request(1, "initialize", json!({})));
+    dispatch(
+        &mut adapter,
+        request(2, "attach", json!({"device": "test"})),
+    );
+    dispatch(&mut adapter, request(3, "configurationDone", json!({})));
 
     let output = framed_values(adapter.pump_events());
     assert_eq!(output[0]["event"], "output");
@@ -150,12 +171,15 @@ fn debug_library_error_becomes_diagnostic_and_termination() {
     assert_eq!(output[1]["event"], "terminated");
 }
 
-fn attached_adapter() -> (Adapter<FakeSession>, Rc<RefCell<FakeState>>) {
+fn attached_adapter() -> (FakeAdapter, Rc<RefCell<FakeState>>) {
     let fake = FakeSession::default();
     let state = fake.0.clone();
-    let mut adapter = Adapter::new(fake);
+    let mut adapter = Adapter::new(FakeConnector(fake));
     dispatch(&mut adapter, request(1, "initialize", json!({})));
-    dispatch(&mut adapter, request(2, "attach", json!({})));
+    dispatch(
+        &mut adapter,
+        request(2, "attach", json!({"device": "test"})),
+    );
     dispatch(&mut adapter, request(3, "configurationDone", json!({})));
     (adapter, state)
 }
@@ -163,17 +187,21 @@ fn attached_adapter() -> (Adapter<FakeSession>, Rc<RefCell<FakeState>>) {
 #[test]
 fn disconnect_fails_a_retained_attach_before_terminating() {
     let fake = FakeSession::default();
-    let mut adapter = Adapter::new(fake);
+    let mut adapter = Adapter::new(FakeConnector(fake));
     dispatch(&mut adapter, request(1, "initialize", json!({})));
-    dispatch(&mut adapter, request(2, "attach", json!({})));
+    dispatch(
+        &mut adapter,
+        request(2, "attach", json!({"device": "test"})),
+    );
 
     let disconnected = dispatch(&mut adapter, request(3, "disconnect", json!({})));
-    assert_eq!(disconnected.len(), 2);
+    assert_eq!(disconnected.len(), 3);
     assert_eq!(disconnected[0]["command"], "attach");
     assert_eq!(disconnected[0]["request_seq"], 2);
     assert_eq!(disconnected[0]["success"], false);
     assert_eq!(disconnected[1]["command"], "disconnect");
     assert_eq!(disconnected[1]["success"], true);
+    assert_eq!(disconnected[2]["event"], "terminated");
 }
 
 #[test]
@@ -221,5 +249,13 @@ fn pause_requires_the_synthetic_thread_id() {
     let (mut adapter, state) = attached_adapter();
     let paused = dispatch(&mut adapter, request(4, "pause", json!({})));
     assert_eq!(paused[0]["success"], false);
+    assert!(state.borrow().commands.is_empty());
+}
+
+#[test]
+fn continue_requires_the_synthetic_thread_id() {
+    let (mut adapter, state) = attached_adapter();
+    let continued = dispatch(&mut adapter, request(4, "continue", json!({})));
+    assert_eq!(continued[0]["success"], false);
     assert!(state.borrow().commands.is_empty());
 }

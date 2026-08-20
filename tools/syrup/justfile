@@ -10,9 +10,8 @@ check:
 test:
     cargo test --workspace
 
-run: schema
-    cargo run -p console
+run device: schema
+    cargo run -p console -- --device {{device}}
 
 build: schema
     cargo build --release -p console
-
