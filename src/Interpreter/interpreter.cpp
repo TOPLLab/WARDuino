@@ -466,6 +466,10 @@ bool Interpreter::interpret(Module *m, bool waiting) {
             case 0xe0 ... 0xe3:
                 success &= i_instr_callback(m, opcode);
                 continue;
+
+            case 0xfc:  // bulk memory / misc prefix
+                success &= i_instr_bulk_memory(m);
+                continue;
             default:
                 sprintf(exception, "unrecognized opcode 0x%x", opcode);
                 if (m->options.return_exception) {
