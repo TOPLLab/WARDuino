@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    DebugCommand, DebugError, DebugEvent, DebugSession, DisconnectReason, Result, codec,
+    DebugCommand, DebugError, DebugEvent, DebugSession, DisconnectReason, Result, SentFrame, codec,
     framing::{self, FrameDecoder},
     transport::{TcpTransport, Transport},
 };
@@ -33,7 +33,7 @@ impl WarduinoSession {
 }
 
 impl DebugSession for WarduinoSession {
-    fn send(&mut self, command: DebugCommand) -> Result<()> {
+    fn send(&mut self, command: DebugCommand) -> Result<SentFrame> {
         self.inner.send(command)
     }
 
@@ -66,7 +66,7 @@ impl<T: Transport> Session<T> {
         }
     }
 
-    fn send(&mut self, command: DebugCommand) -> Result<()> {
+    fn send(&mut self, command: DebugCommand) -> Result<SentFrame> {
         if self.state != ConnectionState::Connected {
             return Err(DebugError::NotConnected);
         }
@@ -74,7 +74,8 @@ impl<T: Transport> Session<T> {
         let frame = framing::encode_frame(message.message_type, &message.payload)?;
         self.transport
             .write_all(&frame)
-            .map_err(|error| self.fail_transport(error))
+            .map_err(|error| self.fail_transport(error))?;
+        Ok(SentFrame::from_complete_frame(frame))
     }
 
     fn try_recv(&mut self) -> Result<Option<DebugEvent>> {
@@ -176,8 +177,9 @@ mod tests {
             written: Vec::new(),
         };
         let mut session = Session::new(transport);
-        session.send(DebugCommand::Continue).unwrap();
+        let receipt = session.send(DebugCommand::Continue).unwrap();
         assert_eq!(session.transport.written, [0, 0]);
+        assert_eq!(receipt.bytes(), session.transport.written);
     }
 
     #[test]
@@ -207,5 +209,22 @@ mod tests {
             Some(DebugEvent::Disconnected(_))
         ));
         assert_eq!(session.try_recv().unwrap(), None);
+    }
+
+    struct FailingTransport;
+
+    impl Transport for FailingTransport {
+        fn write_all(&mut self, _: &[u8]) -> io::Result<()> {
+            Err(io::Error::other("write failed"))
+        }
+        fn read_available(&mut self, _: &mut [u8]) -> io::Result<usize> {
+            Ok(0)
+        }
+    }
+
+    #[test]
+    fn does_not_return_a_receipt_when_writing_fails() {
+        let mut session = Session::new(FailingTransport);
+        assert!(session.send(DebugCommand::Continue).is_err());
     }
 }

@@ -24,6 +24,10 @@ impl VmState {
 pub enum CommandIntent {
     Continue,
     Pause,
+    Step,
+    Next,
+    Restart,
+    Terminate,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -41,12 +45,34 @@ impl Direction {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EntryType {
+    DapRequest,
+    DapResponse,
+    DapEvent,
+    DBGCommand,
+    VmEvent,
+}
+
+impl EntryType {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::DapRequest => "DAP request",
+            Self::DapResponse => "DAP response",
+            Self::DapEvent => "DAP event",
+            Self::DBGCommand => "DBG command",
+            Self::VmEvent => "VM event",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TimelineEntry {
+pub struct SessionEntry {
     pub sequence: u64,
     pub direction: Direction,
-    pub kind: String,
-    pub summary: String,
+    pub event: String,
+    pub entry_type: EntryType,
+    pub wire: Option<Vec<u8>>,
     pub effect: Vec<String>,
 }
 
@@ -54,16 +80,39 @@ pub struct TimelineEntry {
 pub struct Completion {
     pub command: &'static str,
     pub usage: &'static str,
+    pub intent: CommandIntent,
 }
 
-const COMMANDS: [Completion; 2] = [
+pub const COMMANDS: [Completion; 6] = [
     Completion {
         command: "continue",
         usage: "continue",
+        intent: CommandIntent::Continue,
     },
     Completion {
         command: "pause",
         usage: "pause",
+        intent: CommandIntent::Pause,
+    },
+    Completion {
+        command: "step",
+        usage: "step",
+        intent: CommandIntent::Step,
+    },
+    Completion {
+        command: "next",
+        usage: "next",
+        intent: CommandIntent::Next,
+    },
+    Completion {
+        command: "restart",
+        usage: "restart",
+        intent: CommandIntent::Restart,
+    },
+    Completion {
+        command: "terminate",
+        usage: "terminate",
+        intent: CommandIntent::Terminate,
     },
 ];
 
@@ -72,7 +121,7 @@ pub struct App {
     pub connection: String,
     pub vm_name: String,
     pub vm_state: VmState,
-    pub timeline: Vec<TimelineEntry>,
+    pub timeline: Vec<SessionEntry>,
     pub selected: usize,
     pub follow_latest: bool,
     pub prompt: String,
@@ -115,36 +164,41 @@ impl App {
                 1042,
                 Direction::Outgoing,
                 "continue",
-                "run requested",
-                vec!["continued execution"],
+                EntryType::DBGCommand,
+                Vec::<String>::new(),
+                Some(vec![0, 0]),
             ),
             entry(
                 1043,
                 Direction::Incoming,
                 "continued",
-                "thread 1",
+                EntryType::VmEvent,
                 vec!["VM running"],
+                None,
             ),
             entry(
                 1044,
                 Direction::Incoming,
                 "stopped",
-                "breakpoint 3",
+                EntryType::DapEvent,
                 vec!["stopped at breakpoint 3", "function 12 · 0x003ad8"],
+                None,
             ),
             entry(
                 1045,
                 Direction::Outgoing,
                 "pause",
-                "pause requested",
+                EntryType::DapRequest,
                 vec!["pause requested"],
+                None,
             ),
             entry(
                 1046,
                 Direction::Incoming,
                 "stopped",
-                "pause",
+                EntryType::DapEvent,
                 vec!["VM paused by request"],
+                None,
             ),
         ];
         Self {
@@ -166,7 +220,7 @@ impl App {
         }
     }
 
-    pub fn selected_entry(&self) -> Option<&TimelineEntry> {
+    pub fn selected_entry(&self) -> Option<&SessionEntry> {
         self.timeline.get(self.selected)
     }
 
@@ -199,7 +253,7 @@ impl App {
             .map(|candidate| candidate.usage)
     }
 
-    pub fn append(&mut self, entry: TimelineEntry) {
+    pub fn append(&mut self, entry: SessionEntry) {
         self.timeline.push(entry);
         if self.follow_latest {
             self.selected = self.timeline.len() - 1;
@@ -365,7 +419,14 @@ impl App {
             .find(|candidate| candidate.command == command)
             .copied()
         else {
-            self.notice = Some("Unknown command — use continue or pause".into());
+            self.notice = Some(format!(
+                "Unknown command — use {}",
+                COMMANDS
+                    .iter()
+                    .map(|candidate| candidate.command)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
             self.completions.clear();
             return None;
         };
@@ -382,11 +443,7 @@ impl App {
         self.completions.clear();
         self.completions_dismissed = false;
         self.notice = None;
-        Some(match completion.command {
-            "continue" => CommandIntent::Continue,
-            "pause" => CommandIntent::Pause,
-            _ => unreachable!(),
-        })
+        Some(completion.intent)
     }
 
     fn escape(&mut self) {
@@ -448,14 +505,16 @@ fn entry(
     sequence: u64,
     direction: Direction,
     kind: &str,
-    summary: &str,
+    entry_type: EntryType,
     effect: Vec<impl Into<String>>,
-) -> TimelineEntry {
-    TimelineEntry {
+    wire: Option<Vec<u8>>,
+) -> SessionEntry {
+    SessionEntry {
         sequence,
         direction,
-        kind: kind.into(),
-        summary: summary.into(),
+        event: kind.into(),
+        entry_type,
         effect: effect.into_iter().map(Into::into).collect(),
+        wire,
     }
 }

@@ -23,6 +23,7 @@ pub(super) struct EncodedMessage {
 pub(super) fn encode_command(command: DebugCommand) -> Result<EncodedMessage> {
     match command {
         DebugCommand::Continue => empty(0),
+        DebugCommand::Halt => empty(1),
         DebugCommand::Pause => empty(2),
         DebugCommand::Step => empty(3),
         DebugCommand::StepOver => empty(4),
@@ -38,6 +39,8 @@ pub(super) fn encode_command(command: DebugCommand) -> Result<EncodedMessage> {
         DebugCommand::AddBreakpoint(location) => encode_breakpoint(5, location),
         DebugCommand::RemoveBreakpoint(location) => encode_breakpoint(6, location),
         DebugCommand::RequestSnapshot => empty(9),
+        DebugCommand::Inspect(state) => encode(23, wire::Inspect { state }),
+        DebugCommand::Reset => empty(24),
     }
 }
 
@@ -183,6 +186,7 @@ fn vm_state(value: i32) -> VmState {
 fn command_kind(value: i32) -> CommandKind {
     match value {
         0 => CommandKind::Continue,
+        1 => CommandKind::Halt,
         2 => CommandKind::Pause,
         3 => CommandKind::Step,
         4 => CommandKind::StepOver,
@@ -190,6 +194,7 @@ fn command_kind(value: i32) -> CommandKind {
         6 => CommandKind::RemoveBreakpoint,
         9 => CommandKind::Snapshot,
         22 => CommandKind::ContinueFor,
+        24 => CommandKind::Reset,
         other => CommandKind::Other(other),
     }
 }
@@ -232,12 +237,15 @@ mod tests {
         };
         let cases = [
             (DebugCommand::Continue, 0),
+            (DebugCommand::Halt, 1),
             (DebugCommand::Pause, 2),
             (DebugCommand::Step, 3),
             (DebugCommand::StepOver, 4),
             (DebugCommand::AddBreakpoint(location), 5),
             (DebugCommand::RemoveBreakpoint(location), 6),
             (DebugCommand::RequestSnapshot, 9),
+            (DebugCommand::Inspect(Vec::new()), 23),
+            (DebugCommand::Reset, 24),
             (DebugCommand::ContinueFor(1), 22),
         ];
         for (command, message_type) in cases {
