@@ -30,6 +30,8 @@ Content-Length: 71
 {"seq":3,"type":"request","command":"configurationDone","arguments":{}}
 ```
 
+When initialized with `warduinoVmFrame: true`, it also emits the opt-in, non-standard WAP `warduino/vmFrame` event after each successful VM send; its bytes contain the complete VM frame.
+
 The adapter responds to `initialize`, emits `initialized` after the successful
 `attach`, then responds to `configurationDone` followed by the deferred
 `attach` response.

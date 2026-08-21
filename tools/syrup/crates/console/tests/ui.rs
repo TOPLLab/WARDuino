@@ -6,7 +6,7 @@ mod ui;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend};
 
-use app::{App, Direction, TimelineEntry};
+use app::{App, Direction, EntryType, SessionEntry};
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
@@ -35,24 +35,26 @@ fn selection_and_following_keep_results_deterministic() {
         vec!["VM paused by request"]
     );
     app.select_delta(-2);
-    assert_eq!(app.selected_entry().unwrap().kind, "stopped");
+    assert_eq!(app.selected_entry().unwrap().event, "stopped");
     assert!(!app.follow_latest);
-    app.append(TimelineEntry {
+    app.append(SessionEntry {
         sequence: 1047,
         direction: Direction::Incoming,
-        kind: "note".into(),
-        summary: "new".into(),
+        event: "note".into(),
+        entry_type: EntryType::DapEvent,
+        wire: None,
         effect: vec!["new effect".into()],
     });
     assert_eq!(app.selected_entry().unwrap().sequence, 1044);
     assert_eq!(app.newer_count(), 3);
     app.select_latest();
     assert!(app.follow_latest);
-    app.append(TimelineEntry {
+    app.append(SessionEntry {
         sequence: 1048,
         direction: Direction::Incoming,
-        kind: "note".into(),
-        summary: "latest".into(),
+        event: "note".into(),
+        entry_type: EntryType::DapEvent,
+        wire: None,
         effect: vec![],
     });
     assert_eq!(app.selected_entry().unwrap().sequence, 1048);
@@ -69,7 +71,7 @@ fn prompt_edits_completes_submits_and_rejects_unsupported_commands() {
     let intent = app.handle_key(key(KeyCode::Enter), 4);
     assert!(app.prompt.is_empty());
     assert_eq!(intent, Some(app::CommandIntent::Continue));
-    assert_eq!(app.timeline.last().unwrap().kind, "stopped");
+    assert_eq!(app.timeline.last().unwrap().event, "stopped");
     assert_eq!(app.vm_state.label(), "PAUSED");
 
     app.insert('x');
@@ -93,17 +95,54 @@ fn responsive_buffers_preserve_prompt_and_selected_result() {
     assert!(wide.contains("Session"));
     assert!(wide.contains("Result"));
     assert!(wide.contains("VM paused by request"));
+    assert!(wide.contains("Event"));
+    assert!(wide.contains("Type"));
+    assert!(wide.contains("Wire"));
+    assert!(wide.contains("DBG command"));
+    assert!(wide.contains("VM event"));
+    assert!(!wide.contains("VM frame"));
+    assert!(wide.contains("00 00"));
     assert!(wide.contains("›"));
 
     let medium = render(&app, 100, 30);
     assert!(medium.contains("Session"));
     assert!(medium.contains("Result"));
-    assert!(medium.find("Session").unwrap() < medium.find("Result").unwrap());
+    assert!(medium.contains("Event"));
+    assert!(medium.contains("Wire"));
+    let wide_header = wide
+        .lines()
+        .find(|line| line.contains("Event") && line.contains("Type"))
+        .unwrap();
+    let wide_row = wide
+        .lines()
+        .find(|line| line.contains("continue") && line.contains("DBG command"))
+        .unwrap();
+    assert_eq!(
+        wide_header[..wide_header.find("Event").unwrap()]
+            .chars()
+            .count(),
+        wide_row[..wide_row.find("continue").unwrap()]
+            .chars()
+            .count()
+    );
+    assert_eq!(
+        wide_header[..wide_header.find("Type").unwrap()]
+            .chars()
+            .count(),
+        wide_row[..wide_row.find("DBG command").unwrap()]
+            .chars()
+            .count()
+    );
 
     let narrow = render(&app, 72, 24);
     assert!(narrow.contains("Session"));
-    assert!(narrow.contains("history"));
+    assert!(narrow.contains("Event"));
+    assert!(!narrow.contains("1042"));
     assert!(narrow.contains("›"));
+
+    let mut frame_selected = App::sample();
+    frame_selected.selected = 0;
+    assert!(render(&frame_selected, 50, 14).contains("00 00"));
 
     let minimum = render(&app, 50, 14);
     assert!(minimum.contains("Session"));

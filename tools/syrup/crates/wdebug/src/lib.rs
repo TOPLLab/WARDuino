@@ -16,5 +16,6 @@ pub use error::{DebugError, Result};
 pub use session::WarduinoSession;
 pub use types::{
     CodeLocation, CommandKind, DebugCommand, DebugEvent, DebugSession, DisconnectReason,
-    ModuleIndex, OperationResult, ProgramCounter, Snapshot, StopReason, Stopped, VmState,
+    ModuleIndex, OperationResult, ProgramCounter, SentFrame, Snapshot, StopReason, Stopped,
+    VmState,
 };

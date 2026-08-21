@@ -27,6 +27,12 @@ pub struct ContinueFor {
 }
 
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Inspect {
+    #[prost(bytes = "vec", tag = "1")]
+    pub state: Vec<u8>,
+}
+
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Snapshot {
     #[prost(uint32, tag = "1")]
     pub program_counter: u32,

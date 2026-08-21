@@ -5,7 +5,7 @@ The V1 TCP session is synchronous: outgoing frames may block while being written
 and receiving is always nonblocking.
 
 The firmware does not provide request IDs, so `send` only confirms local frame
-acceptance. State changes and operation results arrive as `DebugEvent` values.
+acceptance. On success it returns `SentFrame`; `bytes()` is the exact accepted frame: command discriminator, canonical payload-length varint, then protobuf payload. State changes and operation results arrive as `DebugEvent` values.
 
 ```rust
 use wdebug::{DebugCommand, DebugSession};
