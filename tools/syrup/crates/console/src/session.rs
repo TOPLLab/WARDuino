@@ -2,7 +2,7 @@ use serde_json::{Value, json};
 
 use dap::{AdapterOutput, Request, WarduinoAdapter, warduino_adapter};
 
-use crate::app::{App, CommandIntent, Direction, TimelineEntry, VmState};
+use crate::app::{App, CommandIntent, Direction, EntryType, SessionEntry, VmState};
 
 pub struct Session {
     adapter: WarduinoAdapter,
@@ -19,7 +19,11 @@ impl Session {
             thread_id: 1,
             closed: false,
         };
-        session.request("initialize", json!({"adapterID": "syrup"}), app)?;
+        session.request(
+            "initialize",
+            json!({"adapterID": "syrup", "warduinoVmFrame": true}),
+            app,
+        )?;
         let (attach_seq, output) = session.send("attach", json!({"device": device}), app);
         if let Some(response) = output
             .messages
@@ -44,11 +48,15 @@ impl Session {
     }
 
     pub fn dispatch(&mut self, intent: CommandIntent, app: &mut App) {
-        let command = match intent {
-            CommandIntent::Continue => "continue",
-            CommandIntent::Pause => "pause",
+        let (command, arguments) = match intent {
+            CommandIntent::Continue => ("continue", json!({"threadId": self.thread_id})),
+            CommandIntent::Pause => ("pause", json!({"threadId": self.thread_id})),
+            CommandIntent::Step => ("stepIn", json!({"threadId": self.thread_id})),
+            CommandIntent::Next => ("next", json!({"threadId": self.thread_id})),
+            CommandIntent::Restart => ("restart", json!({})),
+            CommandIntent::Terminate => ("terminate", json!({})),
         };
-        if let Err(error) = self.request(command, json!({"threadId": self.thread_id}), app) {
+        if let Err(error) = self.request(command, arguments, app) {
             app.notice = Some(error);
         }
     }
@@ -86,7 +94,13 @@ impl Session {
     fn send(&mut self, command: &str, arguments: Value, app: &mut App) -> (u64, AdapterOutput) {
         let seq = self.seq;
         self.seq += 1;
-        app.append(entry(seq, Direction::Outgoing, command, "DAP request"));
+        app.append(entry(
+            seq,
+            Direction::Outgoing,
+            command,
+            EntryType::DapRequest,
+            None,
+        ));
         let request = Request {
             seq,
             message_type: "request".into(),
@@ -105,19 +119,40 @@ impl Session {
                     message["seq"].as_u64().unwrap_or(0),
                     Direction::Incoming,
                     message["command"].as_str().unwrap_or(kind),
-                    if message["success"] == true {
-                        "DAP response"
-                    } else {
-                        "DAP failure"
-                    },
+                    EntryType::DapResponse,
+                    None,
                 ));
             }
             if message["type"] == "event" {
+                if kind == "warduino/vmFrame" {
+                    match parse_vm_frame(&message["body"]["bytes"]) {
+                        Ok(bytes) => {
+                            app.append(entry(
+                                message["seq"].as_u64().unwrap_or(0),
+                                if message["body"]["direction"] == "incoming" {
+                                    Direction::Incoming
+                                } else {
+                                    Direction::Outgoing
+                                },
+                                message["body"]["command"].as_str().unwrap_or("unknown"),
+                                if message["body"]["direction"] == "incoming" {
+                                    EntryType::VmEvent
+                                } else {
+                                    EntryType::DBGCommand
+                                },
+                                Some(bytes),
+                            ));
+                        }
+                        Err(error) => app.notice = Some(error),
+                    }
+                    continue;
+                }
                 app.append(entry(
                     message["seq"].as_u64().unwrap_or(0),
                     Direction::Incoming,
                     kind,
-                    "DAP event",
+                    EntryType::DapEvent,
+                    None,
                 ));
                 match kind {
                     "continued" => app.vm_state = VmState::Running,
@@ -139,12 +174,33 @@ impl Session {
     }
 }
 
-fn entry(sequence: u64, direction: Direction, kind: &str, summary: &str) -> TimelineEntry {
-    TimelineEntry {
+fn entry(
+    sequence: u64,
+    direction: Direction,
+    event: &str,
+    entry_type: EntryType,
+    wire: Option<Vec<u8>>,
+) -> SessionEntry {
+    SessionEntry {
         sequence,
         direction,
-        kind: kind.into(),
-        summary: summary.into(),
+        event: event.into(),
+        entry_type,
+        wire,
         effect: Vec::new(),
     }
+}
+
+fn parse_vm_frame(value: &Value) -> Result<Vec<u8>, String> {
+    value
+        .as_array()
+        .ok_or_else(|| "invalid VM frame bytes".to_owned())?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|byte| u8::try_from(byte).ok())
+                .ok_or_else(|| "invalid VM frame byte".to_owned())
+        })
+        .collect()
 }

@@ -1,12 +1,12 @@
 use ratatui::{
     Frame,
-    layout::{Alignment, Rect},
+    layout::{Alignment, Constraint, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
+    widgets::{Block, BorderType, Borders, Cell, Clear, Paragraph, Row, Table, Wrap},
 };
 
-use crate::app::{App, TimelineEntry};
+use crate::app::{App, COMMANDS, Direction, EntryType, SessionEntry};
 
 const BASE: Color = Color::Rgb(29, 29, 43);
 const SURFACE: Color = Color::Rgb(41, 41, 58);
@@ -109,14 +109,6 @@ pub fn draw(frame: &mut Frame, app: &App) {
         return;
     }
     frame.render_widget(Paragraph::new("").style(Style::default().bg(BASE)), area);
-    if let Some(divider) = layout.divider {
-        frame.render_widget(
-            Paragraph::new("│")
-                .style(Style::default().fg(MUTED))
-                .alignment(Alignment::Center),
-            divider,
-        );
-    }
     render_timeline(frame, app, layout.timeline, layout.mode);
     render_result(frame, app, layout.result);
     render_metadata(
@@ -193,63 +185,110 @@ fn render_timeline(frame: &mut Frame, app: &App, area: Rect, mode: LayoutMode) {
         )),
         Rect::new(area.x, area.y, area.width, 1),
     );
-    let rows = area.height.saturating_sub(1) as usize;
-    if rows == 0 {
+    if area.height < 4 {
         return;
     }
+    let constraints = session_constraints(area.width, mode != LayoutMode::Narrow);
+    let rows = area.height.saturating_sub(3) as usize;
     let start = app.selected.saturating_add(1).saturating_sub(rows);
-    for (row, (index, entry)) in app
+    let entries = app
         .timeline
         .iter()
         .enumerate()
         .skip(start)
         .take(rows)
-        .enumerate()
-    {
-        let y = area.y + 1 + row as u16;
-        let selected = index == app.selected;
-        let style = if selected {
-            Style::default().fg(TEXT).bg(SURFACE_ACTIVE)
-        } else {
-            Style::default().fg(TEXT)
-        };
-        frame.render_widget(
-            Paragraph::new(timeline_line(entry, area.width, mode)).style(style),
-            Rect::new(area.x, y, area.width, 1),
-        );
-    }
-    if app.newer_count() > 0 && area.width >= 12 {
-        let message = format!("+{} newer", app.newer_count());
-        let x = area.x + area.width - message.len() as u16;
-        frame.render_widget(
-            Paragraph::new(message).style(Style::default().fg(ACCENT)),
-            Rect::new(x, area.y, area.width - (x - area.x), 1),
-        );
-    }
+        .map(|(index, entry)| {
+            Row::new(session_cells(entry, area.width, mode != LayoutMode::Narrow)).style(
+                if index == app.selected {
+                    Style::default().fg(TEXT).bg(SURFACE_ACTIVE)
+                } else {
+                    Style::default().fg(TEXT)
+                },
+            )
+        });
+    let header = Row::new(session_header(area.width, mode != LayoutMode::Narrow))
+        .style(Style::default().fg(MUTED));
+    frame.render_widget(
+        Table::new(entries, constraints).header(header),
+        Rect::new(area.x, area.y + 2, area.width, area.height - 2),
+    );
 }
 
-fn timeline_line(entry: &TimelineEntry, width: u16, mode: LayoutMode) -> Line<'static> {
-    let sequence = format!("{:>6}", entry.sequence);
-    let prefix = format!("{} {} ", sequence, entry.direction.symbol());
-    let kind_width = if mode == LayoutMode::Narrow { 18 } else { 22 };
-    let used = prefix.chars().count() as u16 + kind_width + 1;
-    let summary_width = width.saturating_sub(used);
-    let kind = trim_text(&entry.kind, kind_width as usize);
-    let mut spans = vec![
-        Span::styled(sequence, Style::default().fg(MUTED)),
-        Span::raw(" "),
-        Span::styled(entry.direction.symbol(), Style::default().fg(ACCENT)),
-        Span::raw(" "),
-        Span::raw(pad_text(&kind, kind_width as usize)),
-    ];
-    if (mode != LayoutMode::Narrow || summary_width >= 12) && summary_width >= 12 {
-        spans.push(Span::raw(" "));
-        spans.push(Span::styled(
-            trim_text(&entry.summary, summary_width as usize),
-            Style::default().fg(MUTED),
-        ));
+fn session_constraints(width: u16, show_sequence: bool) -> Vec<Constraint> {
+    let mut constraints = Vec::new();
+    if show_sequence {
+        constraints.push(Constraint::Length(4));
     }
-    Line::from(spans)
+    constraints.extend([
+        Constraint::Length(2),
+        Constraint::Min(18),
+        Constraint::Length(16),
+    ]);
+    if width >= 50 {
+        constraints.push(Constraint::Length(14));
+    }
+    constraints
+}
+
+fn session_header(width: u16, show_sequence: bool) -> Vec<Cell<'static>> {
+    let mut cells = Vec::new();
+    if show_sequence {
+        cells.push(Cell::from(Line::from("#").alignment(Alignment::Right)));
+    }
+    cells.push(Cell::from(Line::from(" ").alignment(Alignment::Center)));
+    cells.push(Cell::from("Event"));
+    cells.push(Cell::from("Type"));
+    if width >= 50 {
+        cells.push(Cell::from("Wire"));
+    }
+    cells
+}
+
+fn session_cells(entry: &SessionEntry, width: u16, show_sequence: bool) -> Vec<Cell<'static>> {
+    let mut cells = Vec::new();
+    if show_sequence {
+        cells.push(
+            Cell::from(Line::from(entry.sequence.to_string()).alignment(Alignment::Right))
+                .style(Style::default().fg(MUTED)),
+        );
+    }
+    cells.push(
+        Cell::from(
+            Line::from(if entry.entry_type == EntryType::DBGCommand {
+                Direction::Incoming.symbol()
+            } else {
+                entry.direction.symbol()
+            })
+            .alignment(Alignment::Center),
+        )
+        .style(Style::default().fg(ACCENT)),
+    );
+    cells.push(Cell::from(trim_text(
+        &entry.event,
+        width.saturating_sub(36) as usize,
+    )));
+    cells.push(Cell::from(entry.entry_type.label()));
+    if width >= 50 {
+        cells.push(
+            Cell::from(
+                entry
+                    .wire
+                    .as_ref()
+                    .map(|bytes| format_vm_frame(bytes))
+                    .unwrap_or_default(),
+            )
+            .style(Style::default().fg(MUTED)),
+        );
+    }
+    cells
+}
+
+fn format_vm_frame(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|byte| format!("{byte:02X}"))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn render_result(frame: &mut Frame, app: &App, area: Rect) {
@@ -258,7 +297,7 @@ fn render_result(frame: &mut Frame, app: &App, area: Rect) {
     }
     frame.render_widget(
         Paragraph::new(Span::styled(
-            " Result ",
+            " Info ",
             Style::default()
                 .fg(TEXT)
                 .bg(SURFACE_ACTIVE)
@@ -266,7 +305,7 @@ fn render_result(frame: &mut Frame, app: &App, area: Rect) {
         )),
         Rect::new(area.x, area.y, area.width, 1),
     );
-    if area.height < 2 {
+    if area.height < 3 {
         return;
     }
     let body = app
@@ -275,7 +314,7 @@ fn render_result(frame: &mut Frame, app: &App, area: Rect) {
         .unwrap_or_default();
     let text = if body.is_empty() {
         vec![Line::from(Span::styled(
-            "No output",
+            "Nothing",
             Style::default().fg(MUTED),
         ))]
     } else {
@@ -283,7 +322,7 @@ fn render_result(frame: &mut Frame, app: &App, area: Rect) {
     };
     frame.render_widget(
         Paragraph::new(text).wrap(Wrap { trim: false }),
-        Rect::new(area.x, area.y + 1, area.width, area.height - 1),
+        Rect::new(area.x, area.y + 2, area.width, area.height - 2),
     );
 }
 
@@ -322,7 +361,7 @@ fn render_prompt(frame: &mut Frame, app: &App, area: Rect) {
     };
     frame.render_widget(
         Paragraph::new(line),
-        Rect::new(area.x + 2, area.y, area.width.saturating_sub(4), 1),
+        Rect::new(area.x + 2, area.y + 1, area.width.saturating_sub(4), 1),
     );
     if let Some(feedback) = app.feedback() {
         frame.render_widget(
@@ -333,14 +372,16 @@ fn render_prompt(frame: &mut Frame, app: &App, area: Rect) {
                     MUTED
                 }),
             ),
-            Rect::new(area.x + 2, area.y + 1, area.width.saturating_sub(4), 1),
+            Rect::new(area.x + 2, area.y, area.width.saturating_sub(4), 1),
         );
     }
 }
 
 fn render_help(frame: &mut Frame, area: Rect) {
     let width = area.width.saturating_sub(4).min(48);
-    let height = 8.min(area.height.saturating_sub(4));
+    let height = u16::try_from(COMMANDS.len() + 4)
+        .unwrap_or(u16::MAX)
+        .min(area.height.saturating_sub(4));
     let popup = Rect::new(
         area.x + area.width.saturating_sub(width) / 2,
         area.y + area.height.saturating_sub(height) / 2,
@@ -357,23 +398,27 @@ fn render_help(frame: &mut Frame, area: Rect) {
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(ACCENT))
         .style(Style::default().bg(BASE).fg(TEXT));
-    let lines = vec![
+    let mut lines = vec![
         Line::from(Span::styled(
             "Supported commands",
             Style::default().fg(TEXT).add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
-        Line::from(vec![
-            Span::styled("  continue    ", Style::default().fg(ACCENT)),
-            Span::styled("continue", Style::default().fg(MUTED)),
-        ]),
-        Line::from(vec![
-            Span::styled("  pause       ", Style::default().fg(ACCENT)),
-            Span::styled("pause", Style::default().fg(MUTED)),
-        ]),
-        Line::from(""),
-        Line::from(Span::styled("? / esc  close", Style::default().fg(MUTED))),
     ];
+    lines.extend(COMMANDS.iter().map(|command| {
+        Line::from(vec![
+            Span::styled(
+                format!("  {:<11}", command.command),
+                Style::default().fg(ACCENT),
+            ),
+            Span::styled(command.usage, Style::default().fg(MUTED)),
+        ])
+    }));
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "? / esc  close",
+        Style::default().fg(MUTED),
+    )));
     frame.render_widget(Paragraph::new(lines).block(block), popup);
 }
 
@@ -483,9 +528,4 @@ fn trim_text(text: &str, width: usize) -> String {
     }
     output.push('…');
     output
-}
-
-fn pad_text(text: &str, width: usize) -> String {
-    let current = Line::from(text).width();
-    format!("{text}{:width$}", "", width = width.saturating_sub(current))
 }

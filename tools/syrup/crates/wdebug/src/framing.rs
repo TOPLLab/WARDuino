@@ -111,4 +111,17 @@ mod tests {
         assert_eq!(first.payload, [8, 1]);
         assert_eq!(decoder.next_frame().unwrap().unwrap().message_type, 0);
     }
+
+    #[test]
+    fn encodes_complete_outgoing_frames() {
+        assert_eq!(encode_frame(0, &[]).unwrap(), [0, 0]);
+        assert_eq!(
+            encode_frame(5, &[0x0a, 0x02, 0x10, 0x17]).unwrap(),
+            [5, 4, 0x0a, 0x02, 0x10, 0x17]
+        );
+        let payload = vec![0xa5; 128];
+        let frame = encode_frame(7, &payload).unwrap();
+        assert_eq!(&frame[..3], &[7, 0x80, 0x01]);
+        assert_eq!(&frame[3..], payload);
+    }
 }

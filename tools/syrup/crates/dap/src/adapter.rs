@@ -1,9 +1,12 @@
-use debug::{DebugCommand, DebugEvent, DebugSession, StopReason};
+use std::time::{Duration, Instant};
+
+use debug::{DebugCommand, DebugEvent, DebugSession, StopReason, Stopped};
 use serde_json::{Value, json};
 
 use crate::Request;
 
 const THREAD_ID: i64 = 1;
+const INSPECT_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AdapterState {
@@ -50,6 +53,11 @@ pub struct Adapter<S, C> {
     paused: bool,
     next_seq: u64,
     pending_attach: Option<Request>,
+    snapshot: Option<debug::Snapshot>,
+    pending_stop: Option<Stopped>,
+    generation: i64,
+    inspect_deadline: Option<Instant>,
+    vm_frame_trace: bool,
 }
 
 impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
@@ -61,6 +69,11 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             paused: false,
             next_seq: 1,
             pending_attach: None,
+            snapshot: None,
+            pending_stop: None,
+            generation: 0,
+            inspect_deadline: None,
+            vm_frame_trace: false,
         }
     }
 
@@ -73,8 +86,15 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             "attach" => self.attach(request),
             "configurationDone" => self.configuration_done(request),
             "threads" => self.threads(request),
+            "stackTrace" => self.stack_trace(request),
+            "scopes" => self.scopes(request),
+            "variables" => self.variables(request),
             "continue" => self.command(request, DebugCommand::Continue, true),
             "pause" => self.command(request, DebugCommand::Pause, false),
+            "stepIn" => self.command(request, DebugCommand::Step, false),
+            "next" => self.command(request, DebugCommand::StepOver, false),
+            "restart" => self.restart(request),
+            "terminate" => self.terminate_request(request),
             "disconnect" => self.disconnect(request),
             _ => AdapterOutput::one(self.failure(&request, "unsupported DAP request")),
         }
@@ -82,6 +102,19 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
 
     pub fn pump_events(&mut self) -> AdapterOutput {
         let mut output = AdapterOutput::default();
+        if self
+            .inspect_deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
+            self.inspect_deadline = None;
+            if let Some(stopped) = self.pending_stop.take() {
+                output.messages.push(
+                    self.output_event("WARDuino inspect timed out; paused state is unavailable"),
+                );
+                self.emit_stopped(&mut output, stopped);
+            }
+            return output;
+        }
         loop {
             let event = match self.session.as_mut() {
                 Some(session) => match session.try_recv() {
@@ -104,10 +137,20 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         if self.state != AdapterState::AwaitingInitialize {
             return AdapterOutput::one(self.failure(&request, "initialize is only valid once"));
         }
+        self.vm_frame_trace = request
+            .arguments
+            .get("warduinoVmFrame")
+            .and_then(Value::as_bool)
+            == Some(true);
         self.state = AdapterState::Ready;
-        AdapterOutput::one(
-            self.success(&request, json!({"supportsConfigurationDoneRequest": true})),
-        )
+        AdapterOutput::one(self.success(
+            &request,
+            json!({
+                "supportsConfigurationDoneRequest": true,
+                "supportsTerminateRequest": true,
+                "supportsRestartRequest": true
+            }),
+        ))
     }
 
     fn attach(&mut self, request: Request) -> AdapterOutput {
@@ -162,6 +205,68 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         ))
     }
 
+    fn stack_trace(&mut self, request: Request) -> AdapterOutput {
+        if !has_synthetic_thread(&request.arguments) {
+            return AdapterOutput::one(self.failure(&request, "unknown threadId"));
+        }
+        let Some(snapshot) = self.paused_snapshot(&request, "stackTrace") else {
+            return AdapterOutput::one(
+                self.failure(&request, "stackTrace requires a ready paused session"),
+            );
+        };
+        AdapterOutput::one(self.success(
+            &request,
+            json!({
+                "stackFrames": [{
+                    "id": self.generation,
+                    "name": "WARDuino",
+                    "instructionPointerReference": format!("0x{:08x}", snapshot.program_counter.0)
+                }],
+                "totalFrames": 1
+            }),
+        ))
+    }
+
+    fn scopes(&mut self, request: Request) -> AdapterOutput {
+        if self.paused_snapshot(&request, "scopes").is_none()
+            || request.arguments.get("frameId").and_then(Value::as_i64) != Some(self.generation)
+        {
+            return AdapterOutput::one(self.failure(&request, "unknown or stale frameId"));
+        }
+        AdapterOutput::one(self.success(&request, json!({
+            "scopes": [{"name": "VM", "variablesReference": self.generation, "expensive": false}]
+        })))
+    }
+
+    fn variables(&mut self, request: Request) -> AdapterOutput {
+        let Some(snapshot) = self.paused_snapshot(&request, "variables") else {
+            return AdapterOutput::one(
+                self.failure(&request, "variables requires a ready paused session"),
+            );
+        };
+        if request
+            .arguments
+            .get("variablesReference")
+            .and_then(Value::as_i64)
+            != Some(self.generation)
+        {
+            return AdapterOutput::one(
+                self.failure(&request, "unknown or stale variablesReference"),
+            );
+        }
+        AdapterOutput::one(self.success(&request, json!({
+            "variables": [
+                {"name": "pc", "value": format!("0x{:08x}", snapshot.program_counter.0), "type": "u32", "variablesReference": 0},
+                {"name": "state", "value": format!("{:?}", snapshot.state), "type": "WARDuino state", "variablesReference": 0}
+            ]
+        })))
+    }
+
+    fn paused_snapshot(&self, _request: &Request, _operation: &str) -> Option<&debug::Snapshot> {
+        (self.state == AdapterState::Attached && self.paused).then_some(())?;
+        self.snapshot.as_ref()
+    }
+
     fn command(
         &mut self,
         request: Request,
@@ -176,26 +281,85 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         if !has_synthetic_thread(&request.arguments) {
             return AdapterOutput::one(self.failure(&request, "unknown threadId"));
         }
-        let send = match self.session.as_mut() {
-            Some(session) => session.send(command),
-            None => {
-                return AdapterOutput::one(self.failure(&request, "debug session is disconnected"));
-            }
-        };
+        let trace_name = debug_command_name(&command);
+        let send = self.session.as_mut().map(|session| session.send(command));
         match send {
-            Ok(()) => {
+            Some(Ok(receipt)) => {
                 let body = if continued {
                     json!({"allThreadsContinued": true})
                 } else {
                     json!({})
                 };
-                AdapterOutput::one(self.success(&request, body))
+                let mut output = AdapterOutput::one(self.success(&request, body));
+                self.emit_vm_frame(&mut output, receipt, trace_name);
+                output
             }
-            Err(error) => {
+            Some(Err(error)) => {
                 let mut output = AdapterOutput::one(self.failure(&request, &error.to_string()));
                 self.disconnect_after_error(&mut output, error.to_string());
                 output
             }
+            None => AdapterOutput::one(self.failure(&request, "debug session is disconnected")),
+        }
+    }
+
+    fn restart(&mut self, request: Request) -> AdapterOutput {
+        if self.state != AdapterState::Attached {
+            return AdapterOutput::one(
+                self.failure(&request, "restart requires an attached session"),
+            );
+        }
+        let send = self
+            .session
+            .as_mut()
+            .map(|session| session.send(DebugCommand::Reset));
+        match send {
+            Some(Ok(receipt)) => {
+                self.paused = true;
+                let mut output = AdapterOutput {
+                    messages: vec![
+                        self.success(&request, json!({})),
+                        self.event(
+                            "stopped",
+                            json!({"reason":"pause","threadId":THREAD_ID,"allThreadsStopped":true}),
+                        ),
+                    ],
+                    terminate: false,
+                };
+                self.emit_vm_frame(&mut output, receipt, "reset");
+                output
+            }
+            Some(Err(error)) => {
+                let mut output = AdapterOutput::one(self.failure(&request, &error.to_string()));
+                self.disconnect_after_error(&mut output, error.to_string());
+                output
+            }
+            None => AdapterOutput::one(self.failure(&request, "debug session is disconnected")),
+        }
+    }
+
+    fn terminate_request(&mut self, request: Request) -> AdapterOutput {
+        if self.state != AdapterState::Attached {
+            return AdapterOutput::one(
+                self.failure(&request, "terminate requires an attached session"),
+            );
+        }
+        let send = self
+            .session
+            .as_mut()
+            .map(|session| session.send(DebugCommand::Halt));
+        match send {
+            Some(Ok(receipt)) => {
+                let mut output = AdapterOutput::one(self.success(&request, json!({})));
+                self.emit_vm_frame(&mut output, receipt, "halt");
+                output
+            }
+            Some(Err(error)) => {
+                let mut output = AdapterOutput::one(self.failure(&request, &error.to_string()));
+                self.disconnect_after_error(&mut output, error.to_string());
+                output
+            }
+            None => AdapterOutput::one(self.failure(&request, "debug session is disconnected")),
         }
     }
 
@@ -205,31 +369,38 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
         let pending_attach = self.pending_attach.take();
         let attached = self.state == AdapterState::Attached;
-        let mut messages = Vec::new();
+        let mut output = AdapterOutput::default();
         if attached && self.paused {
-            if let Some(session) = self.session.as_mut() {
-                if let Err(error) = session.send(DebugCommand::Continue) {
-                    messages.push(self.output_event(&error.to_string()));
-                }
+            match self
+                .session
+                .as_mut()
+                .map(|session| session.send(DebugCommand::Continue))
+            {
+                Some(Ok(receipt)) => self.emit_vm_frame(&mut output, receipt, "continue"),
+                Some(Err(error)) => output.messages.push(self.output_event(&error.to_string())),
+                None => {}
             }
         }
         self.session.take();
         self.state = AdapterState::Disconnected;
         if let Some(attach) = pending_attach {
-            messages.push(self.failure(&attach, "attach cancelled by disconnect"));
+            output
+                .messages
+                .push(self.failure(&attach, "attach cancelled by disconnect"));
         }
-        messages.push(self.success(&request, json!({})));
-        messages.push(self.event("terminated", json!({})));
-        AdapterOutput {
-            messages,
-            terminate: true,
-        }
+        output.messages.push(self.success(&request, json!({})));
+        output.messages.push(self.event("terminated", json!({})));
+        output.terminate = true;
+        output
     }
 
     fn translate_event(&mut self, event: DebugEvent, output: &mut AdapterOutput) {
         match event {
             DebugEvent::Continued => {
                 self.paused = false;
+                self.snapshot = None;
+                self.pending_stop = None;
+                self.inspect_deadline = None;
                 output.messages.push(self.event(
                     "continued",
                     json!({"threadId": THREAD_ID, "allThreadsContinued": true}),
@@ -237,15 +408,26 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             }
             DebugEvent::Stopped(stopped) => {
                 self.paused = true;
-                let reason = match stopped.reason {
-                    StopReason::Pause => "pause",
-                    StopReason::Step => "step",
-                    StopReason::Breakpoint => "breakpoint",
-                };
-                output.messages.push(self.event(
-                    "stopped",
-                    json!({"reason": reason, "threadId": THREAD_ID, "allThreadsStopped": true}),
-                ));
+                self.snapshot = None;
+                self.pending_stop = Some(stopped);
+                self.inspect_deadline = Some(Instant::now() + INSPECT_TIMEOUT);
+                self.generation += 1;
+                match self
+                    .session
+                    .as_mut()
+                    .map(|session| session.send(DebugCommand::Inspect(Vec::new())))
+                {
+                    Some(Ok(receipt)) => self.emit_vm_frame(output, receipt, "inspect"),
+                    Some(Err(error)) => self.disconnect_after_error(output, error.to_string()),
+                    None => {}
+                }
+            }
+            DebugEvent::Snapshot(snapshot) if self.pending_stop.is_some() => {
+                self.inspect_deadline = None;
+                self.snapshot = Some(snapshot);
+                if let Some(stopped) = self.pending_stop.take() {
+                    self.emit_stopped(output, stopped);
+                }
             }
             DebugEvent::Halted | DebugEvent::Disconnected(_) => self.terminate(output),
             DebugEvent::OperationResult(result) if !result.success => self.remote_failure(
@@ -267,6 +449,18 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
+    fn emit_stopped(&mut self, output: &mut AdapterOutput, stopped: Stopped) {
+        let reason = match stopped.reason {
+            StopReason::Pause => "pause",
+            StopReason::Step => "step",
+            StopReason::Breakpoint => "breakpoint",
+        };
+        output.messages.push(self.event(
+            "stopped",
+            json!({"reason": reason, "threadId": THREAD_ID, "allThreadsStopped": true}),
+        ));
+    }
+
     fn remote_failure(&mut self, output: &mut AdapterOutput, message: String) {
         output.messages.push(self.output_event(&message));
     }
@@ -276,6 +470,24 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         self.session.take();
         self.state = AdapterState::Disconnected;
         output.terminate = true;
+    }
+
+    fn emit_vm_frame(
+        &mut self,
+        output: &mut AdapterOutput,
+        frame: debug::SentFrame,
+        command: &str,
+    ) {
+        if self.vm_frame_trace {
+            output.messages.push(self.event(
+                "warduino/vmFrame",
+                json!({
+                    "direction": "outgoing",
+                    "command": command,
+                    "bytes": frame.bytes(),
+                }),
+            ));
+        }
     }
 
     fn debug_error(&mut self, output: &mut AdapterOutput, message: String) -> AdapterOutput {
@@ -340,6 +552,23 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         let sequence = self.next_seq;
         self.next_seq += 1;
         sequence
+    }
+}
+
+fn debug_command_name(command: &DebugCommand) -> &'static str {
+    match command {
+        DebugCommand::Continue => "continue",
+        DebugCommand::Halt => "halt",
+        DebugCommand::Pause => "pause",
+        DebugCommand::Step => "step",
+        DebugCommand::StepOver => "next",
+        DebugCommand::ContinueFor(_) => "continue",
+        DebugCommand::AddBreakpoint(_) => "setBreakpoint",
+        DebugCommand::RemoveBreakpoint(_) => "removeBreakpoint",
+        DebugCommand::RequestSnapshot => "snapshot",
+        DebugCommand::Inspect(_) => "inspect",
+        DebugCommand::Reset => "reset",
+        _ => "unknown",
     }
 }
 
