@@ -35,3 +35,15 @@ When initialized with `warduinoVmFrame: true`, it also emits the opt-in, non-sta
 The adapter responds to `initialize`, emits `initialized` after the successful
 `attach`, then responds to `configurationDone` followed by the deferred
 `attach` response.
+
+To serve DAP over TCP for VS Code, run this from `tools/syrup`:
+
+```text
+cargo run -- --dap-server 127.0.0.1:4711
+```
+
+Configure VS Code to connect to `127.0.0.1:4711`. The TCP stream uses ordinary
+`Content-Length` DAP framing; diagnostic logs are written to stderr, never to
+the stream. The DAP `attach` request still provides the WARDuino device address
+(for example `127.0.0.1:8100`). The server handles one client at a time and
+accepts a new session after a client disconnects.

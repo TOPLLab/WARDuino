@@ -6,7 +6,7 @@ members = [
     "crates/console",
 ]
 default-members = [
-    "crates/console",
+    "crates/dap",
 ]
 
 [workspace.package]
