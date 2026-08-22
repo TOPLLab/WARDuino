@@ -13,5 +13,8 @@ test:
 run device: schema
     cargo run -p console -- --device {{device}}
 
+dap-server address:
+    cargo run -p warduino-dap -- --dap-server {{address}}
+
 build: schema
     cargo build --release -p console

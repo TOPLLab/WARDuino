@@ -7,7 +7,7 @@ use std::{
 
 use debug::{
     CommandKind, DebugCommand, DebugError, DebugEvent, DebugSession, OperationResult,
-    ProgramCounter, Result, SentFrame, Snapshot, StopReason, Stopped, VmState,
+    ProgramCounter, ReceivedFrame, Result, SentFrame, Snapshot, StopReason, Stopped, VmState,
 };
 use serde_json::{Value, json};
 use warduino_dap::{Adapter, AdapterOutput, read_message, write_message};
@@ -36,8 +36,17 @@ impl DebugSession for FakeSession {
         Ok(SentFrame::from_complete_frame(vec![5, 4, 10, 2, 16, 23]))
     }
 
-    fn try_recv(&mut self) -> Result<Option<DebugEvent>> {
-        self.0.borrow_mut().events.pop_front().unwrap_or(Ok(None))
+    fn try_recv(&mut self) -> Result<Option<ReceivedFrame>> {
+        self.0
+            .borrow_mut()
+            .events
+            .pop_front()
+            .unwrap_or(Ok(None))
+            .map(|event| {
+                event.map(|event| {
+                    ReceivedFrame::from_complete_frame(event, vec![4, 4, 10, 2, 16, 23])
+                })
+            })
     }
 }
 
@@ -346,7 +355,7 @@ fn vm_frame_trace_is_opt_in_and_preserves_complete_receipts() {
     assert_eq!(continued[1]["event"], "warduino/vmFrame");
     assert_eq!(
         continued[1]["body"],
-        json!({"direction":"outgoing","command":"continue","bytes":[5,4,10,2,16,23]})
+        json!({"direction":"outgoing","command":"continue","bytes":[5,4,10,2,16,23],"fields":{}})
     );
 
     state
@@ -358,7 +367,9 @@ fn vm_frame_trace_is_opt_in_and_preserves_complete_receipts() {
         }))));
     let inspect = framed_values(adapter.pump_events());
     assert_eq!(inspect[0]["event"], "warduino/vmFrame");
-    assert_eq!(inspect[0]["body"]["command"], "inspect");
+    assert_eq!(inspect[0]["body"]["direction"], "incoming");
+    assert_eq!(inspect[0]["body"]["command"], "stopped");
+    assert_eq!(inspect[1]["body"]["command"], "inspect");
 
     let disconnect = dispatch(&mut adapter, request(5, "disconnect", json!({})));
     assert_eq!(disconnect[0]["event"], "warduino/vmFrame");

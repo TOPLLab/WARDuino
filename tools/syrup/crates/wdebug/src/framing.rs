@@ -5,6 +5,7 @@ pub(super) const MAX_PAYLOAD: usize = 64 * 1024;
 pub(super) struct Frame {
     pub message_type: u8,
     pub payload: Vec<u8>,
+    pub bytes: Vec<u8>,
 }
 
 pub(super) fn encode_frame(message_type: u8, payload: &[u8]) -> Result<Vec<u8>> {
@@ -52,12 +53,14 @@ impl FrameDecoder {
         if self.bytes.len() < end {
             return Ok(None);
         }
+        let bytes = self.bytes[..end].to_vec();
         let payload = self.bytes[header_len..end].to_vec();
         let message_type = self.bytes[0];
         self.bytes.drain(..end);
         Ok(Some(Frame {
             message_type,
             payload,
+            bytes,
         }))
     }
 }

@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use debug::{DebugCommand, DebugEvent, DebugSession, StopReason, Stopped};
+use debug::{DebugCommand, DebugEvent, DebugSession, ReceivedFrame, StopReason, Stopped};
 use serde_json::{Value, json};
 
 use crate::Request;
@@ -124,7 +124,10 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 None => return output,
             };
             match event {
-                Some(event) => self.translate_event(event, &mut output),
+                Some(frame) => {
+                    self.emit_received_vm_frame(&mut output, &frame);
+                    self.translate_event(frame.event, &mut output)
+                }
                 None => return output,
             }
             if output.terminate {
@@ -281,7 +284,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         if !has_synthetic_thread(&request.arguments) {
             return AdapterOutput::one(self.failure(&request, "unknown threadId"));
         }
-        let trace_name = debug_command_name(&command);
+        let trace_command = command.clone();
         let send = self.session.as_mut().map(|session| session.send(command));
         match send {
             Some(Ok(receipt)) => {
@@ -291,7 +294,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                     json!({})
                 };
                 let mut output = AdapterOutput::one(self.success(&request, body));
-                self.emit_vm_frame(&mut output, receipt, trace_name);
+                self.emit_vm_frame(&mut output, receipt, &trace_command);
                 output
             }
             Some(Err(error)) => {
@@ -326,7 +329,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                     ],
                     terminate: false,
                 };
-                self.emit_vm_frame(&mut output, receipt, "reset");
+                self.emit_vm_frame(&mut output, receipt, &DebugCommand::Reset);
                 output
             }
             Some(Err(error)) => {
@@ -351,7 +354,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         match send {
             Some(Ok(receipt)) => {
                 let mut output = AdapterOutput::one(self.success(&request, json!({})));
-                self.emit_vm_frame(&mut output, receipt, "halt");
+                self.emit_vm_frame(&mut output, receipt, &DebugCommand::Halt);
                 output
             }
             Some(Err(error)) => {
@@ -376,7 +379,9 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 .as_mut()
                 .map(|session| session.send(DebugCommand::Continue))
             {
-                Some(Ok(receipt)) => self.emit_vm_frame(&mut output, receipt, "continue"),
+                Some(Ok(receipt)) => {
+                    self.emit_vm_frame(&mut output, receipt, &DebugCommand::Continue)
+                }
                 Some(Err(error)) => output.messages.push(self.output_event(&error.to_string())),
                 None => {}
             }
@@ -392,6 +397,12 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         output.messages.push(self.event("terminated", json!({})));
         output.terminate = true;
         output
+    }
+
+    fn emit_received_vm_frame(&mut self, output: &mut AdapterOutput, frame: &ReceivedFrame) {
+        if self.vm_frame_trace {
+            output.messages.push(self.event("warduino/vmFrame", json!({"direction":"incoming", "bytes":frame.bytes(), "command": debug_event_name(&frame.event), "fields": debug_event_fields(&frame.event)})));
+        }
     }
 
     fn translate_event(&mut self, event: DebugEvent, output: &mut AdapterOutput) {
@@ -417,7 +428,9 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                     .as_mut()
                     .map(|session| session.send(DebugCommand::Inspect(Vec::new())))
                 {
-                    Some(Ok(receipt)) => self.emit_vm_frame(output, receipt, "inspect"),
+                    Some(Ok(receipt)) => {
+                        self.emit_vm_frame(output, receipt, &DebugCommand::Inspect(Vec::new()))
+                    }
                     Some(Err(error)) => self.disconnect_after_error(output, error.to_string()),
                     None => {}
                 }
@@ -476,15 +489,16 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         &mut self,
         output: &mut AdapterOutput,
         frame: debug::SentFrame,
-        command: &str,
+        command: &DebugCommand,
     ) {
         if self.vm_frame_trace {
             output.messages.push(self.event(
                 "warduino/vmFrame",
                 json!({
                     "direction": "outgoing",
-                    "command": command,
+                    "command": debug_command_name(command),
                     "bytes": frame.bytes(),
+                    "fields": debug_command_fields(command),
                 }),
             ));
         }
@@ -569,6 +583,46 @@ fn debug_command_name(command: &DebugCommand) -> &'static str {
         DebugCommand::Inspect(_) => "inspect",
         DebugCommand::Reset => "reset",
         _ => "unknown",
+    }
+}
+
+fn debug_command_fields(command: &DebugCommand) -> Value {
+    match command {
+        DebugCommand::ContinueFor(count) => json!({"count": count}),
+        DebugCommand::AddBreakpoint(location) | DebugCommand::RemoveBreakpoint(location) => {
+            json!({"module": location.module.0, "pc": location.program_counter.0})
+        }
+        DebugCommand::Inspect(state) => json!({"state": state}),
+        _ => json!({}),
+    }
+}
+
+fn debug_event_name(event: &DebugEvent) -> &'static str {
+    match event {
+        DebugEvent::Stopped(_) => "stopped",
+        DebugEvent::Continued => "continued",
+        DebugEvent::Halted => "halted",
+        DebugEvent::Snapshot(_) => "snapshot",
+        DebugEvent::OperationResult(_) => "operationResult",
+        DebugEvent::TargetMalformedCommand => "targetMalformedCommand",
+        DebugEvent::TargetUnknownCommand => "targetUnknownCommand",
+        DebugEvent::Disconnected(_) => "disconnected",
+        _ => "unknown",
+    }
+}
+
+fn debug_event_fields(event: &DebugEvent) -> Value {
+    match event {
+        DebugEvent::Stopped(stopped) => {
+            json!({"reason": format!("{:?}", stopped.reason), "pc": stopped.location.map(|location| location.program_counter.0)})
+        }
+        DebugEvent::Snapshot(snapshot) => {
+            json!({"pc": snapshot.program_counter.0, "state": format!("{:?}", snapshot.state)})
+        }
+        DebugEvent::OperationResult(result) => {
+            json!({"success": result.success, "command": format!("{:?}", result.command)})
+        }
+        _ => json!({}),
     }
 }
 

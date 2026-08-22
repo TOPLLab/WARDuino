@@ -1,4 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::widgets::TableState;
+use serde_json::Value;
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -18,6 +20,12 @@ impl VmState {
             Self::Disconnected => "DISCONNECTED",
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Focus {
+    Command,
+    Session,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -72,8 +80,286 @@ pub struct SessionEntry {
     pub direction: Direction,
     pub event: String,
     pub entry_type: EntryType,
-    pub wire: Option<Vec<u8>>,
-    pub effect: Vec<String>,
+    pub payload: EntryPayload,
+    pub stop_context: Option<StopContext>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+pub enum EntryPayload {
+    #[default]
+    None,
+    DapRequest {
+        arguments: Value,
+    },
+    DapResponse {
+        success: bool,
+        body: Value,
+        message: Option<String>,
+    },
+    DapEvent {
+        body: Value,
+    },
+    VmFrame {
+        direction: Direction,
+        bytes: Vec<u8>,
+        fields: Value,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+pub struct StopContext {
+    pub state: Option<String>,
+    pub pc: Option<String>,
+    pub frames: Vec<StackFrame>,
+    pub locals: Vec<NamedValue>,
+    pub detail: Option<String>,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StackFrame {
+    pub name: String,
+    pub address: String,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NamedValue {
+    pub name: String,
+    pub value: String,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EntryDetails {
+    pub heading: String,
+    pub metadata: String,
+    pub sections: Vec<DetailSection>,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DetailSection {
+    pub title: String,
+    pub rows: Vec<DetailRow>,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DetailRow {
+    pub label: String,
+    pub value: String,
+    pub style: DetailStyle,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DetailStyle {
+    Normal,
+    Muted,
+    Success,
+    Warning,
+    Error,
+    Address,
+}
+
+pub fn details_for(entry: &SessionEntry) -> EntryDetails {
+    let mut sections = Vec::new();
+    let rows = |value: &Value| -> Vec<DetailRow> {
+        value
+            .as_object()
+            .map(|object| {
+                object
+                    .iter()
+                    .map(|(key, value)| DetailRow {
+                        label: key.clone(),
+                        value: value_text(value),
+                        style: DetailStyle::Normal,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    match &entry.payload {
+        EntryPayload::DapRequest { arguments } => {
+            let rows = rows(arguments);
+            if !rows.is_empty() {
+                sections.push(DetailSection {
+                    title: "Arguments".into(),
+                    rows,
+                });
+            }
+        }
+        EntryPayload::DapResponse {
+            success,
+            body,
+            message,
+        } => {
+            let mut response = vec![DetailRow {
+                label: "success".into(),
+                value: success.to_string(),
+                style: if *success {
+                    DetailStyle::Success
+                } else {
+                    DetailStyle::Error
+                },
+            }];
+            response.extend(rows(body));
+            sections.push(DetailSection {
+                title: "Response".into(),
+                rows: response,
+            });
+            if !*success {
+                if let Some(message) = message {
+                    sections.push(DetailSection {
+                        title: "Error".into(),
+                        rows: vec![DetailRow {
+                            label: String::new(),
+                            value: message.clone(),
+                            style: DetailStyle::Error,
+                        }],
+                    });
+                }
+            }
+        }
+        EntryPayload::DapEvent { body } => {
+            let rows = if entry.event == "stopped" {
+                Vec::new()
+            } else {
+                rows(body)
+            };
+            if !rows.is_empty() {
+                sections.push(DetailSection {
+                    title: "Event".into(),
+                    rows,
+                });
+            }
+        }
+        EntryPayload::VmFrame {
+            direction,
+            bytes,
+            fields,
+        } => {
+            let rows = rows(fields);
+            if !rows.is_empty() {
+                sections.push(DetailSection {
+                    title: "Fields".into(),
+                    rows,
+                });
+            }
+            sections.push(DetailSection {
+                title: "Wire".into(),
+                rows: vec![
+                    DetailRow {
+                        label: "direction".into(),
+                        value: direction.symbol().into(),
+                        style: DetailStyle::Muted,
+                    },
+                    DetailRow {
+                        label: "bytes".into(),
+                        value: bytes
+                            .iter()
+                            .map(|b| format!("{b:02X}"))
+                            .collect::<Vec<_>>()
+                            .join(" "),
+                        style: DetailStyle::Address,
+                    },
+                ],
+            });
+        }
+        EntryPayload::None => {}
+    }
+    if let Some(context) = &entry.stop_context {
+        let mut execution = Vec::new();
+        if let Some(reason) = event_field(&entry.payload, "reason") {
+            execution.push(DetailRow {
+                label: "reason".into(),
+                value: reason,
+                style: DetailStyle::Normal,
+            });
+        }
+        if let Some(state) = &context.state {
+            execution.push(DetailRow {
+                label: "state".into(),
+                value: state.clone(),
+                style: DetailStyle::Warning,
+            });
+        }
+        if let Some(pc) = &context.pc {
+            execution.push(DetailRow {
+                label: "pc".into(),
+                value: pc.clone(),
+                style: DetailStyle::Address,
+            });
+        }
+        if let Some(thread) = event_field(&entry.payload, "threadId") {
+            execution.push(DetailRow {
+                label: "thread".into(),
+                value: thread,
+                style: DetailStyle::Normal,
+            });
+        }
+        if !execution.is_empty() {
+            sections.push(DetailSection {
+                title: "Execution".into(),
+                rows: execution,
+            });
+        }
+        if !context.frames.is_empty() {
+            sections.push(DetailSection {
+                title: "Stack".into(),
+                rows: context
+                    .frames
+                    .iter()
+                    .map(|frame| DetailRow {
+                        label: frame.name.clone(),
+                        value: frame.address.clone(),
+                        style: DetailStyle::Address,
+                    })
+                    .collect(),
+            });
+        }
+        if !context.locals.is_empty() {
+            sections.push(DetailSection {
+                title: "Locals".into(),
+                rows: context
+                    .locals
+                    .iter()
+                    .map(|local| DetailRow {
+                        label: local.name.clone(),
+                        value: local.value.clone(),
+                        style: DetailStyle::Normal,
+                    })
+                    .collect(),
+            });
+        }
+        if let Some(detail) = &context.detail {
+            sections.push(DetailSection {
+                title: "Inspection".into(),
+                rows: vec![DetailRow {
+                    label: String::new(),
+                    value: detail.clone(),
+                    style: DetailStyle::Error,
+                }],
+            });
+        }
+    }
+    if sections.is_empty() {
+        sections.push(DetailSection {
+            title: String::new(),
+            rows: vec![DetailRow {
+                label: String::new(),
+                value: "No additional details".into(),
+                style: DetailStyle::Muted,
+            }],
+        });
+    }
+    EntryDetails {
+        heading: entry.event.clone(),
+        metadata: format!("{} · #{}", entry.entry_type.label(), entry.sequence),
+        sections,
+    }
+}
+fn value_text(value: &Value) -> String {
+    match value {
+        Value::String(value) => value.clone(),
+        Value::Null => "null".into(),
+        _ => value.to_string(),
+    }
+}
+fn event_field(payload: &EntryPayload, name: &str) -> Option<String> {
+    match payload {
+        EntryPayload::DapEvent { body } => body.get(name).map(value_text),
+        _ => None,
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -100,8 +386,8 @@ pub const COMMANDS: [Completion; 6] = [
         intent: CommandIntent::Step,
     },
     Completion {
-        command: "next",
-        usage: "next",
+        command: "stepover",
+        usage: "stepover",
         intent: CommandIntent::Next,
     },
     Completion {
@@ -122,7 +408,9 @@ pub struct App {
     pub vm_name: String,
     pub vm_state: VmState,
     pub timeline: Vec<SessionEntry>,
-    pub selected: usize,
+    pub focus: Focus,
+    pub session_table: TableState,
+    pub details_scroll: u16,
     pub follow_latest: bool,
     pub prompt: String,
     /// A character offset, never a byte offset.
@@ -144,7 +432,9 @@ impl App {
             vm_name: "WARDuino".into(),
             vm_state: VmState::Connected,
             timeline: Vec::new(),
-            selected: 0,
+            focus: Focus::Command,
+            session_table: TableState::default(),
+            details_scroll: 0,
             follow_latest: true,
             prompt: String::new(),
             cursor: 0,
@@ -160,53 +450,46 @@ impl App {
     #[allow(dead_code)]
     pub fn sample() -> Self {
         let timeline = vec![
-            entry(
+            sample_entry(
                 1042,
                 Direction::Outgoing,
                 "continue",
                 EntryType::DBGCommand,
-                Vec::<String>::new(),
-                Some(vec![0, 0]),
+                EntryPayload::VmFrame {
+                    direction: Direction::Outgoing,
+                    bytes: vec![0, 0],
+                    fields: serde_json::json!({}),
+                },
             ),
-            entry(
+            sample_entry(
                 1043,
                 Direction::Incoming,
                 "continued",
                 EntryType::VmEvent,
-                vec!["VM running"],
-                None,
+                EntryPayload::DapEvent {
+                    body: serde_json::json!({"state":"running"}),
+                },
             ),
-            entry(
+            sample_entry(
                 1044,
                 Direction::Incoming,
                 "stopped",
                 EntryType::DapEvent,
-                vec!["stopped at breakpoint 3", "function 12 · 0x003ad8"],
-                None,
-            ),
-            entry(
-                1045,
-                Direction::Outgoing,
-                "pause",
-                EntryType::DapRequest,
-                vec!["pause requested"],
-                None,
-            ),
-            entry(
-                1046,
-                Direction::Incoming,
-                "stopped",
-                EntryType::DapEvent,
-                vec!["VM paused by request"],
-                None,
+                EntryPayload::DapEvent {
+                    body: serde_json::json!({"reason":"pause", "threadId":1}),
+                },
             ),
         ];
+        let mut session_table = TableState::default();
+        session_table.select(Some(timeline.len() - 1));
         Self {
             connection: "localhost:8100".into(),
             vm_name: "WARDuino".into(),
             vm_state: VmState::Paused,
-            selected: timeline.len() - 1,
             timeline,
+            focus: Focus::Command,
+            session_table,
+            details_scroll: 0,
             follow_latest: true,
             prompt: String::new(),
             cursor: 0,
@@ -221,16 +504,19 @@ impl App {
     }
 
     pub fn selected_entry(&self) -> Option<&SessionEntry> {
-        self.timeline.get(self.selected)
+        self.session_table
+            .selected()
+            .and_then(|index| self.timeline.get(index))
     }
 
+    #[allow(dead_code)]
     pub fn newer_count(&self) -> usize {
         if self.follow_latest {
             0
         } else {
             self.timeline
                 .len()
-                .saturating_sub(self.selected.saturating_add(1))
+                .saturating_sub(self.session_table.selected().unwrap_or(0).saturating_add(1))
         }
     }
 
@@ -256,7 +542,7 @@ impl App {
     pub fn append(&mut self, entry: SessionEntry) {
         self.timeline.push(entry);
         if self.follow_latest {
-            self.selected = self.timeline.len() - 1;
+            self.session_table.select(Some(self.timeline.len() - 1));
         }
     }
 
@@ -265,8 +551,15 @@ impl App {
             return;
         }
         let last = self.timeline.len() - 1;
-        self.selected = self.selected.saturating_add_signed(delta).min(last);
-        self.follow_latest = self.selected == last;
+        let selected = self
+            .session_table
+            .selected()
+            .unwrap_or(last)
+            .saturating_add_signed(delta)
+            .min(last);
+        self.session_table.select(Some(selected));
+        self.details_scroll = 0;
+        self.follow_latest = selected == last;
     }
 
     pub fn page(&mut self, direction: isize, viewport_rows: u16) {
@@ -275,15 +568,50 @@ impl App {
 
     pub fn select_latest(&mut self) {
         if let Some(last) = self.timeline.len().checked_sub(1) {
-            self.selected = last;
+            self.session_table.select(Some(last));
+            self.details_scroll = 0;
             self.follow_latest = true;
         }
     }
 
     pub fn handle_key(&mut self, key: KeyEvent, viewport_rows: u16) -> Option<CommandIntent> {
+        if !self.help_visible && key.code == KeyCode::Char('?') {
+            self.help_visible = true;
+            return None;
+        }
         if self.help_visible {
             if matches!(key.code, KeyCode::Esc | KeyCode::Char('?')) {
                 self.help_visible = false;
+            }
+            return None;
+        }
+        if self.focus == Focus::Command
+            && (key.code == KeyCode::BackTab
+                || (key.code == KeyCode::Tab && key.modifiers.contains(KeyModifiers::SHIFT)))
+        {
+            self.focus = Focus::Session;
+            return None;
+        }
+        if self.focus == Focus::Session {
+            match key.code {
+                KeyCode::Tab | KeyCode::BackTab => self.focus = Focus::Command,
+                KeyCode::Up => self.select_delta(-1),
+                KeyCode::Down => self.select_delta(1),
+                KeyCode::PageUp => self.page(-1, viewport_rows),
+                KeyCode::PageDown => self.page(1, viewport_rows),
+                KeyCode::Home => {
+                    if !self.timeline.is_empty() {
+                        self.session_table.select(Some(0));
+                        self.details_scroll = 0;
+                        self.follow_latest = false;
+                    }
+                }
+                KeyCode::End => self.select_latest(),
+                KeyCode::Char(character) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.focus = Focus::Command;
+                    self.insert(character);
+                }
+                _ => {}
             }
             return None;
         }
@@ -301,13 +629,9 @@ impl App {
             }
         }
         match key.code {
-            KeyCode::Char('?') => self.help_visible = true,
-            KeyCode::PageUp => self.page(-1, viewport_rows),
-            KeyCode::PageDown => self.page(1, viewport_rows),
-            KeyCode::End if self.prompt.is_empty() => self.select_latest(),
             KeyCode::Up => self.previous_choice(),
             KeyCode::Down => self.next_choice(),
-            KeyCode::Tab => self.accept_completion(),
+            KeyCode::Tab => self.next_choice(),
             KeyCode::Enter => return self.submit(),
             KeyCode::Esc => self.escape(),
             KeyCode::Left => self.cursor = self.cursor.saturating_sub(1),
@@ -334,7 +658,7 @@ impl App {
 
     fn next_choice(&mut self) {
         if !self.completions.is_empty() {
-            self.completion_index = (self.completion_index + 1).min(self.completions.len() - 1);
+            self.completion_index = (self.completion_index + 1) % self.completions.len();
         } else {
             self.history_next();
         }
@@ -388,7 +712,6 @@ impl App {
                 .iter()
                 .copied()
                 .filter(|candidate| candidate.command.starts_with(&token.to_ascii_lowercase()))
-                .take(3)
                 .collect();
         }
         self.completion_index = self
@@ -396,29 +719,18 @@ impl App {
             .min(self.completions.len().saturating_sub(1));
     }
 
-    fn accept_completion(&mut self) {
-        let Some(completion) = self.active_completion() else {
-            return;
-        };
-        let suffix: String = self
-            .prompt
-            .chars()
-            .skip_while(|character| !character.is_whitespace())
-            .collect();
-        self.prompt = format!("{}{}", completion.command, suffix);
-        self.cursor = completion.command.chars().count();
-        self.completions.clear();
-        self.completions_dismissed = true;
-        self.notice = None;
-    }
-
     fn submit(&mut self) -> Option<CommandIntent> {
-        let command = self.prompt.trim();
-        let Some(completion) = COMMANDS
+        let typed = self.prompt.trim();
+        let completion = COMMANDS
             .iter()
-            .find(|candidate| candidate.command == command)
+            .find(|candidate| candidate.command == typed)
             .copied()
-        else {
+            .or_else(|| {
+                (!typed.chars().any(char::is_whitespace))
+                    .then(|| self.active_completion())
+                    .flatten()
+            });
+        let Some(completion) = completion else {
             self.notice = Some(format!(
                 "Unknown command — use {}",
                 COMMANDS
@@ -430,6 +742,7 @@ impl App {
             self.completions.clear();
             return None;
         };
+        let command = completion.command;
         if self
             .history
             .last()
@@ -455,6 +768,8 @@ impl App {
             self.cursor = 0;
             self.notice = None;
             self.history_index = None;
+        } else {
+            self.focus = Focus::Session;
         }
     }
 
@@ -500,21 +815,19 @@ impl App {
     }
 }
 
-#[allow(dead_code)]
-fn entry(
+fn sample_entry(
     sequence: u64,
     direction: Direction,
-    kind: &str,
+    event: &str,
     entry_type: EntryType,
-    effect: Vec<impl Into<String>>,
-    wire: Option<Vec<u8>>,
+    payload: EntryPayload,
 ) -> SessionEntry {
     SessionEntry {
         sequence,
         direction,
-        event: kind.into(),
+        event: event.into(),
         entry_type,
-        effect: effect.into_iter().map(Into::into).collect(),
-        wire,
+        payload,
+        stop_context: None,
     }
 }
