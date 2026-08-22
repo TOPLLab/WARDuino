@@ -12,9 +12,7 @@ name = "warduino-dap"
 path = "src/bin/server.rs"
 
 [dependencies]
-debug = {
-    path = "../wdebug",
-}
+debug = { package = "wdebug", path = "../wdebug" }
 
 serde.workspace = true
 serde_json.workspace = true

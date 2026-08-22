@@ -5,7 +5,8 @@ use std::{
 };
 
 use crate::{
-    DebugCommand, DebugError, DebugEvent, DebugSession, DisconnectReason, Result, SentFrame, codec,
+    DebugCommand, DebugError, DebugEvent, DebugSession, DisconnectReason, ReceivedFrame, Result,
+    SentFrame, codec,
     framing::{self, FrameDecoder},
     transport::{TcpTransport, Transport},
 };
@@ -37,7 +38,7 @@ impl DebugSession for WarduinoSession {
         self.inner.send(command)
     }
 
-    fn try_recv(&mut self) -> Result<Option<DebugEvent>> {
+    fn try_recv(&mut self) -> Result<Option<ReceivedFrame>> {
         self.inner.try_recv()
     }
 }
@@ -45,7 +46,7 @@ impl DebugSession for WarduinoSession {
 struct Session<T> {
     transport: T,
     decoder: FrameDecoder,
-    events: VecDeque<DebugEvent>,
+    events: VecDeque<ReceivedFrame>,
     state: ConnectionState,
 }
 
@@ -78,7 +79,7 @@ impl<T: Transport> Session<T> {
         Ok(SentFrame::from_complete_frame(frame))
     }
 
-    fn try_recv(&mut self) -> Result<Option<DebugEvent>> {
+    fn try_recv(&mut self) -> Result<Option<ReceivedFrame>> {
         if let Some(event) = self.events.pop_front() {
             return Ok(Some(event));
         }
@@ -95,8 +96,9 @@ impl<T: Transport> Session<T> {
         match self.transport.read_available(&mut bytes) {
             Ok(0) => {
                 self.state = ConnectionState::Closed;
-                Ok(Some(DebugEvent::Disconnected(
-                    DisconnectReason::TransportClosed,
+                Ok(Some(ReceivedFrame::from_complete_frame(
+                    DebugEvent::Disconnected(DisconnectReason::TransportClosed),
+                    Vec::new(),
                 )))
             }
             Ok(count) => {
@@ -125,7 +127,8 @@ impl<T: Transport> Session<T> {
             };
             let event = codec::decode_event(frame.message_type, &frame.payload)
                 .map_err(|error| self.fail(error))?;
-            self.events.push_back(event);
+            self.events
+                .push_back(ReceivedFrame::from_complete_frame(event, frame.bytes));
         }
         Ok(())
     }
@@ -192,7 +195,10 @@ mod tests {
         assert_eq!(session.try_recv().unwrap(), None);
         assert!(matches!(
             session.try_recv().unwrap(),
-            Some(DebugEvent::Stopped(_))
+            Some(ReceivedFrame {
+                event: DebugEvent::Stopped(_),
+                ..
+            })
         ));
         assert_eq!(session.try_recv().unwrap(), None);
     }
@@ -206,7 +212,10 @@ mod tests {
         let mut session = Session::new(transport);
         assert!(matches!(
             session.try_recv().unwrap(),
-            Some(DebugEvent::Disconnected(_))
+            Some(ReceivedFrame {
+                event: DebugEvent::Disconnected(_),
+                ..
+            })
         ));
         assert_eq!(session.try_recv().unwrap(), None);
     }

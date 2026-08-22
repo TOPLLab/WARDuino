@@ -1,5 +1,5 @@
 [package]
-name = "debug"
+name = "wdebug"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

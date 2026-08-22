@@ -117,6 +117,22 @@ impl SentFrame {
     }
 }
 
+/// A decoded inbound VM event and the exact complete frame that carried it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReceivedFrame {
+    pub event: DebugEvent,
+    bytes: Vec<u8>,
+}
+
+impl ReceivedFrame {
+    pub fn from_complete_frame(event: DebugEvent, bytes: Vec<u8>) -> Self {
+        Self { event, bytes }
+    }
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
 /// A WARDuino debug connection.
 ///
 /// `send` completes when the complete frame has been accepted by the local
@@ -124,5 +140,5 @@ impl SentFrame {
 /// for bytes and returns one queued event at a time.
 pub trait DebugSession {
     fn send(&mut self, command: DebugCommand) -> Result<SentFrame>;
-    fn try_recv(&mut self) -> Result<Option<DebugEvent>>;
+    fn try_recv(&mut self) -> Result<Option<ReceivedFrame>>;
 }

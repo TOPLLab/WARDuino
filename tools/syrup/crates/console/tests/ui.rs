@@ -3,153 +3,166 @@ mod app;
 #[path = "../src/ui.rs"]
 mod ui;
 
+use app::{
+    App, Direction, EntryPayload, EntryType, Focus, NamedValue, SessionEntry, StackFrame,
+    StopContext, details_for,
+};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend};
-
-use app::{App, Direction, EntryType, SessionEntry};
+use serde_json::json;
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
 }
-
 fn render(app: &App, width: u16, height: u16) -> String {
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal.draw(|frame| ui::draw(frame, app)).unwrap();
-    let buffer = terminal.backend().buffer();
+    let b = terminal.backend().buffer();
     (0..height)
         .map(|y| {
             (0..width)
-                .map(|x| buffer.cell((x, y)).unwrap().symbol())
+                .map(|x| b.cell((x, y)).unwrap().symbol())
                 .collect::<String>()
         })
         .collect::<Vec<_>>()
         .join("\n")
 }
+fn entry(sequence: u64, event: &str, payload: EntryPayload) -> SessionEntry {
+    SessionEntry {
+        sequence,
+        direction: Direction::Incoming,
+        event: event.into(),
+        entry_type: EntryType::DapEvent,
+        payload,
+        stop_context: None,
+    }
+}
 
 #[test]
-fn selection_and_following_keep_results_deterministic() {
+fn selection_is_table_state_and_follow_latest_is_deterministic() {
     let mut app = App::sample();
-    assert_eq!(
-        app.selected_entry().unwrap().effect,
-        vec!["VM paused by request"]
-    );
-    app.select_delta(-2);
-    assert_eq!(app.selected_entry().unwrap().event, "stopped");
+    assert_eq!(app.session_table.selected(), Some(2));
+    app.select_delta(-1);
+    assert_eq!(app.selected_entry().unwrap().sequence, 1043);
     assert!(!app.follow_latest);
-    app.append(SessionEntry {
-        sequence: 1047,
-        direction: Direction::Incoming,
-        event: "note".into(),
-        entry_type: EntryType::DapEvent,
-        wire: None,
-        effect: vec!["new effect".into()],
-    });
-    assert_eq!(app.selected_entry().unwrap().sequence, 1044);
-    assert_eq!(app.newer_count(), 3);
+    app.append(entry(
+        4,
+        "output",
+        EntryPayload::DapEvent {
+            body: json!({"output":"later"}),
+        },
+    ));
+    assert_eq!(app.selected_entry().unwrap().sequence, 1043);
     app.select_latest();
     assert!(app.follow_latest);
-    app.append(SessionEntry {
-        sequence: 1048,
-        direction: Direction::Incoming,
-        event: "note".into(),
-        entry_type: EntryType::DapEvent,
-        wire: None,
-        effect: vec![],
-    });
-    assert_eq!(app.selected_entry().unwrap().sequence, 1048);
+    assert_eq!(app.selected_entry().unwrap().sequence, 4);
 }
-
 #[test]
-fn prompt_edits_completes_submits_and_rejects_unsupported_commands() {
+fn focus_and_keys_preserve_command_buffer() {
     let mut app = App::sample();
     app.insert('c');
-    assert_eq!(app.completions.len(), 1);
-    assert_eq!(app.active_completion().unwrap().command, "continue");
-    app.handle_key(key(KeyCode::Tab), 4);
-    assert_eq!(app.prompt, "continue");
-    let intent = app.handle_key(key(KeyCode::Enter), 4);
+    assert!(!app.completions.is_empty());
+    app.handle_key(key(KeyCode::Esc), 4);
+    assert_eq!(app.focus, Focus::Command);
+    app.handle_key(key(KeyCode::Esc), 4);
     assert!(app.prompt.is_empty());
-    assert_eq!(intent, Some(app::CommandIntent::Continue));
-    assert_eq!(app.timeline.last().unwrap().event, "stopped");
-    assert_eq!(app.vm_state.label(), "PAUSED");
-
-    app.insert('x');
-    app.insert('🙂');
-    app.handle_key(key(KeyCode::Left), 4);
-    app.handle_key(key(KeyCode::Backspace), 4);
-    assert_eq!(app.prompt, "🙂");
-    let entries_before = app.timeline.len();
-    app.handle_key(key(KeyCode::Enter), 4);
-    assert_eq!(app.prompt, "🙂");
-    assert!(app.notice.as_deref().unwrap().contains("Unknown command"));
-    assert_eq!(app.timeline.len(), entries_before);
-    assert!(app.completions.len() <= 3);
+    app.handle_key(key(KeyCode::Esc), 4);
+    assert_eq!(app.focus, Focus::Session);
+    app.handle_key(key(KeyCode::Down), 4);
+    let prompt = app.prompt.clone();
+    app.handle_key(key(KeyCode::Char('p')), 4);
+    assert_eq!(app.focus, Focus::Command);
+    assert_eq!(app.prompt, format!("{prompt}p"));
+    app.handle_key(KeyEvent::new(KeyCode::BackTab, KeyModifiers::SHIFT), 4);
+    assert_eq!(app.focus, Focus::Session);
+    app.handle_key(key(KeyCode::Tab), 4);
+    assert_eq!(app.focus, Focus::Command);
 }
 
 #[test]
-fn responsive_buffers_preserve_prompt_and_selected_result() {
+fn tab_cycles_completions_and_enter_submits_the_active_one() {
+    let mut app = App::sample();
+    for character in "ste".chars() {
+        app.insert(character);
+    }
+    assert_eq!(
+        app.completions
+            .iter()
+            .map(|completion| completion.command)
+            .collect::<Vec<_>>(),
+        vec!["step", "stepover"]
+    );
+    assert_eq!(app.completion_index, 0);
+
+    app.handle_key(key(KeyCode::Tab), 4);
+    assert_eq!(app.completion_index, 1);
+    app.handle_key(key(KeyCode::Tab), 4);
+    assert_eq!(app.completion_index, 0);
+    app.handle_key(key(KeyCode::Tab), 4);
+    assert_eq!(
+        app.handle_key(key(KeyCode::Enter), 4),
+        Some(app::CommandIntent::Next)
+    );
+}
+
+#[test]
+fn completion_candidates_render_horizontally() {
+    let mut app = App::sample();
+    for character in "ste".chars() {
+        app.insert(character);
+    }
+    let output = render(&app, 72, 24);
+    assert!(output.contains("step   stepover"));
+}
+#[test]
+fn details_are_owned_by_each_entry() {
+    let request = entry(
+        9,
+        "pause",
+        EntryPayload::DapRequest {
+            arguments: json!({"threadId":1}),
+        },
+    );
+    assert_eq!(details_for(&request).sections[0].title, "Arguments");
+    let mut stopped = entry(
+        10,
+        "stopped",
+        EntryPayload::DapEvent {
+            body: json!({"reason":"pause","threadId":1}),
+        },
+    );
+    stopped.stop_context = Some(StopContext {
+        state: Some("Paused".into()),
+        pc: Some("0x17".into()),
+        frames: vec![StackFrame {
+            name: "WARDuino".into(),
+            address: "0x17".into(),
+        }],
+        locals: vec![NamedValue {
+            name: "x".into(),
+            value: "1".into(),
+        }],
+        detail: None,
+    });
+    let d = details_for(&stopped);
+    assert!(d.sections.iter().any(|s| s.title == "Execution"));
+    assert!(d.sections.iter().any(|s| s.title == "Stack"));
+    assert!(d.sections.iter().any(|s| s.title == "Locals"));
+    let empty = entry(11, "note", EntryPayload::None);
+    assert_eq!(
+        details_for(&empty).sections[0].rows[0].value,
+        "No additional details"
+    );
+}
+#[test]
+fn details_render_responsively() {
     let app = App::sample();
-    let wide = render(&app, 140, 40);
-    assert!(!wide.contains("SYRUP"));
-    assert!(wide.contains("Session"));
-    assert!(wide.contains("Result"));
-    assert!(wide.contains("VM paused by request"));
-    assert!(wide.contains("Event"));
-    assert!(wide.contains("Type"));
-    assert!(wide.contains("Wire"));
-    assert!(wide.contains("DBG command"));
-    assert!(wide.contains("VM event"));
-    assert!(!wide.contains("VM frame"));
-    assert!(wide.contains("00 00"));
-    assert!(wide.contains("›"));
-
-    let medium = render(&app, 100, 30);
-    assert!(medium.contains("Session"));
-    assert!(medium.contains("Result"));
-    assert!(medium.contains("Event"));
-    assert!(medium.contains("Wire"));
-    let wide_header = wide
-        .lines()
-        .find(|line| line.contains("Event") && line.contains("Type"))
-        .unwrap();
-    let wide_row = wide
-        .lines()
-        .find(|line| line.contains("continue") && line.contains("DBG command"))
-        .unwrap();
-    assert_eq!(
-        wide_header[..wide_header.find("Event").unwrap()]
-            .chars()
-            .count(),
-        wide_row[..wide_row.find("continue").unwrap()]
-            .chars()
-            .count()
-    );
-    assert_eq!(
-        wide_header[..wide_header.find("Type").unwrap()]
-            .chars()
-            .count(),
-        wide_row[..wide_row.find("DBG command").unwrap()]
-            .chars()
-            .count()
-    );
-
-    let narrow = render(&app, 72, 24);
-    assert!(narrow.contains("Session"));
-    assert!(narrow.contains("Event"));
-    assert!(!narrow.contains("1042"));
-    assert!(narrow.contains("›"));
-
-    let mut frame_selected = App::sample();
-    frame_selected.selected = 0;
-    assert!(render(&frame_selected, 50, 14).contains("00 00"));
-
-    let minimum = render(&app, 50, 14);
-    assert!(minimum.contains("Session"));
-    assert!(minimum.contains("Result"));
-    assert!(minimum.contains("›"));
-
-    let too_small = render(&app, 49, 13);
-    assert!(too_small.contains("Terminal too small — minimum 50×14"));
-    assert!(!too_small.contains("Session"));
+    for (w, h) in [(140, 40), (100, 30), (72, 24), (50, 14)] {
+        let output = render(&app, w, h);
+        assert!(output.contains("Session"));
+        assert!(output.contains("Details"));
+        assert!(output.contains("stopped"));
+    }
+    assert!(render(&app, 49, 13).contains("Terminal too small"));
 }
