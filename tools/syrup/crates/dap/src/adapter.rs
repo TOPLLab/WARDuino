@@ -204,7 +204,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
         AdapterOutput::one(self.success(
             &request,
-            json!({"threads": [{"id": THREAD_ID, "name": "Waffyr VM"}]}),
+            json!({"threads": [{"id": THREAD_ID, "name": "WARDuino VM"}]}),
         ))
     }
 
