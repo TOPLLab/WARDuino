@@ -26,6 +26,7 @@ pub enum DebugCommand {
     RequestSnapshot,
     Inspect(Vec<u8>),
     Reset,
+    UpdateModule(Vec<u8>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,6 +41,7 @@ pub enum CommandKind {
     ContinueFor,
     Snapshot,
     Reset,
+    UpdateModule,
     Other(i32),
 }
 

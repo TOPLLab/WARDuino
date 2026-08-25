@@ -23,6 +23,10 @@
                 "description": "WARDuino VM debug socket address.",
                 "default": "127.0.0.1:8192"
               },
+              "program": {
+                "type": "string",
+                "description": "Path to the WAT program uploaded and mapped for this debug session."
+              },
               "debugServer": {
                 "type": "number",
                 "description": "WARDuino DAP server port (served at 127.0.0.1).",
@@ -30,7 +34,8 @@
               }
             },
             "required": [
-              "device"
+              "device",
+              "program"
             ]
           }
         },
@@ -40,7 +45,8 @@
             "type": "warduino",
             "request": "attach",
             "debugServer": 4711,
-            "device": "127.0.0.1:8192"
+            "device": "127.0.0.1:8192",
+            "program": "${workspaceFolder}/main.wat"
           }
         ]
       }
