@@ -7,9 +7,10 @@ use ratatui::{
 };
 
 use crate::app::{
-    App, COMMANDS, DetailStyle, Direction, EntryPayload, EntryType, Focus, SessionEntry,
+    App, DetailStyle, EntryPayload, EntryType, Focus, SessionEntry,
     details_for,
 };
+use crate::messages::{COMMANDS, Direction};
 
 #[path = "completion.rs"]
 mod completion;
@@ -448,15 +449,6 @@ fn render_prompt(frame: &mut Frame, app: &App, area: Rect) {
         Rect::new(area.x, area.y, 1, area.height),
     );
     let input = trim_text(&app.prompt, area.width.saturating_sub(6) as usize);
-    let ghost = if app.cursor == app.prompt.chars().count()
-        && !app.prompt.chars().any(char::is_whitespace)
-    {
-        app.active_completion()
-            .and_then(|completion| completion.command.strip_prefix(&app.prompt))
-            .unwrap_or_default()
-    } else {
-        ""
-    };
     let line = if input.is_empty() {
         Line::from(vec![
             Span::styled("› ", Style::default().fg(ACCENT)),
@@ -466,7 +458,6 @@ fn render_prompt(frame: &mut Frame, app: &App, area: Rect) {
         Line::from(vec![
             Span::styled("› ", Style::default().fg(ACCENT)),
             Span::styled(input, Style::default().fg(TEXT)),
-            Span::styled(ghost, Style::default().fg(MUTED)),
         ])
     };
     frame.render_widget(
@@ -542,13 +533,13 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect, mode: LayoutMode) {
     let pairs: &[(&str, &str)] = match (app.focus, mode == LayoutMode::Narrow) {
         (Focus::Command, true) => &[
             ("↑↓", " choice  "),
-            ("tab", " next  "),
+            ("tab", " complete  "),
             ("enter", " send  "),
             ("esc", " session"),
         ],
         (Focus::Command, false) => &[
             ("↑↓", " choice/history    "),
-            ("tab", " next completion    "),
+            ("tab", " complete    "),
             ("enter", " send    "),
             ("esc", " cancel/session    "),
             ("?", " help"),

@@ -81,7 +81,7 @@ fn focus_and_keys_preserve_command_buffer() {
 }
 
 #[test]
-fn tab_cycles_completions_and_enter_submits_the_active_one() {
+fn tab_accepts_the_selected_completion_before_enter_submits() {
     let mut app = App::sample();
     for character in "ste".chars() {
         app.insert(character);
@@ -96,13 +96,40 @@ fn tab_cycles_completions_and_enter_submits_the_active_one() {
     assert_eq!(app.completion_index, 0);
 
     app.handle_key(key(KeyCode::Tab), 4);
+    assert_eq!(app.prompt, "step");
+    assert_eq!(app.cursor, 4);
+    app.handle_key(key(KeyCode::Tab), 4);
+    assert_eq!(app.prompt, "stepover");
+    assert_eq!(app.cursor, 8);
+    app.handle_key(key(KeyCode::Tab), 4);
+    assert_eq!(app.prompt, "step");
+    assert_eq!(app.cursor, 4);
+
+    app.handle_key(key(KeyCode::Down), 4);
     assert_eq!(app.completion_index, 1);
     app.handle_key(key(KeyCode::Tab), 4);
-    assert_eq!(app.completion_index, 0);
-    app.handle_key(key(KeyCode::Tab), 4);
+    assert_eq!(app.prompt, "stepover");
+    assert_eq!(app.cursor, 8);
     assert_eq!(
         app.handle_key(key(KeyCode::Enter), 4),
         Some(app::CommandIntent::Next)
+    );
+    assert!(app.prompt.is_empty());
+}
+
+#[test]
+fn enter_does_not_submit_an_unaccepted_completion() {
+    let mut app = App::sample();
+    for character in "ste".chars() {
+        app.insert(character);
+    }
+
+    assert_eq!(app.handle_key(key(KeyCode::Enter), 4), None);
+    assert_eq!(app.prompt, "ste");
+    assert!(
+        app.notice
+            .as_deref()
+            .is_some_and(|notice| notice.contains("Unknown command"))
     );
 }
 
