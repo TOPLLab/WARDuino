@@ -41,6 +41,15 @@ pub(super) fn encode_command(command: DebugCommand) -> Result<EncodedMessage> {
         DebugCommand::RequestSnapshot => empty(9),
         DebugCommand::Inspect(state) => encode(23, wire::Inspect { state }),
         DebugCommand::Reset => empty(24),
+        DebugCommand::UpdateModule(wasm) => {
+            if wasm.is_empty() {
+                return Err(DebugError::InvalidPayload {
+                    message_type: 26,
+                    reason: "module update must not be empty",
+                });
+            }
+            encode(26, wire::ModuleUpdate { wasm })
+        }
     }
 }
 
@@ -195,6 +204,7 @@ fn command_kind(value: i32) -> CommandKind {
         9 => CommandKind::Snapshot,
         22 => CommandKind::ContinueFor,
         24 => CommandKind::Reset,
+        26 => CommandKind::UpdateModule,
         other => CommandKind::Other(other),
     }
 }
@@ -246,10 +256,25 @@ mod tests {
             (DebugCommand::RequestSnapshot, 9),
             (DebugCommand::Inspect(Vec::new()), 23),
             (DebugCommand::Reset, 24),
+            (DebugCommand::UpdateModule(vec![0]), 26),
             (DebugCommand::ContinueFor(1), 22),
         ];
         for (command, message_type) in cases {
             assert_eq!(encode_command(command).unwrap().message_type, message_type);
         }
+    }
+    #[test]
+    fn encodes_module_update_and_rejects_empty_payload() {
+        let message =
+            encode_command(DebugCommand::UpdateModule(vec![0, 0x61, 0x73, 0x6d])).unwrap();
+        assert_eq!(message.message_type, 26);
+        assert_eq!(message.payload, [10, 4, 0, 0x61, 0x73, 0x6d]);
+        assert!(matches!(
+            encode_command(DebugCommand::UpdateModule(Vec::new())),
+            Err(DebugError::InvalidPayload {
+                message_type: 26,
+                ..
+            })
+        ));
     }
 }

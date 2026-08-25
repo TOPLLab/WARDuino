@@ -236,4 +236,16 @@ mod tests {
         let mut session = Session::new(FailingTransport);
         assert!(session.send(DebugCommand::Continue).is_err());
     }
+    #[test]
+    fn rejects_module_updates_that_exceed_the_transport_limit() {
+        let transport = MemoryTransport {
+            input: VecDeque::new(),
+            written: Vec::new(),
+        };
+        let mut session = Session::new(transport);
+        let error = session
+            .send(DebugCommand::UpdateModule(vec![0; 65_533]))
+            .unwrap_err();
+        assert!(matches!(error, DebugError::FrameTooLarge { .. }));
+    }
 }
