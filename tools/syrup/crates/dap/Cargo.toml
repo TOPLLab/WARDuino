@@ -16,3 +16,5 @@ debug = { package = "wdebug", path = "../wdebug" }
 
 serde.workspace = true
 serde_json.workspace = true
+wast.workspace = true
+wasmparser.workspace = true
