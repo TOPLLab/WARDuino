@@ -3,9 +3,10 @@ use serde_json::{Value, json};
 use dap::{AdapterOutput, Request, WarduinoAdapter, warduino_adapter};
 
 use crate::app::{
-    App, CommandIntent, Direction, EntryPayload, EntryType, NamedValue, SessionEntry, StackFrame,
+    App, EntryPayload, EntryType, NamedValue, SessionEntry, StackFrame,
     StopContext, VmState,
 };
+use crate::messages::{CommandIntent, Direction};
 
 pub struct Session {
     adapter: WarduinoAdapter,

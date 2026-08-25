@@ -1,6 +1,9 @@
 mod app;
 mod session;
 mod ui;
+mod details;
+mod r#enum;
+mod messages;
 
 use std::{
     io::{self, stdout},
