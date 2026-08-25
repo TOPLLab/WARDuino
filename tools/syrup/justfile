@@ -1,11 +1,21 @@
 root := "../.."
 proto := root + "/src/Debug/debug.proto"
 
+set default-list := true
+
+demo:
+    wdcli assets/fac.wasm --paused --socket 8192 >/dev/null &
+    vhs assets/demo.tape
+    pkill wdcli
+
 schema:
     protoc -I {{root}}/src/Debug --include_imports --include_source_info --descriptor_set_out=debug.pb {{proto}}
 
 check:
     cargo check --workspace
+
+build: schema
+    cargo build --release -p console
 
 test:
     cargo test --workspace
@@ -16,5 +26,3 @@ run device: schema
 dap-server address:
     cargo run -p warduino-dap -- --dap-server {{address}}
 
-build: schema
-    cargo build --release -p console
