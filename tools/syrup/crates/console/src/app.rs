@@ -1,3 +1,4 @@
+use crate::messages::{COMMANDS, CommandIntent, Completion, Direction};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::TableState;
 use serde_json::Value;
@@ -29,31 +30,6 @@ pub enum Focus {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CommandIntent {
-    Continue,
-    Pause,
-    Step,
-    Next,
-    Restart,
-    Terminate,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Direction {
-    Outgoing,
-    Incoming,
-}
-
-impl Direction {
-    pub const fn symbol(self) -> &'static str {
-        match self {
-            Self::Outgoing => "→",
-            Self::Incoming => "←",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EntryType {
     DapRequest,
     DapResponse,
@@ -68,7 +44,7 @@ impl EntryType {
             Self::DapRequest => "DAP request",
             Self::DapResponse => "DAP response",
             Self::DapEvent => "DAP event",
-            Self::DBGCommand => "DBG command",
+            Self::DBGCommand => "WARDuino msg",
             Self::VmEvent => "VM event",
         }
     }
@@ -362,46 +338,6 @@ fn event_field(payload: &EntryPayload, name: &str) -> Option<String> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Completion {
-    pub command: &'static str,
-    pub usage: &'static str,
-    pub intent: CommandIntent,
-}
-
-pub const COMMANDS: [Completion; 6] = [
-    Completion {
-        command: "continue",
-        usage: "continue",
-        intent: CommandIntent::Continue,
-    },
-    Completion {
-        command: "pause",
-        usage: "pause",
-        intent: CommandIntent::Pause,
-    },
-    Completion {
-        command: "step",
-        usage: "step",
-        intent: CommandIntent::Step,
-    },
-    Completion {
-        command: "stepover",
-        usage: "stepover",
-        intent: CommandIntent::Next,
-    },
-    Completion {
-        command: "restart",
-        usage: "restart",
-        intent: CommandIntent::Restart,
-    },
-    Completion {
-        command: "terminate",
-        usage: "terminate",
-        intent: CommandIntent::Terminate,
-    },
-];
-
 #[derive(Debug)]
 pub struct App {
     pub connection: String,
@@ -631,7 +567,7 @@ impl App {
         match key.code {
             KeyCode::Up => self.previous_choice(),
             KeyCode::Down => self.next_choice(),
-            KeyCode::Tab => self.next_choice(),
+            KeyCode::Tab => self.accept_completion(),
             KeyCode::Enter => return self.submit(),
             KeyCode::Esc => self.escape(),
             KeyCode::Left => self.cursor = self.cursor.saturating_sub(1),
@@ -662,6 +598,23 @@ impl App {
         } else {
             self.history_next();
         }
+    }
+
+    fn accept_completion(&mut self) {
+        let Some(completion) = self.active_completion() else {
+            return;
+        };
+        if self.prompt == completion.command {
+            self.next_choice();
+        }
+        let completion = self
+            .active_completion()
+            .expect("completion remains selected");
+        self.prompt = completion.command.into();
+        self.cursor = self.char_len();
+        self.notice = None;
+        self.history_index = None;
+        self.completions_dismissed = false;
     }
 
     pub fn insert(&mut self, character: char) {
@@ -724,12 +677,7 @@ impl App {
         let completion = COMMANDS
             .iter()
             .find(|candidate| candidate.command == typed)
-            .copied()
-            .or_else(|| {
-                (!typed.chars().any(char::is_whitespace))
-                    .then(|| self.active_completion())
-                    .flatten()
-            });
+            .copied();
         let Some(completion) = completion else {
             self.notice = Some(format!(
                 "Unknown command — use {}",
