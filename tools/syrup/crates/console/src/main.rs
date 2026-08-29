@@ -41,9 +41,9 @@ impl Drop for TerminalGuard {
     }
 }
 
-fn run(device: String) -> io::Result<()> {
+fn run(device: String, program: String) -> io::Result<()> {
     let mut app = App::live(device.clone());
-    let mut session = Session::connect(&device, &mut app).map_err(io::Error::other)?;
+    let mut session = Session::connect(&device, &program, &mut app).map_err(io::Error::other)?;
     let _guard = TerminalGuard::enter()?;
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
@@ -84,9 +84,15 @@ fn main() -> io::Result<()> {
     match (
         arguments.next().as_deref(),
         arguments.next(),
+        arguments.next().as_deref(),
+        arguments.next(),
         arguments.next(),
     ) {
-        (Some("--device"), Some(device), None) => run(device),
-        _ => Err(io::Error::other("usage: syrup --device <host:port>")),
+        (Some("--device"), Some(device), Some("--program"), Some(program), None) => {
+            run(device, program)
+        }
+        _ => Err(io::Error::other(
+            "usage: syrup --device <host:port> --program <module.wat>",
+        )),
     }
 }
