@@ -9,11 +9,9 @@
 #include <cerrno>
 #include <csignal>
 #include <cstdarg>
-#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <cerrno>
 
 #ifdef WIFI_ENABLED
 // Socket Debugger Interface
