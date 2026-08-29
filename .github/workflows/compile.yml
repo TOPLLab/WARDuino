@@ -33,19 +33,8 @@ jobs:
               with:
                   submodules: 'recursive'
 
-            - name: Create build folder
-              run: mkdir build-emu
-
-            - name: Set up Homebrew
-              if: ${{ ! startsWith(matrix.os, 'macos') }}
-              uses: Homebrew/actions/setup-homebrew@main
-
-            - name: Set up nanopb
-              uses: ./.github/actions/setup-nanopb
-
             - name: Build WARDuino CLI
-              run: cmake .. -D BUILD_EMULATOR=ON ; cmake --build .
-              working-directory: build-emu
+              uses: ./.github/actions/build-wdcli
 
     compile-with-arduino:
         name: (Arduino) Compile on ${{matrix.board.platform-name}}
