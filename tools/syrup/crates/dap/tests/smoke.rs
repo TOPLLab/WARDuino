@@ -142,9 +142,18 @@ fn acknowledged_adapter() -> (FakeAdapter, Rc<RefCell<FakeState>>, Vec<u32>) {
 }
 
 fn stop_at(adapter: &mut FakeAdapter, state: &Rc<RefCell<FakeState>>, pc: u32) -> Vec<Value> {
+    stop_at_reason(adapter, state, pc, StopReason::Step)
+}
+
+fn stop_at_reason(
+    adapter: &mut FakeAdapter,
+    state: &Rc<RefCell<FakeState>>,
+    pc: u32,
+    reason: StopReason,
+) -> Vec<Value> {
     state.borrow_mut().events.extend([
         Ok(Some(DebugEvent::Stopped(Stopped {
-            reason: StopReason::Step,
+            reason,
             location: None,
         }))),
         Ok(Some(DebugEvent::Snapshot(Snapshot {
@@ -201,10 +210,11 @@ fn source_steps_hide_intermediate_vm_stops_and_instruction_steps_send_once() {
         request(4, "next", json!({"threadId": 1, "granularity": "line"})),
     );
     assert_eq!(next[0]["success"], true);
-    assert!(stop_at(&mut adapter, &state, pcs[0]).is_empty());
-    let final_stop = stop_at(&mut adapter, &state, pcs[1]);
+    assert!(stop_at_reason(&mut adapter, &state, pcs[0], StopReason::Breakpoint).is_empty());
+    let final_stop = stop_at_reason(&mut adapter, &state, pcs[1], StopReason::Breakpoint);
     assert_eq!(final_stop.len(), 1);
     assert_eq!(final_stop[0]["event"], "stopped");
+    assert_eq!(final_stop[0]["body"]["reason"], "step");
     assert_eq!(
         state
             .borrow()

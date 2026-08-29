@@ -1,3 +1,5 @@
+//! DAP adapter translating debugger requests into WARDuino VM commands.
+
 use std::{
     path::Path,
     time::{Duration, Instant},
@@ -8,7 +10,7 @@ use serde_json::{Value, json};
 
 use crate::{
     Request,
-    source::{ProgramImage, SourceLocation},
+    source::{MappedFrame, ProgramImage, SourceLocation},
 };
 
 const THREAD_ID: i64 = 1;
@@ -26,11 +28,33 @@ enum AdapterState {
     Disconnected,
 }
 
-#[derive(Debug)]
-struct SourceStep {
-    command: DebugCommand,
-    location: SourceLocation,
+#[derive(Clone, Debug)]
+struct Step {
+    kind: StepKind,
+    location: SourceLocation,  // current location before step
     deadline: Instant,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum StepKind {
+    Step,
+    StepOver,
+}
+
+impl StepKind {
+    fn command(self) -> DebugCommand {
+        match self {
+            Self::Step => DebugCommand::Step,
+            Self::StepOver => DebugCommand::StepOver,
+        }
+    }
+
+    fn accepts_stop(self, reason: StopReason) -> bool {
+        match self {
+            Self::Step => reason == StopReason::Step,
+            Self::StepOver => matches!(reason, StopReason::Step | StopReason::Breakpoint),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -74,13 +98,14 @@ pub struct Adapter<S, C> {
     generation: i64,
     inspect_deadline: Option<Instant>,
     upload_deadline: Option<Instant>,
-    source_step: Option<SourceStep>,
+    source_step: Option<Step>,
     image: Option<ProgramImage>,
     source_path: Option<String>,
     vm_frame_trace: bool,
 }
 
 impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
+    /// Creates an adapter for a single debug session (and connection).
     pub fn new(connector: C) -> Self {
         Self {
             session: None,
@@ -101,10 +126,8 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
+    /// Handles one incoming DAP request.
     pub fn handle_request(&mut self, request: Request) -> AdapterOutput {
-        if request.message_type != "request" {
-            return AdapterOutput::one(self.failure(&request, "expected a DAP request"));
-        }
         match request.command.as_str() {
             "initialize" => self.initialize(request),
             "attach" => self.attach(request),
@@ -116,14 +139,15 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             "variables" => self.variables(request),
             "continue" => self.command(request, DebugCommand::Continue, true),
             "pause" => self.command(request, DebugCommand::Pause, false),
-            "stepIn" => self.source_step(request, DebugCommand::Step),
-            "next" => self.source_step(request, DebugCommand::StepOver),
+            "stepIn" => self.source_step(request, StepKind::Step),
+            "next" => self.source_step(request, StepKind::StepOver),
             "terminate" => self.terminate_request(request),
             "disconnect" => self.disconnect(request),
             _ => AdapterOutput::one(self.failure(&request, "unsupported DAP request")),
         }
     }
 
+    /// Polls the debug session and translates pending events.
     pub fn pump_events(&mut self) -> AdapterOutput {
         let mut output = AdapterOutput::default();
         let now = Instant::now();
@@ -176,6 +200,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
+    /// Negotiates capabilities with the DAP client.
     fn initialize(&mut self, request: Request) -> AdapterOutput {
         if self.state != AdapterState::AwaitingInitialize {
             return AdapterOutput::one(self.failure(&request, "initialize is only valid once"));
@@ -195,6 +220,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         ))
     }
 
+    /// Connects to the target and uploads the program image.
     fn attach(&mut self, request: Request) -> AdapterOutput {
         if self.state != AdapterState::Ready {
             return AdapterOutput::one(self.failure(&request, "attach requires initialize"));
@@ -247,6 +273,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         output
     }
 
+    /// Completes attachment after client configuration.
     fn configuration_done(&mut self, request: Request) -> AdapterOutput {
         if self.state != AdapterState::Configuring {
             return AdapterOutput::one(self.failure(
@@ -267,6 +294,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
+    /// Returns the synthetic debug thread.
     fn threads(&mut self, request: Request) -> AdapterOutput {
         if self.state != AdapterState::Attached {
             return AdapterOutput::one(
@@ -279,6 +307,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         ))
     }
 
+    /// Returns the current mapped stack frame.
     fn stack_trace(&mut self, request: Request) -> AdapterOutput {
         if !has_synthetic_thread(&request.arguments) {
             return AdapterOutput::one(self.failure(&request, "unknown threadId"));
@@ -313,6 +342,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         })))
     }
 
+    /// Returns the uploaded source text.
     fn source(&mut self, request: Request) -> AdapterOutput {
         if request
             .arguments
@@ -333,6 +363,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         ))
     }
 
+    /// Returns scopes for the current frame.
     fn scopes(&mut self, request: Request) -> AdapterOutput {
         if self.paused_snapshot().is_none()
             || request.arguments.get("frameId").and_then(Value::as_i64) != Some(self.generation)
@@ -342,6 +373,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         AdapterOutput::one(self.success(&request, json!({"scopes": [{"name": "VM", "variablesReference": self.generation, "expensive": false}]})))
     }
 
+    /// Returns variables for the current frame.
     fn variables(&mut self, request: Request) -> AdapterOutput {
         let Some(snapshot) = self.paused_snapshot() else {
             return AdapterOutput::one(
@@ -364,9 +396,10 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         ]})))
     }
 
-    fn source_step(&mut self, request: Request, command: DebugCommand) -> AdapterOutput {
+    /// Starts a source-level stepping operation.
+    fn source_step(&mut self, request: Request, kind: StepKind) -> AdapterOutput {
         if request.arguments.get("granularity").and_then(Value::as_str) == Some("instruction") {
-            return self.command(request, command, false);
+            return self.command(request, kind.command(), false);
         }
         if self.state != AdapterState::Attached || !has_synthetic_thread(&request.arguments) {
             return AdapterOutput::one(self.failure(
@@ -390,7 +423,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 "cannot source-step from an unmapped program counter",
             ));
         };
-        let trace_command = command.clone();
+        let command = kind.command();
         let send = self
             .session
             .as_mut()
@@ -399,13 +432,13 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             Some(Ok(receipt)) => {
                 self.paused = false;
                 self.snapshot = None;
-                self.source_step = Some(SourceStep {
-                    command,
+                self.source_step = Some(Step {
+                    kind,
                     location,
                     deadline: Instant::now() + OPERATION_TIMEOUT,
                 });
                 let mut output = AdapterOutput::one(self.success(&request, json!({})));
-                self.emit_vm_frame(&mut output, receipt, &trace_command);
+                self.emit_vm_frame(&mut output, receipt, &command);
                 output
             }
             Some(Err(error)) => {
@@ -417,11 +450,13 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
+    /// Returns the snapshot when the adapter is paused and attached.
     fn paused_snapshot(&self) -> Option<&debug::Snapshot> {
         (self.state == AdapterState::Attached && self.paused).then_some(())?;
         self.snapshot.as_ref()
     }
 
+    /// Sends a command to the debug session.
     fn command(
         &mut self,
         request: Request,
@@ -462,6 +497,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
+    /// Halts the target in response to a terminate request.
     fn terminate_request(&mut self, request: Request) -> AdapterOutput {
         if self.state != AdapterState::Attached {
             return AdapterOutput::one(
@@ -487,6 +523,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
+    /// Disconnects from the target and terminates the adapter.
     fn disconnect(&mut self, request: Request) -> AdapterOutput {
         if self.state == AdapterState::Disconnected {
             return AdapterOutput::one(self.failure(&request, "session is already disconnected"));
@@ -515,12 +552,14 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         output
     }
 
+    /// Emits optional tracing for an incoming VM frame.
     fn emit_received_vm_frame(&mut self, output: &mut AdapterOutput, frame: &ReceivedFrame) {
         if self.vm_frame_trace {
             output.messages.push(self.event("warduino/vmFrame", json!({"direction":"incoming", "bytes":frame.bytes(), "command":debug_event_name(&frame.event), "fields":debug_event_fields(&frame.event)})));
         }
     }
 
+    /// Applies a debug event and emits its DAP messages.
     fn translate_event(&mut self, event: DebugEvent, output: &mut AdapterOutput) {
         match event {
             DebugEvent::Continued => {
@@ -589,23 +628,34 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
-    fn finish_stop(&mut self, output: &mut AdapterOutput, stopped: Stopped) {
-        let Some(step) = self.source_step.as_ref() else {
-            self.emit_stopped(output, stopped);
-            return;
-        };
-        let mapped = self.snapshot.as_ref().and_then(|snapshot| {
+    /// Determines whether a source step should continue.
+    fn should_continue(&mut self, step: &Step, stopped: Stopped) -> bool {
+        step.kind.accepts_stop(stopped.reason)
+            && self
+                .mapped()
+                .as_ref()
+                .is_some_and(|frame| frame.location == step.location)
+            && Instant::now() < step.deadline
+    }
+
+    /// Maps the current program counter to source.
+    fn mapped(&mut self) -> Option<MappedFrame> {
+        self.snapshot.as_ref().and_then(|snapshot| {
             self.image
                 .as_ref()
                 .and_then(|image| image.frame_at(snapshot.program_counter.0))
-        });
-        let should_continue = stopped.reason == StopReason::Step
-            && mapped
-                .as_ref()
-                .is_some_and(|frame| frame.location == step.location)
-            && Instant::now() < step.deadline;
-        if should_continue {
-            let command = step.command.clone();
+        })
+    }
+
+    /// Completes processing of a stopped target.
+    fn finish_stop(&mut self, output: &mut AdapterOutput, mut stopped: Stopped) {
+        let Some(step) = self.source_step.clone() else {
+            self.emit_stopped(output, stopped);
+            return;
+        };
+
+        if self.should_continue(&step, stopped) {
+            let command = step.kind.command();
             let send = self
                 .session
                 .as_mut()
@@ -625,11 +675,11 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 None => {}
             }
         }
-        if mapped.is_none() {
+        if self.mapped().is_none() {
             output.messages.push(
                 self.output_event("WARDuino source step stopped at an unmapped program counter"),
             );
-        } else if stopped.reason != StopReason::Step {
+        } else if self.should_continue(&step, stopped) {
             output.messages.push(
                 self.output_event("WARDuino source step was interrupted by an unrelated stop"),
             );
@@ -639,9 +689,13 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             ));
         }
         self.source_step = None;
+        if !self.should_continue(&step, stopped) && stopped.reason == StopReason::Breakpoint {
+            stopped.reason = StopReason::Step;
+        }
         self.emit_stopped(output, stopped);
     }
 
+    /// Emits a DAP stopped event.
     fn emit_stopped(&mut self, output: &mut AdapterOutput, stopped: Stopped) {
         self.generation += 1;
         let reason = match stopped.reason {
@@ -655,6 +709,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         ));
     }
 
+    /// Reports an attachment failure and terminates.
     fn fail_attach(&mut self, output: &mut AdapterOutput, message: &str) {
         if let Some(attach) = self.pending_attach.take() {
             output.messages.push(self.failure(&attach, message));
@@ -663,10 +718,12 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         self.terminate(output);
     }
 
+    /// Reports an asynchronous target failure.
     fn remote_failure(&mut self, output: &mut AdapterOutput, message: String) {
         output.messages.push(self.output_event(&message));
     }
 
+    /// Emits termination and closes the session.
     fn terminate(&mut self, output: &mut AdapterOutput) {
         if self.state == AdapterState::Disconnected {
             return;
@@ -677,6 +734,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         output.terminate = true;
     }
 
+    /// Emits optional tracing for an outgoing VM frame.
     fn emit_vm_frame(
         &mut self,
         output: &mut AdapterOutput,
@@ -688,23 +746,28 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
+    /// Converts a debug-session error into adapter output.
     fn debug_error(&mut self, output: &mut AdapterOutput, message: String) -> AdapterOutput {
         self.disconnect_after_error(output, message);
         std::mem::take(output)
     }
 
+    /// Disconnects after a fatal debug-session error.
     fn disconnect_after_error(&mut self, output: &mut AdapterOutput, message: String) {
         output.messages.push(self.output_event(&message));
         self.terminate(output);
     }
 
+    /// Builds a successful DAP response.
     fn success(&mut self, request: &Request, body: Value) -> Value {
         self.response(request, true, body, None)
     }
+    /// Builds a failed DAP response.
     fn failure(&mut self, request: &Request, message: &str) -> Value {
         self.response(request, false, json!({}), Some(message))
     }
 
+    /// Builds a DAP response envelope.
     fn response(
         &mut self,
         request: &Request,
@@ -719,15 +782,18 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         response
     }
 
+    /// Builds a DAP event envelope.
     fn event(&mut self, name: &str, body: Value) -> Value {
         json!({"seq": self.sequence(), "type": "event", "event": name, "body": body})
     }
+    /// Builds an adapter output event.
     fn output_event(&mut self, message: &str) -> Value {
         self.event(
             "output",
             json!({"category": "stderr", "output": format!("{message}\n")}),
         )
     }
+    /// Allocates the next DAP message sequence number.
     fn sequence(&mut self) -> u64 {
         let sequence = self.next_seq;
         self.next_seq += 1;
