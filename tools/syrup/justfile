@@ -20,8 +20,8 @@ build: schema
 test:
     cargo test --workspace
 
-run device: schema
-    cargo run -p console -- --device {{device}}
+run device program: schema
+    cargo run -p console -- --device {{device}} --program {{program}}
 
 dap-server address:
     cargo run -p warduino-dap -- --dap-server {{address}}
