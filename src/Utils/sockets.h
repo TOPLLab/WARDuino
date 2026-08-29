@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <cstdint>
 
 #ifdef __ZEPHYR__
 #if IS_ENABLED(CONFIG_WIFI)
