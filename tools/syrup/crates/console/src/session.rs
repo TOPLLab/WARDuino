@@ -1,3 +1,8 @@
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
+
 use serde_json::{Value, json};
 
 use dap::{AdapterOutput, Request, WarduinoAdapter, warduino_adapter};
@@ -16,7 +21,7 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn connect(device: &str, app: &mut App) -> Result<Self, String> {
+    pub fn connect(device: &str, program: &str, app: &mut App) -> Result<Self, String> {
         let mut session = Self {
             adapter: warduino_adapter(),
             seq: 1,
@@ -28,7 +33,8 @@ impl Session {
             json!({"adapterID": "syrup", "warduinoVmFrame": true}),
             app,
         )?;
-        let (attach_seq, output) = session.send("attach", json!({"device": device}), app);
+        let (attach_seq, output) =
+            session.send("attach", json!({"device": device, "program": program}), app);
         if let Some(response) = output
             .messages
             .iter()
@@ -42,6 +48,35 @@ impl Session {
             return Err(error);
         }
         session.apply(output, app);
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let output = session.adapter.pump_events();
+            if let Some(response) = output
+                .messages
+                .iter()
+                .find(|message| message["request_seq"] == attach_seq)
+            {
+                let error = response["message"]
+                    .as_str()
+                    .unwrap_or("attach failed")
+                    .to_owned();
+                session.apply(output, app);
+                return Err(error);
+            }
+            let initialized = output
+                .messages
+                .iter()
+                .any(|message| message["type"] == "event" && message["event"] == "initialized");
+            session.apply(output, app);
+            if initialized {
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err("module update acknowledgement timed out".into());
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
         session.request("configurationDone", json!({}), app)?;
         let threads = session.request("threads", json!({}), app)?;
         session.thread_id = threads
