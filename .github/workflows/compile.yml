@@ -40,8 +40,8 @@ jobs:
               if: ${{ ! startsWith(matrix.os, 'macos') }}
               uses: Homebrew/actions/setup-homebrew@main
 
-            - name: Install protoc/nanopb
-              run: brew install nanopb
+            - name: Set up nanopb
+              uses: ./.github/actions/setup-nanopb
 
             - name: Build WARDuino CLI
               run: cmake .. -D BUILD_EMULATOR=ON ; cmake --build .
