@@ -36,22 +36,17 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 set(WARDUINO_VERSION_STRING "${PROJECT_VERSION}")
 configure_file(src/config.h.in include/warduino/config.h)
 
-# Both host targets use one generated nanopb schema target.
-if (BUILD_EMULATOR OR BUILD_UNITTEST)
-    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib)
-    include(FetchContent)
-    FetchContent_Declare(
-        nanopb
-        GIT_REPOSITORY https://github.com/nanopb/nanopb.git
-        GIT_TAG 0.4.9.1
-        GIT_SHALLOW TRUE
-    )
-    FetchContent_MakeAvailable(nanopb)
-    set(NANOPB_SRC_ROOT_FOLDER ${nanopb_SOURCE_DIR})
-    find_program(NANOPB_GENERATOR_PLUGIN NAMES protoc-gen-nanopb REQUIRED)
-    find_package(Nanopb REQUIRED)
-    nanopb_generate_cpp(TARGET proto src/Debug/debug.proto)
-endif ()
+# Use the checked-in nanopb runtime and schema output on every platform.
+add_library(proto STATIC
+    src/Debug/nanopb/debug.pb.c
+    src/Debug/nanopb/pb_common.c
+    src/Debug/nanopb/pb_decode.c
+    src/Debug/nanopb/pb_encode.c
+)
+target_include_directories(proto PUBLIC
+    ${PROJECT_SOURCE_DIR}/src/Debug
+    ${PROJECT_SOURCE_DIR}/src/Debug/nanopb
+)
 
 # Build the emulator version of WARDuino
 if (BUILD_EMULATOR)
