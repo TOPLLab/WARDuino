@@ -24,8 +24,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # Source-aware DAP image construction.
-wast = "256"
-wasmparser = "0.256"
+wast = "258"
+wasmparser = "0.258"
 
 # Console
 ratatui = {
