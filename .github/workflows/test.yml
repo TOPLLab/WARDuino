@@ -20,6 +20,12 @@ jobs:
       - name: Create build folder
         run: mkdir build-unit-tests
 
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Set up nanopb
+        uses: ./.github/actions/setup-nanopb
+
       - name: Build unit tests
         run: cmake .. -D BUILD_UNITTEST=ON ; cmake --build .
         working-directory: build-unit-tests
@@ -47,8 +53,8 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
 
-      - name: Install protoc/nanopb
-        run: brew install nanopb
+      - name: Set up nanopb
+        uses: ./.github/actions/setup-nanopb
 
       - name: Build warduino cli
         run: |
@@ -108,8 +114,8 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
 
-      - name: Install protoc/nanopb
-        run: brew install nanopb
+      - name: Set up nanopb
+        uses: ./.github/actions/setup-nanopb
 
       - name: Build warduino cli
         run: |
@@ -167,8 +173,8 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
 
-      - name: Install protoc/nanopb
-        run: brew install nanopb
+      - name: Set up nanopb
+        uses: ./.github/actions/setup-nanopb
 
       - name: Build warduino cli
         run: |
