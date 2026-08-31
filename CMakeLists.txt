@@ -29,7 +29,7 @@ if (BUILD_ESP)
     include($ENV{IDF_PATH}/tools/cmake/project.cmake "${PROJECT_BINARY_DIR}/../include")
 endif (BUILD_ESP)
 
-project(WARDuino VERSION 0.8.1)
+project(WARDuino VERSION 0.8.99)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
