@@ -344,6 +344,25 @@ bool valueFromProto(const debug_Value &from, StackValue *to) {
     }
 }
 
+bool encodeValues(pb_ostream_t *stream, const pb_field_t *field, void * const *arg) {
+    const auto *values = static_cast<const std::vector<StackValue> *>(*arg);
+    for (size_t index = 0; index < values->size(); ++index) {
+        debug_Value value = debug_Value_init_zero;
+        valueToProto((*values)[index], static_cast<uint32_t>(index), &value);
+        if (!pb_encode_tag_for_field(stream, field) ||
+            !pb_encode_submessage(stream, debug_Value_fields, &value)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool encodeBytes(pb_ostream_t *stream, const pb_field_t *field, void * const *arg) {
+    const auto *bytes = static_cast<const std::vector<uint8_t> *>(*arg);
+    return pb_encode_tag_for_field(stream, field) &&
+           pb_encode_string(stream, bytes->data(), bytes->size());
+}
+
 }  // namespace
 
 bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
@@ -691,13 +710,25 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             }
             const RunningState current = m->warduino->program_state;
             m->warduino->program_state = WARDUINOrun;
-            m->warduino->invoke(m, call.function_index,
-                                static_cast<uint32_t>(values.size()),
-                                arguments);
+            exception[0] = "\0"[0];
+            const auto results = m->warduino->invoke(
+                m, call.function_index, static_cast<uint32_t>(values.size()),
+                arguments);
             m->warduino->program_state = current;
+            delete[] arguments;
+
             debug_RemoteFunctionResult result =
                 debug_RemoteFunctionResult_init_zero;
-            result.success = true;
+            result.success = exception[0] == "\0"[0];
+            std::vector<uint8_t> error;
+            if (result.success) {
+                result.results.funcs.encode = encodeValues;
+                result.results.arg = const_cast<std::vector<StackValue> *>(&results);
+            } else {
+                error.assign(exception, exception + std::strlen(exception));
+                result.error.funcs.encode = encodeBytes;
+                result.error.arg = &error;
+            }
             sendNotification(
                 debug_NotificationType_NOTIFICATION_REMOTE_FUNCTION_RESULT,
                 debug_RemoteFunctionResult_fields, &result);
