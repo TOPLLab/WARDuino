@@ -10,7 +10,7 @@ import {
     Framework,
     getValue, HybridScheduler,
     Kind,
-    Message, StyleType,
+    Message,
     Step, Suite,
     TestScenario,
     Breakpoint
@@ -26,7 +26,6 @@ const EXAMPLES: string = `${__dirname}/../static/examples/`;
  */
 
 const framework = Framework.getImplementation();
-framework.reporter.style(StyleType.github);
 
 const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
