@@ -11,7 +11,7 @@
     "tests:all": "npm run tests:spec ; npm run tests:integration"
   },
   "devDependencies": {
-    "latch": "file:./latch-0.6.0.tgz",
+    "latch": "file:./latch-0.7.0.tgz",
     "mqtt": "^5.15.2",
     "serialport": "^10.4.0",
     "typescript": "^4.5.5"
