@@ -344,7 +344,8 @@ bool valueFromProto(const debug_Value &from, StackValue *to) {
     }
 }
 
-bool encodeValues(pb_ostream_t *stream, const pb_field_t *field, void * const *arg) {
+bool encodeValues(pb_ostream_t *stream, const pb_field_t *field,
+                  void *const *arg) {
     const auto *values = static_cast<const std::vector<StackValue> *>(*arg);
     for (size_t index = 0; index < values->size(); ++index) {
         debug_Value value = debug_Value_init_zero;
@@ -357,7 +358,8 @@ bool encodeValues(pb_ostream_t *stream, const pb_field_t *field, void * const *a
     return true;
 }
 
-bool encodeBytes(pb_ostream_t *stream, const pb_field_t *field, void * const *arg) {
+bool encodeBytes(pb_ostream_t *stream, const pb_field_t *field,
+                 void *const *arg) {
     const auto *bytes = static_cast<const std::vector<uint8_t> *>(*arg);
     return pb_encode_tag_for_field(stream, field) &&
            pb_encode_string(stream, bytes->data(), bytes->size());
@@ -723,7 +725,8 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             std::vector<uint8_t> error;
             if (result.success) {
                 result.results.funcs.encode = encodeValues;
-                result.results.arg = const_cast<std::vector<StackValue> *>(&results);
+                result.results.arg =
+                    const_cast<std::vector<StackValue> *>(&results);
             } else {
                 error.assign(exception, exception + std::strlen(exception));
                 result.error.funcs.encode = encodeBytes;
