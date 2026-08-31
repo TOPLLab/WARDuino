@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import {
-    ArduinoSpecification,
     Behaviour,
     DebugProtocol,
     Description,
@@ -9,12 +8,13 @@ import {
     Expectation,
     Expected,
     Framework,
-    HybridScheduler,
     Kind,
     Message,
     Request, Step, Suite,
     TestScenario,
     Breakpoint,
+    WASM,
+    WARDuino,
     Verbosity
 } from 'latch';
 
@@ -32,13 +32,12 @@ const framework = Framework.getImplementation();
 const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
 integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
-//integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
 
 const expectDUMP: Expectation[] = [
     {'programCounter': {kind: 'description', value: Description.defined} as Expected<number>},
     {
         'breakpoints': {
-            kind: 'comparison', value: (state: Object, value: Array<any>) => {
+            kind: 'comparison', value: (_: Object, value: Array<any>) => {
                 return value.length === 0;
             }, message: 'list of breakpoints should be empty'
         } as Expected<Array<any>>
@@ -316,7 +315,7 @@ const dumpEventsTest: TestScenario = {
         expected: [{
             'events': {
                 kind: 'comparison',
-                value: (state: string, value: Array<any>) => value.length === 0,
+                value: (_: string, value: Array<any>) => value.length === 0,
                 message: 'events queue is should be empty'
             } as Expected<Array<any>>
         }]
@@ -324,6 +323,85 @@ const dumpEventsTest: TestScenario = {
 };
 
 integration.test(dumpEventsTest);
+
+integration.test({
+    title: 'Test INSPECT',
+    program: `${EXAMPLES}blink.wast`,
+    steps: [{
+        title: 'Inspect complete state',
+        instruction: {kind: Kind.Request, value: Message.inspect([])},
+        expected: expectDUMP
+    }]
+});
+
+integration.test({
+    title: 'Test DUMPEvents range',
+    program: `${EXAMPLES}button.wast`,
+    steps: [{
+        title: 'Dump event range',
+        instruction: {kind: Kind.Request, value: Message.dumpEvents({start: 0, end: 0})},
+        expected: [{totalCount: {kind: 'primitive', value: 0} as Expected<number>}]
+    }]
+});
+
+const inspectExpectations: Record<WARDuino.Inspect, Expectation> = {
+    [WARDuino.Inspect.counter]: {programCounter: {kind: 'description', value: Description.defined} as Expected<number>},
+    [WARDuino.Inspect.breakpoints]: {breakpoints: {kind: 'description', value: Description.defined} as Expected<Array<any>>},
+    [WARDuino.Inspect.callstack]: {callstack: {kind: 'description', value: Description.defined} as Expected<Array<any>>},
+    [WARDuino.Inspect.globals]: {globals: {kind: 'description', value: Description.defined} as Expected<Array<any>>},
+    [WARDuino.Inspect.table]: {table: {kind: 'description', value: Description.defined} as Expected<Object>},
+    [WARDuino.Inspect.memory]: {memory: {kind: 'description', value: Description.defined} as Expected<Object>},
+    [WARDuino.Inspect.branching]: {branchTable: {kind: 'description', value: Description.defined} as Expected<Array<any>>},
+    [WARDuino.Inspect.stack]: {stack: {kind: 'description', value: Description.defined} as Expected<Array<any>>},
+    [WARDuino.Inspect.callbacks]: {callbacks: {kind: 'description', value: Description.defined} as Expected<Object>},
+    [WARDuino.Inspect.events]: {queue: {kind: 'description', value: Description.defined} as Expected<Object>},
+    [WARDuino.Inspect.io]: {io: {kind: 'description', value: Description.defined} as Expected<Array<any>>}
+};
+
+integration.test({
+    title: 'Test INSPECT selectors',
+    program: `${EXAMPLES}blink.wast`,
+    steps: [
+        ...(Object.keys(inspectExpectations) as WARDuino.Inspect[]).map((selector): Step => ({
+            title: `Inspect ${selector}`,
+            instruction: {kind: Kind.Request, value: Message.inspect([selector])},
+            expected: [inspectExpectations[selector]]
+        })),
+        {
+            title: 'Inspect all selectors',
+            instruction: {kind: Kind.Request, value: Message.inspect(Object.keys(inspectExpectations) as WARDuino.Inspect[])},
+            expected: (Object.keys(inspectExpectations) as WARDuino.Inspect[]).map((selector) => inspectExpectations[selector])
+        } as Step
+    ]
+});
+
+integration.test({
+    title: 'Test breakpoints',
+    program: `${EXAMPLES}blink.wast`,
+    steps: [
+        {title: 'Add breakpoint', instruction: {kind: Kind.Request, value: Message.addBreakpoint(new Breakpoint(169, 0))}},
+        {title: 'Remove breakpoint', instruction: {kind: Kind.Request, value: Message.removeBreakpoint(new Breakpoint(169, 0))}}
+    ]
+});
+
+integration.test({
+    title: 'Test RESET',
+    program: `${EXAMPLES}blink.wast`,
+    steps: [
+        {title: 'Reset runtime', instruction: {kind: Kind.Request, value: Message.reset}},
+        {title: 'Check reset state', instruction: {kind: Kind.Request, value: Message.snapshot}, expected: expectDUMP}
+    ]
+});
+
+integration.test({
+    title: 'Test INVOKE',
+    program: `${EXAMPLES}factorial.wast`,
+    steps: [{
+        title: 'Invoke fac(5)',
+        instruction: {kind: Kind.Request, value: Message.invoke('fac', [WASM.i32(5n)])},
+        expected: [{value: {kind: 'comparison', value: (_: Object, value: string) => parseInt(value) === 120} as Expected<string>}]
+    }]
+});
 
 framework.reporter.verbosity(Verbosity.more);
 framework.run([integration]);
