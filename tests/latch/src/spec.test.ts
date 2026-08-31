@@ -46,7 +46,7 @@ if (TESTFILE.length > 0) {
 // run tests
 
 const framework = Framework.getImplementation();
-framework.reporter.verbosity(Verbosity.normal);
+framework.reporter.verbosity(Verbosity.more);
 
 const spec = framework.suite('Specification test suite for WebAssembly');
 spec.testee('emulator [:8500]', new EmulatorSpecification(8500));
