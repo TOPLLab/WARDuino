@@ -74,4 +74,6 @@ bool i_instr_conversion(Module *m, uint8_t opcode);
 
 bool i_instr_extension(Module *m, uint8_t opcode);
 
+bool i_instr_sat_bulk(Module *m);
+
 bool i_instr_callback(Module *m, uint8_t opcode);
