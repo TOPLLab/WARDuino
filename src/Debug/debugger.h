@@ -17,17 +17,11 @@
 #include "nanopb/pb_decode.h"
 
 struct Module;
-struct Block;
 struct StackValue;
 
 struct DebugMessage {
     debug_Command type;
     std::vector<uint8_t> payload;
-};
-
-enum operation {
-    STORE = 0,
-    LOAD = 1,
 };
 
 enum RunningState {
@@ -78,53 +72,9 @@ enum SnapshotSection : SnapshotSelection {
     snapshotLocals = 1u << 14
 };
 
-enum InterruptTypes {
-    // Remote Debugging
-    interruptRUN = 0x01,
-    interruptHALT = 0x02,
-    interruptPAUSE = 0x03,
-    interruptSTEP = 0x04,
-    interruptSTEPOver = 0x05,
-    interruptBPAdd = 0x06,
-    interruptBPRem = 0x07,
-    interruptContinueFor = 0x08,
-    interruptInspect = 0x09,
-    interruptDUMP = 0x10,
-    interruptDUMPLocals = 0x11,
-    interruptDUMPFull = 0x12,
-    interruptReset = 0x13,
-    interruptUPDATEFun = 0x20,
-    interruptUPDATELocal = 0x21,
-    interruptUPDATEModule = 0x22,
-    interruptUPDATEGlobal = 0x23,
-    interruptUPDATEStackValue = 0x24,
-
-    // Remote REPL
-    interruptINVOKE = 0x40,
-
-    // Pull Debugging
-    interruptSnapshot = 0x60,
-    interruptSetSnapshotPolicy = 0x61,
-    interruptLoadSnapshot = 0x62,
-    interruptMonitorProxies = 0x63,
+enum ProxyInterruptTypes {
     interruptProxyCall = 0x64,
-    interruptProxify = 0x65,  // wifi SSID \0 wifi PASS \0
-
-    // Push Debugging
-    interruptDUMPAllEvents = 0x70,
-    interruptDUMPEvents = 0x71,
-    interruptPOPEvent = 0x72,
-    interruptPUSHEvent = 0x73,
     interruptDUMPCallbackmapping = 0x74,
-    interruptRecvCallbackmapping = 0x75,
-
-    // Primitive overrides
-    interruptSetOverridePinValue = 0x80,
-    interruptUnsetOverridePinValue = 0x81,
-
-    // Operations
-    interruptStore = 0xa0,
-    interruptStored = 0xa1,
 };
 
 enum class SnapshotPolicy : int {
@@ -189,8 +139,6 @@ class Debugger {
 
     // Private methods
 
-    void print_value(const StackValue *v, uint32_t idx, bool end) const;
-
     // TODO Move parsing to WARDuino class?
     void parse_debug_buffer(size_t len, const uint8_t *buff);
 
@@ -201,10 +149,6 @@ class Debugger {
                            const void *payload = nullptr) const;
     void send_operation_result(debug_Command command, bool success) const;
 
-    //// Handle REPL interrupts
-
-    void handle_invoke(Module *m, uint8_t *interruptData) const;
-
     //// Handle Interrupt Types
 
     void handle_interrupt_run(const Module *m, RunningState *program_state);
@@ -212,8 +156,6 @@ class Debugger {
     void handle_step(const Module *m, RunningState *program_state);
 
     void handle_step_over(const Module *m, RunningState *program_state);
-
-    void handle_interrupt_bp(Module *m, uint8_t *interruptData);
 
     //// Information dumps
 
@@ -242,41 +184,10 @@ class Debugger {
     static bool parse_selection(const uint8_t *state, size_t size,
                                 SnapshotSelection *selection);
 
-    //// Handle live code update
-
-    static bool handle_changed_function(const Module *m, uint8_t *bytes);
-
-    bool handle_changed_local(const Module *m, uint8_t *bytes) const;
-
-    static bool handle_update_module(Module *m, uint8_t *data);
-
-    bool handle_update_global_value(const Module *m, uint8_t *data) const;
-
-    bool handle_update_stack_value(const Module *m, uint8_t *bytes) const;
-
     std::optional<debug_ValueUpdate> update_value(
         const std::vector<uint8_t> &payload) const;
 
     bool reset(Module *m);
-
-    //// Handle mocking
-
-    void add_override(Module *m, uint8_t *interruptData);
-    void remove_override(Module *m, uint8_t *interruptData);
-
-    //// Handle out-of-place debugging
-
-    void free_state(Module *m, uint8_t *interruptData);
-
-    static uint8_t *find_opcode(Module *m, const Block *block);
-
-    bool save_state(Module *m, uint8_t *interruptData);
-
-    static uintptr_t read_pointer(uint8_t **data);
-
-    static void update_callback_mapping(Module *m, const char *interruptData);
-
-    bool operation(Module *m, operation op);
 
    public:
     // Public fields
@@ -330,7 +241,6 @@ class Debugger {
 
     void snapshot(Module *m) const;
 
-    void set_snapshot_policy(Module *m, uint8_t *interruptData);
 
     void handle_snapshot_policy(Module *m);
 

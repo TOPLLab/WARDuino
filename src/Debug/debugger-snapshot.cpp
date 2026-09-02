@@ -221,40 +221,6 @@ void Debugger::inspect(Module *m, const uint16_t size,
     encode_snapshot(m, selection, debug_NotificationType_NOTIFICATION_SNAPSHOT);
 }
 
-void Debugger::set_snapshot_policy(Module *m, uint8_t *interruptData) {
-    uint8_t **data_ptr = &interruptData;
-    if (*interruptData <= 2) {
-        snapshotPolicy = SnapshotPolicy{*interruptData};
-        min_return_values = 0;
-        if (checkpoint_state) {
-            free(checkpoint_state);
-        }
-        checkpoint_state = nullptr;
-        checkpoint_state_size = 0;
-        *data_ptr += 1;
-    } else {
-        snapshotPolicy = SnapshotPolicy::checkpointing;
-        *data_ptr += 1;
-        min_return_values = read_LEB_32(data_ptr);
-        if (checkpoint_state) {
-            free(checkpoint_state);
-        }
-        checkpoint_state_size = read_LEB_32(data_ptr);
-        checkpoint_state = new uint8_t[checkpoint_state_size];
-        for (uint32_t i = 0; i < checkpoint_state_size; i++) {
-            checkpoint_state[i] = **data_ptr;
-            *data_ptr += 1;
-        }
-    }
-
-    // Make a checkpoint when you first enable checkpointing
-    if (snapshotPolicy == SnapshotPolicy::checkpointing) {
-        checkpointInterval = read_B32(data_ptr);
-        instructions_executed = 0;
-        checkpoint(m, true);
-    }
-    printf("ack%x\n", interruptSetSnapshotPolicy);
-}
 
 std::optional<uint32_t> get_primitive_being_called(Module *m, uint8_t *pc_ptr) {
     if (!pc_ptr) {
