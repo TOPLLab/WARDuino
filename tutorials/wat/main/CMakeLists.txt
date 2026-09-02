@@ -2,7 +2,6 @@ set(SOURCE_FILES
         ../../../src/Debug/debugger.cpp
         ../../../src/Debug/debugger-command.cpp
         ../../../src/Debug/debugger-snapshot.cpp
-        ../../../src/Debug/debugger-legacy.cpp
         ../../../src/Debug/debugger-proxy.cpp
         ../../../src/Debug/debugger-overrides.cpp
         ../../../src/Interpreter/instructions.cpp

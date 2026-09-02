@@ -150,46 +150,6 @@ void Debugger::notify_breakpoint(Module *m, uint8_t *pc_ptr) {
                      debug_HitBreakpoint_fields, &hit);
 }
 
-// Private methods
-void Debugger::print_value(const StackValue *, const uint32_t,
-                          const bool) const {}
-
-uint8_t *Debugger::find_opcode(Module *m, const Block *block) {
-    const auto find =
-        std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
-                     [&](const std::pair<uint8_t *, Block *> &pair) {
-                         return pair.second == block;
-                     });
-    uint8_t *opcode = nullptr;
-    if (find != std::end(m->block_lookup)) {
-        opcode = find->first;
-    } else {
-        // FIXME FATAL?
-        debug("find_opcode: not found\n");
-        exit(33);
-    }
-    return opcode;
-}
-
-void Debugger::handle_invoke(Module *m, uint8_t *interruptData) const {
-    const uint32_t fidx = read_LEB_32(&interruptData);
-
-    if (fidx >= m->function_count) {
-        debug("no function available for fidx %" PRIu32 "\n", fidx);
-        return;
-    }
-
-    const Type func = *m->functions[fidx].type;
-    StackValue *args = readWasmArgs(func, interruptData);
-
-    WARDuino *instance = WARDuino::instance();
-    const RunningState current = instance->program_state;
-    instance->program_state = WARDUINOrun;
-
-    WARDuino::instance()->invoke(m, fidx, func.param_count, args);
-    instance->program_state = current;
-    this->dump_stack(m);
-}
 
 void Debugger::handle_interrupt_run(const Module *m,
                                   RunningState *program_state) {
@@ -228,33 +188,6 @@ void Debugger::handle_step_over(const Module *m, RunningState *program_state) {
     }
 }
 
-void Debugger::handle_interrupt_bp(Module *m, uint8_t *interruptData) {
-    uint8_t *bpData = interruptData + 1;
-    uint32_t virtualAddress = read_B32(&bpData);
-    if (isToPhysicalAddrPossible(virtualAddress, m)) {
-        uint8_t *bpt = toPhysicalAddress(virtualAddress, m);
-        if (*interruptData == 0x06) {
-            this->add_breakpoint(bpt);
-        } else {
-            this->delete_breakpoint(bpt);
-        }
-    }
-    debug("BP %" PRIu32 "!\n", virtualAddress);
-}
-
-// Stop the debugger
-void Debugger::stop() {
-    if (this->channel != nullptr) {
-        this->channel->close();
-        this->channel = nullptr;
-    }
-}
-
-//
-void Debugger::pause_runtime(const Module *m) {
-    m->warduino->program_state = WARDUINOpause;
-    this->mark = nullptr;
-}
 
 bool Debugger::reset(Module *m) {
     m->warduino->reset_module(m);
