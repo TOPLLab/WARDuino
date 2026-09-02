@@ -1,5 +1,6 @@
 set(SOURCE_FILES
         ../../src/Debug/debugger.cpp
+        ../../src/Debug/nanopb_encoder.cpp
         ../../src/Debug/nanopb/debug.pb.c
         ../../src/Debug/nanopb/pb_common.c
         ../../src/Debug/nanopb/pb_decode.c

@@ -2,13 +2,10 @@
 
 #include <condition_variable>
 #include <cstddef>
-#include <cstdint>
 #include <deque>
 #include <mutex>
 #include <optional>
-#include <queue>  // std::queue
 #include <set>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -18,7 +15,6 @@
 #include "../Utils/sockets.h"
 #include "nanopb/debug.pb.h"
 #include "nanopb/pb_decode.h"
-#include "nanopb/pb_encode.h"
 
 struct Module;
 struct Block;
@@ -61,6 +57,25 @@ enum ExecutionState {
     ioState = 0x0B,
     overridesState = 0x0C,
     heapState = 0x0D,
+};
+
+using SnapshotSelection = uint16_t;
+enum SnapshotSection : SnapshotSelection {
+    snapshotPc = 1u << 0,
+    snapshotBreakpoints = 1u << 1,
+    snapshotCallstack = 1u << 2,
+    snapshotGlobals = 1u << 3,
+    snapshotTable = 1u << 4,
+    snapshotMemory = 1u << 5,
+    snapshotBranchTable = 1u << 6,
+    snapshotStack = 1u << 7,
+    snapshotCallbacks = 1u << 8,
+    snapshotEvents = 1u << 9,
+    snapshotIO = 1u << 10,
+    snapshotOverrides = 1u << 11,
+    snapshotHeap = 1u << 12,
+    snapshotFunctions = 1u << 13,
+    snapshotLocals = 1u << 14
 };
 
 enum InterruptTypes {
@@ -161,10 +176,8 @@ class Debugger {
 
     // Checkpointing
     SnapshotPolicy snapshotPolicy;
-    uint32_t checkpointInterval;     // #instructions between checkpoints
-    uint32_t instructions_executed;  // #instructions since last checkpoint
-    uint32_t instructions_since_full_snapshot;  // #instructions since last full
-                                                // snapshot
+    uint32_t checkpointInterval;          // #instructions between checkpoints
+    uint32_t instructions_executed;       // #instructions since last checkpoint
     std::optional<uint32_t> fidx_called;  // The primitive that was executed
     uint32_t prim_args[8];                // The arguments of the executed prim
     uint32_t min_return_values;
@@ -224,6 +237,10 @@ class Debugger {
 
     void inspect(Module *m, uint16_t sizeStateArray,
                  const uint8_t *state) const;
+    bool encodeSnapshot(Module *m, SnapshotSelection selection,
+                        debug_NotificationType notification) const;
+    static bool parseSelection(const uint8_t *state, size_t size,
+                               SnapshotSelection *selection);
 
     //// Handle live code update
 
@@ -236,6 +253,9 @@ class Debugger {
     bool handleUpdateGlobalValue(const Module *m, uint8_t *data) const;
 
     bool handleUpdateStackValue(const Module *m, uint8_t *bytes) const;
+
+    std::optional<debug_ValueUpdate> update_value(
+        const std::vector<uint8_t> &payload) const;
 
     bool reset(Module *m);
 
@@ -349,6 +369,6 @@ class Debugger {
     bool getMockForArgs(Module *m, uint32_t fidx, uint32_t &result);
 
     // Checkpointing
-    void checkpoint(Module *m, bool force = false, bool full = false);
+    void checkpoint(Module *m, bool force = false);
     inline SnapshotPolicy getSnapshotPolicy() { return snapshotPolicy; }
 };
