@@ -19,6 +19,22 @@ Debugger::Debugger(Channel *duplex) {
 
 // Public methods
 
+void Debugger::stop() {
+    if (this->channel != nullptr) {
+        this->channel->close();
+        this->channel = nullptr;
+    }
+}
+
+void Debugger::pause_runtime(const Module *m) {
+    m->warduino->program_state = WARDUINOpause;
+    this->mark = nullptr;
+}
+
+void Debugger::notify_pushed_event() const {
+    this->send_notification(debug_NotificationType_NOTIFICATION_NEW_EVENT);
+}
+
 void Debugger::set_channel(Channel *duplex) {
     delete this->channel;
     this->channel = duplex;
