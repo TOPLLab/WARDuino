@@ -27,6 +27,10 @@ target_sources(app PRIVATE
     ../../src/Utils/macros.cpp
     ../../src/Utils/sockets.cpp
     ../../src/Debug/debugger.cpp
+        ../../src/Debug/debugger-command.cpp
+        ../../src/Debug/debugger-snapshot.cpp
+        ../../src/Debug/debugger-proxy.cpp
+        ../../src/Debug/debugger-overrides.cpp
     ../../src/Debug/nanopb_encoder.cpp
     ../../src/Debug/nanopb/debug.pb.c
     ../../src/Debug/nanopb/pb_common.c
