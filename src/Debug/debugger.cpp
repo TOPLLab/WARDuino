@@ -29,14 +29,14 @@ Debugger::Debugger(Channel *duplex) {
 
 // Public methods
 
-void Debugger::setChannel(Channel *duplex) {
+void Debugger::set_channel(Channel *duplex) {
     delete this->channel;
     this->channel = duplex;
 }
 
 namespace {
 
-bool decodeFrameLength(const std::vector<uint8_t> &bytes, size_t *headerSize,
+bool decode_frame_length(const std::vector<uint8_t> &bytes, size_t *headerSize,
                        size_t *payloadSize) {
     if (bytes.size() < 2) return false;
     uint32_t value = 0;
@@ -62,12 +62,12 @@ bool decodeFrameLength(const std::vector<uint8_t> &bytes, size_t *headerSize,
     return false;
 }
 
-bool isKnownCommand(const uint8_t type) {
+bool is_known_command(const uint8_t type) {
     return type <= static_cast<uint8_t>(debug_Command_COMMAND_REMOVE_OVERRIDE);
 }
 
 template <typename T>
-bool decodePayload(const std::vector<uint8_t> &payload,
+bool decode_payload(const std::vector<uint8_t> &payload,
                    const pb_msgdesc_t *fields, T *message) {
     pb_istream_t stream =
         pb_istream_from_buffer(payload.data(), payload.size());
@@ -76,24 +76,24 @@ bool decodePayload(const std::vector<uint8_t> &payload,
 
 }  // namespace
 
-void Debugger::addDebugMessage(const size_t len, const uint8_t *buff) {
+void Debugger::add_debug_message(const size_t len, const uint8_t *buff) {
     if (len == 0 || buff == nullptr) return;
-    parseDebugBuffer(len, buff);
+    parse_debug_buffer(len, buff);
 }
 
-void Debugger::pushMessage(DebugMessage msg) {
+void Debugger::push_message(DebugMessage msg) {
     warduino::lock_guard const lg(messageQueueMutex);
     debugMessages.emplace_back(std::move(msg));
     freshMessages = !debugMessages.empty();
     messageQueueConditionVariable.notify_one();
 }
 
-void Debugger::parseDebugBuffer(const size_t len, const uint8_t *buff) {
+void Debugger::parse_debug_buffer(const size_t len, const uint8_t *buff) {
     pendingFrameBytes.insert(pendingFrameBytes.end(), buff, buff + len);
     while (!pendingFrameBytes.empty()) {
-        if (!isKnownCommand(pendingFrameBytes.front())) {
+        if (!is_known_command(pendingFrameBytes.front())) {
             pendingFrameBytes.clear();
-            sendNotification(
+            send_notification(
                 debug_NotificationType_NOTIFICATION_UNKNOWN_COMMAND);
             continue;
         }
@@ -101,17 +101,17 @@ void Debugger::parseDebugBuffer(const size_t len, const uint8_t *buff) {
         size_t headerSize = 0;
         size_t payloadSize = 0;
         const bool completeLength =
-            decodeFrameLength(pendingFrameBytes, &headerSize, &payloadSize);
+            decode_frame_length(pendingFrameBytes, &headerSize, &payloadSize);
         if (!completeLength) {
             if (headerSize == SIZE_MAX || pendingFrameBytes.size() >= 6) {
                 pendingFrameBytes.clear();
-                sendNotification(debug_NotificationType_NOTIFICATION_MALFORMED);
+                send_notification(debug_NotificationType_NOTIFICATION_MALFORMED);
             }
             return;
         }
         if (payloadSize > maxFramePayload) {
             pendingFrameBytes.clear();
-            sendNotification(debug_NotificationType_NOTIFICATION_MALFORMED);
+            send_notification(debug_NotificationType_NOTIFICATION_MALFORMED);
             return;
         }
         if (pendingFrameBytes.size() < headerSize + payloadSize) return;
@@ -126,11 +126,11 @@ void Debugger::parseDebugBuffer(const size_t len, const uint8_t *buff) {
             pendingFrameBytes.begin(),
             pendingFrameBytes.begin() +
                 static_cast<std::ptrdiff_t>(headerSize + payloadSize));
-        pushMessage(std::move(message));
+        push_message(std::move(message));
     }
 }
 
-std::optional<DebugMessage> Debugger::getDebugMessage() {
+std::optional<DebugMessage> Debugger::get_debug_message() {
     warduino::lock_guard const lg(messageQueueMutex);
     if (debugMessages.empty()) {
         freshMessages = false;
@@ -142,7 +142,7 @@ std::optional<DebugMessage> Debugger::getDebugMessage() {
     return message;
 }
 
-bool Debugger::sendNotification(const debug_NotificationType type,
+bool Debugger::send_notification(const debug_NotificationType type,
                                 const pb_msgdesc_t *fields,
                                 const void *payload) const {
     if (channel == nullptr) return false;
@@ -172,33 +172,33 @@ bool Debugger::sendNotification(const debug_NotificationType type,
            static_cast<ssize_t>(frame.size());
 }
 
-void Debugger::sendOperationResult(const debug_Command command,
+void Debugger::send_operation_result(const debug_Command command,
                                    const bool success) const {
     debug_OperationResult result = debug_OperationResult_init_zero;
     result.command = command;
     result.success = success;
-    sendNotification(debug_NotificationType_NOTIFICATION_OPERATION_RESULT,
+    send_notification(debug_NotificationType_NOTIFICATION_OPERATION_RESULT,
                      debug_OperationResult_fields, &result);
 }
 
-void Debugger::addBreakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
+void Debugger::add_breakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
 
-void Debugger::deleteBreakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
+void Debugger::delete_breakpoint(uint8_t *loc) { this->breakpoints.erase(loc); }
 
 // ReSharper disable once CppParameterMayBeConstPtrOrRef // incorrect warning
-bool Debugger::isBreakpoint(uint8_t *loc) {
+bool Debugger::is_breakpoint(uint8_t *loc) {
     return this->breakpoints.find(loc) != this->breakpoints.end() ||
            this->mark == loc;
 }
 
-void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) {
+void Debugger::notify_breakpoint(Module *m, uint8_t *pc_ptr) {
     if (snapshotPolicy == SnapshotPolicy::checkpointing) checkpoint(m);
     mark = nullptr;
     debug_HitBreakpoint hit = debug_HitBreakpoint_init_zero;
     hit.has_location = true;
     hit.location.module_index = 0;
     hit.location.program_counter = toVirtualAddress(pc_ptr, m);
-    sendNotification(debug_NotificationType_NOTIFICATION_HIT_BREAKPOINT,
+    send_notification(debug_NotificationType_NOTIFICATION_HIT_BREAKPOINT,
                      debug_HitBreakpoint_fields, &hit);
 }
 
@@ -225,13 +225,13 @@ void Debugger::notifyBreakpoint(Module *m, uint8_t *pc_ptr) {
  */
 namespace {
 
-bool collectBytes(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
+bool collect_bytes(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
     auto *out = static_cast<std::vector<uint8_t> *>(*arg);
     out->resize(stream->bytes_left);
     return out->empty() || pb_read(stream, out->data(), out->size());
 }
 
-[[maybe_unused]] bool collectWords(pb_istream_t *stream,
+[[maybe_unused]] bool collect_words(pb_istream_t *stream,
                                    const pb_field_iter_t *, void **arg) {
     auto *out = static_cast<std::vector<uint32_t> *>(*arg);
     while (stream->bytes_left != 0) {
@@ -242,12 +242,12 @@ bool collectBytes(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
     return true;
 }
 
-void setDecodeCallback(pb_callback_t *callback, std::vector<uint8_t> *out) {
-    callback->funcs.decode = collectBytes;
+void set_decode_callback(pb_callback_t *callback, std::vector<uint8_t> *out) {
+    callback->funcs.decode = collect_bytes;
     callback->arg = out;
 }
 
-bool collectVarints(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
+bool collect_varints(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
     auto *out = static_cast<std::vector<uint32_t> *>(*arg);
     while (stream->bytes_left != 0) {
         uint64_t value = 0;
@@ -262,14 +262,14 @@ struct DecodedCallbackEntry {
     std::string topic;
     std::vector<uint32_t> indexes;
 };
-bool collectCallbackEntries(pb_istream_t *stream, const pb_field_iter_t *,
+bool collect_callback_entries(pb_istream_t *stream, const pb_field_iter_t *,
                             void **arg) {
     auto *entries = static_cast<std::vector<DecodedCallbackEntry> *>(*arg);
     debug_CallbackEntry entry = debug_CallbackEntry_init_zero;
     std::vector<uint8_t> topic;
     std::vector<uint32_t> indexes;
-    setDecodeCallback(&entry.topic, &topic);
-    entry.table_indexes.funcs.decode = collectVarints;
+    set_decode_callback(&entry.topic, &topic);
+    entry.table_indexes.funcs.decode = collect_varints;
     entry.table_indexes.arg = &indexes;
     if (!pb_decode(stream, debug_CallbackEntry_fields, &entry)) return false;
     entries->push_back(
@@ -277,7 +277,7 @@ bool collectCallbackEntries(pb_istream_t *stream, const pb_field_iter_t *,
     return true;
 }
 
-std::optional<uint32_t> findImportedFunction(Module *m,
+std::optional<uint32_t> find_imported_function(Module *m,
                                              const std::string &name) {
     for (uint32_t index = 0; index < m->import_count; ++index) {
         if (m->functions[index].import_field != nullptr &&
@@ -287,7 +287,7 @@ std::optional<uint32_t> findImportedFunction(Module *m,
     return std::nullopt;
 }
 
-bool collectValues(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
+bool collect_values(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
     auto *out = static_cast<std::vector<debug_Value> *>(*arg);
     debug_Value value = debug_Value_init_zero;
     if (!pb_decode(stream, debug_Value_fields, &value)) return false;
@@ -295,7 +295,7 @@ bool collectValues(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
     return true;
 }
 
-bool applyValueUpdate(const debug_Value &from, StackValue *to) {
+bool apply_value_update(const debug_Value &from, StackValue *to) {
     switch (from.which_data) {
         case debug_Value_i32_bits_tag:
             to->value_type = I32;
@@ -318,7 +318,7 @@ bool applyValueUpdate(const debug_Value &from, StackValue *to) {
     }
 }
 
-[[maybe_unused]] void valueToProto(const StackValue &from, const uint32_t index,
+[[maybe_unused]] void value_to_proto(const StackValue &from, const uint32_t index,
                                    debug_Value *to) {
     *to = debug_Value_init_zero;
     to->index = index;
@@ -366,7 +366,7 @@ struct SnapshotView {
         *overrides;
 };
 
-ValueView currentLocals(const ExecutionContext *context) {
+ValueView current_locals(const ExecutionContext *context) {
     if (context->csp < 0 || context->fp < 0) return {nullptr, 0, nullptr};
 
     for (int index = context->csp; index >= 0; --index) {
@@ -387,35 +387,35 @@ ValueView currentLocals(const ExecutionContext *context) {
     return {nullptr, 0, nullptr};
 }
 
-bool encodeValue(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_value(pb_ostream_t *stream, const pb_field_t *field,
                  const StackValue &source, const size_t index) {
     debug_Value value = debug_Value_init_zero;
-    valueToProto(source, static_cast<uint32_t>(index), &value);
+    value_to_proto(source, static_cast<uint32_t>(index), &value);
     return pb_encode_tag_for_field(stream, field) &&
            pb_encode_submessage(stream, debug_Value_fields, &value);
 }
 
-bool encodeValueRange(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_value_range(pb_ostream_t *stream, const pb_field_t *field,
                       void *const *arg) {
     const auto *view = static_cast<const ValueView *>(*arg);
     for (size_t index = 0; index < view->size; ++index) {
         const StackValue *value = view->globals == nullptr
                                       ? &view->values[index]
                                       : view->globals[index]->value;
-        if (!encodeValue(stream, field, *value, index)) return false;
+        if (!encode_value(stream, field, *value, index)) return false;
     }
     return true;
 }
 
-bool encodeValues(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_values(pb_ostream_t *stream, const pb_field_t *field,
                   void *const *arg) {
     const auto *values = static_cast<const std::vector<StackValue> *>(*arg);
     ValueView view{values->data(), values->size(), nullptr};
     void *range = &view;
-    return encodeValueRange(stream, field, &range);
+    return encode_value_range(stream, field, &range);
 }
 
-bool encodeBytes(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_bytes(pb_ostream_t *stream, const pb_field_t *field,
                  void *const *arg) {
     const auto *bytes = static_cast<const std::vector<uint8_t> *>(*arg);
     ByteView view{bytes->data(), bytes->size()};
@@ -423,7 +423,7 @@ bool encodeBytes(pb_ostream_t *stream, const pb_field_t *field,
     return nanopb_encoder::encode_bytes(stream, field, &opaque);
 }
 
-bool encodeBreakpoints(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_breakpoints(pb_ostream_t *stream, const pb_field_t *field,
                        void *const *arg) {
     const auto *view = static_cast<const SnapshotView *>(*arg);
     for (uint8_t *breakpoint : view->debugger->breakpoints) {
@@ -435,7 +435,7 @@ bool encodeBreakpoints(pb_ostream_t *stream, const pb_field_t *field,
     return true;
 }
 
-bool encodeFunctions(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_functions(pb_ostream_t *stream, const pb_field_t *field,
                      void *const *arg) {
     const auto *view = static_cast<const SnapshotView *>(*arg);
     Module *module = view->module;
@@ -467,7 +467,7 @@ bool encodeFunctions(pb_ostream_t *stream, const pb_field_t *field,
     return true;
 }
 
-bool encodeCallstack(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_callstack(pb_ostream_t *stream, const pb_field_t *field,
                      void *const *arg) {
     const auto *view = static_cast<const SnapshotView *>(*arg);
     const ExecutionContext *context = view->context;
@@ -495,7 +495,7 @@ bool encodeCallstack(pb_ostream_t *stream, const pb_field_t *field,
     return true;
 }
 
-bool encodeCallbackIndexes(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_callback_indexes(pb_ostream_t *stream, const pb_field_t *field,
                            void *const *arg) {
     const auto *callbacks = static_cast<const std::vector<Callback> *>(*arg);
     for (const Callback &callback : *callbacks) {
@@ -507,7 +507,7 @@ bool encodeCallbackIndexes(pb_ostream_t *stream, const pb_field_t *field,
     return true;
 }
 
-bool encodeCallbacks(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_callbacks(pb_ostream_t *stream, const pb_field_t *field,
                      void *const *arg) {
     const auto *callbacks =
         static_cast<const CallbackHandler::CallbackMap *>(*arg);
@@ -519,7 +519,7 @@ bool encodeCallbacks(pb_ostream_t *stream, const pb_field_t *field,
 
         entry.topic.funcs.encode = nanopb_encoder::encode_bytes;
         entry.topic.arg = &topicBytes;
-        entry.table_indexes.funcs.encode = encodeCallbackIndexes;
+        entry.table_indexes.funcs.encode = encode_callback_indexes;
         entry.table_indexes.arg = entries;
 
         if (!pb_encode_tag_for_field(stream, field) ||
@@ -530,7 +530,7 @@ bool encodeCallbacks(pb_ostream_t *stream, const pb_field_t *field,
     return true;
 }
 
-bool encodeEvents(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_events(pb_ostream_t *stream, const pb_field_t *field,
                   void *const *arg) {
     const auto *range = static_cast<const EventRangeView *>(*arg);
 
@@ -557,7 +557,7 @@ bool encodeEvents(pb_ostream_t *stream, const pb_field_t *field,
     return true;
 }
 
-bool encodeIOState(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_io_state(pb_ostream_t *stream, const pb_field_t *field,
                    void *const *arg) {
     const auto *states =
         static_cast<const std::vector<IOStateElement *> *>(*arg);
@@ -577,7 +577,7 @@ bool encodeIOState(pb_ostream_t *stream, const pb_field_t *field,
     return true;
 }
 
-bool encodeOverrides(pb_ostream_t *stream, const pb_field_t *field,
+bool encode_overrides(pb_ostream_t *stream, const pb_field_t *field,
                      void *const *arg) {
     const auto *view = static_cast<const SnapshotView *>(*arg);
 
@@ -611,14 +611,14 @@ bool encodeOverrides(pb_ostream_t *stream, const pb_field_t *field,
 
 }  // namespace
 
-bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
-    std::optional<DebugMessage> message = getDebugMessage();
+bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
+    std::optional<DebugMessage> message = get_debug_message();
     if (!message) return false;
 
     const auto malformed = [this]() {
-        sendNotification(debug_NotificationType_NOTIFICATION_MALFORMED);
+        send_notification(debug_NotificationType_NOTIFICATION_MALFORMED);
     };
-    const auto requireEmpty = [&message, &malformed]() {
+    const auto require_empty = [&message, &malformed]() {
         if (!message->payload.empty()) {
             malformed();
             return false;
@@ -628,34 +628,34 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
 
     switch (message->type) {
         case debug_Command_COMMAND_RUN:
-            if (!requireEmpty()) break;
-            handleInterruptRUN(m, program_state);
-            sendNotification(debug_NotificationType_NOTIFICATION_CONTINUED);
+            if (!require_empty()) break;
+            handle_interrupt_run(m, program_state);
+            send_notification(debug_NotificationType_NOTIFICATION_CONTINUED);
             break;
         case debug_Command_COMMAND_HALT:
-            if (!requireEmpty()) break;
-            sendNotification(debug_NotificationType_NOTIFICATION_HALTED);
+            if (!require_empty()) break;
+            send_notification(debug_NotificationType_NOTIFICATION_HALTED);
             if (channel != nullptr) channel->close();
             break;
         case debug_Command_COMMAND_PAUSE:
-            if (!requireEmpty()) break;
-            pauseRuntime(m);
+            if (!require_empty()) break;
+            pause_runtime(m);
             if (snapshotPolicy == SnapshotPolicy::checkpointing)
                 checkpoint(m, true);
-            sendNotification(debug_NotificationType_NOTIFICATION_PAUSED);
+            send_notification(debug_NotificationType_NOTIFICATION_PAUSED);
             break;
         case debug_Command_COMMAND_STEP:
-            if (!requireEmpty()) break;
-            handleSTEP(m, program_state);
+            if (!require_empty()) break;
+            handle_step(m, program_state);
             break;
         case debug_Command_COMMAND_STEP_OVER:
-            if (!requireEmpty()) break;
-            handleSTEPOver(m, program_state);
+            if (!require_empty()) break;
+            handle_step_over(m, program_state);
             break;
         case debug_Command_COMMAND_ADD_BREAKPOINT:
         case debug_Command_COMMAND_REMOVE_BREAKPOINT: {
             debug_Breakpoint breakpoint = debug_Breakpoint_init_zero;
-            if (!decodePayload(message->payload, debug_Breakpoint_fields,
+            if (!decode_payload(message->payload, debug_Breakpoint_fields,
                                &breakpoint) ||
                 !breakpoint.has_location ||
                 breakpoint.location.module_index != 0 ||
@@ -667,15 +667,15 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             uint8_t *address =
                 toPhysicalAddress(breakpoint.location.program_counter, m);
             if (message->type == debug_Command_COMMAND_ADD_BREAKPOINT)
-                addBreakpoint(address);
+                add_breakpoint(address);
             else
-                deleteBreakpoint(address);
-            sendOperationResult(message->type, true);
+                delete_breakpoint(address);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_CONTINUE_FOR: {
             debug_ContinueFor request = debug_ContinueFor_init_zero;
-            if (!decodePayload(message->payload, debug_ContinueFor_fields,
+            if (!decode_payload(message->payload, debug_ContinueFor_fields,
                                &request) ||
                 request.count == 0) {
                 malformed();
@@ -683,13 +683,13 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             }
             remaining_instructions = static_cast<int32_t>(request.count);
             *program_state = WARDUINOrun;
-            sendNotification(debug_NotificationType_NOTIFICATION_CONTINUED);
+            send_notification(debug_NotificationType_NOTIFICATION_CONTINUED);
             break;
         }
         case debug_Command_COMMAND_DUMP:
-            if (!requireEmpty()) break;
-            pauseRuntime(m);
-            encodeSnapshot(m,
+            if (!require_empty()) break;
+            pause_runtime(m);
+            encode_snapshot(m,
                            snapshotPc | snapshotBreakpoints |
                                snapshotCallstack | snapshotGlobals |
                                snapshotTable | snapshotBranchTable |
@@ -699,28 +699,28 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
         case debug_Command_COMMAND_DUMP_LOCALS:
-            if (!requireEmpty()) break;
-            pauseRuntime(m);
-            dumpLocals(m);
+            if (!require_empty()) break;
+            pause_runtime(m);
+            dump_locals(m);
             break;
         case debug_Command_COMMAND_SNAPSHOT:
-            if (!requireEmpty()) break;
-            pauseRuntime(m);
+            if (!require_empty()) break;
+            pause_runtime(m);
             snapshot(m);
             break;
         case debug_Command_COMMAND_DUMP_EVENTS: {
             debug_Range range = debug_Range_init_zero;
-            if (!decodePayload(message->payload, debug_Range_fields, &range) ||
+            if (!decode_payload(message->payload, debug_Range_fields, &range) ||
                 range.end < range.start) {
                 malformed();
                 break;
             }
-            dumpEvents(range.start, range.end - range.start);
+            dump_events(range.start, range.end - range.start);
             break;
         }
         case debug_Command_COMMAND_DUMP_CALLBACKS:
-            if (!requireEmpty()) break;
-            dumpCallbackmapping();
+            if (!require_empty()) break;
+            dump_callback_mapping();
             break;
         case debug_Command_COMMAND_UPDATE_LOCAL: {
             const auto update = update_value(message->payload);
@@ -732,11 +732,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             }
             StackValue *value =
                 &context->stack[context->fp + update->index];
-            if (!applyValueUpdate(update->value, value)) {
+            if (!apply_value_update(update->value, value)) {
                 malformed();
                 break;
             }
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_UPDATE_GLOBAL: {
@@ -746,11 +746,11 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 break;
             }
             StackValue *value = m->globals[update->index]->value;
-            if (!applyValueUpdate(update->value, value)) {
+            if (!apply_value_update(update->value, value)) {
                 malformed();
                 break;
             }
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_UPDATE_STACK: {
@@ -762,18 +762,18 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 break;
             }
             StackValue *value = &context->stack[update->index];
-            if (!applyValueUpdate(update->value, value)) {
+            if (!apply_value_update(update->value, value)) {
                 malformed();
                 break;
             }
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_UPDATE_MODULE: {
             debug_ModuleUpdate update = debug_ModuleUpdate_init_zero;
             std::vector<uint8_t> wasm;
-            setDecodeCallback(&update.wasm, &wasm);
-            if (!decodePayload(message->payload, debug_ModuleUpdate_fields,
+            set_decode_callback(&update.wasm, &wasm);
+            if (!decode_payload(message->payload, debug_ModuleUpdate_fields,
                                &update) ||
                 wasm.empty()) {
                 malformed();
@@ -781,19 +781,19 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             }
             auto *copy = static_cast<uint8_t *>(malloc(wasm.size()));
             if (copy == nullptr) {
-                sendOperationResult(message->type, false);
+                send_operation_result(message->type, false);
                 break;
             }
             memcpy(copy, wasm.data(), wasm.size());
             m->warduino->update_module(m, copy, wasm.size());
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_UPDATE_FUNCTION: {
             debug_Function update = debug_Function_init_zero;
             std::vector<uint8_t> instructions;
-            setDecodeCallback(&update.instructions, &instructions);
-            if (!decodePayload(message->payload, debug_Function_fields,
+            set_decode_callback(&update.instructions, &instructions);
+            if (!decode_payload(message->payload, debug_Function_fields,
                                &update) ||
                 update.function_index >= m->function_count ||
                 instructions.empty() || instructions.back() != 0x0b) {
@@ -806,15 +806,15 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             function.end_ptr = function.start_ptr +
                                functionBodies[update.function_index].size() - 1;
             function.br_ptr = function.end_ptr;
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_UPDATE_CALLBACKS: {
             debug_CallbackMapping mapping = debug_CallbackMapping_init_zero;
             std::vector<DecodedCallbackEntry> entries;
-            mapping.entries.funcs.decode = collectCallbackEntries;
+            mapping.entries.funcs.decode = collect_callback_entries;
             mapping.entries.arg = &entries;
-            if (!decodePayload(message->payload, debug_CallbackMapping_fields,
+            if (!decode_payload(message->payload, debug_CallbackMapping_fields,
                                &mapping)) {
                 malformed();
                 break;
@@ -825,20 +825,20 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                     CallbackHandler::add_callback(
                         Callback(m, entry.topic, index));
             }
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_SET_SNAPSHOT_POLICY: {
             debug_SnapshotPolicyConfig config =
                 debug_SnapshotPolicyConfig_init_zero;
             std::vector<uint8_t> selectedState;
-            setDecodeCallback(&config.selected_state, &selectedState);
+            set_decode_callback(&config.selected_state, &selectedState);
             SnapshotSelection selectedMask = 0;
-            if (!decodePayload(message->payload,
+            if (!decode_payload(message->payload,
                                debug_SnapshotPolicyConfig_fields, &config) ||
                 config.policy >
                     debug_SnapshotPolicy_SNAPSHOT_POLICY_CHECKPOINTING ||
-                !parseSelection(selectedState.data(), selectedState.size(),
+                !parse_selection(selectedState.data(), selectedState.size(),
                                 &selectedMask)) {
                 malformed();
                 break;
@@ -853,7 +853,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
                 checkpoint_state =
                     static_cast<uint8_t *>(malloc(selectedState.size()));
                 if (checkpoint_state == nullptr) {
-                    sendOperationResult(message->type, false);
+                    send_operation_result(message->type, false);
                     break;
                 }
                 memcpy(checkpoint_state, selectedState.data(),
@@ -861,7 +861,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             }
             if (snapshotPolicy == SnapshotPolicy::checkpointing)
                 checkpoint(m, true);
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_SET_OVERRIDE:
@@ -869,88 +869,88 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             debug_Override request = debug_Override_init_zero;
             std::vector<uint8_t> nameBytes;
             std::vector<uint32_t> words;
-            setDecodeCallback(&request.primitive_name, &nameBytes);
-            request.argument_words.funcs.decode = collectWords;
+            set_decode_callback(&request.primitive_name, &nameBytes);
+            request.argument_words.funcs.decode = collect_words;
             request.argument_words.arg = &words;
-            if (!decodePayload(message->payload, debug_Override_fields,
+            if (!decode_payload(message->payload, debug_Override_fields,
                                &request)) {
                 malformed();
                 break;
             }
-            const auto fidx = findImportedFunction(
+            const auto fidx = find_imported_function(
                 m, std::string(nameBytes.begin(), nameBytes.end()));
             if (!fidx ||
                 words.size() != m->functions[*fidx].type->param_count) {
-                sendOperationResult(message->type, false);
+                send_operation_result(message->type, false);
                 break;
             }
             words.push_back(*fidx);
             if (message->type == debug_Command_COMMAND_SET_OVERRIDE)
                 overrides[words] = request.result;
             else if (overrides.erase(words) == 0) {
-                sendOperationResult(message->type, false);
+                send_operation_result(message->type, false);
                 break;
             }
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_INSPECT: {
             debug_Inspect request = debug_Inspect_init_zero;
             std::vector<uint8_t> selected;
-            setDecodeCallback(&request.state, &selected);
-            if (!decodePayload(message->payload, debug_Inspect_fields,
+            set_decode_callback(&request.state, &selected);
+            if (!decode_payload(message->payload, debug_Inspect_fields,
                                &request)) {
                 malformed();
                 break;
             }
             SnapshotSelection selection = 0;
-            if (!parseSelection(selected.data(), selected.size(), &selection)) {
+            if (!parse_selection(selected.data(), selected.size(), &selection)) {
                 malformed();
                 break;
             }
-            pauseRuntime(m);
-            encodeSnapshot(m, selection,
+            pause_runtime(m);
+            encode_snapshot(m, selection,
                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
         }
         case debug_Command_COMMAND_LOAD_SNAPSHOT: {
             debug_Snapshot state = debug_Snapshot_init_zero;
-            if (!decodePayload(message->payload, debug_Snapshot_fields,
+            if (!decode_payload(message->payload, debug_Snapshot_fields,
                                &state) ||
                 !isToPhysicalAddrPossible(state.program_counter, m)) {
                 malformed();
                 break;
             }
-            pauseRuntime(m);
+            pause_runtime(m);
             m->warduino->execution_context->pc_ptr =
                 toPhysicalAddress(state.program_counter, m);
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_ADD_PROXY:
         case debug_Command_COMMAND_REMOVE_PROXY: {
             debug_FunctionRef reference = debug_FunctionRef_init_zero;
-            if (!decodePayload(message->payload, debug_FunctionRef_fields,
+            if (!decode_payload(message->payload, debug_FunctionRef_fields,
                                &reference) ||
                 supervisor == nullptr ||
                 reference.function_index >= m->function_count) {
-                sendOperationResult(message->type, false);
+                send_operation_result(message->type, false);
                 break;
             }
             if (message->type == debug_Command_COMMAND_ADD_PROXY)
                 supervisor->registerProxiedCall(reference.function_index);
             else
                 supervisor->unregisterProxiedCall(reference.function_index);
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_PROXY_CALL:
         case debug_Command_COMMAND_INVOKE: {
             debug_RemoteFunctionCall call = debug_RemoteFunctionCall_init_zero;
             std::vector<debug_Value> values;
-            call.arguments.funcs.decode = collectValues;
+            call.arguments.funcs.decode = collect_values;
             call.arguments.arg = &values;
-            if (!decodePayload(message->payload,
+            if (!decode_payload(message->payload,
                                debug_RemoteFunctionCall_fields, &call) ||
                 call.function_index >= m->function_count ||
                 values.size() !=
@@ -961,7 +961,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             auto *arguments = new StackValue[values.size()];
             bool valid = true;
             for (size_t index = 0; index < values.size(); ++index)
-                valid &= valueFromProto(values[index], &arguments[index]);
+                valid &= value_from_proto(values[index], &arguments[index]);
             if (!valid) {
                 delete[] arguments;
                 malformed();
@@ -970,7 +970,7 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             if (message->type == debug_Command_COMMAND_PROXY_CALL) {
                 if (proxy == nullptr) {
                     delete[] arguments;
-                    sendOperationResult(message->type, false);
+                    send_operation_result(message->type, false);
                     break;
                 }
                 proxy->pushRFC(
@@ -993,36 +993,36 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             result.success = exception[0] == "\0"[0];
             std::vector<uint8_t> error;
             if (result.success) {
-                result.results.funcs.encode = encodeValues;
+                result.results.funcs.encode = encode_values;
                 result.results.arg =
                     const_cast<std::vector<StackValue> *>(&results);
             } else {
                 error.assign(exception, exception + std::strlen(exception));
-                result.error.funcs.encode = encodeBytes;
+                result.error.funcs.encode = encode_bytes;
                 result.error.arg = &error;
             }
-            sendNotification(
+            send_notification(
                 debug_NotificationType_NOTIFICATION_REMOTE_FUNCTION_RESULT,
                 debug_RemoteFunctionResult_fields, &result);
             break;
         }
         case debug_Command_COMMAND_PROXIFY:
-            if (!requireEmpty()) break;
+            if (!require_empty()) break;
             proxify();
-            sendOperationResult(message->type, true);
+            send_operation_result(message->type, true);
             break;
         case debug_Command_COMMAND_POP_EVENT:
-            if (!requireEmpty()) break;
-            sendOperationResult(message->type,
+            if (!require_empty()) break;
+            send_operation_result(message->type,
                                 CallbackHandler::resolve_event(true));
             break;
         case debug_Command_COMMAND_PUSH_EVENT: {
             debug_Event event = debug_Event_init_zero;
             std::vector<uint8_t> topic;
             std::vector<uint8_t> payload;
-            setDecodeCallback(&event.topic, &topic);
-            setDecodeCallback(&event.payload, &payload);
-            if (!decodePayload(message->payload, debug_Event_fields, &event) ||
+            set_decode_callback(&event.topic, &topic);
+            set_decode_callback(&event.payload, &payload);
+            if (!decode_payload(message->payload, debug_Event_fields, &event) ||
                 topic.empty()) {
                 malformed();
                 break;
@@ -1030,12 +1030,12 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
             CallbackHandler::push_event(
                 std::string(topic.begin(), topic.end()),
                 reinterpret_cast<const char *>(payload.data()), payload.size());
-            notifyPushedEvent();
+            notify_pushed_event();
             break;
         }
         case debug_Command_COMMAND_RESET:
-            if (!requireEmpty()) break;
-            sendOperationResult(message->type, reset(m));
+            if (!require_empty()) break;
+            send_operation_result(message->type, reset(m));
             break;
         default:
             malformed();
@@ -1045,10 +1045,10 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
 }
 
 // Private methods
-void Debugger::printValue(const StackValue *, const uint32_t,
+void Debugger::print_value(const StackValue *, const uint32_t,
                           const bool) const {}
 
-uint8_t *Debugger::findOpcode(Module *m, const Block *block) {
+uint8_t *Debugger::find_opcode(Module *m, const Block *block) {
     const auto find =
         std::find_if(std::begin(m->block_lookup), std::end(m->block_lookup),
                      [&](const std::pair<uint8_t *, Block *> &pair) {
@@ -1065,7 +1065,7 @@ uint8_t *Debugger::findOpcode(Module *m, const Block *block) {
     return opcode;
 }
 
-void Debugger::handleInvoke(Module *m, uint8_t *interruptData) const {
+void Debugger::handle_invoke(Module *m, uint8_t *interruptData) const {
     const uint32_t fidx = read_LEB_32(&interruptData);
 
     if (fidx >= m->function_count) {
@@ -1082,25 +1082,25 @@ void Debugger::handleInvoke(Module *m, uint8_t *interruptData) const {
 
     WARDuino::instance()->invoke(m, fidx, func.param_count, args);
     instance->program_state = current;
-    this->dumpStack(m);
+    this->dump_stack(m);
 }
 
-void Debugger::handleInterruptRUN(const Module *m,
+void Debugger::handle_interrupt_run(const Module *m,
                                   RunningState *program_state) {
     ExecutionContext *ectx = m->warduino->execution_context;
-    if (*program_state == WARDUINOpause && this->isBreakpoint(ectx->pc_ptr)) {
+    if (*program_state == WARDUINOpause && this->is_breakpoint(ectx->pc_ptr)) {
         this->skipBreakpoint = ectx->pc_ptr;
     }
     *program_state = WARDUINOrun;
 }
 
-void Debugger::handleSTEP(const Module *m, RunningState *program_state) {
+void Debugger::handle_step(const Module *m, RunningState *program_state) {
     ExecutionContext *ectx = m->warduino->execution_context;
     *program_state = WARDUINOstep;
     this->skipBreakpoint = ectx->pc_ptr;
 }
 
-void Debugger::handleSTEPOver(const Module *m, RunningState *program_state) {
+void Debugger::handle_step_over(const Module *m, RunningState *program_state) {
     ExecutionContext *ectx = m->warduino->execution_context;
     this->skipBreakpoint = ectx->pc_ptr;
     uint8_t const opcode = *ectx->pc_ptr;
@@ -1118,19 +1118,19 @@ void Debugger::handleSTEPOver(const Module *m, RunningState *program_state) {
         *program_state = WARDUINOrun;
     } else {
         // normal step
-        this->handleSTEP(m, program_state);
+        this->handle_step(m, program_state);
     }
 }
 
-void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
+void Debugger::handle_interrupt_bp(Module *m, uint8_t *interruptData) {
     uint8_t *bpData = interruptData + 1;
     uint32_t virtualAddress = read_B32(&bpData);
     if (isToPhysicalAddrPossible(virtualAddress, m)) {
         uint8_t *bpt = toPhysicalAddress(virtualAddress, m);
         if (*interruptData == 0x06) {
-            this->addBreakpoint(bpt);
+            this->add_breakpoint(bpt);
         } else {
-            this->deleteBreakpoint(bpt);
+            this->delete_breakpoint(bpt);
         }
     }
     debug("BP %" PRIu32 "!\n", virtualAddress);
@@ -1139,7 +1139,7 @@ void Debugger::handleInterruptBP(Module *m, uint8_t *interruptData) {
 std::optional<debug_ValueUpdate> Debugger::update_value(
     const std::vector<uint8_t> &payload) const {
     debug_ValueUpdate update = debug_ValueUpdate_init_zero;
-    if (!decodePayload(payload, debug_ValueUpdate_fields, &update) ||
+    if (!decode_payload(payload, debug_ValueUpdate_fields, &update) ||
         !update.has_value) {
         return std::nullopt;
     }
@@ -1148,38 +1148,38 @@ std::optional<debug_ValueUpdate> Debugger::update_value(
 
 void Debugger::dump(Module *m, bool) const { snapshot(m); }
 
-void Debugger::dumpStack(const Module *m) const {
+void Debugger::dump_stack(const Module *m) const {
     const ExecutionContext *ectx = m->warduino->execution_context;
     ValueView values{ectx->stack,
                      ectx->sp >= 0 ? static_cast<size_t>(ectx->sp + 1) : 0,
                      nullptr};
     /* ValueView points directly at the execution stack. */
     debug_Locals locals = debug_Locals_init_zero;
-    locals.values.funcs.encode = encodeValueRange;
+    locals.values.funcs.encode = encode_value_range;
     locals.values.arg = &values;
-    sendNotification(debug_NotificationType_NOTIFICATION_LOCALS_DUMP,
+    send_notification(debug_NotificationType_NOTIFICATION_LOCALS_DUMP,
                      debug_Locals_fields, &locals);
 }
 
-void Debugger::dumpBreakpoints(Module *) const {}
+void Debugger::dump_breakpoints(Module *) const {}
 
-void Debugger::dumpFunctions(Module *) const {}
+void Debugger::dump_functions(Module *) const {}
 
 /*
  * {"type":%u,"fidx":"0x%x","sp":%d,"fp":%d,"ra":"%p"}%s
  */
-void Debugger::dumpCallstack(Module *) const {}
+void Debugger::dump_callstack(Module *) const {}
 
-void Debugger::dumpLocals(const Module *m) const {
-    ValueView values = currentLocals(m->warduino->execution_context);
+void Debugger::dump_locals(const Module *m) const {
+    ValueView values = current_locals(m->warduino->execution_context);
     debug_Locals locals = debug_Locals_init_zero;
-    locals.values.funcs.encode = encodeValueRange;
+    locals.values.funcs.encode = encode_value_range;
     locals.values.arg = &values;
-    sendNotification(debug_NotificationType_NOTIFICATION_LOCALS_DUMP,
+    send_notification(debug_NotificationType_NOTIFICATION_LOCALS_DUMP,
                      debug_Locals_fields, &locals);
 }
 
-void Debugger::dumpEvents(long start, long size) const {
+void Debugger::dump_events(long start, long size) const {
     const size_t total = CallbackHandler::event_count();
     const size_t first =
         std::min(start < 0 ? size_t{0} : static_cast<size_t>(start), total);
@@ -1191,23 +1191,23 @@ void Debugger::dumpEvents(long start, long size) const {
     queue.has_range = true;
     queue.range.start = static_cast<uint32_t>(first);
     queue.range.end = static_cast<uint32_t>(first + count);
-    queue.events.funcs.encode = encodeEvents;
+    queue.events.funcs.encode = encode_events;
     queue.events.arg = &range;
-    sendNotification(debug_NotificationType_NOTIFICATION_EVENTS_DUMP,
+    send_notification(debug_NotificationType_NOTIFICATION_EVENTS_DUMP,
                      debug_EventsQueue_fields, &queue);
 }
 
-void Debugger::dumpCallbackmapping() const {
+void Debugger::dump_callback_mapping() const {
     const auto &callbacks = CallbackHandler::callback_map();
     debug_CallbackMapping mapping = debug_CallbackMapping_init_zero;
-    mapping.entries.funcs.encode = encodeCallbacks;
+    mapping.entries.funcs.encode = encode_callbacks;
     mapping.entries.arg =
         const_cast<CallbackHandler::CallbackMap *>(&callbacks);
-    sendNotification(debug_NotificationType_NOTIFICATION_CALLBACKS_DUMP,
+    send_notification(debug_NotificationType_NOTIFICATION_CALLBACKS_DUMP,
                      debug_CallbackMapping_fields, &mapping);
 }
 
-void Debugger::dumpHeapInfo(Module *) const {}
+void Debugger::dump_heap_info(Module *) const {}
 
 /**
  * Read the change in bytes array.
@@ -1216,7 +1216,7 @@ void Debugger::dumpHeapInfo(Module *) const {}
  * [0x10, index, ... new function body 0x0b]
  * Where index is the index without imports
  */
-bool Debugger::handleChangedFunction(const Module *m, uint8_t *bytes) {
+bool Debugger::handle_changed_function(const Module *m, uint8_t *bytes) {
     // Check if this was a change request
     if (*bytes != interruptUPDATEFun) return false;
 
@@ -1274,7 +1274,7 @@ bool Debugger::handleChangedFunction(const Module *m, uint8_t *bytes) {
  * @param bytes
  * @return
  */
-bool Debugger::handleChangedLocal(const Module *m, uint8_t *bytes) const {
+bool Debugger::handle_changed_local(const Module *m, uint8_t *bytes) const {
     if (*bytes != interruptUPDATELocal) return false;
     uint8_t *pos = bytes + 1;
     debug("Local updates: %x\n", *pos);
@@ -1303,13 +1303,13 @@ bool Debugger::handleChangedLocal(const Module *m, uint8_t *bytes) const {
     return true;
 }
 
-void Debugger::notifyPushedEvent() const {
-    this->sendNotification(debug_NotificationType_NOTIFICATION_NEW_EVENT);
+void Debugger::notify_pushed_event() const {
+    this->send_notification(debug_NotificationType_NOTIFICATION_NEW_EVENT);
 }
 
-bool Debugger::handlePushedEvent(char *) const { return false; }
+bool Debugger::handle_pushed_event(char *) const { return false; }
 
-bool Debugger::parseSelection(const uint8_t *state, const size_t size,
+bool Debugger::parse_selection(const uint8_t *state, const size_t size,
                               SnapshotSelection *selection) {
     *selection = 0;
     for (size_t index = 0; index < size; ++index) {
@@ -1319,7 +1319,7 @@ bool Debugger::parseSelection(const uint8_t *state, const size_t size,
     return true;
 }
 
-bool Debugger::encodeSnapshot(Module *m, const SnapshotSelection selection,
+bool Debugger::encode_snapshot(Module *m, const SnapshotSelection selection,
                               const debug_NotificationType notification) const {
     ExecutionContext *ectx = m->warduino->execution_context;
     SnapshotView view{m, this, ectx, &overrides};
@@ -1346,33 +1346,33 @@ bool Debugger::encodeSnapshot(Module *m, const SnapshotSelection selection,
         }
     }
     if (selection & snapshotBreakpoints) {
-        state.breakpoints.funcs.encode = encodeBreakpoints;
+        state.breakpoints.funcs.encode = encode_breakpoints;
         state.breakpoints.arg = &view;
     }
     if (selection & snapshotFunctions) {
-        state.functions.funcs.encode = encodeFunctions;
+        state.functions.funcs.encode = encode_functions;
         state.functions.arg = &view;
     }
     if (selection & snapshotCallstack) {
-        state.callstack.funcs.encode = encodeCallstack;
+        state.callstack.funcs.encode = encode_callstack;
         state.callstack.arg = &view;
     }
     ValueView globals{nullptr, m->global_count, m->globals};
     if (selection & snapshotGlobals) {
-        state.globals.funcs.encode = encodeValueRange;
+        state.globals.funcs.encode = encode_value_range;
         state.globals.arg = &globals;
     }
     ValueView stackValues{ectx->stack,
                           ectx->sp >= 0 ? static_cast<size_t>(ectx->sp + 1) : 0,
                           nullptr};
     if (selection & snapshotStack) {
-        state.stack.funcs.encode = encodeValueRange;
+        state.stack.funcs.encode = encode_value_range;
         state.stack.arg = &stackValues;
     }
-    ValueView locals = currentLocals(ectx);
+    ValueView locals = current_locals(ectx);
     if (selection & snapshotLocals) {
         state.has_locals = true;
-        state.locals.values.funcs.encode = encodeValueRange;
+        state.locals.values.funcs.encode = encode_value_range;
         state.locals.values.arg = &locals;
     }
     Uint32View table{m->table.entries,
@@ -1405,7 +1405,7 @@ bool Debugger::encodeSnapshot(Module *m, const SnapshotSelection selection,
     const auto &callbacks = CallbackHandler::callback_map();
     if (selection & snapshotCallbacks) {
         state.has_callbacks = true;
-        state.callbacks.entries.funcs.encode = encodeCallbacks;
+        state.callbacks.entries.funcs.encode = encode_callbacks;
         state.callbacks.entries.arg =
             const_cast<CallbackHandler::CallbackMap *>(&callbacks);
     }
@@ -1417,22 +1417,22 @@ bool Debugger::encodeSnapshot(Module *m, const SnapshotSelection selection,
         state.queue.has_range = true;
         state.queue.range.start = 0;
         state.queue.range.end = static_cast<uint32_t>(eventCount);
-        state.queue.events.funcs.encode = encodeEvents;
+        state.queue.events.funcs.encode = encode_events;
         state.queue.events.arg = &events;
     }
     if (selection & snapshotIO) {
         ioState = m->warduino->interpreter->get_io_state(m);
-        state.io.funcs.encode = encodeIOState;
+        state.io.funcs.encode = encode_io_state;
         state.io.arg = &ioState;
     }
     if (selection & snapshotOverrides) {
-        state.overrides.funcs.encode = encodeOverrides;
+        state.overrides.funcs.encode = encode_overrides;
         state.overrides.arg = &view;
     }
     if (selection & snapshotHeap)
         state.heap_used = m->warduino->get_heap_used();
     const bool sent =
-        sendNotification(notification, debug_Snapshot_fields, &state);
+        send_notification(notification, debug_Snapshot_fields, &state);
     for (IOStateElement *entry : ioState) delete entry;
     return sent;
 }
@@ -1443,20 +1443,20 @@ void Debugger::snapshot(Module *m) const {
         snapshotTable | snapshotMemory | snapshotBranchTable | snapshotStack |
         snapshotCallbacks | snapshotEvents | snapshotIO | snapshotOverrides |
         snapshotHeap | snapshotFunctions | snapshotLocals;
-    encodeSnapshot(m, complete, debug_NotificationType_NOTIFICATION_SNAPSHOT);
+    encode_snapshot(m, complete, debug_NotificationType_NOTIFICATION_SNAPSHOT);
 }
 
 void Debugger::inspect(Module *m, const uint16_t size,
                        const uint8_t *state) const {
     SnapshotSelection selection = 0;
-    if (!parseSelection(state, size, &selection)) {
-        sendNotification(debug_NotificationType_NOTIFICATION_MALFORMED);
+    if (!parse_selection(state, size, &selection)) {
+        send_notification(debug_NotificationType_NOTIFICATION_MALFORMED);
         return;
     }
-    encodeSnapshot(m, selection, debug_NotificationType_NOTIFICATION_SNAPSHOT);
+    encode_snapshot(m, selection, debug_NotificationType_NOTIFICATION_SNAPSHOT);
 }
 
-void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
+void Debugger::set_snapshot_policy(Module *m, uint8_t *interruptData) {
     uint8_t **data_ptr = &interruptData;
     if (*interruptData <= 2) {
         snapshotPolicy = SnapshotPolicy{*interruptData};
@@ -1491,7 +1491,7 @@ void Debugger::setSnapshotPolicy(Module *m, uint8_t *interruptData) {
     printf("ack%x\n", interruptSetSnapshotPolicy);
 }
 
-std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
+std::optional<uint32_t> get_primitive_being_called(Module *m, uint8_t *pc_ptr) {
     if (!pc_ptr) {
         return std::nullopt;
     }
@@ -1508,12 +1508,12 @@ std::optional<uint32_t> getPrimitiveBeingCalled(Module *m, uint8_t *pc_ptr) {
     return std::nullopt;
 }
 
-void Debugger::handleSnapshotPolicy(Module *m) {
+void Debugger::handle_snapshot_policy(Module *m) {
     if (snapshotPolicy == SnapshotPolicy::atEveryInstruction) {
         SnapshotSelection selection = 0;
         if (checkpoint_state != nullptr &&
-            parseSelection(checkpoint_state, checkpoint_state_size, &selection))
-            encodeSnapshot(m, selection,
+            parse_selection(checkpoint_state, checkpoint_state_size, &selection))
+            encode_snapshot(m, selection,
                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
     } else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
         if (instructions_executed >= checkpointInterval || fidx_called) {
@@ -1533,7 +1533,7 @@ void Debugger::handleSnapshotPolicy(Module *m) {
 
         ExecutionContext *ectx = m->warduino->execution_context;
         // Store arguments of last primitive call.
-        if ((fidx_called = getPrimitiveBeingCalled(m, ectx->pc_ptr))) {
+        if ((fidx_called = get_primitive_being_called(m, ectx->pc_ptr))) {
             const Type *type = m->functions[*fidx_called].type;
             for (uint32_t i = 0; i < type->param_count; i++) {
                 prim_args[type->param_count - i - 1] =
@@ -1557,7 +1557,7 @@ void Debugger::checkpoint(Module *m, const bool force) {
 
     SnapshotSelection selection = 0;
     if (checkpoint_state != nullptr &&
-        parseSelection(checkpoint_state, checkpoint_state_size, &selection) &&
+        parse_selection(checkpoint_state, checkpoint_state_size, &selection) &&
         selection != 0) {
         // Checkpoints only materialize the requested fields.  Keep their views
         // on this stack through nanopb sizing and encoding.
@@ -1574,7 +1574,7 @@ void Debugger::checkpoint(Module *m, const bool force) {
         ValueView globals{nullptr, m->global_count, m->globals};
         /* Globals are read directly while nanopb encodes this checkpoint. */
         if (selection & snapshotGlobals) {
-            notification.snapshot.globals.funcs.encode = encodeValueRange;
+            notification.snapshot.globals.funcs.encode = encode_value_range;
             notification.snapshot.globals.arg = &globals;
         }
         ValueView stack{ectx->stack,
@@ -1583,18 +1583,18 @@ void Debugger::checkpoint(Module *m, const bool force) {
         /* Stack values are read directly while nanopb encodes this checkpoint.
          */
         if (selection & snapshotStack) {
-            notification.snapshot.stack.funcs.encode = encodeValueRange;
+            notification.snapshot.stack.funcs.encode = encode_value_range;
             notification.snapshot.stack.arg = &stack;
         }
         if (selection & snapshotHeap)
             notification.snapshot.heap_used = m->warduino->get_heap_used();
     }
-    sendNotification(debug_NotificationType_NOTIFICATION_CHECKPOINT,
+    send_notification(debug_NotificationType_NOTIFICATION_CHECKPOINT,
                      debug_Checkpoint_fields, &notification);
     instructions_executed = 0;
 }
 
-void Debugger::freeState(Module *m, uint8_t *interruptData) {
+void Debugger::free_state(Module *m, uint8_t *interruptData) {
     debug("freeing the program state\n");
     uint8_t *first_msg = nullptr;
     uint8_t *endfm = nullptr;
@@ -1677,13 +1677,13 @@ void Debugger::freeState(Module *m, uint8_t *interruptData) {
                 break;
             }
             default:
-                FATAL("freeState: receiving unknown command\n");
+                FATAL("free_state: receiving unknown command\n");
         }
     }
     debug("done with first msg\n");
 }
 
-bool Debugger::saveState(Module *m, uint8_t *interruptData) {
+bool Debugger::save_state(Module *m, uint8_t *interruptData) {
     ExecutionContext *ectx = m->warduino->execution_context;
     uint8_t *program_state = nullptr;
     uint8_t *end_state = nullptr;
@@ -1709,7 +1709,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 for (size_t i = 0; i < quantity_bps; i++) {
                     auto virtualBP = read_B32(&program_state);
                     if (isToPhysicalAddrPossible(virtualBP, m)) {
-                        this->addBreakpoint(toPhysicalAddress(virtualBP, m));
+                        this->add_breakpoint(toPhysicalAddress(virtualBP, m));
                     }
                 }
                 break;
@@ -1966,7 +1966,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
                 break;
             }
             default: {
-                FATAL("saveState: Received unknown program state\n");
+                FATAL("save_state: Received unknown program state\n");
             }
         }
     }
@@ -1974,7 +1974,7 @@ bool Debugger::saveState(Module *m, uint8_t *interruptData) {
     return done == static_cast<uint8_t>(1);
 }
 
-uintptr_t Debugger::readPointer(uint8_t **data) {
+uintptr_t Debugger::read_pointer(uint8_t **data) {
     const uint8_t len = (*data)[0];
     uintptr_t bp = 0x0;
     for (size_t i = 0; i < len; i++) {
@@ -1990,7 +1990,7 @@ void Debugger::proxify() {
     this->proxy = new Proxy();  // TODO delete
 }
 
-void Debugger::handleProxyCall(Module *m, RunningState *,
+void Debugger::handle_proxy_call(Module *m, RunningState *,
                                uint8_t *interruptData) const {
     if (this->proxy == nullptr) {
         dbg_info("No proxy available to send proxy call to.\n");
@@ -2009,31 +2009,31 @@ void Debugger::handleProxyCall(Module *m, RunningState *,
     this->proxy->pushRFC(m, rfc);
 }
 
-RFC *Debugger::topProxyCall() const {
+RFC *Debugger::top_proxy_call() const {
     if (proxy == nullptr) {
         return nullptr;
     }
     return this->proxy->topRFC();
 }
 
-void Debugger::sendProxyCallResult(Module *m) const {
+void Debugger::send_proxy_call_result(Module *m) const {
     if (proxy == nullptr) return;
     RFC *rfc = proxy->returnResult(m);
     if (rfc == nullptr) return;
     debug_RemoteFunctionResult result = debug_RemoteFunctionResult_init_zero;
     result.success = rfc->success;
-    sendNotification(debug_NotificationType_NOTIFICATION_REMOTE_FUNCTION_RESULT,
+    send_notification(debug_NotificationType_NOTIFICATION_REMOTE_FUNCTION_RESULT,
                      debug_RemoteFunctionResult_fields, &result);
     delete rfc;
 }
 
-bool Debugger::isProxy() const { return this->proxy != nullptr; }
+bool Debugger::is_proxy() const { return this->proxy != nullptr; }
 
-bool Debugger::isProxied(const uint32_t fidx) const {
-    return this->supervisor != nullptr && this->supervisor->isProxied(fidx);
+bool Debugger::is_proxied(const uint32_t fidx) const {
+    return this->supervisor != nullptr && this->supervisor->is_proxied(fidx);
 }
 
-void Debugger::handleMonitorProxies(const Module *m,
+void Debugger::handle_monitor_proxies(const Module *m,
                                     uint8_t *interruptData) const {
     const uint32_t amount_funcs = read_B32(&interruptData);
     printf("funcs_total %" PRIu32 "\n", amount_funcs);
@@ -2048,7 +2048,7 @@ void Debugger::handleMonitorProxies(const Module *m,
     debug("done!\n");
 }
 
-void Debugger::startProxySupervisor(Channel *socket) {
+void Debugger::start_proxy_supervisor(Channel *socket) {
     this->connected_to_proxy = true;
     this->supervisor = new ProxySupervisor(socket, this->supervisor_mutex);
     printf("Connected to proxy.\n");
@@ -2065,7 +2065,7 @@ void Debugger::disconnect_proxy() const {
     this->supervisor->thread.join();
 }
 
-void Debugger::updateCallbackmapping(Module *, const char *) {
+void Debugger::update_callback_mapping(Module *, const char *) {
     // Legacy JSON callback mapping input is intentionally unsupported.
 }
 
@@ -2078,12 +2078,12 @@ void Debugger::stop() {
 }
 
 //
-void Debugger::pauseRuntime(const Module *m) {
+void Debugger::pause_runtime(const Module *m) {
     m->warduino->program_state = WARDUINOpause;
     this->mark = nullptr;
 }
 
-bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
+bool Debugger::handle_update_module(Module *m, uint8_t *data) {
     uint8_t *wasm_data = data + 1;
     const uint32_t wasm_len = read_LEB_32(&wasm_data);
     auto *wasm = static_cast<uint8_t *>(malloc(sizeof(uint8_t) * wasm_len));
@@ -2093,7 +2093,7 @@ bool Debugger::handleUpdateModule(Module *m, uint8_t *data) {
     return true;
 }
 
-bool Debugger::handleUpdateGlobalValue(const Module *m, uint8_t *data) const {
+bool Debugger::handle_update_global_value(const Module *m, uint8_t *data) const {
     debug("Global updates: %x\n", *data);
     const uint32_t index = read_LEB_32(&data);
 
@@ -2107,7 +2107,7 @@ bool Debugger::handleUpdateGlobalValue(const Module *m, uint8_t *data) const {
     return true;
 }
 
-bool Debugger::handleUpdateStackValue(const Module *m, uint8_t *bytes) const {
+bool Debugger::handle_update_stack_value(const Module *m, uint8_t *bytes) const {
     const uint32_t idx = read_LEB_32(&bytes);
     if (idx >= STACK_SIZE) {
         return false;
@@ -2150,7 +2150,7 @@ std::string read_string(uint8_t **pos) {
     return str;
 }
 
-void Debugger::addOverride(Module *m, uint8_t *interruptData) {
+void Debugger::add_override(Module *m, uint8_t *interruptData) {
     const std::string primitive_name = read_string(&interruptData);
     const std::optional<uint32_t> fidx =
         resolve_imported_function(m, primitive_name);
@@ -2173,7 +2173,7 @@ void Debugger::addOverride(Module *m, uint8_t *interruptData) {
     overrides[key] = result;
 }
 
-void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
+void Debugger::remove_override(Module *m, uint8_t *interruptData) {
     const std::string primitive_name = read_string(&interruptData);
     const std::optional<uint32_t> fidx =
         resolve_imported_function(m, primitive_name);
@@ -2198,7 +2198,7 @@ void Debugger::removeOverride(Module *m, uint8_t *interruptData) {
     debug("ack%x;1\n", interruptUnsetOverridePinValue);
 }
 
-bool Debugger::getMockForArgs(Module *m, uint32_t fidx, uint32_t &result) {
+bool Debugger::get_mock_for_args(Module *m, uint32_t fidx, uint32_t &result) {
     const uint32_t param_count = m->functions[fidx].type->param_count;
     std::vector<uint32_t> key(param_count + 1);
     const ExecutionContext *ectx = m->warduino->execution_context;
@@ -2214,7 +2214,7 @@ bool Debugger::getMockForArgs(Module *m, uint32_t fidx, uint32_t &result) {
     return true;
 }
 
-bool Debugger::handleContinueFor(Module *m) {
+bool Debugger::handle_continue_for(Module *m) {
     if (remaining_instructions < 0) return false;
 
     if (remaining_instructions == 0) {
@@ -2222,21 +2222,21 @@ bool Debugger::handleContinueFor(Module *m) {
         if (snapshotPolicy == SnapshotPolicy::checkpointing) {
             checkpoint(m);
         }
-        this->sendNotification(debug_NotificationType_NOTIFICATION_PAUSED);
-        pauseRuntime(m);
+        this->send_notification(debug_NotificationType_NOTIFICATION_PAUSED);
+        pause_runtime(m);
         return true;
     }
     remaining_instructions--;
     return false;
 }
 
-void Debugger::notifyCompleteStep(Module *m) const {
+void Debugger::notify_complete_step(Module *m) const {
     // Upon completing a step in checkpointing mode, make a checkpoint.
-    if (m->warduino->debugger->getSnapshotPolicy() ==
+    if (m->warduino->debugger->get_snapshot_policy() ==
         SnapshotPolicy::checkpointing) {
         m->warduino->debugger->checkpoint(m);
     }
-    this->sendNotification(debug_NotificationType_NOTIFICATION_STEPPED);
+    this->send_notification(debug_NotificationType_NOTIFICATION_STEPPED);
 }
 
 Debugger::~Debugger() {
