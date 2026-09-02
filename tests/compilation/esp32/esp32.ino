@@ -23,7 +23,7 @@ Module* m;
 
 void startDebuggerStd(void* pvParameter) {
     Channel* sink = new Sink(stdout);
-    wac->debugger->setChannel(sink);
+    wac->debugger->set_channel(sink);
     sink->open();
 
     uint8_t buffer[1024] = {0};

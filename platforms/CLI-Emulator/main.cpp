@@ -187,7 +187,7 @@ void setupDebuggerCommunication(debugger_options &options) {
         duplex = new WebSocket(options.socket);
     }
 
-    wac->debugger->setChannel(duplex);
+    wac->debugger->set_channel(duplex);
 }
 
 const std::map<std::string, speed_t> &baudrateMap() {
@@ -445,7 +445,7 @@ int main(int argc, const char *argv[]) {
     }
 
     if (initiallyPaused) {
-        wac->debugger->pauseRuntime(m);
+        wac->debugger->pause_runtime(m);
     }
 
     if (m) {
@@ -548,7 +548,7 @@ int main(int argc, const char *argv[]) {
             }
 
             // Start supervising proxy device (new thread)
-            wac->debugger->startProxySupervisor(connection);
+            wac->debugger->start_proxy_supervisor(connection);
         }
 
         // Start debugger (new thread)

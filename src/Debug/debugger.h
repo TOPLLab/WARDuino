@@ -197,8 +197,8 @@ class Debugger {
     void push_message(DebugMessage msg);
 
     bool send_notification(debug_NotificationType type,
-                          const pb_msgdesc_t *fields = nullptr,
-                          const void *payload = nullptr) const;
+                           const pb_msgdesc_t *fields = nullptr,
+                           const void *payload = nullptr) const;
     void send_operation_result(debug_Command command, bool success) const;
 
     //// Handle REPL interrupts
@@ -238,9 +238,9 @@ class Debugger {
     void inspect(Module *m, uint16_t sizeStateArray,
                  const uint8_t *state) const;
     bool encode_snapshot(Module *m, SnapshotSelection selection,
-                        debug_NotificationType notification) const;
+                         debug_NotificationType notification) const;
     static bool parse_selection(const uint8_t *state, size_t size,
-                               SnapshotSelection *selection);
+                                SnapshotSelection *selection);
 
     //// Handle live code update
 
@@ -339,7 +339,7 @@ class Debugger {
     void proxify();
 
     void handle_proxy_call(Module *m, RunningState *program_state,
-                         uint8_t *interruptData) const;
+                           uint8_t *interruptData) const;
 
     RFC *top_proxy_call() const;
 
