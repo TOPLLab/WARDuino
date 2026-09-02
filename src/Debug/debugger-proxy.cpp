@@ -6,7 +6,7 @@ void Debugger::proxify() {
 }
 
 void Debugger::handle_proxy_call(Module *m, RunningState *,
-                               uint8_t *interruptData) const {
+                                 uint8_t *interruptData) const {
     if (this->proxy == nullptr) {
         dbg_info("No proxy available to send proxy call to.\n");
         // TODO how to handle this error?
@@ -37,8 +37,9 @@ void Debugger::send_proxy_call_result(Module *m) const {
     if (rfc == nullptr) return;
     debug_RemoteFunctionResult result = debug_RemoteFunctionResult_init_zero;
     result.success = rfc->success;
-    send_notification(debug_NotificationType_NOTIFICATION_REMOTE_FUNCTION_RESULT,
-                     debug_RemoteFunctionResult_fields, &result);
+    send_notification(
+        debug_NotificationType_NOTIFICATION_REMOTE_FUNCTION_RESULT,
+        debug_RemoteFunctionResult_fields, &result);
     delete rfc;
 }
 
@@ -49,7 +50,7 @@ bool Debugger::is_proxied(const uint32_t fidx) const {
 }
 
 void Debugger::handle_monitor_proxies(const Module *m,
-                                    uint8_t *interruptData) const {
+                                      uint8_t *interruptData) const {
     const uint32_t amount_funcs = read_B32(&interruptData);
     printf("funcs_total %" PRIu32 "\n", amount_funcs);
 
@@ -79,4 +80,3 @@ void Debugger::disconnect_proxy() const {
     this->supervisor_mutex->unlock();
     this->supervisor->thread.join();
 }
-

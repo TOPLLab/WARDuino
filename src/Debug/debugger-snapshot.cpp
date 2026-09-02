@@ -23,7 +23,7 @@ void Debugger::dump_stack(const Module *m) const {
     locals.values.funcs.encode = encode_value_range;
     locals.values.arg = &values;
     send_notification(debug_NotificationType_NOTIFICATION_LOCALS_DUMP,
-                     debug_Locals_fields, &locals);
+                      debug_Locals_fields, &locals);
 }
 
 void Debugger::dump_breakpoints(Module *) const {}
@@ -41,7 +41,7 @@ void Debugger::dump_locals(const Module *m) const {
     locals.values.funcs.encode = encode_value_range;
     locals.values.arg = &values;
     send_notification(debug_NotificationType_NOTIFICATION_LOCALS_DUMP,
-                     debug_Locals_fields, &locals);
+                      debug_Locals_fields, &locals);
 }
 
 void Debugger::dump_events(long start, long size) const {
@@ -59,7 +59,7 @@ void Debugger::dump_events(long start, long size) const {
     queue.events.funcs.encode = encode_events;
     queue.events.arg = &range;
     send_notification(debug_NotificationType_NOTIFICATION_EVENTS_DUMP,
-                     debug_EventsQueue_fields, &queue);
+                      debug_EventsQueue_fields, &queue);
 }
 
 void Debugger::dump_callback_mapping() const {
@@ -69,13 +69,13 @@ void Debugger::dump_callback_mapping() const {
     mapping.entries.arg =
         const_cast<CallbackHandler::CallbackMap *>(&callbacks);
     send_notification(debug_NotificationType_NOTIFICATION_CALLBACKS_DUMP,
-                     debug_CallbackMapping_fields, &mapping);
+                      debug_CallbackMapping_fields, &mapping);
 }
 
 void Debugger::dump_heap_info(Module *) const {}
 
 bool Debugger::parse_selection(const uint8_t *state, const size_t size,
-                              SnapshotSelection *selection) {
+                               SnapshotSelection *selection) {
     *selection = 0;
     for (size_t index = 0; index < size; ++index) {
         if (state[index] < pcState || state[index] > heapState) return false;
@@ -84,8 +84,9 @@ bool Debugger::parse_selection(const uint8_t *state, const size_t size,
     return true;
 }
 
-bool Debugger::encode_snapshot(Module *m, const SnapshotSelection selection,
-                              const debug_NotificationType notification) const {
+bool Debugger::encode_snapshot(
+    Module *m, const SnapshotSelection selection,
+    const debug_NotificationType notification) const {
     ExecutionContext *ectx = m->warduino->execution_context;
     SnapshotView view{m, this, ectx, &overrides};
     debug_Snapshot state = debug_Snapshot_init_zero;
@@ -221,7 +222,6 @@ void Debugger::inspect(Module *m, const uint16_t size,
     encode_snapshot(m, selection, debug_NotificationType_NOTIFICATION_SNAPSHOT);
 }
 
-
 std::optional<uint32_t> get_primitive_being_called(Module *m, uint8_t *pc_ptr) {
     if (!pc_ptr) {
         return std::nullopt;
@@ -243,9 +243,10 @@ void Debugger::handle_snapshot_policy(Module *m) {
     if (snapshotPolicy == SnapshotPolicy::atEveryInstruction) {
         SnapshotSelection selection = 0;
         if (checkpoint_state != nullptr &&
-            parse_selection(checkpoint_state, checkpoint_state_size, &selection))
+            parse_selection(checkpoint_state, checkpoint_state_size,
+                            &selection))
             encode_snapshot(m, selection,
-                           debug_NotificationType_NOTIFICATION_SNAPSHOT);
+                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
     } else if (snapshotPolicy == SnapshotPolicy::checkpointing) {
         if (instructions_executed >= checkpointInterval || fidx_called) {
             if (min_return_values == 0) {
@@ -321,7 +322,6 @@ void Debugger::checkpoint(Module *m, const bool force) {
             notification.snapshot.heap_used = m->warduino->get_heap_used();
     }
     send_notification(debug_NotificationType_NOTIFICATION_CHECKPOINT,
-                     debug_Checkpoint_fields, &notification);
+                      debug_Checkpoint_fields, &notification);
     instructions_executed = 0;
 }
-

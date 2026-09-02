@@ -53,7 +53,8 @@ void Debugger::parse_debug_buffer(const size_t len, const uint8_t *buff) {
         if (!completeLength) {
             if (headerSize == SIZE_MAX || pendingFrameBytes.size() >= 6) {
                 pendingFrameBytes.clear();
-                send_notification(debug_NotificationType_NOTIFICATION_MALFORMED);
+                send_notification(
+                    debug_NotificationType_NOTIFICATION_MALFORMED);
             }
             return;
         }
@@ -91,8 +92,8 @@ std::optional<DebugMessage> Debugger::get_debug_message() {
 }
 
 bool Debugger::send_notification(const debug_NotificationType type,
-                                const pb_msgdesc_t *fields,
-                                const void *payload) const {
+                                 const pb_msgdesc_t *fields,
+                                 const void *payload) const {
     if (channel == nullptr) return false;
     size_t payloadSize = 0;
     if (fields != nullptr && payload != nullptr &&
@@ -121,12 +122,12 @@ bool Debugger::send_notification(const debug_NotificationType type,
 }
 
 void Debugger::send_operation_result(const debug_Command command,
-                                   const bool success) const {
+                                     const bool success) const {
     debug_OperationResult result = debug_OperationResult_init_zero;
     result.command = command;
     result.success = success;
     send_notification(debug_NotificationType_NOTIFICATION_OPERATION_RESULT,
-                     debug_OperationResult_fields, &result);
+                      debug_OperationResult_fields, &result);
 }
 
 void Debugger::add_breakpoint(uint8_t *loc) { this->breakpoints.insert(loc); }
@@ -147,12 +148,11 @@ void Debugger::notify_breakpoint(Module *m, uint8_t *pc_ptr) {
     hit.location.module_index = 0;
     hit.location.program_counter = toVirtualAddress(pc_ptr, m);
     send_notification(debug_NotificationType_NOTIFICATION_HIT_BREAKPOINT,
-                     debug_HitBreakpoint_fields, &hit);
+                      debug_HitBreakpoint_fields, &hit);
 }
 
-
 void Debugger::handle_interrupt_run(const Module *m,
-                                  RunningState *program_state) {
+                                    RunningState *program_state) {
     ExecutionContext *ectx = m->warduino->execution_context;
     if (*program_state == WARDUINOpause && this->is_breakpoint(ectx->pc_ptr)) {
         this->skipBreakpoint = ectx->pc_ptr;
@@ -187,7 +187,6 @@ void Debugger::handle_step_over(const Module *m, RunningState *program_state) {
         this->handle_step(m, program_state);
     }
 }
-
 
 bool Debugger::reset(Module *m) {
     m->warduino->reset_module(m);

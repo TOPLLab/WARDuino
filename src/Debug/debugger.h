@@ -241,7 +241,6 @@ class Debugger {
 
     void snapshot(Module *m) const;
 
-
     void handle_snapshot_policy(Module *m);
 
     bool handle_continue_for(Module *m);

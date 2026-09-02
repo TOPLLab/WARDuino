@@ -34,7 +34,7 @@ bool collect_bytes(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
 }
 
 [[maybe_unused]] bool collect_words(pb_istream_t *stream,
-                                   const pb_field_iter_t *, void **arg) {
+                                    const pb_field_iter_t *, void **arg) {
     auto *out = static_cast<std::vector<uint32_t> *>(*arg);
     while (stream->bytes_left != 0) {
         uint32_t value = 0;
@@ -49,7 +49,8 @@ void set_decode_callback(pb_callback_t *callback, std::vector<uint8_t> *out) {
     callback->arg = out;
 }
 
-bool collect_varints(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
+bool collect_varints(pb_istream_t *stream, const pb_field_iter_t *,
+                     void **arg) {
     auto *out = static_cast<std::vector<uint32_t> *>(*arg);
     while (stream->bytes_left != 0) {
         uint64_t value = 0;
@@ -65,7 +66,7 @@ struct DecodedCallbackEntry {
     std::vector<uint32_t> indexes;
 };
 bool collect_callback_entries(pb_istream_t *stream, const pb_field_iter_t *,
-                            void **arg) {
+                              void **arg) {
     auto *entries = static_cast<std::vector<DecodedCallbackEntry> *>(*arg);
     debug_CallbackEntry entry = debug_CallbackEntry_init_zero;
     std::vector<uint8_t> topic;
@@ -80,7 +81,7 @@ bool collect_callback_entries(pb_istream_t *stream, const pb_field_iter_t *,
 }
 
 std::optional<uint32_t> find_imported_function(Module *m,
-                                             const std::string &name) {
+                                               const std::string &name) {
     for (uint32_t index = 0; index < m->import_count; ++index) {
         if (m->functions[index].import_field != nullptr &&
             name == m->functions[index].import_field)
@@ -120,8 +121,8 @@ bool assign_value(const debug_Value &from, StackValue *to) {
     }
 }
 
-[[maybe_unused]] void value_to_proto(const StackValue &from, const uint32_t index,
-                                   debug_Value *to) {
+[[maybe_unused]] void value_to_proto(const StackValue &from,
+                                     const uint32_t index, debug_Value *to) {
     *to = debug_Value_init_zero;
     to->index = index;
     switch (from.value_type) {
@@ -190,7 +191,7 @@ ValueView current_locals(const ExecutionContext *context) {
 }
 
 bool encode_value(pb_ostream_t *stream, const pb_field_t *field,
-                 const StackValue &source, const size_t index) {
+                  const StackValue &source, const size_t index) {
     debug_Value value = debug_Value_init_zero;
     value_to_proto(source, static_cast<uint32_t>(index), &value);
     return pb_encode_tag_for_field(stream, field) &&
@@ -198,7 +199,7 @@ bool encode_value(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_value_range(pb_ostream_t *stream, const pb_field_t *field,
-                      void *const *arg) {
+                        void *const *arg) {
     const auto *view = static_cast<const ValueView *>(*arg);
     for (size_t index = 0; index < view->size; ++index) {
         const StackValue *value = view->globals == nullptr
@@ -210,7 +211,7 @@ bool encode_value_range(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_values(pb_ostream_t *stream, const pb_field_t *field,
-                  void *const *arg) {
+                   void *const *arg) {
     const auto *values = static_cast<const std::vector<StackValue> *>(*arg);
     ValueView view{values->data(), values->size(), nullptr};
     void *range = &view;
@@ -218,7 +219,7 @@ bool encode_values(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_bytes(pb_ostream_t *stream, const pb_field_t *field,
-                 void *const *arg) {
+                  void *const *arg) {
     const auto *bytes = static_cast<const std::vector<uint8_t> *>(*arg);
     ByteView view{bytes->data(), bytes->size()};
     void *opaque = &view;
@@ -226,7 +227,7 @@ bool encode_bytes(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_breakpoints(pb_ostream_t *stream, const pb_field_t *field,
-                       void *const *arg) {
+                        void *const *arg) {
     const auto *view = static_cast<const SnapshotView *>(*arg);
     for (uint8_t *breakpoint : view->debugger->breakpoints) {
         const uint32_t address = toVirtualAddress(breakpoint, view->module);
@@ -238,7 +239,7 @@ bool encode_breakpoints(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_functions(pb_ostream_t *stream, const pb_field_t *field,
-                     void *const *arg) {
+                      void *const *arg) {
     const auto *view = static_cast<const SnapshotView *>(*arg);
     Module *module = view->module;
 
@@ -270,7 +271,7 @@ bool encode_functions(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_callstack(pb_ostream_t *stream, const pb_field_t *field,
-                     void *const *arg) {
+                      void *const *arg) {
     const auto *view = static_cast<const SnapshotView *>(*arg);
     const ExecutionContext *context = view->context;
 
@@ -298,7 +299,7 @@ bool encode_callstack(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_callback_indexes(pb_ostream_t *stream, const pb_field_t *field,
-                           void *const *arg) {
+                             void *const *arg) {
     const auto *callbacks = static_cast<const std::vector<Callback> *>(*arg);
     for (const Callback &callback : *callbacks) {
         if (!pb_encode_tag_for_field(stream, field) ||
@@ -310,7 +311,7 @@ bool encode_callback_indexes(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_callbacks(pb_ostream_t *stream, const pb_field_t *field,
-                     void *const *arg) {
+                      void *const *arg) {
     const auto *callbacks =
         static_cast<const CallbackHandler::CallbackMap *>(*arg);
 
@@ -333,7 +334,7 @@ bool encode_callbacks(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_events(pb_ostream_t *stream, const pb_field_t *field,
-                  void *const *arg) {
+                   void *const *arg) {
     const auto *range = static_cast<const EventRangeView *>(*arg);
 
     for (size_t index = 0; index < range->size; ++index) {
@@ -360,7 +361,7 @@ bool encode_events(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_io_state(pb_ostream_t *stream, const pb_field_t *field,
-                   void *const *arg) {
+                     void *const *arg) {
     const auto *states =
         static_cast<const std::vector<IOStateElement *> *>(*arg);
     for (const IOStateElement *source : *states) {
@@ -380,7 +381,7 @@ bool encode_io_state(pb_ostream_t *stream, const pb_field_t *field,
 }
 
 bool encode_overrides(pb_ostream_t *stream, const pb_field_t *field,
-                     void *const *arg) {
+                      void *const *arg) {
     const auto *view = static_cast<const SnapshotView *>(*arg);
 
     for (const auto &[key, result] : *view->overrides) {

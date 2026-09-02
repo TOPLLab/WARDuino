@@ -7,7 +7,7 @@
 namespace {
 
 bool decode_frame_length(const std::vector<uint8_t> &bytes, size_t *headerSize,
-                       size_t *payloadSize) {
+                         size_t *payloadSize) {
     if (bytes.size() < 2) return false;
     uint32_t value = 0;
     for (size_t i = 0; i < 5; ++i) {
@@ -38,7 +38,7 @@ bool is_known_command(const uint8_t type) {
 
 template <typename T>
 bool decode_payload(const std::vector<uint8_t> &payload,
-                   const pb_msgdesc_t *fields, T *message) {
+                    const pb_msgdesc_t *fields, T *message) {
     pb_istream_t stream =
         pb_istream_from_buffer(payload.data(), payload.size());
     return pb_decode(&stream, fields, message);
