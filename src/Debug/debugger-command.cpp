@@ -46,7 +46,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
         case debug_Command_COMMAND_REMOVE_BREAKPOINT: {
             debug_Breakpoint breakpoint = debug_Breakpoint_init_zero;
             if (!decode_payload(message->payload, debug_Breakpoint_fields,
-                               &breakpoint) ||
+                                &breakpoint) ||
                 !breakpoint.has_location ||
                 breakpoint.location.module_index != 0 ||
                 !isToPhysicalAddrPossible(breakpoint.location.program_counter,
@@ -66,7 +66,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
         case debug_Command_COMMAND_CONTINUE_FOR: {
             debug_ContinueFor request = debug_ContinueFor_init_zero;
             if (!decode_payload(message->payload, debug_ContinueFor_fields,
-                               &request) ||
+                                &request) ||
                 request.count == 0) {
                 malformed();
                 break;
@@ -79,14 +79,14 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
         case debug_Command_COMMAND_DUMP:
             if (!require_empty()) break;
             pause_runtime(m);
-            encode_snapshot(m,
-                           snapshotPc | snapshotBreakpoints |
-                               snapshotCallstack | snapshotGlobals |
-                               snapshotTable | snapshotBranchTable |
-                               snapshotStack | snapshotCallbacks |
-                               snapshotEvents | snapshotIO | snapshotOverrides |
-                               snapshotHeap | snapshotLocals,
-                           debug_NotificationType_NOTIFICATION_SNAPSHOT);
+            encode_snapshot(
+                m,
+                snapshotPc | snapshotBreakpoints | snapshotCallstack |
+                    snapshotGlobals | snapshotTable | snapshotBranchTable |
+                    snapshotStack | snapshotCallbacks | snapshotEvents |
+                    snapshotIO | snapshotOverrides | snapshotHeap |
+                    snapshotLocals,
+                debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
         case debug_Command_COMMAND_DUMP_LOCALS:
             if (!require_empty()) break;
@@ -115,13 +115,12 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
         case debug_Command_COMMAND_UPDATE_LOCAL: {
             const auto update = update_value(message->payload);
             ExecutionContext *context = m->warduino->execution_context;
-            if (!update || context->fp + static_cast<int>(update->index) >
-                               context->sp) {
+            if (!update ||
+                context->fp + static_cast<int>(update->index) > context->sp) {
                 malformed();
                 break;
             }
-            StackValue *value =
-                &context->stack[context->fp + update->index];
+            StackValue *value = &context->stack[context->fp + update->index];
             if (!assign_value(update->value, value)) {
                 malformed();
                 break;
@@ -146,8 +145,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
         case debug_Command_COMMAND_UPDATE_STACK: {
             const auto update = update_value(message->payload);
             ExecutionContext *context = m->warduino->execution_context;
-            if (!update ||
-                update->index > static_cast<uint32_t>(context->sp)) {
+            if (!update || update->index > static_cast<uint32_t>(context->sp)) {
                 malformed();
                 break;
             }
@@ -164,7 +162,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             std::vector<uint8_t> wasm;
             set_decode_callback(&update.wasm, &wasm);
             if (!decode_payload(message->payload, debug_ModuleUpdate_fields,
-                               &update) ||
+                                &update) ||
                 wasm.empty()) {
                 malformed();
                 break;
@@ -184,7 +182,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             std::vector<uint8_t> instructions;
             set_decode_callback(&update.instructions, &instructions);
             if (!decode_payload(message->payload, debug_Function_fields,
-                               &update) ||
+                                &update) ||
                 update.function_index >= m->function_count ||
                 instructions.empty() || instructions.back() != 0x0b) {
                 malformed();
@@ -205,7 +203,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             mapping.entries.funcs.decode = collect_callback_entries;
             mapping.entries.arg = &entries;
             if (!decode_payload(message->payload, debug_CallbackMapping_fields,
-                               &mapping)) {
+                                &mapping)) {
                 malformed();
                 break;
             }
@@ -225,11 +223,11 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             set_decode_callback(&config.selected_state, &selectedState);
             SnapshotSelection selectedMask = 0;
             if (!decode_payload(message->payload,
-                               debug_SnapshotPolicyConfig_fields, &config) ||
+                                debug_SnapshotPolicyConfig_fields, &config) ||
                 config.policy >
                     debug_SnapshotPolicy_SNAPSHOT_POLICY_CHECKPOINTING ||
                 !parse_selection(selectedState.data(), selectedState.size(),
-                                &selectedMask)) {
+                                 &selectedMask)) {
                 malformed();
                 break;
             }
@@ -263,7 +261,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             request.argument_words.funcs.decode = collect_words;
             request.argument_words.arg = &words;
             if (!decode_payload(message->payload, debug_Override_fields,
-                               &request)) {
+                                &request)) {
                 malformed();
                 break;
             }
@@ -289,24 +287,25 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             std::vector<uint8_t> selected;
             set_decode_callback(&request.state, &selected);
             if (!decode_payload(message->payload, debug_Inspect_fields,
-                               &request)) {
+                                &request)) {
                 malformed();
                 break;
             }
             SnapshotSelection selection = 0;
-            if (!parse_selection(selected.data(), selected.size(), &selection)) {
+            if (!parse_selection(selected.data(), selected.size(),
+                                 &selection)) {
                 malformed();
                 break;
             }
             pause_runtime(m);
             encode_snapshot(m, selection,
-                           debug_NotificationType_NOTIFICATION_SNAPSHOT);
+                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
         }
         case debug_Command_COMMAND_LOAD_SNAPSHOT: {
             debug_Snapshot state = debug_Snapshot_init_zero;
             if (!decode_payload(message->payload, debug_Snapshot_fields,
-                               &state) ||
+                                &state) ||
                 !isToPhysicalAddrPossible(state.program_counter, m)) {
                 malformed();
                 break;
@@ -321,7 +320,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
         case debug_Command_COMMAND_REMOVE_PROXY: {
             debug_FunctionRef reference = debug_FunctionRef_init_zero;
             if (!decode_payload(message->payload, debug_FunctionRef_fields,
-                               &reference) ||
+                                &reference) ||
                 supervisor == nullptr ||
                 reference.function_index >= m->function_count) {
                 send_operation_result(message->type, false);
@@ -341,7 +340,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             call.arguments.funcs.decode = collect_values;
             call.arguments.arg = &values;
             if (!decode_payload(message->payload,
-                               debug_RemoteFunctionCall_fields, &call) ||
+                                debug_RemoteFunctionCall_fields, &call) ||
                 call.function_index >= m->function_count ||
                 values.size() !=
                     m->functions[call.function_index].type->param_count) {
@@ -404,7 +403,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
         case debug_Command_COMMAND_POP_EVENT:
             if (!require_empty()) break;
             send_operation_result(message->type,
-                                CallbackHandler::resolve_event(true));
+                                  CallbackHandler::resolve_event(true));
             break;
         case debug_Command_COMMAND_PUSH_EVENT: {
             debug_Event event = debug_Event_init_zero;
@@ -433,4 +432,3 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
     }
     return true;
 }
-

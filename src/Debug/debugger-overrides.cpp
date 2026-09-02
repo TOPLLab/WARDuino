@@ -35,4 +35,3 @@ bool Debugger::get_mock_for_args(Module *m, uint32_t fidx, uint32_t &result) {
     result = it->second;
     return true;
 }
-
