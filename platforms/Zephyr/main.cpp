@@ -71,7 +71,7 @@ std::vector<Module *> loaded_modules;
 
 void startDebuggerStd() {
     Channel *duplex = new Duplex(stdin, stdout);
-    wac->debugger->setChannel(duplex);
+    wac->debugger->set_channel(duplex);
     duplex->open();
 
     war_console_init();

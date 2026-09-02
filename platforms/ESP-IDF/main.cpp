@@ -38,7 +38,7 @@ std::vector<Module*> loaded_modules;
 
 void startDebuggerStd(void* pvParameter) {
     Channel* duplex = new Duplex(stdin, stdout);
-    wac->debugger->setChannel(duplex);
+    wac->debugger->set_channel(duplex);
     duplex->open();
 
     int valread;

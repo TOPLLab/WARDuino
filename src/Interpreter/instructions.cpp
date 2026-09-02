@@ -306,7 +306,8 @@ bool i_instr_call(Module *m) {
         // Mocking only works on primitives, no need to check for it otherwise.
         if (ectx->sp >= 0) {
             uint32_t mock_result;
-            if (m->warduino->debugger->get_mock_for_args(m, fidx, mock_result)) {
+            if (m->warduino->debugger->get_mock_for_args(m, fidx,
+                                                         mock_result)) {
                 const uint32_t param_count =
                     m->functions[fidx].type->param_count;
                 ectx->sp -= static_cast<int>(param_count) - 1;
