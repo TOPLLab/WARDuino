@@ -144,6 +144,14 @@ std::deque<Event>::const_iterator CallbackHandler::event_end() {
     return CallbackHandler::events->cend();
 }
 
+const CallbackHandler::CallbackMap &CallbackHandler::callback_map() {
+    return *callbacks;
+}
+
+const Event *CallbackHandler::event_at(const size_t index) {
+    return index < events->size() ? &(*events)[index] : nullptr;
+}
+
 void CallbackHandler::clear_callbacks() { CallbackHandler::callbacks->clear(); }
 
 std::string CallbackHandler::dump_callbacks() {

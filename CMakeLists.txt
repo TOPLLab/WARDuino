@@ -65,6 +65,7 @@ if (BUILD_EMULATOR)
             src/Utils/macros.cpp
             src/Utils/sockets.cpp
             src/Debug/debugger.cpp
+            src/Debug/nanopb_encoder.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
             src/Edward/RFC.cpp
@@ -106,6 +107,7 @@ if (BUILD_UNITTEST)
             src/Utils/macros.cpp
             src/Utils/sockets.cpp
             src/Debug/debugger.cpp
+            src/Debug/nanopb_encoder.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
             src/Edward/RFC.cpp
