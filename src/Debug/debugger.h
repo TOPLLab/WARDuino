@@ -189,70 +189,70 @@ class Debugger {
 
     // Private methods
 
-    void printValue(const StackValue *v, uint32_t idx, bool end) const;
+    void print_value(const StackValue *v, uint32_t idx, bool end) const;
 
     // TODO Move parsing to WARDuino class?
-    void parseDebugBuffer(size_t len, const uint8_t *buff);
+    void parse_debug_buffer(size_t len, const uint8_t *buff);
 
-    void pushMessage(DebugMessage msg);
+    void push_message(DebugMessage msg);
 
-    bool sendNotification(debug_NotificationType type,
+    bool send_notification(debug_NotificationType type,
                           const pb_msgdesc_t *fields = nullptr,
                           const void *payload = nullptr) const;
-    void sendOperationResult(debug_Command command, bool success) const;
+    void send_operation_result(debug_Command command, bool success) const;
 
     //// Handle REPL interrupts
 
-    void handleInvoke(Module *m, uint8_t *interruptData) const;
+    void handle_invoke(Module *m, uint8_t *interruptData) const;
 
     //// Handle Interrupt Types
 
-    void handleInterruptRUN(const Module *m, RunningState *program_state);
+    void handle_interrupt_run(const Module *m, RunningState *program_state);
 
-    void handleSTEP(const Module *m, RunningState *program_state);
+    void handle_step(const Module *m, RunningState *program_state);
 
-    void handleSTEPOver(const Module *m, RunningState *program_state);
+    void handle_step_over(const Module *m, RunningState *program_state);
 
-    void handleInterruptBP(Module *m, uint8_t *interruptData);
+    void handle_interrupt_bp(Module *m, uint8_t *interruptData);
 
     //// Information dumps
 
     void dump(Module *m, bool full = false) const;
 
-    void dumpStack(const Module *m) const;
+    void dump_stack(const Module *m) const;
 
-    void dumpLocals(const Module *m) const;
+    void dump_locals(const Module *m) const;
 
-    void dumpBreakpoints(Module *m) const;
+    void dump_breakpoints(Module *m) const;
 
-    void dumpFunctions(Module *m) const;
+    void dump_functions(Module *m) const;
 
-    void dumpCallstack(Module *m) const;
+    void dump_callstack(Module *m) const;
 
-    void dumpEvents(long start, long size) const;
+    void dump_events(long start, long size) const;
 
-    void dumpCallbackmapping() const;
+    void dump_callback_mapping() const;
 
-    void dumpHeapInfo(Module *m) const;
+    void dump_heap_info(Module *m) const;
 
     void inspect(Module *m, uint16_t sizeStateArray,
                  const uint8_t *state) const;
-    bool encodeSnapshot(Module *m, SnapshotSelection selection,
+    bool encode_snapshot(Module *m, SnapshotSelection selection,
                         debug_NotificationType notification) const;
-    static bool parseSelection(const uint8_t *state, size_t size,
+    static bool parse_selection(const uint8_t *state, size_t size,
                                SnapshotSelection *selection);
 
     //// Handle live code update
 
-    static bool handleChangedFunction(const Module *m, uint8_t *bytes);
+    static bool handle_changed_function(const Module *m, uint8_t *bytes);
 
-    bool handleChangedLocal(const Module *m, uint8_t *bytes) const;
+    bool handle_changed_local(const Module *m, uint8_t *bytes) const;
 
-    static bool handleUpdateModule(Module *m, uint8_t *data);
+    static bool handle_update_module(Module *m, uint8_t *data);
 
-    bool handleUpdateGlobalValue(const Module *m, uint8_t *data) const;
+    bool handle_update_global_value(const Module *m, uint8_t *data) const;
 
-    bool handleUpdateStackValue(const Module *m, uint8_t *bytes) const;
+    bool handle_update_stack_value(const Module *m, uint8_t *bytes) const;
 
     std::optional<debug_ValueUpdate> update_value(
         const std::vector<uint8_t> &payload) const;
@@ -261,20 +261,20 @@ class Debugger {
 
     //// Handle mocking
 
-    void addOverride(Module *m, uint8_t *interruptData);
-    void removeOverride(Module *m, uint8_t *interruptData);
+    void add_override(Module *m, uint8_t *interruptData);
+    void remove_override(Module *m, uint8_t *interruptData);
 
     //// Handle out-of-place debugging
 
-    void freeState(Module *m, uint8_t *interruptData);
+    void free_state(Module *m, uint8_t *interruptData);
 
-    static uint8_t *findOpcode(Module *m, const Block *block);
+    static uint8_t *find_opcode(Module *m, const Block *block);
 
-    bool saveState(Module *m, uint8_t *interruptData);
+    bool save_state(Module *m, uint8_t *interruptData);
 
-    static uintptr_t readPointer(uint8_t **data);
+    static uintptr_t read_pointer(uint8_t **data);
 
-    static void updateCallbackmapping(Module *m, const char *interruptData);
+    static void update_callback_mapping(Module *m, const char *interruptData);
 
     bool operation(Module *m, operation op);
 
@@ -297,59 +297,59 @@ class Debugger {
 
     ~Debugger();
 
-    void setChannel(Channel *duplex);
+    void set_channel(Channel *duplex);
 
     // Public methods
 
     void stop();
 
-    void pauseRuntime(const Module *m);  // pause runtime for given module
+    void pause_runtime(const Module *m);  // pause runtime for given module
 
-    void notifyCompleteStep(
+    void notify_complete_step(
         Module *m) const;  // notify the debugger frontend that a step was taken
 
     // Interrupts
 
-    void addDebugMessage(size_t len, const uint8_t *buff);
+    void add_debug_message(size_t len, const uint8_t *buff);
 
-    std::optional<DebugMessage> getDebugMessage();
+    std::optional<DebugMessage> get_debug_message();
 
-    bool checkDebugMessages(Module *m, RunningState *program_state);
+    bool check_debug_messages(Module *m, RunningState *program_state);
 
     // Breakpoints
 
-    void addBreakpoint(uint8_t *loc);
+    void add_breakpoint(uint8_t *loc);
 
-    void deleteBreakpoint(uint8_t *loc);
+    void delete_breakpoint(uint8_t *loc);
 
-    bool isBreakpoint(uint8_t *loc);
+    bool is_breakpoint(uint8_t *loc);
 
-    void notifyBreakpoint(Module *m, uint8_t *pc_ptr);
+    void notify_breakpoint(Module *m, uint8_t *pc_ptr);
 
     // Out-of-place debugging: EDWARD
 
     void snapshot(Module *m) const;
 
-    void setSnapshotPolicy(Module *m, uint8_t *interruptData);
+    void set_snapshot_policy(Module *m, uint8_t *interruptData);
 
-    void handleSnapshotPolicy(Module *m);
+    void handle_snapshot_policy(Module *m);
 
-    bool handleContinueFor(Module *m);
+    bool handle_continue_for(Module *m);
 
     void proxify();
 
-    void handleProxyCall(Module *m, RunningState *program_state,
+    void handle_proxy_call(Module *m, RunningState *program_state,
                          uint8_t *interruptData) const;
 
-    RFC *topProxyCall() const;
+    RFC *top_proxy_call() const;
 
-    void sendProxyCallResult(Module *m) const;
+    void send_proxy_call_result(Module *m) const;
 
-    bool isProxy() const;
+    bool is_proxy() const;
 
-    bool isProxied(uint32_t fidx) const;
+    bool is_proxied(uint32_t fidx) const;
 
-    void startProxySupervisor(Channel *socket);
+    void start_proxy_supervisor(Channel *socket);
 
     bool proxy_connected() const;
 
@@ -357,18 +357,18 @@ class Debugger {
 
     // Pull-based
 
-    void handleMonitorProxies(const Module *m, uint8_t *interruptData) const;
+    void handle_monitor_proxies(const Module *m, uint8_t *interruptData) const;
 
     // Push-based
 
-    void notifyPushedEvent() const;
+    void notify_pushed_event() const;
 
-    bool handlePushedEvent(char *bytes) const;
+    bool handle_pushed_event(char *bytes) const;
 
     // Concolic Multiverse Debugging
-    bool getMockForArgs(Module *m, uint32_t fidx, uint32_t &result);
+    bool get_mock_for_args(Module *m, uint32_t fidx, uint32_t &result);
 
     // Checkpointing
     void checkpoint(Module *m, bool force = false);
-    inline SnapshotPolicy getSnapshotPolicy() { return snapshotPolicy; }
+    inline SnapshotPolicy get_snapshot_policy() { return snapshotPolicy; }
 };

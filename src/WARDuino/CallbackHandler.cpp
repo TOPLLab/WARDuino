@@ -95,7 +95,7 @@ bool CallbackHandler::resolve_event(bool force) {
 
     if (should_push_event()) {
         Event e = CallbackHandler::events->at(CallbackHandler::pushed_cursor++);
-        WARDuino::instance()->debugger->notifyPushedEvent();
+        WARDuino::instance()->debugger->notify_pushed_event();
 
         CallbackHandler::events->pop_front();
         CallbackHandler::pushed_cursor--;

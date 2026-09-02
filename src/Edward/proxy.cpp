@@ -34,7 +34,7 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
         ((Primitive)m->functions[rfc->fidx].func_ptr)(m);
         // send result directly
         m->warduino->program_state = PROXYhalt;
-        m->warduino->debugger->sendProxyCallResult(m);
+        m->warduino->debugger->send_proxy_call_result(m);
         return;
     }
 
