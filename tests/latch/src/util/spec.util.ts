@@ -82,7 +82,7 @@ function consume(input: string, cursor: number, regex: RegExp = / /d): number {
 }
 
 function shouldParseLine(input: string): boolean {
-    return input.includes('(assert_return') && !input.replace(/\s+/g, '').startsWith(';;');
+    return input.includes('(assert_return') && input.includes('(invoke') && !input.replace(/\s+/g, '').startsWith(';;');
 }
 
 export function parseAsserts(file: string): string[] {
@@ -136,13 +136,19 @@ function parseHexFloat(input: string): number {
 }
 
 function parseInteger(hex: string, type: WASM.Integer): WasmInt {
+    const literal = hex.trim().replace(/_/g, '');
     const bytes = type === WASM.Integer.u32 || type === WASM.Integer.i32 ? 4 : 8;
-    if (!hex.includes('0x')) {
-        const n: number = parseInt(hex);
-        return typeof n !== 'bigint' && isNaN(n) ? WasmInt.nan() : typeof n !== 'bigint' && n === Infinity ? WasmInt.infinity() : WasmInt.finite(BigInt(hex));
+    if (!literal.includes('0x')) {
+        const n: number = parseInt(literal);
+        return typeof n !== 'bigint' && isNaN(n) ? WasmInt.nan() : typeof n !== 'bigint' && n === Infinity ? WasmInt.infinity() : WasmInt.finite(BigInt(literal));
     }
-    const mask = BigInt(parseInt('0x80' + '00'.repeat(bytes - 1), 16));
-    let integer = BigInt(parseInt(hex, 16));
+    const mask = BigInt('0x80' + '00'.repeat(bytes - 1));
+    const negative = literal.startsWith('-');
+    const positive = literal.startsWith('+');
+    let integer = BigInt(negative || positive ? literal.slice(1) : literal);
+    if (negative) {
+        integer = -integer;
+    }
     if (integer >= mask) {
         integer = integer - mask * 2n;
     }

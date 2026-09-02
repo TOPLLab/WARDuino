@@ -44,11 +44,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Build warduino cli
-        run: |
-          cmake . -D BUILD_EMULATOR=ON
-          cmake --build .
-          echo "EMULATOR=$(realpath ./wdcli)" >> $GITHUB_ENV
+      - name: Build WARDuino CLI
+        uses: ./.github/actions/build-wdcli
 
       - name: Get WABT commit ID
         working-directory: lib/wabt
@@ -99,11 +96,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Build warduino cli
-        run: |
-          cmake . -D BUILD_EMULATOR=ON
-          cmake --build .
-          echo "EMULATOR=$(realpath ./wdcli)" >> $GITHUB_ENV
+      - name: Build WARDuino CLI
+        uses: ./.github/actions/build-wdcli
 
       - name: Get WABT commit ID
         working-directory: lib/wabt
@@ -152,11 +146,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Build warduino cli
-        run: |
-          cmake . -D BUILD_EMULATOR=ON
-          cmake --build .
-          echo "EMULATOR=$(realpath ./wdcli)" >> $GITHUB_ENV
+      - name: Build WARDuino CLI
+        uses: ./.github/actions/build-wdcli
 
       - name: Get WABT commit ID
         working-directory: lib/wabt

@@ -8,14 +8,13 @@ import {
     Message,
     TestScenario,
     WASM,
-    awaitBreakpoint, PureAction, StyleType, Suite, Assertable, assertable
+    awaitBreakpoint, PureAction, Suite, Assertable, assertable
 } from 'latch';
 import * as mqtt from 'mqtt';
 import Type = WASM.Type;
 import {Breakpoint} from "latch/dist/types/debug/Breakpoint";
 
 const framework = Framework.getImplementation();
-framework.reporter.style(StyleType.github);
 
 // TODO disclaimer: file is currently disabled until latch supports AS compilation
 

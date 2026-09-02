@@ -164,6 +164,16 @@ all:
     WABT="../../lib/wabt/build/" npm run tests:all
 
 
+## Nanopb
+
+[group('codegen')]
+[doc('Regenerate vendored nanopb sources from the debugger schema')]
+generate-nanopb: _nanopb
+    mkdir -p src/Debug/nanopb
+    protoc -I src/Debug --nanopb_out=src/Debug/nanopb src/Debug/debug.proto
+    perl -0pi -e 's{#include <pb\.h>}{#include "pb.h"}' src/Debug/nanopb/debug.pb.h
+
+
 ## QoL / Maintenance
 
 [group('maintenance')]

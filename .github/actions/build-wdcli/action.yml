@@ -1,0 +1,25 @@
+name: Build WARDuino CLI
+description: Configure and build the WARDuino emulator CLI.
+
+inputs:
+  build-directory:
+    description: Directory for CMake build artifacts.
+    required: false
+    default: build-emu
+
+outputs:
+  wdcli:
+    description: Absolute path to the built CLI executable.
+    value: ${{ steps.build.outputs.wdcli }}
+
+runs:
+  using: composite
+  steps:
+    - id: build
+      shell: bash
+      run: |
+        cmake -S "$GITHUB_WORKSPACE" -B "${{ inputs.build-directory }}" -D BUILD_EMULATOR=ON
+        cmake --build "${{ inputs.build-directory }}"
+        wdcli="$(cd "${{ inputs.build-directory }}" && pwd)/wdcli"
+        echo "wdcli=$wdcli" >> "$GITHUB_OUTPUT"
+        echo "EMULATOR=$wdcli" >> "$GITHUB_ENV"
