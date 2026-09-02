@@ -4,6 +4,11 @@ set(SOURCE_FILES
         ../../../src/Utils/util_arduino.cpp
         ../../../src/Utils/sockets.cpp
         ../../../src/Debug/debugger.cpp
+        ../../../src/Debug/debugger-command.cpp
+        ../../../src/Debug/debugger-snapshot.cpp
+        ../../../src/Debug/debugger-legacy.cpp
+        ../../../src/Debug/debugger-proxy.cpp
+        ../../../src/Debug/debugger-overrides.cpp
         ../../../src/Edward/proxy.cpp
         ../../../src/Edward/proxy_supervisor.cpp
         ../../../src/Edward/RFC.cpp

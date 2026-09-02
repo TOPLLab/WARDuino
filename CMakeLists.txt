@@ -65,6 +65,11 @@ if (BUILD_EMULATOR)
             src/Utils/macros.cpp
             src/Utils/sockets.cpp
             src/Debug/debugger.cpp
+            src/Debug/debugger-command.cpp
+            src/Debug/debugger-snapshot.cpp
+            src/Debug/debugger-legacy.cpp
+            src/Debug/debugger-proxy.cpp
+            src/Debug/debugger-overrides.cpp
             src/Debug/nanopb_encoder.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
@@ -107,6 +112,11 @@ if (BUILD_UNITTEST)
             src/Utils/macros.cpp
             src/Utils/sockets.cpp
             src/Debug/debugger.cpp
+            src/Debug/debugger-command.cpp
+            src/Debug/debugger-snapshot.cpp
+            src/Debug/debugger-legacy.cpp
+            src/Debug/debugger-proxy.cpp
+            src/Debug/debugger-overrides.cpp
             src/Debug/nanopb_encoder.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
