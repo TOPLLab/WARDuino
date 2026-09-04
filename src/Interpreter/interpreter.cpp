@@ -36,7 +36,7 @@ Block *Interpreter::pop_block(Module *m) {
     }
 
     if (frame->block->block_type == 0xfe) {
-        m->warduino->program_state = PROXYhalt;
+        m->warduino->program_state = debug_State_STATE_PROXY_HALT;
         m->warduino->debugger->send_proxy_call_result(m);
         // free if proxy guard
         free(frame->block);
@@ -226,12 +226,12 @@ bool Interpreter::interpret(Module *m, bool waiting) {
     while ((!program_done && success) || waiting) {
         m = ectx->current_module;
 
-        if (m->warduino->program_state == WARDUINOstep) {
+        if (m->warduino->program_state == debug_State_STATE_WARDUINO_STEP) {
             m->warduino->debugger->notify_complete_step(m);
             m->warduino->debugger->pause_runtime(m);
         }
 
-        while (m->warduino->program_state != WARDUINOinit &&
+        while (m->warduino->program_state != debug_State_STATE_WARDUINO_INIT &&
                m->warduino->debugger->check_debug_messages(
                    m, &m->warduino->program_state)) {
         }
@@ -243,10 +243,10 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         CallbackHandler::resolve_event();
 
         // Sleep interpret loop if 'paused' or 'waiting drone'
-        if (m->warduino->program_state == WARDUINOpause ||
-            m->warduino->program_state == PROXYhalt) {
+        if (m->warduino->program_state == debug_State_STATE_WARDUINO_PAUSE ||
+            m->warduino->program_state == debug_State_STATE_PROXY_HALT) {
             // wait until new debug messages arrive
-            if (m->warduino->program_state == WARDUINOpause) {
+            if (m->warduino->program_state == debug_State_STATE_WARDUINO_PAUSE) {
                 warduino::unique_lock lock(
                     m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(
@@ -260,7 +260,7 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         // If BP and not the one we just unpaused
         if (m->warduino->debugger->is_breakpoint(ectx->pc_ptr) &&
             m->warduino->debugger->skipBreakpoint != ectx->pc_ptr &&
-            m->warduino->program_state != PROXYrun) {
+            m->warduino->program_state != debug_State_STATE_PROXY_RUN) {
             m->warduino->debugger->pause_runtime(m);
             m->warduino->debugger->notify_breakpoint(m, ectx->pc_ptr);
             continue;
@@ -272,7 +272,7 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         }
 
         // Take snapshot before executing an instruction
-        if (m->warduino->program_state != WARDUINOinit) {
+        if (m->warduino->program_state != debug_State_STATE_WARDUINO_INIT) {
             m->warduino->debugger->handle_snapshot_policy(m);
         }
 
@@ -475,7 +475,7 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         }
     }
 
-    if (m->warduino->program_state == PROXYrun) {
+    if (m->warduino->program_state == debug_State_STATE_PROXY_RUN) {
         dbg_info("Trap was thrown during proxy call.\n");
         RFC *rfc = m->warduino->debugger->top_proxy_call();
         rfc->success = false;

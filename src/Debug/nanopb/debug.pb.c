@@ -21,7 +21,7 @@ PB_BIND(debug_NewEvent, debug_NewEvent, AUTO)
 PB_BIND(debug_ContinueFor, debug_ContinueFor, AUTO)
 
 
-PB_BIND(debug_Inspect, debug_Inspect, AUTO)
+PB_BIND(debug_Include, debug_Include, AUTO)
 
 
 PB_BIND(debug_FunctionRef, debug_FunctionRef, AUTO)

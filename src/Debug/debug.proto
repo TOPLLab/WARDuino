@@ -29,7 +29,7 @@ enum Command {
   COMMAND_REMOVE_BREAKPOINT = 6;    // Breakpoint
   COMMAND_CLEAR_BREAKPOINTS = 7;    // no payload
 
-  COMMAND_SNAPSHOT = 9;             // snapshot sections
+  COMMAND_SNAPSHOT = 9;             // Include
 
   COMMAND_UPDATE_FUNCTION = 12;     // Function
   COMMAND_UPDATE_LOCAL = 13;        // ValueUpdate
@@ -47,7 +47,6 @@ enum Command {
   COMMAND_PUSH_EVENT = 21;          // Event
 
   COMMAND_CONTINUE_FOR = 22;        // ContinueFor
-  COMMAND_INSPECT = 23;             // Inspect
   COMMAND_RESET = 24;               // no payload
   COMMAND_INVOKE = 25;              // RemoteFunctionCall
 
@@ -87,6 +86,7 @@ enum State {
   STATE_WARDUINO_STEP = 2;
   STATE_PROXY_RUN = 3;
   STATE_PROXY_HALT = 4;
+  STATE_WARDUINO_INIT = 5;
 }
 
 // A virtual program address.
@@ -111,10 +111,9 @@ message ContinueFor {
   uint32 count = 1;
 }
 
-// Execution-state selectors understood by the VM. Keeping them as bytes lets
-// the protocol add selectors without changing this schema.
-message Inspect {
-  bytes state = 1;
+// Payload of Snapshot command: contains field selectors as bytes.
+message Include {
+  bytes fields = 1;
 }
 
 message FunctionRef {

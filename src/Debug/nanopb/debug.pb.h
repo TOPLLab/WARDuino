@@ -21,7 +21,7 @@ typedef enum _debug_Command {
     debug_Command_COMMAND_ADD_BREAKPOINT = 5, /* Breakpoint */
     debug_Command_COMMAND_REMOVE_BREAKPOINT = 6, /* Breakpoint */
     debug_Command_COMMAND_CLEAR_BREAKPOINTS = 7, /* no payload */
-    debug_Command_COMMAND_SNAPSHOT = 9, /* no payload */
+    debug_Command_COMMAND_SNAPSHOT = 9, /* Include */
     debug_Command_COMMAND_UPDATE_FUNCTION = 12, /* Function */
     debug_Command_COMMAND_UPDATE_LOCAL = 13, /* ValueUpdate */
     debug_Command_COMMAND_UPDATE_CALLBACKS = 14, /* CallbackMapping */
@@ -36,7 +36,6 @@ typedef enum _debug_Command {
     debug_Command_COMMAND_POP_EVENT = 20, /* no payload */
     debug_Command_COMMAND_PUSH_EVENT = 21, /* Event */
     debug_Command_COMMAND_CONTINUE_FOR = 22, /* ContinueFor */
-    debug_Command_COMMAND_INSPECT = 23, /* Inspect */
     debug_Command_COMMAND_RESET = 24, /* no payload */
     debug_Command_COMMAND_INVOKE = 25, /* RemoteFunctionCall */
     debug_Command_COMMAND_SET_SNAPSHOT_POLICY = 29, /* SnapshotPolicyConfig */
@@ -71,7 +70,8 @@ typedef enum _debug_State {
     debug_State_STATE_WARDUINO_PAUSE = 1,
     debug_State_STATE_WARDUINO_STEP = 2,
     debug_State_STATE_PROXY_RUN = 3,
-    debug_State_STATE_PROXY_HALT = 4
+    debug_State_STATE_PROXY_HALT = 4,
+    debug_State_STATE_WARDUINO_INIT = 5
 } debug_State;
 
 typedef enum _debug_SnapshotPolicy {
@@ -107,11 +107,10 @@ typedef struct _debug_ContinueFor {
     uint32_t count;
 } debug_ContinueFor;
 
-/* Execution-state selectors understood by the VM. Keeping them as bytes lets
- the protocol add selectors without changing this schema. */
-typedef struct _debug_Inspect {
-    pb_callback_t state;
-} debug_Inspect;
+/* Payload of Snapshot command: contains field selectors as bytes. */
+typedef struct _debug_Include {
+    pb_callback_t fields;
+} debug_Include;
 
 typedef struct _debug_FunctionRef {
     uint32_t function_index;
@@ -292,8 +291,8 @@ extern "C" {
 #define _debug_NotificationType_ARRAYSIZE ((debug_NotificationType)(debug_NotificationType_NOTIFICATION_CHECKPOINT+1))
 
 #define _debug_State_MIN debug_State_STATE_WARDUINO_RUN
-#define _debug_State_MAX debug_State_STATE_PROXY_HALT
-#define _debug_State_ARRAYSIZE ((debug_State)(debug_State_STATE_PROXY_HALT+1))
+#define _debug_State_MAX debug_State_STATE_WARDUINO_INIT
+#define _debug_State_ARRAYSIZE ((debug_State)(debug_State_STATE_WARDUINO_INIT+1))
 
 #define _debug_SnapshotPolicy_MIN debug_SnapshotPolicy_SNAPSHOT_POLICY_NONE
 #define _debug_SnapshotPolicy_MAX debug_SnapshotPolicy_SNAPSHOT_POLICY_CHECKPOINTING
@@ -338,7 +337,7 @@ extern "C" {
 #define debug_HitBreakpoint_init_default         {false, debug_CodeLocation_init_default}
 #define debug_NewEvent_init_default              {0}
 #define debug_ContinueFor_init_default           {0}
-#define debug_Inspect_init_default               {{{NULL}, NULL}}
+#define debug_Include_init_default               {{{NULL}, NULL}}
 #define debug_FunctionRef_init_default           {0}
 #define debug_ValueUpdate_init_default           {0, false, debug_Value_init_default}
 #define debug_Snapshot_init_default              {0, _debug_State_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_Locals_init_default, false, debug_EventsQueue_init_default, false, debug_CallbackMapping_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_TableState_init_default, false, debug_MemoryState_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
@@ -367,7 +366,7 @@ extern "C" {
 #define debug_HitBreakpoint_init_zero            {false, debug_CodeLocation_init_zero}
 #define debug_NewEvent_init_zero                 {0}
 #define debug_ContinueFor_init_zero              {0}
-#define debug_Inspect_init_zero                  {{{NULL}, NULL}}
+#define debug_Include_init_zero                  {{{NULL}, NULL}}
 #define debug_FunctionRef_init_zero              {0}
 #define debug_ValueUpdate_init_zero              {0, false, debug_Value_init_zero}
 #define debug_Snapshot_init_zero                 {0, _debug_State_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_Locals_init_zero, false, debug_EventsQueue_init_zero, false, debug_CallbackMapping_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_TableState_init_zero, false, debug_MemoryState_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
@@ -398,7 +397,7 @@ extern "C" {
 #define debug_Breakpoint_location_tag            1
 #define debug_HitBreakpoint_location_tag         1
 #define debug_ContinueFor_count_tag              1
-#define debug_Inspect_state_tag                  1
+#define debug_Include_fields_tag                 1
 #define debug_FunctionRef_function_index_tag     1
 #define debug_RemoteFunctionCall_function_index_tag 1
 #define debug_RemoteFunctionCall_arguments_tag   2
@@ -507,10 +506,10 @@ X(a, STATIC,   SINGULAR, UINT32,   count,             1)
 #define debug_ContinueFor_CALLBACK NULL
 #define debug_ContinueFor_DEFAULT NULL
 
-#define debug_Inspect_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, BYTES,    state,             1)
-#define debug_Inspect_CALLBACK pb_default_field_callback
-#define debug_Inspect_DEFAULT NULL
+#define debug_Include_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, BYTES,    fields,            1)
+#define debug_Include_CALLBACK pb_default_field_callback
+#define debug_Include_DEFAULT NULL
 
 #define debug_FunctionRef_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   function_index,    1)
@@ -711,7 +710,7 @@ extern const pb_msgdesc_t debug_Breakpoint_msg;
 extern const pb_msgdesc_t debug_HitBreakpoint_msg;
 extern const pb_msgdesc_t debug_NewEvent_msg;
 extern const pb_msgdesc_t debug_ContinueFor_msg;
-extern const pb_msgdesc_t debug_Inspect_msg;
+extern const pb_msgdesc_t debug_Include_msg;
 extern const pb_msgdesc_t debug_FunctionRef_msg;
 extern const pb_msgdesc_t debug_ValueUpdate_msg;
 extern const pb_msgdesc_t debug_Snapshot_msg;
@@ -742,7 +741,7 @@ extern const pb_msgdesc_t debug_IOState_msg;
 #define debug_HitBreakpoint_fields &debug_HitBreakpoint_msg
 #define debug_NewEvent_fields &debug_NewEvent_msg
 #define debug_ContinueFor_fields &debug_ContinueFor_msg
-#define debug_Inspect_fields &debug_Inspect_msg
+#define debug_Include_fields &debug_Include_msg
 #define debug_FunctionRef_fields &debug_FunctionRef_msg
 #define debug_ValueUpdate_fields &debug_ValueUpdate_msg
 #define debug_Snapshot_fields &debug_Snapshot_msg
@@ -768,7 +767,7 @@ extern const pb_msgdesc_t debug_IOState_msg;
 #define debug_IOState_fields &debug_IOState_msg
 
 /* Maximum encoded size of messages (where known) */
-/* debug_Inspect_size depends on runtime parameters */
+/* debug_Include_size depends on runtime parameters */
 /* debug_ValueUpdate_size depends on runtime parameters */
 /* debug_Snapshot_size depends on runtime parameters */
 /* debug_Function_size depends on runtime parameters */

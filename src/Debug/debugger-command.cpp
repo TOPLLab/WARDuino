@@ -1,7 +1,7 @@
 #include "debugger-detail.h"
 #include "debugger-protocol.h"
 
-bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
+bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
     std::optional<DebugMessage> message = get_debug_message();
     if (!message) return false;
 
@@ -76,15 +76,30 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
                 break;
             }
             remaining_instructions = static_cast<int32_t>(request.count);
-            *program_state = WARDUINOrun;
+            *program_state = debug_State_STATE_WARDUINO_RUN;
             send_notification(debug_NotificationType_NOTIFICATION_CONTINUED);
             break;
         }
-        case debug_Command_COMMAND_SNAPSHOT:
-            if (!require_empty()) break;
+        case debug_Command_COMMAND_SNAPSHOT: {
+            debug_Include request = debug_Include_init_zero;
+            std::vector<uint8_t> selected;
+            set_decode_callback(&request.fields, &selected);
+            if (!decode_payload(message->payload, debug_Include_fields,
+                        &request)) {
+                malformed();
+                break;
+            }
+            SnapshotSelection selection = 0;
+            if (!parse_selection(selected.data(), selected.size(),
+                        &selection)) {
+                malformed();
+                break;
+            }
             pause_runtime(m);
-            snapshot(m);
+            encode_snapshot(m, selection,
+                debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
+        }
         case debug_Command_COMMAND_UPDATE_LOCAL: {
             const auto update = update_value(message->payload);
             ExecutionContext *context = m->warduino->execution_context;
@@ -255,26 +270,6 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             send_operation_result(message->type, true);
             break;
         }
-        case debug_Command_COMMAND_INSPECT: {
-            debug_Inspect request = debug_Inspect_init_zero;
-            std::vector<uint8_t> selected;
-            set_decode_callback(&request.state, &selected);
-            if (!decode_payload(message->payload, debug_Inspect_fields,
-                                &request)) {
-                malformed();
-                break;
-            }
-            SnapshotSelection selection = 0;
-            if (!parse_selection(selected.data(), selected.size(),
-                                 &selection)) {
-                malformed();
-                break;
-            }
-            pause_runtime(m);
-            encode_snapshot(m, selection,
-                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
-            break;
-        }
         case debug_Command_COMMAND_LOAD_SNAPSHOT: {
             debug_Snapshot state = debug_Snapshot_init_zero;
             if (!decode_payload(message->payload, debug_Snapshot_fields,
@@ -341,8 +336,8 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
                             m->functions[call.function_index].type, arguments));
                 break;
             }
-            const RunningState current = m->warduino->program_state;
-            m->warduino->program_state = WARDUINOrun;
+            const debug_State current = m->warduino->program_state;
+            m->warduino->program_state = debug_State_STATE_WARDUINO_RUN;
             exception[0] = "\0"[0];
             const auto results = m->warduino->invoke(
                 m, call.function_index, static_cast<uint32_t>(values.size()),
