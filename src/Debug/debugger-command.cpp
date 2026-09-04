@@ -64,7 +64,9 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
             break;
         }
         case debug_Command_COMMAND_CLEAR_BREAKPOINTS: {
-            // todo remove all breakpoints on all modules
+            if (!require_empty()) break;
+            breakpoints.clear();
+            send_operation_result(message->type, true);
             break;
         }
         case debug_Command_COMMAND_CONTINUE_FOR: {
@@ -80,6 +82,10 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
             send_notification(debug_NotificationType_NOTIFICATION_CONTINUED);
             break;
         }
+        case debug_Command_COMMAND_HEAP_USAGE:
+            if (!require_empty()) break;
+            dump_heap_info(m);
+            break;
         case debug_Command_COMMAND_SNAPSHOT: {
             debug_Include request = debug_Include_init_zero;
             std::vector<uint8_t> selected;

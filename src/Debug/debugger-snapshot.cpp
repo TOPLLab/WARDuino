@@ -1,18 +1,11 @@
 #include "debugger-detail.h"
 #include "debugger-protocol.h"
 
-std::optional<debug_ValueUpdate> Debugger::update_value(
-    const std::vector<uint8_t> &payload) const {
-    debug_ValueUpdate update = debug_ValueUpdate_init_zero;
-    if (!decode_payload(payload, debug_ValueUpdate_fields, &update) ||
-        !update.has_value) {
-        return std::nullopt;
-    }
-    return update;
-}
-
-void Debugger::dump_heap_info(Module *) const {
-    // todo implement
+void Debugger::dump_heap_info(Module *m) const {
+    debug_HeapUsage heap_usage = debug_HeapUsage_init_zero;
+    heap_usage.heap_used = m->warduino->get_heap_used();
+    send_notification(debug_NotificationType_NOTIFICATION_HEAP_USAGE,
+                      debug_HeapUsage_fields, &heap_usage);
 }
 
 bool Debugger::parse_selection(const uint8_t *state, const size_t size,
@@ -136,8 +129,6 @@ bool Debugger::encode_snapshot(
         state.overrides.funcs.encode = encode_overrides;
         state.overrides.arg = &view;
     }
-    if (selection & snapshotHeap)
-        state.heap_used = m->warduino->get_heap_used();
     const bool sent =
         send_notification(notification, debug_Snapshot_fields, &state);
     for (IOStateElement *entry : ioState) delete entry;
@@ -250,8 +241,6 @@ void Debugger::checkpoint(Module *m, const bool force) {
             notification.snapshot.stack.funcs.encode = encode_value_range;
             notification.snapshot.stack.arg = &stack;
         }
-        if (selection & snapshotHeap)
-            notification.snapshot.heap_used = m->warduino->get_heap_used();
     }
     send_notification(debug_NotificationType_NOTIFICATION_CHECKPOINT,
                       debug_Checkpoint_fields, &notification);

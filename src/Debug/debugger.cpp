@@ -1,6 +1,16 @@
 #include "debugger-private.h"
 #include "debugger-protocol.h"
 
+std::optional<debug_ValueUpdate> Debugger::update_value(
+    const std::vector<uint8_t> &payload) const {
+    debug_ValueUpdate update = debug_ValueUpdate_init_zero;
+    if (!decode_payload(payload, debug_ValueUpdate_fields, &update) ||
+        !update.has_value) {
+        return std::nullopt;
+    }
+    return update;
+}
+
 // Debugger
 
 Debugger::Debugger(Channel *duplex) {

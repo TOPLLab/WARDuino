@@ -21,6 +21,7 @@ typedef enum _debug_Command {
     debug_Command_COMMAND_ADD_BREAKPOINT = 5, /* Breakpoint */
     debug_Command_COMMAND_REMOVE_BREAKPOINT = 6, /* Breakpoint */
     debug_Command_COMMAND_CLEAR_BREAKPOINTS = 7, /* no payload */
+    debug_Command_COMMAND_HEAP_USAGE = 8, /* no payload */
     debug_Command_COMMAND_SNAPSHOT = 9, /* Include */
     debug_Command_COMMAND_UPDATE_FUNCTION = 12, /* Function */
     debug_Command_COMMAND_UPDATE_LOCAL = 13, /* ValueUpdate */
@@ -62,7 +63,8 @@ typedef enum _debug_NotificationType {
     debug_NotificationType_NOTIFICATION_UNKNOWN_COMMAND = 13, /* no payload */
     debug_NotificationType_NOTIFICATION_OPERATION_RESULT = 14, /* OperationResult */
     debug_NotificationType_NOTIFICATION_REMOTE_FUNCTION_RESULT = 15, /* RemoteFunctionResult */
-    debug_NotificationType_NOTIFICATION_CHECKPOINT = 16 /* Checkpoint */
+    debug_NotificationType_NOTIFICATION_CHECKPOINT = 16, /* Checkpoint */
+    debug_NotificationType_NOTIFICATION_HEAP_USAGE = 17 /* HeapUsage */
 } debug_NotificationType;
 
 typedef enum _debug_State {
@@ -102,6 +104,10 @@ typedef struct _debug_HitBreakpoint {
 typedef struct _debug_NewEvent {
     char dummy_field;
 } debug_NewEvent;
+
+typedef struct _debug_HeapUsage {
+    uint32_t heap_used;
+} debug_HeapUsage;
 
 typedef struct _debug_ContinueFor {
     uint32_t count;
@@ -257,7 +263,6 @@ typedef struct _debug_Snapshot {
     pb_callback_t branch_table;
     pb_callback_t io;
     pb_callback_t overrides;
-    uint32_t heap_used;
 } debug_Snapshot;
 
 typedef struct _debug_Checkpoint {
@@ -287,8 +292,8 @@ extern "C" {
 #define _debug_Command_ARRAYSIZE ((debug_Command)(debug_Command_COMMAND_REMOVE_OVERRIDE+1))
 
 #define _debug_NotificationType_MIN debug_NotificationType_NOTIFICATION_CONTINUED
-#define _debug_NotificationType_MAX debug_NotificationType_NOTIFICATION_CHECKPOINT
-#define _debug_NotificationType_ARRAYSIZE ((debug_NotificationType)(debug_NotificationType_NOTIFICATION_CHECKPOINT+1))
+#define _debug_NotificationType_MAX debug_NotificationType_NOTIFICATION_HEAP_USAGE
+#define _debug_NotificationType_ARRAYSIZE ((debug_NotificationType)(debug_NotificationType_NOTIFICATION_HEAP_USAGE+1))
 
 #define _debug_State_MIN debug_State_STATE_WARDUINO_RUN
 #define _debug_State_MAX debug_State_STATE_WARDUINO_INIT
@@ -297,6 +302,7 @@ extern "C" {
 #define _debug_SnapshotPolicy_MIN debug_SnapshotPolicy_SNAPSHOT_POLICY_NONE
 #define _debug_SnapshotPolicy_MAX debug_SnapshotPolicy_SNAPSHOT_POLICY_CHECKPOINTING
 #define _debug_SnapshotPolicy_ARRAYSIZE ((debug_SnapshotPolicy)(debug_SnapshotPolicy_SNAPSHOT_POLICY_CHECKPOINTING+1))
+
 
 
 
@@ -336,11 +342,12 @@ extern "C" {
 #define debug_Breakpoint_init_default            {false, debug_CodeLocation_init_default}
 #define debug_HitBreakpoint_init_default         {false, debug_CodeLocation_init_default}
 #define debug_NewEvent_init_default              {0}
+#define debug_HeapUsage_init_default             {0}
 #define debug_ContinueFor_init_default           {0}
 #define debug_Include_init_default               {{{NULL}, NULL}}
 #define debug_FunctionRef_init_default           {0}
 #define debug_ValueUpdate_init_default           {0, false, debug_Value_init_default}
-#define debug_Snapshot_init_default              {0, _debug_State_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_Locals_init_default, false, debug_EventsQueue_init_default, false, debug_CallbackMapping_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_TableState_init_default, false, debug_MemoryState_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
+#define debug_Snapshot_init_default              {0, _debug_State_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_Locals_init_default, false, debug_EventsQueue_init_default, false, debug_CallbackMapping_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_TableState_init_default, false, debug_MemoryState_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define debug_Function_init_default              {0, false, debug_Range_init_default, false, debug_Locals_init_default, {{NULL}, NULL}}
 #define debug_RemoteFunctionCall_init_default    {0, {{NULL}, NULL}}
 #define debug_CallstackEntry_init_default        {0, 0, 0, 0, 0, 0}
@@ -365,11 +372,12 @@ extern "C" {
 #define debug_Breakpoint_init_zero               {false, debug_CodeLocation_init_zero}
 #define debug_HitBreakpoint_init_zero            {false, debug_CodeLocation_init_zero}
 #define debug_NewEvent_init_zero                 {0}
+#define debug_HeapUsage_init_zero                {0}
 #define debug_ContinueFor_init_zero              {0}
 #define debug_Include_init_zero                  {{{NULL}, NULL}}
 #define debug_FunctionRef_init_zero              {0}
 #define debug_ValueUpdate_init_zero              {0, false, debug_Value_init_zero}
-#define debug_Snapshot_init_zero                 {0, _debug_State_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_Locals_init_zero, false, debug_EventsQueue_init_zero, false, debug_CallbackMapping_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_TableState_init_zero, false, debug_MemoryState_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
+#define debug_Snapshot_init_zero                 {0, _debug_State_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_Locals_init_zero, false, debug_EventsQueue_init_zero, false, debug_CallbackMapping_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, debug_TableState_init_zero, false, debug_MemoryState_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define debug_Function_init_zero                 {0, false, debug_Range_init_zero, false, debug_Locals_init_zero, {{NULL}, NULL}}
 #define debug_RemoteFunctionCall_init_zero       {0, {{NULL}, NULL}}
 #define debug_CallstackEntry_init_zero           {0, 0, 0, 0, 0, 0}
@@ -396,6 +404,7 @@ extern "C" {
 #define debug_CodeLocation_program_counter_tag   2
 #define debug_Breakpoint_location_tag            1
 #define debug_HitBreakpoint_location_tag         1
+#define debug_HeapUsage_heap_used_tag            1
 #define debug_ContinueFor_count_tag              1
 #define debug_Include_fields_tag                 1
 #define debug_FunctionRef_function_index_tag     1
@@ -466,7 +475,6 @@ extern "C" {
 #define debug_Snapshot_branch_table_tag          13
 #define debug_Snapshot_io_tag                    14
 #define debug_Snapshot_overrides_tag             15
-#define debug_Snapshot_heap_used_tag             16
 #define debug_Checkpoint_instruction_count_tag   1
 #define debug_Checkpoint_has_primitive_call_tag  2
 #define debug_Checkpoint_primitive_function_index_tag 3
@@ -500,6 +508,11 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  location,          1)
 
 #define debug_NewEvent_CALLBACK NULL
 #define debug_NewEvent_DEFAULT NULL
+
+#define debug_HeapUsage_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   heap_used,         1)
+#define debug_HeapUsage_CALLBACK NULL
+#define debug_HeapUsage_DEFAULT NULL
 
 #define debug_ContinueFor_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   count,             1)
@@ -538,8 +551,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  table,            11) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  memory,           12) \
 X(a, CALLBACK, REPEATED, UINT32,   branch_table,     13) \
 X(a, CALLBACK, REPEATED, MESSAGE,  io,               14) \
-X(a, CALLBACK, REPEATED, MESSAGE,  overrides,        15) \
-X(a, STATIC,   SINGULAR, UINT32,   heap_used,        16)
+X(a, CALLBACK, REPEATED, MESSAGE,  overrides,        15)
 #define debug_Snapshot_CALLBACK pb_default_field_callback
 #define debug_Snapshot_DEFAULT NULL
 #define debug_Snapshot_functions_MSGTYPE debug_Function
@@ -709,6 +721,7 @@ extern const pb_msgdesc_t debug_CodeLocation_msg;
 extern const pb_msgdesc_t debug_Breakpoint_msg;
 extern const pb_msgdesc_t debug_HitBreakpoint_msg;
 extern const pb_msgdesc_t debug_NewEvent_msg;
+extern const pb_msgdesc_t debug_HeapUsage_msg;
 extern const pb_msgdesc_t debug_ContinueFor_msg;
 extern const pb_msgdesc_t debug_Include_msg;
 extern const pb_msgdesc_t debug_FunctionRef_msg;
@@ -740,6 +753,7 @@ extern const pb_msgdesc_t debug_IOState_msg;
 #define debug_Breakpoint_fields &debug_Breakpoint_msg
 #define debug_HitBreakpoint_fields &debug_HitBreakpoint_msg
 #define debug_NewEvent_fields &debug_NewEvent_msg
+#define debug_HeapUsage_fields &debug_HeapUsage_msg
 #define debug_ContinueFor_fields &debug_ContinueFor_msg
 #define debug_Include_fields &debug_Include_msg
 #define debug_FunctionRef_fields &debug_FunctionRef_msg
@@ -793,6 +807,7 @@ extern const pb_msgdesc_t debug_IOState_msg;
 #define debug_CodeLocation_size                  12
 #define debug_ContinueFor_size                   6
 #define debug_FunctionRef_size                   6
+#define debug_HeapUsage_size                     6
 #define debug_HitBreakpoint_size                 14
 #define debug_NewEvent_size                      0
 #define debug_OperationResult_size               4

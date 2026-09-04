@@ -25,9 +25,12 @@ enum Command {
   COMMAND_PAUSE = 2;                // no payload
   COMMAND_STEP = 3;                 // no payload
   COMMAND_STEP_OVER = 4;            // no payload
+
   COMMAND_ADD_BREAKPOINT = 5;       // Breakpoint
   COMMAND_REMOVE_BREAKPOINT = 6;    // Breakpoint
   COMMAND_CLEAR_BREAKPOINTS = 7;    // no payload
+
+  COMMAND_HEAP_USAGE = 8;           // no payload
 
   COMMAND_SNAPSHOT = 9;             // Include
 
@@ -49,7 +52,6 @@ enum Command {
   COMMAND_CONTINUE_FOR = 22;        // ContinueFor
   COMMAND_RESET = 24;               // no payload
   COMMAND_INVOKE = 25;              // RemoteFunctionCall
-
 
   COMMAND_SET_SNAPSHOT_POLICY = 29; // SnapshotPolicyConfig
   COMMAND_SET_OVERRIDE = 30;        // Override
@@ -78,6 +80,7 @@ enum NotificationType {
   NOTIFICATION_OPERATION_RESULT = 14;        // OperationResult
   NOTIFICATION_REMOTE_FUNCTION_RESULT = 15;  // RemoteFunctionResult
   NOTIFICATION_CHECKPOINT = 16;              // Checkpoint
+  NOTIFICATION_HEAP_USAGE = 17;              // HeapUsage
 }
 
 enum State {
@@ -106,6 +109,8 @@ message HitBreakpoint {
 // The notification type carries all information for this event. The empty
 // message exists for host-side reflection, but no protobuf bytes are sent.
 message NewEvent {}
+
+message HeapUsage { uint32 heap_used = 1; }
 
 message ContinueFor {
   uint32 count = 1;
@@ -143,7 +148,6 @@ message Snapshot {
   repeated uint32 branch_table = 13;
   repeated IOState io = 14;
   repeated Override overrides = 15;
-  uint32 heap_used = 16;
 }
 
 message Function {
