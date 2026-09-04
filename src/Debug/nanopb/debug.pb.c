@@ -18,6 +18,9 @@ PB_BIND(debug_HitBreakpoint, debug_HitBreakpoint, AUTO)
 PB_BIND(debug_NewEvent, debug_NewEvent, AUTO)
 
 
+PB_BIND(debug_HeapUsage, debug_HeapUsage, AUTO)
+
+
 PB_BIND(debug_ContinueFor, debug_ContinueFor, AUTO)
 
 
