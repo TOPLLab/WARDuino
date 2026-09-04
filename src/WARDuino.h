@@ -45,7 +45,7 @@ class WARDuino {
    public:
     Debugger *debugger;
     Interpreter *interpreter;
-    RunningState program_state = WARDUINOrun;
+    debug_State program_state = debug_State_STATE_WARDUINO_RUN;
     ExecutionContext *execution_context = nullptr;
     ~WARDuino();
 
