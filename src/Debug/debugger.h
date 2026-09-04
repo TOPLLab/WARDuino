@@ -38,6 +38,8 @@ enum ExecutionState {
     ioState = 0x0B,
     overridesState = 0x0C,
     heapState = 0x0D,
+    functionsState = 0x0E,
+    localsState = 0x0F,
 };
 
 using SnapshotSelection = uint16_t;

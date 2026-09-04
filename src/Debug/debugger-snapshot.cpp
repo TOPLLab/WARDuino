@@ -12,7 +12,8 @@ bool Debugger::parse_selection(const uint8_t *state, const size_t size,
                                SnapshotSelection *selection) {
     *selection = 0;
     for (size_t index = 0; index < size; ++index) {
-        if (state[index] < pcState || state[index] > heapState) return false;
+        if (state[index] < pcState || state[index] > localsState)
+            return false;
         *selection |= static_cast<SnapshotSelection>(1u << (state[index] - 1));
     }
     return true;
