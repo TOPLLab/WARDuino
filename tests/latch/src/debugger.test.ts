@@ -33,7 +33,7 @@ const integration: Suite = framework.suite('Integration tests: Debugger'); // mu
 
 integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
 
-const expectDUMP: Expectation[] = [
+const expectSnapshot: Expectation[] = [
     {'programCounter': {kind: 'description', value: Description.defined} as Expected<number>},
     {
         'breakpoints': {
@@ -44,114 +44,13 @@ const expectDUMP: Expectation[] = [
     },
     ];
 
-const expectDUMPLocals: Expectation[] = [
-    {'values': {kind: 'description', value: Description.defined} as Expected<Array<unknown>>}];
-
-const DUMP: Step = {
-    title: 'Send DUMP command',
+const SNAPSHOT: Step = {
+    title: 'Send SNAPSHOT command',
     instruction: {kind: Kind.Request, value: Message.snapshot},
-    expected: expectDUMP
+    expected: expectSnapshot
 };
 
-// Test *dump* command
-
-integration.test({
-    title: 'Test DUMP blink',
-    program: `${EXAMPLES}blink.wast`,
-    steps: [DUMP]
-});
-
-integration.test({
-    title: 'Test DUMP button',
-    program: `${EXAMPLES}button.wast`,
-    steps: [DUMP]
-});
-
-integration.test({
-    title: 'Test DUMP call',
-    program: `${EXAMPLES}call.wast`,
-    steps: [DUMP]
-});
-
-integration.test({
-    title: 'Test DUMP factorial',
-    program: `${EXAMPLES}factorial.wast`,
-    steps: [DUMP]
-});
-
-// Test *dump local* command
-
-integration.test({
-    title: 'Test DUMPLocals blink',
-    program: `${EXAMPLES}blink.wast`,
-    steps: [{
-        title: 'Send DUMPLocals command',
-        instruction: {kind: Kind.Request, value: Message.dumpLocals},
-        expected: expectDUMPLocals
-    }]
-});
-
-integration.test({
-    title: 'Test DUMPLocals button',
-    program: `${EXAMPLES}button.wast`,
-    steps: [{
-        title: 'Send DUMPLocals command',
-        instruction: {kind: Kind.Request, value: Message.dumpLocals},
-        expected: expectDUMPLocals
-    }]
-});
-
-integration.test({
-    title: 'Test DUMPLocals call',
-    program: `${EXAMPLES}call.wast`,
-    steps: [{
-        title: 'Send DUMPLocals command',
-        instruction: {kind: Kind.Request, value: Message.dumpLocals},
-        expected: expectDUMPLocals
-    }]
-});
-
-integration.test({
-    title: 'Test DUMPLocals factorial',
-    program: `${EXAMPLES}factorial.wast`,
-    steps: [{
-        title: 'Send DUMPLocals command',
-        instruction: {kind: Kind.Request, value: Message.dumpLocals},
-        expected: expectDUMPLocals
-    }]
-});
-
-integration.test({
-    title: 'Test DUMPLocals button',
-    program: `${EXAMPLES}button.wast`,
-    steps: [{
-        title: 'Send DUMPLocals command',
-        instruction: {kind: Kind.Request, value: Message.dumpLocals},
-        expected: expectDUMPLocals
-    }]
-});
-
-integration.test({
-    title: 'Test DUMPLocals call',
-    program: `${EXAMPLES}call.wast`,
-    steps: [{
-        title: 'Send DUMPLocals command',
-        instruction: {kind: Kind.Request, value: Message.dumpLocals},
-        expected: expectDUMPLocals
-    }]
-});
-
-integration.test({
-    title: 'Test DUMPLocals factorial',
-    program: `${EXAMPLES}factorial.wast`,
-    steps: [{
-        title: 'Send DUMPLocals command',
-        instruction: {kind: Kind.Request, value: Message.dumpLocals},
-        expected: expectDUMPLocals
-    }]
-});
-
-// Test *dump full* command
+// Test full snapshot command
 
 const snapshotTest: TestScenario = {
     title: 'Test snapshot',
@@ -159,15 +58,51 @@ const snapshotTest: TestScenario = {
     steps: [{
         title: 'Send snapshot command',
         instruction: {kind: Kind.Request, value: Message.snapshot},
-        expected: expectDUMP
+        expected: expectSnapshot
     }]
 };
 
 integration.test(snapshotTest);
 
+const expectSnapshotLocals: Expectation[] = [
+    ...expectSnapshot,
+    {'locals': {kind: 'description', value: Description.defined} as Expected<Object>},
+    {'locals.values': {kind: 'description', value: Description.defined} as Expected<Array<unknown>>}
+];
+
+integration.test({
+    title: 'Test SNAPSHOT button',
+    program: EXAMPLES + 'button.wast',
+    steps: [SNAPSHOT]
+});
+
+integration.test({
+    title: 'Test SNAPSHOT call',
+    program: EXAMPLES + 'call.wast',
+    steps: [SNAPSHOT]
+});
+
+integration.test({
+    title: 'Test SNAPSHOT factorial',
+    program: EXAMPLES + 'factorial.wast',
+    steps: [SNAPSHOT]
+});
+
+for (const [name, program] of [['blink', 'blink.wast'], ['button', 'button.wast'], ['call', 'call.wast'], ['factorial', 'factorial.wast']] as const) {
+    integration.test({
+        title: 'Test SNAPSHOT locals ' + name,
+        program: EXAMPLES + program,
+        steps: [{
+            title: 'Send SNAPSHOT command',
+            instruction: {kind: Kind.Request, value: Message.snapshot},
+            expected: expectSnapshotLocals
+        }]
+    });
+}
+
 // Test *run* command
 
-const running: Step[] = [DUMP, {
+const running: Step[] = [SNAPSHOT, {
     title: 'Send RUN command',
     instruction: {kind: Kind.Request, value: Message.run},
 }, {
@@ -204,7 +139,7 @@ const pauseTest: TestScenario = {
         title: 'Send PAUSE command',
         instruction: {kind: Kind.Request, value: Message.pause},
     }, {
-        title: 'Send DUMP command',
+        title: 'Send SNAPSHOT command',
         instruction: {kind: Kind.Request, value: Message.snapshot},
         expected: [{
             'programCounter': {kind: 'description', value: Description.defined} as Expected<number>
@@ -226,7 +161,7 @@ integration.test(pauseTest);
 
 function stepping(start: number, end: number): Step[] {
     return  [{
-        title: 'Send DUMP command',
+        title: 'Send SNAPSHOT command',
         instruction: {kind: Kind.Request, value: Message.snapshot},
         expected: [{'programCounter': {kind: 'primitive', value: start} as Expected<number>}]
     }, {
@@ -275,7 +210,7 @@ const stepOverTest: TestScenario = {
     title: 'Test STEP OVER',
     program: `${EXAMPLES}call.wast`,
     steps: [{
-        title: 'Send DUMP command',
+        title: 'Send SNAPSHOT command',
         instruction: {kind: Kind.Request, value: Message.snapshot},
         expected: [{'programCounter': {kind: 'primitive', value: 167} as Expected<number>}]
     }, {
@@ -306,41 +241,13 @@ integration.test(stepOverTest);
 
 // EDWARD tests with mock proxy
 
-const dumpEventsTest: TestScenario = {
-    title: 'Test DUMPEvents',
-    program: `${EXAMPLES}button.wast`,
-    steps: [{
-        title: 'CHECK: event queue',
-        instruction: {kind: Kind.Request, value: Message.dumpAllEvents},
-        expected: [{
-            'events': {
-                kind: 'comparison',
-                value: (_: string, value: Array<any>) => value.length === 0,
-                message: 'events queue is should be empty'
-            } as Expected<Array<any>>
-        }]
-    }]
-};
-
-integration.test(dumpEventsTest);
-
 integration.test({
     title: 'Test INSPECT',
     program: `${EXAMPLES}blink.wast`,
     steps: [{
         title: 'Inspect complete state',
         instruction: {kind: Kind.Request, value: Message.inspect([])},
-        expected: expectDUMP
-    }]
-});
-
-integration.test({
-    title: 'Test DUMPEvents range',
-    program: `${EXAMPLES}button.wast`,
-    steps: [{
-        title: 'Dump event range',
-        instruction: {kind: Kind.Request, value: Message.dumpEvents({start: 0, end: 0})},
-        expected: [{totalCount: {kind: 'primitive', value: 0} as Expected<number>}]
+        expected: expectSnapshot
     }]
 });
 
@@ -389,7 +296,7 @@ integration.test({
     program: `${EXAMPLES}blink.wast`,
     steps: [
         {title: 'Reset runtime', instruction: {kind: Kind.Request, value: Message.reset}},
-        {title: 'Check reset state', instruction: {kind: Kind.Request, value: Message.snapshot}, expected: expectDUMP}
+        {title: 'Check reset state', instruction: {kind: Kind.Request, value: Message.snapshot}, expected: expectSnapshot}
     ]
 });
 
@@ -406,12 +313,6 @@ integration.test({
 const operationSucceeded: Expectation[] = [
     {success: {kind: "primitive", value: true} as Expected<boolean>}
 ];
-
-const dumpCommand: Request<DebugProtocol.Snapshot> = {
-    ...Message.dump,
-    notification: DebugProtocol.NotificationType.NOTIFICATION_SNAPSHOT,
-    parser: DebugProtocol.Snapshot.decode
-};
 
 const proxyCallWithoutProxy: Request<DebugProtocol.OperationResult> = {
     ...Message.proxyCall({functionIndex: 3, arguments: []}),
@@ -438,15 +339,12 @@ integration.test({
     title: "Test remaining debugger requests",
     program: `${EXAMPLES}blink.wast`,
     steps: [
-        {title: "Dump function metadata", instruction: {kind: Kind.Request, value: dumpCommand}, expected: [{programCounter: {kind: "description", value: Description.defined} as Expected<number>}]},
-        {title: "Dump callback mapping", instruction: {kind: Kind.Request, value: Message.dumpCallbackmapping}, expected: [{entries: {kind: "description", value: Description.defined} as Expected<Object>}]},
         {title: "Update function body", instruction: {kind: Kind.Request, value: Message.updateFunction({functionIndex: 3, instructions: Buffer.from([0x0b])})}, expected: operationSucceeded},
         {title: "Update local value", instruction: {kind: Kind.Request, value: Message.updateLocal(0, {i32Bits: 7, index: 0})}, expected: operationSucceeded},
         {title: "Update stack value", instruction: {kind: Kind.Request, value: Message.updateStack(0, {i32Bits: 8, index: 0})}, expected: operationSucceeded},
         {title: "Update global value", instruction: {kind: Kind.Request, value: Message.updateGlobal(0, {i32Bits: 9, index: 0})}, expected: operationSucceeded},
         {title: "Update callback mapping", instruction: {kind: Kind.Request, value: Message.updateCallbacks({entries: []})}, expected: operationSucceeded},
         {title: "Push an event", instruction: {kind: Kind.Request, value: Message.pushEvent("test", "payload")}},
-        {title: "Dump pushed event", instruction: {kind: Kind.Request, value: Message.dumpEvents({start: 0, end: 0})}, expected: [{totalCount: {kind: "primitive", value: 1} as Expected<number>}]},
         {title: "Pop event", instruction: {kind: Kind.Request, value: popEventWithoutCallback}, expected: [{success: {kind: "primitive", value: false} as Expected<boolean>}]},
         {title: "Load snapshot state", instruction: {kind: Kind.Request, value: Message.loadSnapshot({programCounter: 0, state: DebugProtocol.State.STATE_WARDUINO_PAUSE, breakpoints: [], functions: [], callstack: [], globals: [], stack: [], branchTable: [], io: [], overrides: [], heapUsed: 0})}, expected: operationSucceeded},
         {title: "Set snapshot policy", instruction: {kind: Kind.Request, value: Message.setSnapshotPolicy({policy: DebugProtocol.SnapshotPolicy.SNAPSHOT_POLICY_NONE, interval: 1, minimumReturnCount: 0, selectedState: Buffer.alloc(0)})}, expected: operationSucceeded},
