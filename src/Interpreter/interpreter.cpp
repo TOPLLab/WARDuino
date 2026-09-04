@@ -246,7 +246,8 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         if (m->warduino->program_state == debug_State_STATE_WARDUINO_PAUSE ||
             m->warduino->program_state == debug_State_STATE_PROXY_HALT) {
             // wait until new debug messages arrive
-            if (m->warduino->program_state == debug_State_STATE_WARDUINO_PAUSE) {
+            if (m->warduino->program_state ==
+                debug_State_STATE_WARDUINO_PAUSE) {
                 warduino::unique_lock lock(
                     m->warduino->debugger->messageQueueMutex);
                 m->warduino->debugger->messageQueueConditionVariable.wait(

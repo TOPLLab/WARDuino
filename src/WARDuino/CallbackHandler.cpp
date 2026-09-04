@@ -34,10 +34,8 @@ bool CallbackHandler::resolving_event = false;
 size_t CallbackHandler::pushed_cursor = 0;
 
 bool should_push_event() {
-    return WARDuino::instance()->program_state ==
-               debug_State_STATE_PROXY_RUN ||
-           WARDuino::instance()->program_state ==
-               debug_State_STATE_PROXY_HALT;
+    return WARDuino::instance()->program_state == debug_State_STATE_PROXY_RUN ||
+           WARDuino::instance()->program_state == debug_State_STATE_PROXY_HALT;
 }
 
 std::unordered_map<std::string, std::vector<Callback> *>
@@ -106,10 +104,9 @@ bool CallbackHandler::resolve_event(bool force) {
         // no further execution if drone
     }
 
-    if (!force &&
-        (CallbackHandler::manual_event_resolution ||
-         WARDuino::instance()->program_state ==
-             debug_State_STATE_WARDUINO_PAUSE)) {
+    if (!force && (CallbackHandler::manual_event_resolution ||
+                   WARDuino::instance()->program_state ==
+                       debug_State_STATE_WARDUINO_PAUSE)) {
         return true;
     }
 

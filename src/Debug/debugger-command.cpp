@@ -85,19 +85,19 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
             std::vector<uint8_t> selected;
             set_decode_callback(&request.fields, &selected);
             if (!decode_payload(message->payload, debug_Include_fields,
-                        &request)) {
+                                &request)) {
                 malformed();
                 break;
             }
             SnapshotSelection selection = 0;
             if (!parse_selection(selected.data(), selected.size(),
-                        &selection)) {
+                                 &selection)) {
                 malformed();
                 break;
             }
             pause_runtime(m);
             encode_snapshot(m, selection,
-                debug_NotificationType_NOTIFICATION_SNAPSHOT);
+                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
         }
         case debug_Command_COMMAND_UPDATE_LOCAL: {
