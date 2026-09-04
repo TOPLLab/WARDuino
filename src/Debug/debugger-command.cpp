@@ -101,6 +101,11 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
                 malformed();
                 break;
             }
+            // An omitted Include payload is the regular debugger snapshot:
+            // enough state to locate execution and manage breakpoints, but
+            // without serialising the complete runtime state.
+            if (selection == 0)
+                selection = snapshotPc | snapshotBreakpoints;
             pause_runtime(m);
             encode_snapshot(m, selection,
                             debug_NotificationType_NOTIFICATION_SNAPSHOT);
