@@ -88,16 +88,15 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
             break;
         case debug_Command_COMMAND_SNAPSHOT: {
             debug_Include request = debug_Include_init_zero;
-            std::vector<uint8_t> selected;
-            set_decode_callback(&request.fields, &selected);
+            std::vector<uint8_t> fields;
+            set_decode_callback(&request.fields, &fields);
             if (!decode_payload(message->payload, debug_Include_fields,
                                 &request)) {
                 malformed();
                 break;
             }
             SnapshotSelection selection = 0;
-            if (!parse_selection(selected.data(), selected.size(),
-                                 &selection)) {
+            if (!parse_selection(fields.data(), fields.size(), &selection)) {
                 malformed();
                 break;
             }
@@ -105,7 +104,9 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
             // enough state to locate execution and manage breakpoints, but
             // without serialising the complete runtime state.
             if (selection == 0)
-                selection = snapshotPc | snapshotBreakpoints;
+                selection = static_cast<SnapshotSelection>(
+                    debug_SnapshotSection_SNAPSHOT_SECTION_PC |
+                    debug_SnapshotSection_SNAPSHOT_SECTION_BREAKPOINTS);
             pause_runtime(m);
             encode_snapshot(m, selection,
                             debug_NotificationType_NOTIFICATION_SNAPSHOT);
@@ -233,19 +234,7 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
             snapshotPolicy = static_cast<SnapshotPolicy>(config.policy);
             checkpointInterval = config.interval == 0 ? 1 : config.interval;
             min_return_values = config.minimum_return_count;
-            free(checkpoint_state);
-            checkpoint_state = nullptr;
-            checkpoint_state_size = static_cast<uint32_t>(selectedState.size());
-            if (!selectedState.empty()) {
-                checkpoint_state =
-                    static_cast<uint8_t *>(malloc(selectedState.size()));
-                if (checkpoint_state == nullptr) {
-                    send_operation_result(message->type, false);
-                    break;
-                }
-                memcpy(checkpoint_state, selectedState.data(),
-                       selectedState.size());
-            }
+            checkpointSelection = selectedMask;
             if (snapshotPolicy == SnapshotPolicy::checkpointing)
                 checkpoint(m, true);
             send_operation_result(message->type, true);

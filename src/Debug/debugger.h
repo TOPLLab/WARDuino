@@ -24,42 +24,7 @@ struct DebugMessage {
     std::vector<uint8_t> payload;
 };
 
-enum ExecutionState {
-    pcState = 0x01,
-    breakpointsState = 0x02,
-    callstackState = 0x03,
-    globalsState = 0x04,
-    tableState = 0x05,
-    memoryState = 0x06,
-    branchingTableState = 0x07,
-    stackState = 0x08,
-    callbacksState = 0x09,
-    eventsState = 0x0A,
-    ioState = 0x0B,
-    overridesState = 0x0C,
-    heapState = 0x0D,
-    functionsState = 0x0E,
-    localsState = 0x0F,
-};
-
 using SnapshotSelection = uint16_t;
-enum SnapshotSection : SnapshotSelection {
-    snapshotPc = 1u << 0,
-    snapshotBreakpoints = 1u << 1,
-    snapshotCallstack = 1u << 2,
-    snapshotGlobals = 1u << 3,
-    snapshotTable = 1u << 4,
-    snapshotMemory = 1u << 5,
-    snapshotBranchTable = 1u << 6,
-    snapshotStack = 1u << 7,
-    snapshotCallbacks = 1u << 8,
-    snapshotEvents = 1u << 9,
-    snapshotIO = 1u << 10,
-    snapshotOverrides = 1u << 11,
-    snapshotHeap = 1u << 12,
-    snapshotFunctions = 1u << 13,
-    snapshotLocals = 1u << 14
-};
 
 enum ProxyInterruptTypes {
     interruptProxyCall = 0x64,
@@ -120,8 +85,7 @@ class Debugger {
     std::optional<uint32_t> fidx_called;  // The primitive that was executed
     uint32_t prim_args[8];                // The arguments of the executed prim
     uint32_t min_return_values;
-    uint32_t checkpoint_state_size;
-    uint8_t *checkpoint_state;
+    SnapshotSelection checkpointSelection;
 
     // Continue for
     int32_t remaining_instructions;
@@ -150,13 +114,10 @@ class Debugger {
 
     void dump_heap_info(Module *m) const;
 
-    void snapshot(Module *m, uint16_t sizeStateArray,
-                  const uint8_t *state) const;
-
     bool encode_snapshot(Module *m, SnapshotSelection selection,
                          debug_NotificationType notification) const;
 
-    static bool parse_selection(const uint8_t *state, size_t size,
+    static bool parse_selection(const uint8_t *fields, size_t size,
                                 SnapshotSelection *selection);
 
     //// Util functions
