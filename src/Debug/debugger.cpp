@@ -22,8 +22,7 @@ Debugger::Debugger(Channel *duplex) {
     this->instructions_executed = 0;
     this->fidx_called = {};
     this->min_return_values = 0;
-    this->checkpoint_state = nullptr;
-    this->checkpoint_state_size = 0;
+    this->checkpointSelection = 0;
     this->remaining_instructions = -1;
 }
 

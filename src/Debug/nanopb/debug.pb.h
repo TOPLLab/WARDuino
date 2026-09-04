@@ -76,6 +76,27 @@ typedef enum _debug_State {
     debug_State_STATE_WARDUINO_INIT = 5
 } debug_State;
 
+/* Bit flags selecting the runtime state included in a snapshot. These are
+ shared with frontend clients, so values are never renumbered or reused. */
+typedef enum _debug_SnapshotSection {
+    debug_SnapshotSection_SNAPSHOT_SECTION_UNSPECIFIED = 0,
+    debug_SnapshotSection_SNAPSHOT_SECTION_PC = 1,
+    debug_SnapshotSection_SNAPSHOT_SECTION_BREAKPOINTS = 2,
+    debug_SnapshotSection_SNAPSHOT_SECTION_CALLSTACK = 4,
+    debug_SnapshotSection_SNAPSHOT_SECTION_GLOBALS = 8,
+    debug_SnapshotSection_SNAPSHOT_SECTION_TABLE = 16,
+    debug_SnapshotSection_SNAPSHOT_SECTION_MEMORY = 32,
+    debug_SnapshotSection_SNAPSHOT_SECTION_BRANCH_TABLE = 64,
+    debug_SnapshotSection_SNAPSHOT_SECTION_STACK = 128,
+    debug_SnapshotSection_SNAPSHOT_SECTION_CALLBACKS = 256,
+    debug_SnapshotSection_SNAPSHOT_SECTION_EVENTS = 512,
+    debug_SnapshotSection_SNAPSHOT_SECTION_IO = 1024,
+    debug_SnapshotSection_SNAPSHOT_SECTION_OVERRIDES = 2048,
+    debug_SnapshotSection_SNAPSHOT_SECTION_HEAP = 4096,
+    debug_SnapshotSection_SNAPSHOT_SECTION_FUNCTIONS = 8192,
+    debug_SnapshotSection_SNAPSHOT_SECTION_LOCALS = 16384
+} debug_SnapshotSection;
+
 typedef enum _debug_SnapshotPolicy {
     debug_SnapshotPolicy_SNAPSHOT_POLICY_NONE = 0,
     debug_SnapshotPolicy_SNAPSHOT_POLICY_EVERY_INSTRUCTION = 1,
@@ -113,7 +134,8 @@ typedef struct _debug_ContinueFor {
     uint32_t count;
 } debug_ContinueFor;
 
-/* Payload of Snapshot command: contains field selectors as bytes. */
+/* Payload of Snapshot command: a little-endian bit vector of
+ SnapshotSection values. */
 typedef struct _debug_Include {
     pb_callback_t fields;
 } debug_Include;
@@ -209,6 +231,7 @@ typedef struct _debug_SnapshotPolicyConfig {
     debug_SnapshotPolicy policy;
     uint32_t interval;
     uint32_t minimum_return_count;
+    /* A little-endian bit vector of SnapshotSection values. */
     pb_callback_t selected_state;
 } debug_SnapshotPolicyConfig;
 
@@ -298,6 +321,10 @@ extern "C" {
 #define _debug_State_MIN debug_State_STATE_WARDUINO_RUN
 #define _debug_State_MAX debug_State_STATE_WARDUINO_INIT
 #define _debug_State_ARRAYSIZE ((debug_State)(debug_State_STATE_WARDUINO_INIT+1))
+
+#define _debug_SnapshotSection_MIN debug_SnapshotSection_SNAPSHOT_SECTION_UNSPECIFIED
+#define _debug_SnapshotSection_MAX debug_SnapshotSection_SNAPSHOT_SECTION_LOCALS
+#define _debug_SnapshotSection_ARRAYSIZE ((debug_SnapshotSection)(debug_SnapshotSection_SNAPSHOT_SECTION_LOCALS+1))
 
 #define _debug_SnapshotPolicy_MIN debug_SnapshotPolicy_SNAPSHOT_POLICY_NONE
 #define _debug_SnapshotPolicy_MAX debug_SnapshotPolicy_SNAPSHOT_POLICY_CHECKPOINTING

@@ -116,7 +116,27 @@ message ContinueFor {
   uint32 count = 1;
 }
 
-// Payload of Snapshot command: contains field selectors as bytes.
+// Payload of Snapshot command: contains field selectors as bit flags.
+enum SnapshotSection {
+  SNAPSHOT_SECTION_UNSPECIFIED = 0;
+  SNAPSHOT_SECTION_PC = 1;
+  SNAPSHOT_SECTION_BREAKPOINTS = 2;
+  SNAPSHOT_SECTION_CALLSTACK = 4;
+  SNAPSHOT_SECTION_GLOBALS = 8;
+  SNAPSHOT_SECTION_TABLE = 16;
+  SNAPSHOT_SECTION_MEMORY = 32;
+  SNAPSHOT_SECTION_BRANCH_TABLE = 64;
+  SNAPSHOT_SECTION_STACK = 128;
+  SNAPSHOT_SECTION_CALLBACKS = 256;
+  SNAPSHOT_SECTION_EVENTS = 512;
+  SNAPSHOT_SECTION_IO = 1024;
+  SNAPSHOT_SECTION_OVERRIDES = 2048;
+  SNAPSHOT_SECTION_HEAP = 4096;
+  SNAPSHOT_SECTION_FUNCTIONS = 8192;
+  SNAPSHOT_SECTION_LOCALS = 16384;
+}
+
+// Payload of Snapshot command: a little-endian bit vector of SnapshotSection values.
 message Include {
   bytes fields = 1;
 }
@@ -230,6 +250,7 @@ message SnapshotPolicyConfig {
   SnapshotPolicy policy = 1;
   uint32 interval = 2;
   uint32 minimum_return_count = 3;
+  // A little-endian bit vector of SnapshotSection values.
   bytes selected_state = 4;
 }
 
