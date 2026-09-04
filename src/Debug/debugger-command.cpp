@@ -63,6 +63,10 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             send_operation_result(message->type, true);
             break;
         }
+        case debug_Command_COMMAND_CLEAR_BREAKPOINTS: {
+            // todo remove all breakpoints on all modules
+            break;
+        }
         case debug_Command_COMMAND_CONTINUE_FOR: {
             debug_ContinueFor request = debug_ContinueFor_init_zero;
             if (!decode_payload(message->payload, debug_ContinueFor_fields,
@@ -76,41 +80,10 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             send_notification(debug_NotificationType_NOTIFICATION_CONTINUED);
             break;
         }
-        case debug_Command_COMMAND_DUMP:
-            if (!require_empty()) break;
-            pause_runtime(m);
-            encode_snapshot(
-                m,
-                snapshotPc | snapshotBreakpoints | snapshotCallstack |
-                    snapshotGlobals | snapshotTable | snapshotBranchTable |
-                    snapshotStack | snapshotCallbacks | snapshotEvents |
-                    snapshotIO | snapshotOverrides | snapshotHeap |
-                    snapshotLocals,
-                debug_NotificationType_NOTIFICATION_SNAPSHOT);
-            break;
-        case debug_Command_COMMAND_DUMP_LOCALS:
-            if (!require_empty()) break;
-            pause_runtime(m);
-            dump_locals(m);
-            break;
         case debug_Command_COMMAND_SNAPSHOT:
             if (!require_empty()) break;
             pause_runtime(m);
             snapshot(m);
-            break;
-        case debug_Command_COMMAND_DUMP_EVENTS: {
-            debug_Range range = debug_Range_init_zero;
-            if (!decode_payload(message->payload, debug_Range_fields, &range) ||
-                range.end < range.start) {
-                malformed();
-                break;
-            }
-            dump_events(range.start, range.end - range.start);
-            break;
-        }
-        case debug_Command_COMMAND_DUMP_CALLBACKS:
-            if (!require_empty()) break;
-            dump_callback_mapping();
             break;
         case debug_Command_COMMAND_UPDATE_LOCAL: {
             const auto update = update_value(message->payload);

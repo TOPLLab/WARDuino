@@ -20,11 +20,8 @@ typedef enum _debug_Command {
     debug_Command_COMMAND_STEP_OVER = 4, /* no payload */
     debug_Command_COMMAND_ADD_BREAKPOINT = 5, /* Breakpoint */
     debug_Command_COMMAND_REMOVE_BREAKPOINT = 6, /* Breakpoint */
-    debug_Command_COMMAND_DUMP = 7, /* no payload */
-    debug_Command_COMMAND_DUMP_LOCALS = 8, /* no payload */
+    debug_Command_COMMAND_CLEAR_BREAKPOINTS = 7, /* no payload */
     debug_Command_COMMAND_SNAPSHOT = 9, /* no payload */
-    debug_Command_COMMAND_DUMP_EVENTS = 10, /* Range */
-    debug_Command_COMMAND_DUMP_CALLBACKS = 11, /* no payload */
     debug_Command_COMMAND_UPDATE_FUNCTION = 12, /* Function */
     debug_Command_COMMAND_UPDATE_LOCAL = 13, /* ValueUpdate */
     debug_Command_COMMAND_UPDATE_CALLBACKS = 14, /* CallbackMapping */
