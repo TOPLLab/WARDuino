@@ -1,0 +1,8 @@
+[package]
+name = "wdebug"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+prost.workspace = true
