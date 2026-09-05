@@ -268,8 +268,8 @@ void find_blocks(Module *m) {
 void WARDuino::run_init_expr(Module *m, uint8_t type, uint8_t **pc) {
     // Run the init_expr
     ExecutionContext *ectx = execution_context;
-    RunningState current = instance()->program_state;
-    WARDuino::instance()->program_state = WARDUINOinit;
+    debug_State current = instance()->program_state;
+    WARDuino::instance()->program_state = debug_State_STATE_WARDUINO_INIT;
     Block block;
     block.block_type = 0x01;
     block.type = get_block_type(m, type);
@@ -342,8 +342,8 @@ void WARDuino::instantiate_module(Module *m, uint8_t *bytes,
     uint8_t *bytes_end = bytes + byte_count;
 
     // Needed for run_init_expr
-    RunningState oldState = this->program_state;
-    this->program_state = WARDUINOrun;
+    debug_State oldState = this->program_state;
+    this->program_state = debug_State_STATE_WARDUINO_RUN;
 
     execution_context->current_module = m;
 
@@ -1226,7 +1226,7 @@ void WARDuino::free_module_state(Module *m) {
 void WARDuino::reset_module(Module *m) {
     const uint32_t byte_count = m->byte_count;
     free_module_state(m);  // Does not reset m->bytes
-    program_state = WARDUINOinit;
+    program_state = debug_State_STATE_WARDUINO_INIT;
     ExecutionContext *ectx = execution_context;
     ectx->sp = -1;
     ectx->fp = -1;
@@ -1238,7 +1238,7 @@ void WARDuino::reset_module(Module *m) {
     // execute main
     if (fidx != UNDEF) {
         interpreter->setup_call(m, fidx);
-        program_state = WARDUINOrun;
+        program_state = debug_State_STATE_WARDUINO_RUN;
     }
 
     // wait
@@ -1246,7 +1246,7 @@ void WARDuino::reset_module(Module *m) {
 }
 
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
-    m->warduino->program_state = WARDUINOinit;
+    m->warduino->program_state = debug_State_STATE_WARDUINO_INIT;
 
     this->free_module_state(m);
 
@@ -1262,7 +1262,7 @@ void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
     // execute main
     if (fidx != UNDEF) {
         interpreter->setup_call(m, fidx);
-        m->warduino->program_state = WARDUINOrun;
+        m->warduino->program_state = debug_State_STATE_WARDUINO_RUN;
     }
 
     // wait

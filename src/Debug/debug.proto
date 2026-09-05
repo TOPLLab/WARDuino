@@ -20,68 +20,67 @@ option cc_enable_arenas = false;
 // Frontend -> WARDuino.
 // The receiver selects the payload schema from the command byte.
 enum Command {
-  COMMAND_RUN = 0;                 // no payload
-  COMMAND_HALT = 1;                // no payload
-  COMMAND_PAUSE = 2;               // no payload
-  COMMAND_STEP = 3;                // no payload
-  COMMAND_STEP_OVER = 4;           // no payload
-  COMMAND_ADD_BREAKPOINT = 5;      // Breakpoint
-  COMMAND_REMOVE_BREAKPOINT = 6;   // Breakpoint
+  COMMAND_RUN = 0;                  // no payload
+  COMMAND_HALT = 1;                 // no payload
+  COMMAND_PAUSE = 2;                // no payload
+  COMMAND_STEP = 3;                 // no payload
+  COMMAND_STEP_OVER = 4;            // no payload
 
-  COMMAND_DUMP = 7;                // no payload
-  COMMAND_DUMP_LOCALS = 8;         // no payload
-  COMMAND_SNAPSHOT = 9;            // no payload
-  COMMAND_DUMP_EVENTS = 10;        // Range
-  COMMAND_DUMP_CALLBACKS = 11;     // no payload
+  COMMAND_ADD_BREAKPOINT = 5;       // Breakpoint
+  COMMAND_REMOVE_BREAKPOINT = 6;    // Breakpoint
+  COMMAND_CLEAR_BREAKPOINTS = 7;    // no payload
 
-  COMMAND_UPDATE_FUNCTION = 12;    // Function
-  COMMAND_UPDATE_LOCAL = 13;       // ValueUpdate
-  COMMAND_UPDATE_CALLBACKS = 14;   // CallbackMapping
-  COMMAND_UPDATE_MODULE = 26;      // ModuleUpdate
-  COMMAND_UPDATE_GLOBAL = 27;      // ValueUpdate
-  COMMAND_UPDATE_STACK = 28;       // ValueUpdate
+  COMMAND_HEAP_USAGE = 8;           // no payload
 
-  COMMAND_LOAD_SNAPSHOT = 15;      // Snapshot
-  COMMAND_PROXIFY = 16;            // no payload
-  COMMAND_ADD_PROXY = 17;          // FunctionRef
-  COMMAND_REMOVE_PROXY = 18;       // FunctionRef
-  COMMAND_PROXY_CALL = 19;         // RemoteFunctionCall
-  COMMAND_POP_EVENT = 20;          // no payload
-  COMMAND_PUSH_EVENT = 21;         // Event
+  COMMAND_SNAPSHOT = 9;             // Include
 
-  COMMAND_CONTINUE_FOR = 22;       // ContinueFor
-  COMMAND_INSPECT = 23;            // Inspect
-  COMMAND_RESET = 24;              // no payload
-  COMMAND_INVOKE = 25;             // RemoteFunctionCall
+  COMMAND_UPDATE_FUNCTION = 12;     // Function
+  COMMAND_UPDATE_LOCAL = 13;        // ValueUpdate
+  COMMAND_UPDATE_CALLBACKS = 14;    // CallbackMapping
+  COMMAND_UPDATE_MODULE = 26;       // ModuleUpdate
+  COMMAND_UPDATE_GLOBAL = 27;       // ValueUpdate
+  COMMAND_UPDATE_STACK = 28;        // ValueUpdate
 
+  COMMAND_LOAD_SNAPSHOT = 15;       // Snapshot
+  COMMAND_PROXIFY = 16;             // no payload
+  COMMAND_ADD_PROXY = 17;           // FunctionRef
+  COMMAND_REMOVE_PROXY = 18;        // FunctionRef
+  COMMAND_PROXY_CALL = 19;          // RemoteFunctionCall
+  COMMAND_POP_EVENT = 20;           // no payload
+  COMMAND_PUSH_EVENT = 21;          // Event
+
+  COMMAND_CONTINUE_FOR = 22;        // ContinueFor
+  COMMAND_RESET = 24;               // no payload
+  COMMAND_INVOKE = 25;              // RemoteFunctionCall
 
   COMMAND_SET_SNAPSHOT_POLICY = 29; // SnapshotPolicyConfig
-  COMMAND_SET_OVERRIDE = 30;      // Override
-  COMMAND_REMOVE_OVERRIDE = 31;   // Override
+  COMMAND_SET_OVERRIDE = 30;        // Override
+  COMMAND_REMOVE_OVERRIDE = 31;     // Override
 }
 
 // WARDuino -> frontend.
 // The receiver selects the payload schema from the notification byte.
 enum NotificationType {
-  NOTIFICATION_CONTINUED = 0;            // no payload
-  NOTIFICATION_HALTED = 1;               // no payload
-  NOTIFICATION_PAUSED = 2;               // no payload
-  NOTIFICATION_STEPPED = 3;              // no payload
-  NOTIFICATION_HIT_BREAKPOINT = 4;       // HitBreakpoint
-  NOTIFICATION_NEW_EVENT = 5;            // NewEvent (zero-length payload)
+  NOTIFICATION_CONTINUED = 0;                // no payload
+  NOTIFICATION_HALTED = 1;                   // no payload
+  NOTIFICATION_PAUSED = 2;                   // no payload
+  NOTIFICATION_STEPPED = 3;                  // no payload
+  NOTIFICATION_HIT_BREAKPOINT = 4;           // HitBreakpoint
+  NOTIFICATION_NEW_EVENT = 5;                // NewEvent (zero-length payload)
 
-  NOTIFICATION_FUNCTION_DUMP = 6;        // Function
-  NOTIFICATION_LOCALS_DUMP = 7;          // Locals
-  NOTIFICATION_SNAPSHOT = 8;             // Snapshot
-  NOTIFICATION_EVENTS_DUMP = 9;          // EventsQueue
-  NOTIFICATION_CALLBACKS_DUMP = 10;      // CallbackMapping
-  NOTIFICATION_CHANGE_AFFECTED = 11;     // no payload
+  NOTIFICATION_FUNCTION_DUMP = 6;            // Function
+  NOTIFICATION_LOCALS_DUMP = 7;              // Locals
+  NOTIFICATION_SNAPSHOT = 8;                 // Snapshot
+  NOTIFICATION_EVENTS_DUMP = 9;              // EventsQueue
+  NOTIFICATION_CALLBACKS_DUMP = 10;          // CallbackMapping
+  NOTIFICATION_CHANGE_AFFECTED = 11;         // no payload
 
-  NOTIFICATION_MALFORMED = 12;           // no payload
-  NOTIFICATION_UNKNOWN_COMMAND = 13;     // no payload
-  NOTIFICATION_OPERATION_RESULT = 14;    // OperationResult
-  NOTIFICATION_REMOTE_FUNCTION_RESULT = 15; // RemoteFunctionResult
-  NOTIFICATION_CHECKPOINT = 16;          // Checkpoint
+  NOTIFICATION_MALFORMED = 12;               // no payload
+  NOTIFICATION_UNKNOWN_COMMAND = 13;         // no payload
+  NOTIFICATION_OPERATION_RESULT = 14;        // OperationResult
+  NOTIFICATION_REMOTE_FUNCTION_RESULT = 15;  // RemoteFunctionResult
+  NOTIFICATION_CHECKPOINT = 16;              // Checkpoint
+  NOTIFICATION_HEAP_USAGE = 17;              // HeapUsage
 }
 
 enum State {
@@ -90,6 +89,7 @@ enum State {
   STATE_WARDUINO_STEP = 2;
   STATE_PROXY_RUN = 3;
   STATE_PROXY_HALT = 4;
+  STATE_WARDUINO_INIT = 5;
 }
 
 // A virtual program address.
@@ -110,14 +110,35 @@ message HitBreakpoint {
 // message exists for host-side reflection, but no protobuf bytes are sent.
 message NewEvent {}
 
+message HeapUsage { uint32 heap_used = 1; }
+
 message ContinueFor {
   uint32 count = 1;
 }
 
-// Execution-state selectors understood by the VM. Keeping them as bytes lets
-// the protocol add selectors without changing this schema.
-message Inspect {
-  bytes state = 1;
+// Payload of Snapshot command: contains field selectors as bit flags.
+enum SnapshotSection {
+  SNAPSHOT_SECTION_UNSPECIFIED = 0;
+  SNAPSHOT_SECTION_PC = 1;
+  SNAPSHOT_SECTION_BREAKPOINTS = 2;
+  SNAPSHOT_SECTION_CALLSTACK = 4;
+  SNAPSHOT_SECTION_GLOBALS = 8;
+  SNAPSHOT_SECTION_TABLE = 16;
+  SNAPSHOT_SECTION_MEMORY = 32;
+  SNAPSHOT_SECTION_BRANCH_TABLE = 64;
+  SNAPSHOT_SECTION_STACK = 128;
+  SNAPSHOT_SECTION_CALLBACKS = 256;
+  SNAPSHOT_SECTION_EVENTS = 512;
+  SNAPSHOT_SECTION_IO = 1024;
+  SNAPSHOT_SECTION_OVERRIDES = 2048;
+  SNAPSHOT_SECTION_HEAP = 4096;
+  SNAPSHOT_SECTION_FUNCTIONS = 8192;
+  SNAPSHOT_SECTION_LOCALS = 16384;
+}
+
+// Payload of Snapshot command: a little-endian bit vector of SnapshotSection values.
+message Include {
+  bytes fields = 1;
 }
 
 message FunctionRef {
@@ -147,7 +168,6 @@ message Snapshot {
   repeated uint32 branch_table = 13;
   repeated IOState io = 14;
   repeated Override overrides = 15;
-  uint32 heap_used = 16;
 }
 
 message Function {
@@ -217,6 +237,7 @@ message Range {
 }
 
 message ModuleUpdate { bytes wasm = 1; }
+
 message IndexedValues { repeated Value values = 1; }
 
 enum SnapshotPolicy {
@@ -229,6 +250,7 @@ message SnapshotPolicyConfig {
   SnapshotPolicy policy = 1;
   uint32 interval = 2;
   uint32 minimum_return_count = 3;
+  // A little-endian bit vector of SnapshotSection values.
   bytes selected_state = 4;
 }
 
@@ -239,11 +261,13 @@ message Override {
 }
 
 message OperationResult { Command command = 1; bool success = 2; }
+
 message RemoteFunctionResult {
   bool success = 1;
   repeated Value results = 2;
   bytes error = 3;
 }
+
 message Checkpoint {
   uint32 instruction_count = 1;
   bool has_primitive_call = 2;
@@ -252,6 +276,9 @@ message Checkpoint {
   repeated Value results = 5;
   Snapshot snapshot = 6;
 }
+
 message TableState { uint32 initial = 1; uint32 maximum = 2; repeated uint32 entries = 3; }
+
 message MemoryState { uint32 initial = 1; uint32 maximum = 2; uint32 pages = 3; bytes bytes = 4; }
+
 message IOState { string key = 1; bool output = 2; sint32 value = 3; }

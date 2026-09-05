@@ -1,11 +1,11 @@
 #include "debugger-private.h"
 
 void Debugger::proxify() {
-    WARDuino::instance()->program_state = PROXYhalt;
+    WARDuino::instance()->program_state = debug_State_STATE_PROXY_HALT;
     this->proxy = new Proxy();  // TODO delete
 }
 
-void Debugger::handle_proxy_call(Module *m, RunningState *,
+void Debugger::handle_proxy_call(Module *m, debug_State *,
                                  uint8_t *interruptData) const {
     if (this->proxy == nullptr) {
         dbg_info("No proxy available to send proxy call to.\n");

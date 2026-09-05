@@ -1,7 +1,7 @@
 #include "debugger-detail.h"
 #include "debugger-protocol.h"
 
-bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
+bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
     std::optional<DebugMessage> message = get_debug_message();
     if (!message) return false;
 
@@ -63,6 +63,12 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             send_operation_result(message->type, true);
             break;
         }
+        case debug_Command_COMMAND_CLEAR_BREAKPOINTS: {
+            if (!require_empty()) break;
+            breakpoints.clear();
+            send_operation_result(message->type, true);
+            break;
+        }
         case debug_Command_COMMAND_CONTINUE_FOR: {
             debug_ContinueFor request = debug_ContinueFor_init_zero;
             if (!decode_payload(message->payload, debug_ContinueFor_fields,
@@ -72,46 +78,40 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
                 break;
             }
             remaining_instructions = static_cast<int32_t>(request.count);
-            *program_state = WARDUINOrun;
+            *program_state = debug_State_STATE_WARDUINO_RUN;
             send_notification(debug_NotificationType_NOTIFICATION_CONTINUED);
             break;
         }
-        case debug_Command_COMMAND_DUMP:
+        case debug_Command_COMMAND_HEAP_USAGE:
             if (!require_empty()) break;
-            pause_runtime(m);
-            encode_snapshot(
-                m,
-                snapshotPc | snapshotBreakpoints | snapshotCallstack |
-                    snapshotGlobals | snapshotTable | snapshotBranchTable |
-                    snapshotStack | snapshotCallbacks | snapshotEvents |
-                    snapshotIO | snapshotOverrides | snapshotHeap |
-                    snapshotLocals,
-                debug_NotificationType_NOTIFICATION_SNAPSHOT);
+            dump_heap_info(m);
             break;
-        case debug_Command_COMMAND_DUMP_LOCALS:
-            if (!require_empty()) break;
-            pause_runtime(m);
-            dump_locals(m);
-            break;
-        case debug_Command_COMMAND_SNAPSHOT:
-            if (!require_empty()) break;
-            pause_runtime(m);
-            snapshot(m);
-            break;
-        case debug_Command_COMMAND_DUMP_EVENTS: {
-            debug_Range range = debug_Range_init_zero;
-            if (!decode_payload(message->payload, debug_Range_fields, &range) ||
-                range.end < range.start) {
+        case debug_Command_COMMAND_SNAPSHOT: {
+            debug_Include request = debug_Include_init_zero;
+            std::vector<uint8_t> fields;
+            set_decode_callback(&request.fields, &fields);
+            if (!decode_payload(message->payload, debug_Include_fields,
+                                &request)) {
                 malformed();
                 break;
             }
-            dump_events(range.start, range.end - range.start);
+            SnapshotSelection selection = 0;
+            if (!parse_selection(fields.data(), fields.size(), &selection)) {
+                malformed();
+                break;
+            }
+            // An omitted Include payload is the regular debugger snapshot:
+            // enough state to locate execution and manage breakpoints, but
+            // without serialising the complete runtime state.
+            if (selection == 0)
+                selection = static_cast<SnapshotSelection>(
+                    debug_SnapshotSection_SNAPSHOT_SECTION_PC |
+                    debug_SnapshotSection_SNAPSHOT_SECTION_BREAKPOINTS);
+            pause_runtime(m);
+            encode_snapshot(m, selection,
+                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
         }
-        case debug_Command_COMMAND_DUMP_CALLBACKS:
-            if (!require_empty()) break;
-            dump_callback_mapping();
-            break;
         case debug_Command_COMMAND_UPDATE_LOCAL: {
             const auto update = update_value(message->payload);
             ExecutionContext *context = m->warduino->execution_context;
@@ -234,19 +234,7 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             snapshotPolicy = static_cast<SnapshotPolicy>(config.policy);
             checkpointInterval = config.interval == 0 ? 1 : config.interval;
             min_return_values = config.minimum_return_count;
-            free(checkpoint_state);
-            checkpoint_state = nullptr;
-            checkpoint_state_size = static_cast<uint32_t>(selectedState.size());
-            if (!selectedState.empty()) {
-                checkpoint_state =
-                    static_cast<uint8_t *>(malloc(selectedState.size()));
-                if (checkpoint_state == nullptr) {
-                    send_operation_result(message->type, false);
-                    break;
-                }
-                memcpy(checkpoint_state, selectedState.data(),
-                       selectedState.size());
-            }
+            checkpointSelection = selectedMask;
             if (snapshotPolicy == SnapshotPolicy::checkpointing)
                 checkpoint(m, true);
             send_operation_result(message->type, true);
@@ -280,26 +268,6 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
                 break;
             }
             send_operation_result(message->type, true);
-            break;
-        }
-        case debug_Command_COMMAND_INSPECT: {
-            debug_Inspect request = debug_Inspect_init_zero;
-            std::vector<uint8_t> selected;
-            set_decode_callback(&request.state, &selected);
-            if (!decode_payload(message->payload, debug_Inspect_fields,
-                                &request)) {
-                malformed();
-                break;
-            }
-            SnapshotSelection selection = 0;
-            if (!parse_selection(selected.data(), selected.size(),
-                                 &selection)) {
-                malformed();
-                break;
-            }
-            pause_runtime(m);
-            encode_snapshot(m, selection,
-                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
         }
         case debug_Command_COMMAND_LOAD_SNAPSHOT: {
@@ -368,8 +336,8 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
                             m->functions[call.function_index].type, arguments));
                 break;
             }
-            const RunningState current = m->warduino->program_state;
-            m->warduino->program_state = WARDUINOrun;
+            const debug_State current = m->warduino->program_state;
+            m->warduino->program_state = debug_State_STATE_WARDUINO_RUN;
             exception[0] = "\0"[0];
             const auto results = m->warduino->invoke(
                 m, call.function_index, static_cast<uint32_t>(values.size()),
