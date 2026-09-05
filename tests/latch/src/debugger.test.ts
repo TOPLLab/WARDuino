@@ -271,14 +271,15 @@ const inspectExpectations: Record<WARDuino.Inspect, Expectation> = {
     [WARDuino.Inspect.io]: {io: {kind: 'description', value: Description.defined} as Expected<Array<any>>}
 };
 
-const inspectSelectors = Object.keys(inspectExpectations) as WARDuino.Inspect[];
+const inspectSelectors = Object.values(WARDuino.Inspect)
+    .filter((value): value is WARDuino.Inspect => typeof value === 'number');
 
 integration.test({
     title: 'Test snapshot selectors',
     program: `${EXAMPLES}blink.wast`,
     steps: [
         ...inspectSelectors.map((selector): Step => ({
-            title: `Inspect ${selector}`,
+            title: `Inspect ${selector.toString(2).padStart(11, '0')}`,
             instruction: {kind: Kind.Request, value: Message.snapshot([selector])},
             expected: [inspectExpectations[selector]]
         })),
@@ -380,5 +381,5 @@ integration.test({
     steps: [{title: "Halt debugger connection", instruction: {kind: Kind.Request, value: Message.halt}}]
 });
 
-framework.reporter.verbosity(Verbosity.more);
+framework.reporter.verbosity(Verbosity.all);
 framework.run([integration]);
