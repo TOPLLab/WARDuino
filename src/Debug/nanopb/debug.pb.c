@@ -9,12 +9,6 @@
 PB_BIND(debug_CodeLocation, debug_CodeLocation, AUTO)
 
 
-PB_BIND(debug_Breakpoint, debug_Breakpoint, AUTO)
-
-
-PB_BIND(debug_HitBreakpoint, debug_HitBreakpoint, AUTO)
-
-
 PB_BIND(debug_NewEvent, debug_NewEvent, AUTO)
 
 
@@ -94,6 +88,8 @@ PB_BIND(debug_MemoryState, debug_MemoryState, AUTO)
 
 
 PB_BIND(debug_IOState, debug_IOState, AUTO)
+
+
 
 
 

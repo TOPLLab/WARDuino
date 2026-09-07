@@ -2,6 +2,7 @@
 
 import {
     Behaviour,
+    Breakpoint,
     DebugProtocol,
     Description,
     EmulatorSpecification,
@@ -12,7 +13,6 @@ import {
     Message,
     Request, Step, Suite,
     TestScenario,
-    Breakpoint,
     WASM,
     WARDuino,
     Verbosity
@@ -206,10 +206,10 @@ integration.test({
 
 // Test *step over* command
 
-const stepOverCall: Request<DebugProtocol.HitBreakpoint> = {
+const stepOverCall: Request<DebugProtocol.CodeLocation> = {
     type: DebugProtocol.Command.COMMAND_STEP_OVER,
     notification: DebugProtocol.NotificationType.NOTIFICATION_HIT_BREAKPOINT,
-    parser: DebugProtocol.HitBreakpoint.decode
+    parser: DebugProtocol.CodeLocation.decode
 };
 
 const stepOverTest: TestScenario = {
@@ -221,7 +221,7 @@ const stepOverTest: TestScenario = {
         expected: [{'programCounter': {kind: 'primitive', value: 167} as Expected<number>}]
     }, {
         title: 'Send STEP OVER command',
-        instruction: {kind: Kind.Request, value: stepOverCall},
+        instruction: {kind: Kind.Request, value: stepOverCall}, expected: [{programCounter: {kind: "comparison", value: (_: Object, value: number) => value > 0} as Expected<number>}]
     }, {
         title: 'CHECK: execution stepped over direct call',
         instruction: {kind: Kind.Request, value: Message.snapshot([])},
@@ -235,7 +235,7 @@ const stepOverTest: TestScenario = {
         expected: [{'programCounter': {kind: 'primitive', value: 171} as Expected<number>}]
     }, {
         title: 'Send STEP OVER command',
-        instruction: {kind: Kind.Request, value: stepOverCall}
+        instruction: {kind: Kind.Request, value: stepOverCall}, expected: [{programCounter: {kind: "comparison", value: (_: Object, value: number) => value > 0} as Expected<number>}]
     }, {
         title: 'CHECK: execution stepped over indirect call',
         instruction: {kind: Kind.Request, value: Message.snapshot([])},
@@ -291,6 +291,13 @@ integration.test({
     ]
 });
 
+const breakpointRequest = (type: DebugProtocol.Command): Request<DebugProtocol.OperationResult> => ({
+    type,
+    notification: DebugProtocol.NotificationType.NOTIFICATION_OPERATION_RESULT,
+    payload: () => DebugProtocol.CodeLocation.encode({moduleIndex: 0, programCounter: 169}).finish(),
+    parser: DebugProtocol.OperationResult.decode
+});
+
 integration.test({
     title: 'Test breakpoints',
     program: `${EXAMPLES}blink.wast`,
@@ -329,6 +336,11 @@ const proxyCallWithoutProxy: Request<DebugProtocol.OperationResult> = {
     parser: DebugProtocol.OperationResult.decode
 };
 
+const pushEvent: Request<DebugProtocol.Event> = {
+    ...Message.pushEvent("test", "payload"),
+    parser: DebugProtocol.Event.decode
+};
+
 const popEventWithoutCallback: Request<DebugProtocol.OperationResult> = {
     ...Message.popEvent,
     parser: DebugProtocol.OperationResult.decode
@@ -353,7 +365,7 @@ integration.test({
         {title: "Update stack value", instruction: {kind: Kind.Request, value: Message.updateStack(0, {i32Bits: 8, index: 0})}, expected: operationSucceeded},
         {title: "Update global value", instruction: {kind: Kind.Request, value: Message.updateGlobal(0, {i32Bits: 9, index: 0})}, expected: operationSucceeded},
         {title: "Update callback mapping", instruction: {kind: Kind.Request, value: Message.updateCallbacks({entries: []})}, expected: operationSucceeded},
-        {title: "Push an event", instruction: {kind: Kind.Request, value: Message.pushEvent("test", "payload")}},
+        {title: "Push an event", instruction: {kind: Kind.Request, value: pushEvent}, expected: [{topic: {kind: "primitive", value: "test"} as Expected<string>}]},
         {title: "Pop event", instruction: {kind: Kind.Request, value: popEventWithoutCallback}, expected: [{success: {kind: "primitive", value: false} as Expected<boolean>}]},
         {title: "Load snapshot state", instruction: {kind: Kind.Request, value: Message.loadSnapshot({programCounter: 0, state: DebugProtocol.State.STATE_WARDUINO_PAUSE, breakpoints: [], functions: [], callstack: [], globals: [], stack: [], branchTable: [], io: [], overrides: []})}, expected: operationSucceeded},
         {title: "Set snapshot policy", instruction: {kind: Kind.Request, value: Message.setSnapshotPolicy({policy: DebugProtocol.SnapshotPolicy.SNAPSHOT_POLICY_NONE, interval: 1, minimumReturnCount: 0, selectedState: Buffer.alloc(0)})}, expected: operationSucceeded},
@@ -371,7 +383,9 @@ integration.test({
     program: `${EXAMPLES}blink.wast`,
     steps: [
         {title: "Enable checkpointing", instruction: {kind: Kind.Request, value: Message.setSnapshotPolicy({policy: DebugProtocol.SnapshotPolicy.SNAPSHOT_POLICY_CHECKPOINTING, interval: 1, minimumReturnCount: 0, selectedState: Buffer.alloc(0)})}, expected: operationSucceeded},
-        {title: "Continue for one instruction", instruction: {kind: Kind.Request, value: Message.continueFor({count: 1})}, expected: [{instructionCount: {kind: "description", value: Description.defined} as Expected<number>}]}
+        {title: "Continue for one instruction", instruction: {kind: Kind.Request, value: Message.continueFor({count: 1})}, expected: [
+            {instructionCount: {kind: "description", value: Description.defined} as Expected<number>}
+        ]}
     ]
 });
 

@@ -1,30 +1,12 @@
+/**
+ * This file contains the protobuf callbacks used for encoding debugger data.
+ */
 #pragma once
 
 #include "debugger-private.h"
 
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-/**
- * Validate if there are interrupts and execute them
- *
- * The various kinds of interrupts are preceded by an identifier:
- *
- * - `0x01` : Continue running
- * - `0x02` : Halt the execution
- * - `0x03` : Pause execution
- * - `0x04` : Execute one operation and then pause
- * - `0x06` : Add a breakpoint, the address is specified as a pointer.
- *            The pointer should be specified as: 06[length][pointer]
- *            eg: 060655a5994fa3d6 (note the lack of spaces between the
- *            arguments, the 'length' is halve the size of the address string)
- * - `0x07` : Remove the breakpoint at the address specified as a pointer if it
- *            exists (see `0x06`)
- * - `0x10` : Dump information about the program
- * - `0x11` :                  show locals
- * - `0x12` : Dump full information
- * - `0x20` : Replace the content body of a function by a new function given
- *            as payload (immediately following `0x10`), see #readChange
- */
 namespace {
 
 bool collect_bytes(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
@@ -156,6 +138,16 @@ struct ValueView {
     Global *const *globals;
 };
 
+struct Uint32ValueView {
+    const uint32_t *values;
+    size_t size;
+};
+
+struct ReverseUint32ValueView {
+    const StackValue *top;
+    size_t size;
+};
+
 struct EventRangeView {
     size_t begin;
     size_t size;
@@ -206,6 +198,39 @@ bool encode_value_range(pb_ostream_t *stream, const pb_field_t *field,
                                       ? &view->values[index]
                                       : view->globals[index]->value;
         if (!encode_value(stream, field, *value, index)) return false;
+    }
+    return true;
+}
+
+bool encode_uint32_value(pb_ostream_t *stream, const pb_field_t *field,
+                         const uint32_t source, const size_t index) {
+    debug_Value value = debug_Value_init_zero;
+    value.index = static_cast<uint32_t>(index);
+    value.which_data = debug_Value_i32_bits_tag;
+    value.data.i32_bits = source;
+    return pb_encode_tag_for_field(stream, field) &&
+           pb_encode_submessage(stream, debug_Value_fields, &value);
+}
+
+bool encode_uint32_range(pb_ostream_t *stream, const pb_field_t *field,
+                         void *const *arg) {
+    const auto *view = static_cast<const Uint32ValueView *>(*arg);
+    for (size_t index = 0; index < view->size; ++index) {
+        if (!encode_uint32_value(stream, field, view->values[index], index))
+            return false;
+    }
+    return true;
+}
+
+bool encode_reverse_uint32_stack_range(pb_ostream_t *stream,
+                                       const pb_field_t *field,
+                                       void *const *arg) {
+    const auto *view = static_cast<const ReverseUint32ValueView *>(*arg);
+    for (size_t index = 0; index < view->size; ++index) {
+        if (!encode_uint32_value(
+                stream, field,
+                view->top[-static_cast<ptrdiff_t>(index)].value.uint32, index))
+            return false;
     }
     return true;
 }

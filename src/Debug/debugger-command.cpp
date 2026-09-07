@@ -1,5 +1,5 @@
-#include "debugger-detail.h"
-#include "debugger-protocol.h"
+#include "debugger-decode.h"
+#include "debugger-encode.h"
 
 bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
     std::optional<DebugMessage> message = get_debug_message();
@@ -44,18 +44,15 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
             break;
         case debug_Command_COMMAND_ADD_BREAKPOINT:
         case debug_Command_COMMAND_REMOVE_BREAKPOINT: {
-            debug_Breakpoint breakpoint = debug_Breakpoint_init_zero;
-            if (!decode_payload(message->payload, debug_Breakpoint_fields,
-                                &breakpoint) ||
-                !breakpoint.has_location ||
-                breakpoint.location.module_index != 0 ||
-                !isToPhysicalAddrPossible(breakpoint.location.program_counter,
-                                          m)) {
+            debug_CodeLocation location = debug_CodeLocation_init_zero;
+            if (!decode_payload(message->payload, debug_CodeLocation_fields,
+                                &location) ||
+                location.module_index != 0 ||
+                !isToPhysicalAddrPossible(location.program_counter, m)) {
                 malformed();
                 break;
             }
-            uint8_t *address =
-                toPhysicalAddress(breakpoint.location.program_counter, m);
+            uint8_t *address = toPhysicalAddress(location.program_counter, m);
             if (message->type == debug_Command_COMMAND_ADD_BREAKPOINT)
                 add_breakpoint(address);
             else
@@ -100,16 +97,10 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
                 malformed();
                 break;
             }
-            // An omitted Include payload is the regular debugger snapshot:
-            // enough state to locate execution and manage breakpoints, but
-            // without serialising the complete runtime state.
-            if (selection == 0)
-                selection = static_cast<SnapshotSelection>(
-                    debug_SnapshotSection_SNAPSHOT_SECTION_PC |
-                    debug_SnapshotSection_SNAPSHOT_SECTION_BREAKPOINTS);
+            if (selection == 0) selection = full_snapshot_selection();
             pause_runtime(m);
-            encode_snapshot(m, selection,
-                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
+            send_snapshot(m, selection,
+                          debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
         }
         case debug_Command_COMMAND_UPDATE_LOCAL: {
@@ -232,11 +223,21 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
                 break;
             }
             snapshotPolicy = static_cast<SnapshotPolicy>(config.policy);
-            checkpointInterval = config.interval == 0 ? 1 : config.interval;
-            min_return_values = config.minimum_return_count;
-            checkpointSelection = selectedMask;
-            if (snapshotPolicy == SnapshotPolicy::checkpointing)
+            if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+                checkpointInterval = config.interval;
+                min_return_values = config.minimum_return_count;
+                checkpointSelection = selectedMask;
+                // main allocated checkpoint_state even for an empty selection.
+                hasCheckpointSelection = true;
+                instructions_executed = 0;
+                instructions_since_full_snapshot = 0;
+                // make first initial checkpoint
                 checkpoint(m, true);
+            } else {
+                min_return_values = 0;
+                checkpointSelection = 0;
+                hasCheckpointSelection = false;
+            }
             send_operation_result(message->type, true);
             break;
         }
