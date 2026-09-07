@@ -18,8 +18,8 @@ typedef enum _debug_Command {
     debug_Command_COMMAND_PAUSE = 2, /* no payload */
     debug_Command_COMMAND_STEP = 3, /* no payload */
     debug_Command_COMMAND_STEP_OVER = 4, /* no payload */
-    debug_Command_COMMAND_ADD_BREAKPOINT = 5, /* Breakpoint */
-    debug_Command_COMMAND_REMOVE_BREAKPOINT = 6, /* Breakpoint */
+    debug_Command_COMMAND_ADD_BREAKPOINT = 5, /* CodeLocation */
+    debug_Command_COMMAND_REMOVE_BREAKPOINT = 6, /* CodeLocation */
     debug_Command_COMMAND_CLEAR_BREAKPOINTS = 7, /* no payload */
     debug_Command_COMMAND_HEAP_USAGE = 8, /* no payload */
     debug_Command_COMMAND_SNAPSHOT = 9, /* Include */
@@ -51,8 +51,8 @@ typedef enum _debug_NotificationType {
     debug_NotificationType_NOTIFICATION_HALTED = 1, /* no payload */
     debug_NotificationType_NOTIFICATION_PAUSED = 2, /* no payload */
     debug_NotificationType_NOTIFICATION_STEPPED = 3, /* no payload */
-    debug_NotificationType_NOTIFICATION_HIT_BREAKPOINT = 4, /* HitBreakpoint */
-    debug_NotificationType_NOTIFICATION_NEW_EVENT = 5, /* NewEvent (zero-length payload) */
+    debug_NotificationType_NOTIFICATION_HIT_BREAKPOINT = 4, /* CodeLocation */
+    debug_NotificationType_NOTIFICATION_NEW_EVENT = 5, /* Event */
     debug_NotificationType_NOTIFICATION_FUNCTION_DUMP = 6, /* Function */
     debug_NotificationType_NOTIFICATION_LOCALS_DUMP = 7, /* Locals */
     debug_NotificationType_NOTIFICATION_SNAPSHOT = 8, /* Snapshot */
@@ -76,8 +76,7 @@ typedef enum _debug_State {
     debug_State_STATE_WARDUINO_INIT = 5
 } debug_State;
 
-/* Bit flags selecting the runtime state included in a snapshot. These are
- shared with frontend clients, so values are never renumbered or reused. */
+/* Payload of Snapshot command: contains field selectors as bit flags. */
 typedef enum _debug_SnapshotSection {
     debug_SnapshotSection_SNAPSHOT_SECTION_UNSPECIFIED = 0,
     debug_SnapshotSection_SNAPSHOT_SECTION_PC = 1,
@@ -92,9 +91,8 @@ typedef enum _debug_SnapshotSection {
     debug_SnapshotSection_SNAPSHOT_SECTION_EVENTS = 512,
     debug_SnapshotSection_SNAPSHOT_SECTION_IO = 1024,
     debug_SnapshotSection_SNAPSHOT_SECTION_OVERRIDES = 2048,
-    debug_SnapshotSection_SNAPSHOT_SECTION_HEAP = 4096,
-    debug_SnapshotSection_SNAPSHOT_SECTION_FUNCTIONS = 8192,
-    debug_SnapshotSection_SNAPSHOT_SECTION_LOCALS = 16384
+    debug_SnapshotSection_SNAPSHOT_SECTION_FUNCTIONS = 4096,
+    debug_SnapshotSection_SNAPSHOT_SECTION_LOCALS = 8192
 } debug_SnapshotSection;
 
 typedef enum _debug_SnapshotPolicy {
@@ -110,22 +108,6 @@ typedef struct _debug_CodeLocation {
     uint32_t program_counter;
 } debug_CodeLocation;
 
-typedef struct _debug_Breakpoint {
-    bool has_location;
-    debug_CodeLocation location;
-} debug_Breakpoint;
-
-typedef struct _debug_HitBreakpoint {
-    bool has_location;
-    debug_CodeLocation location;
-} debug_HitBreakpoint;
-
-/* The notification type carries all information for this event. The empty
- message exists for host-side reflection, but no protobuf bytes are sent. */
-typedef struct _debug_NewEvent {
-    char dummy_field;
-} debug_NewEvent;
-
 typedef struct _debug_HeapUsage {
     uint32_t heap_used;
 } debug_HeapUsage;
@@ -134,8 +116,7 @@ typedef struct _debug_ContinueFor {
     uint32_t count;
 } debug_ContinueFor;
 
-/* Payload of Snapshot command: a little-endian bit vector of
- SnapshotSection values. */
+/* Payload of Snapshot command: a little-endian bit vector of SnapshotSection values. */
 typedef struct _debug_Include {
     pb_callback_t fields;
 } debug_Include;
@@ -197,6 +178,11 @@ typedef struct _debug_Event {
     pb_callback_t payload;
 } debug_Event;
 
+typedef struct _debug_NewEvent {
+    bool has_subject;
+    debug_Event subject;
+} debug_NewEvent;
+
 typedef struct _debug_Range {
     uint32_t start;
     uint32_t end;
@@ -212,7 +198,6 @@ typedef struct _debug_Function {
 } debug_Function;
 
 typedef struct _debug_EventsQueue {
-    /* Total events in the queue; this can exceed the returned slice length. */
     uint32_t total_count;
     pb_callback_t events;
     bool has_range;
@@ -337,8 +322,6 @@ extern "C" {
 
 
 
-
-
 #define debug_Snapshot_state_ENUMTYPE debug_State
 
 
@@ -366,9 +349,7 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define debug_CodeLocation_init_default          {0, 0}
-#define debug_Breakpoint_init_default            {false, debug_CodeLocation_init_default}
-#define debug_HitBreakpoint_init_default         {false, debug_CodeLocation_init_default}
-#define debug_NewEvent_init_default              {0}
+#define debug_NewEvent_init_default              {false, debug_Event_init_default}
 #define debug_HeapUsage_init_default             {0}
 #define debug_ContinueFor_init_default           {0}
 #define debug_Include_init_default               {{{NULL}, NULL}}
@@ -396,9 +377,7 @@ extern "C" {
 #define debug_MemoryState_init_default           {0, 0, 0, {{NULL}, NULL}}
 #define debug_IOState_init_default               {{{NULL}, NULL}, 0, 0}
 #define debug_CodeLocation_init_zero             {0, 0}
-#define debug_Breakpoint_init_zero               {false, debug_CodeLocation_init_zero}
-#define debug_HitBreakpoint_init_zero            {false, debug_CodeLocation_init_zero}
-#define debug_NewEvent_init_zero                 {0}
+#define debug_NewEvent_init_zero                 {false, debug_Event_init_zero}
 #define debug_HeapUsage_init_zero                {0}
 #define debug_ContinueFor_init_zero              {0}
 #define debug_Include_init_zero                  {{{NULL}, NULL}}
@@ -429,8 +408,6 @@ extern "C" {
 /* Field tags (for use in manual encoding/decoding) */
 #define debug_CodeLocation_module_index_tag      1
 #define debug_CodeLocation_program_counter_tag   2
-#define debug_Breakpoint_location_tag            1
-#define debug_HitBreakpoint_location_tag         1
 #define debug_HeapUsage_heap_used_tag            1
 #define debug_ContinueFor_count_tag              1
 #define debug_Include_fields_tag                 1
@@ -457,6 +434,7 @@ extern "C" {
 #define debug_CallbackEntry_table_indexes_tag    2
 #define debug_Event_topic_tag                    1
 #define debug_Event_payload_tag                  2
+#define debug_NewEvent_subject_tag               1
 #define debug_Range_start_tag                    1
 #define debug_Range_end_tag                      2
 #define debug_Function_function_index_tag        1
@@ -519,22 +497,11 @@ X(a, STATIC,   SINGULAR, UINT32,   program_counter,   2)
 #define debug_CodeLocation_CALLBACK NULL
 #define debug_CodeLocation_DEFAULT NULL
 
-#define debug_Breakpoint_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  location,          1)
-#define debug_Breakpoint_CALLBACK NULL
-#define debug_Breakpoint_DEFAULT NULL
-#define debug_Breakpoint_location_MSGTYPE debug_CodeLocation
-
-#define debug_HitBreakpoint_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  location,          1)
-#define debug_HitBreakpoint_CALLBACK NULL
-#define debug_HitBreakpoint_DEFAULT NULL
-#define debug_HitBreakpoint_location_MSGTYPE debug_CodeLocation
-
 #define debug_NewEvent_FIELDLIST(X, a) \
-
+X(a, STATIC,   OPTIONAL, MESSAGE,  subject,           1)
 #define debug_NewEvent_CALLBACK NULL
 #define debug_NewEvent_DEFAULT NULL
+#define debug_NewEvent_subject_MSGTYPE debug_Event
 
 #define debug_HeapUsage_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   heap_used,         1)
@@ -745,8 +712,6 @@ X(a, STATIC,   SINGULAR, SINT32,   value,             3)
 #define debug_IOState_DEFAULT NULL
 
 extern const pb_msgdesc_t debug_CodeLocation_msg;
-extern const pb_msgdesc_t debug_Breakpoint_msg;
-extern const pb_msgdesc_t debug_HitBreakpoint_msg;
 extern const pb_msgdesc_t debug_NewEvent_msg;
 extern const pb_msgdesc_t debug_HeapUsage_msg;
 extern const pb_msgdesc_t debug_ContinueFor_msg;
@@ -777,8 +742,6 @@ extern const pb_msgdesc_t debug_IOState_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define debug_CodeLocation_fields &debug_CodeLocation_msg
-#define debug_Breakpoint_fields &debug_Breakpoint_msg
-#define debug_HitBreakpoint_fields &debug_HitBreakpoint_msg
 #define debug_NewEvent_fields &debug_NewEvent_msg
 #define debug_HeapUsage_fields &debug_HeapUsage_msg
 #define debug_ContinueFor_fields &debug_ContinueFor_msg
@@ -808,6 +771,7 @@ extern const pb_msgdesc_t debug_IOState_msg;
 #define debug_IOState_fields &debug_IOState_msg
 
 /* Maximum encoded size of messages (where known) */
+/* debug_NewEvent_size depends on runtime parameters */
 /* debug_Include_size depends on runtime parameters */
 /* debug_ValueUpdate_size depends on runtime parameters */
 /* debug_Snapshot_size depends on runtime parameters */
@@ -829,14 +793,11 @@ extern const pb_msgdesc_t debug_IOState_msg;
 /* debug_MemoryState_size depends on runtime parameters */
 /* debug_IOState_size depends on runtime parameters */
 #define DEBUG_DEBUG_PB_H_MAX_SIZE                debug_CallstackEntry_size
-#define debug_Breakpoint_size                    14
 #define debug_CallstackEntry_size                36
 #define debug_CodeLocation_size                  12
 #define debug_ContinueFor_size                   6
 #define debug_FunctionRef_size                   6
 #define debug_HeapUsage_size                     6
-#define debug_HitBreakpoint_size                 14
-#define debug_NewEvent_size                      0
 #define debug_OperationResult_size               4
 #define debug_Range_size                         12
 

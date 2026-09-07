@@ -80,12 +80,14 @@ class Debugger {
 
     // Checkpointing
     SnapshotPolicy snapshotPolicy;
-    uint32_t checkpointInterval;          // #instructions between checkpoints
-    uint32_t instructions_executed;       // #instructions since last checkpoint
+    uint32_t checkpointInterval;     // #instructions between checkpoints
+    uint32_t instructions_executed;  // #instructions since last checkpoint
+    uint32_t instructions_since_full_snapshot;
     std::optional<uint32_t> fidx_called;  // The primitive that was executed
     uint32_t prim_args[8];                // The arguments of the executed prim
     uint32_t min_return_values;
     SnapshotSelection checkpointSelection;
+    bool hasCheckpointSelection;
 
     // Continue for
     int32_t remaining_instructions;
@@ -114,8 +116,23 @@ class Debugger {
 
     void dump_heap_info(Module *m) const;
 
-    bool encode_snapshot(Module *m, SnapshotSelection selection,
-                         debug_NotificationType notification) const;
+    bool send_snapshot(Module *m, SnapshotSelection selection,
+                       debug_NotificationType notification) const;
+
+    static constexpr SnapshotSelection full_snapshot_selection() {
+        return debug_SnapshotSection_SNAPSHOT_SECTION_PC |
+               debug_SnapshotSection_SNAPSHOT_SECTION_BREAKPOINTS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_CALLSTACK |
+               debug_SnapshotSection_SNAPSHOT_SECTION_GLOBALS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_TABLE |
+               debug_SnapshotSection_SNAPSHOT_SECTION_MEMORY |
+               debug_SnapshotSection_SNAPSHOT_SECTION_BRANCH_TABLE |
+               debug_SnapshotSection_SNAPSHOT_SECTION_STACK |
+               debug_SnapshotSection_SNAPSHOT_SECTION_CALLBACKS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_EVENTS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_IO |
+               debug_SnapshotSection_SNAPSHOT_SECTION_OVERRIDES;
+    }
 
     static bool parse_selection(const uint8_t *fields, size_t size,
                                 SnapshotSelection *selection);
@@ -189,7 +206,7 @@ class Debugger {
 
     bool get_mock_for_args(Module *m, uint32_t fidx, uint32_t &result);
 
-    void checkpoint(Module *m, bool force = false);
+    void checkpoint(Module *m, bool force = false, bool full = false);
 
     // Out-of-place debugging: EDWARD
 

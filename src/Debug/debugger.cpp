@@ -1,5 +1,5 @@
+#include "debugger-decode.h"
 #include "debugger-private.h"
-#include "debugger-protocol.h"
 
 std::optional<debug_ValueUpdate> Debugger::update_value(
     const std::vector<uint8_t> &payload) const {
@@ -20,9 +20,11 @@ Debugger::Debugger(Channel *duplex) {
     this->snapshotPolicy = SnapshotPolicy::none;
     this->checkpointInterval = 10;
     this->instructions_executed = 0;
+    this->instructions_since_full_snapshot = 0;
     this->fidx_called = {};
     this->min_return_values = 0;
     this->checkpointSelection = 0;
+    this->hasCheckpointSelection = false;
     this->remaining_instructions = -1;
 }
 
@@ -168,12 +170,11 @@ bool Debugger::is_breakpoint(uint8_t *loc) {
 void Debugger::notify_breakpoint(Module *m, uint8_t *pc_ptr) {
     if (snapshotPolicy == SnapshotPolicy::checkpointing) checkpoint(m);
     mark = nullptr;
-    debug_HitBreakpoint hit = debug_HitBreakpoint_init_zero;
-    hit.has_location = true;
-    hit.location.module_index = 0;
-    hit.location.program_counter = toVirtualAddress(pc_ptr, m);
+    debug_CodeLocation location = debug_CodeLocation_init_zero;
+    location.module_index = 0;
+    location.program_counter = toVirtualAddress(pc_ptr, m);
     send_notification(debug_NotificationType_NOTIFICATION_HIT_BREAKPOINT,
-                      debug_HitBreakpoint_fields, &hit);
+                      debug_CodeLocation_fields, &location);
 }
 
 void Debugger::handle_interrupt_run(const Module *m,
@@ -217,6 +218,7 @@ void Debugger::handle_step_over(const Module *m, debug_State *program_state) {
 bool Debugger::reset(Module *m) {
     m->warduino->reset_module(m);
     instructions_executed = 0;
+    instructions_since_full_snapshot = 0;
     debug("Reset WARDuino.\n");
     return true;
 }
