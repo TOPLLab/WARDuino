@@ -49,7 +49,6 @@ pub enum DebugEvent {
     HitBreakpoint(schema::CodeLocation),
     NewEvent(schema::Event),
     Snapshot(schema::Snapshot),
-    ChangeAffected,
     TargetMalformedCommand,
     TargetUnknownCommand,
     OperationResult(schema::OperationResult),

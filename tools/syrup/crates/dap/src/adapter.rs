@@ -629,6 +629,17 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
     }
 
     fn begin_stop(&mut self, output: &mut AdapterOutput, reason: StopReason) {
+        if let Some(pending) = self.pending_stop.as_mut() {
+            // A state inspection emits PAUSED before its SNAPSHOT response.
+            // Do not start another inspection for that notification. Preserve
+            // PAUSED -> STEPPED and PAUSED -> HIT_BREAKPOINT ordering by
+            // upgrading the pending stop reason when a more specific event
+            // follows it.
+            if reason != StopReason::Pause {
+                pending.reason = reason;
+            }
+            return;
+        }
         self.paused = true;
         self.snapshot = None;
         self.pending_stop = Some(TargetStop { reason });
@@ -874,7 +885,6 @@ fn debug_event_name(event: &DebugEvent) -> &'static str {
         DebugEvent::HitBreakpoint(_) => "hitBreakpoint",
         DebugEvent::NewEvent(_) => "newEvent",
         DebugEvent::Snapshot(_) => "snapshot",
-        DebugEvent::ChangeAffected => "changeAffected",
         DebugEvent::TargetMalformedCommand => "targetMalformedCommand",
         DebugEvent::TargetUnknownCommand => "targetUnknownCommand",
         DebugEvent::OperationResult(_) => "operationResult",

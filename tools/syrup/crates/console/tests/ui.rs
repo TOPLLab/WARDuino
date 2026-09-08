@@ -11,17 +11,26 @@ use app::{
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use messages::{CommandIntent, Direction};
-use ratatui::{Terminal, backend::TestBackend};
+use ratatui::{
+    Terminal,
+    backend::TestBackend,
+    buffer::Buffer,
+    style::{Color, Modifier},
+};
 use serde_json::json;
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
 }
-fn render(app: &App, width: u16, height: u16) -> String {
+fn render_buffer(app: &App, width: u16, height: u16) -> Buffer {
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal.draw(|frame| ui::draw(frame, app)).unwrap();
-    let b = terminal.backend().buffer();
+    terminal.backend().buffer().clone()
+}
+
+fn render(app: &App, width: u16, height: u16) -> String {
+    let b = render_buffer(app, width, height);
     (0..height)
         .map(|y| {
             (0..width)
@@ -249,4 +258,61 @@ fn session_arrows_follow_message_direction() {
             .lines()
             .any(|line| line.contains("stopped") && line.contains("←"))
     );
+}
+
+fn cells(buffer: &Buffer) -> impl Iterator<Item = &ratatui::buffer::Cell> {
+    let area = buffer.area;
+    (0..area.height).flat_map(move |y| (0..area.width).map(move |x| buffer.cell((x, y)).unwrap()))
+}
+
+#[test]
+fn terminal_theme_styles_use_resets_and_ansi_roles() {
+    let app = App::sample();
+    let buffer = render_buffer(&app, 72, 24);
+
+    assert!(cells(&buffer).all(|cell| {
+        cell.bg == Color::Reset
+            && !matches!(cell.fg, Color::Rgb(_, _, _))
+            && !matches!(cell.bg, Color::Rgb(_, _, _))
+    }));
+    assert!(cells(&buffer).any(|cell| cell.fg == Color::Reset));
+    assert!(cells(&buffer).any(|cell| cell.fg == Color::Cyan));
+    assert!(cells(&buffer).any(|cell| cell.fg == Color::DarkGray));
+    assert!(cells(&buffer).any(|cell| cell.fg == Color::Yellow));
+
+    let mut connected = App::sample();
+    connected.vm_state = app::VmState::Connected;
+    assert!(cells(&render_buffer(&connected, 72, 24)).any(|cell| cell.fg == Color::Green));
+
+    let mut disconnected = App::sample();
+    disconnected.vm_state = app::VmState::Disconnected;
+    assert!(cells(&render_buffer(&disconnected, 72, 24)).any(|cell| cell.fg == Color::Red));
+}
+
+#[test]
+fn focus_and_inactive_selection_use_modifiers_without_backgrounds() {
+    let mut session = App::sample();
+    session.focus = Focus::Session;
+    let focused = render_buffer(&session, 72, 24);
+    assert!(cells(&focused).any(|cell| {
+        cell.symbol() == "s"
+            && cell.fg == Color::Reset
+            && cell.modifier.contains(Modifier::REVERSED | Modifier::BOLD)
+    }));
+    assert!(cells(&focused).all(|cell| cell.bg == Color::Reset));
+
+    let command = render_buffer(&App::sample(), 72, 24);
+    let placeholder = command.cell((4, 22)).unwrap();
+    assert_eq!(placeholder.fg, Color::DarkGray);
+    assert!(
+        placeholder
+            .modifier
+            .contains(Modifier::REVERSED | Modifier::BOLD)
+    );
+
+    let inactive = render_buffer(&App::sample(), 72, 24);
+    assert!(cells(&inactive).any(|cell| {
+        cell.symbol() == "s" && cell.fg == Color::Reset && cell.modifier.contains(Modifier::DIM)
+    }));
+    assert!(cells(&inactive).all(|cell| cell.bg == Color::Reset));
 }

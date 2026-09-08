@@ -12,12 +12,19 @@ use crate::messages::COMMANDS;
 #[path = "completion.rs"]
 mod completion;
 
-const BASE: Color = Color::Rgb(29, 29, 43);
-const SURFACE: Color = Color::Rgb(41, 41, 58);
-const SURFACE_ACTIVE: Color = Color::Rgb(58, 54, 80);
-const TEXT: Color = Color::Rgb(215, 213, 231);
-const ACCENT: Color = Color::Rgb(183, 162, 255);
-const MUTED: Color = Color::Rgb(143, 139, 168);
+const ACCENT: Color = Color::Cyan;
+const MUTED: Color = Color::DarkGray;
+const SUCCESS: Color = Color::Green;
+const WARNING: Color = Color::Yellow;
+const ERROR: Color = Color::Red;
+
+fn focus_style() -> Style {
+    Style::default().add_modifier(Modifier::REVERSED | Modifier::BOLD)
+}
+
+fn inactive_selection_style() -> Style {
+    Style::default().add_modifier(Modifier::DIM)
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LayoutMode {
@@ -112,7 +119,6 @@ pub fn draw(frame: &mut Frame, app: &App) {
         render_too_small(frame, area);
         return;
     }
-    frame.render_widget(Paragraph::new("").style(Style::default().bg(BASE)), area);
     render_timeline(frame, app, layout.timeline, layout.mode);
     if let Some(divider) = layout.divider {
         frame.render_widget(
@@ -154,9 +160,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
 fn render_metadata(frame: &mut Frame, app: &App, area: Rect, mode: LayoutMode) {
     let state = app.vm_state.label().to_ascii_lowercase();
     let color = match app.vm_state {
-        crate::app::VmState::Paused => Color::Rgb(228, 184, 106),
-        crate::app::VmState::Disconnected => Color::Rgb(231, 130, 132),
-        _ => Color::Rgb(119, 199, 160),
+        crate::app::VmState::Paused => WARNING,
+        crate::app::VmState::Disconnected => ERROR,
+        _ => SUCCESS,
     };
     let left = if mode == LayoutMode::Narrow {
         app.vm_name.clone()
@@ -189,10 +195,11 @@ fn render_timeline(frame: &mut Frame, app: &App, area: Rect, mode: LayoutMode) {
     frame.render_widget(
         Paragraph::new(Span::styled(
             " Session ",
-            Style::default()
-                .fg(TEXT)
-                .bg(if active { SURFACE_ACTIVE } else { SURFACE })
-                .add_modifier(Modifier::BOLD),
+            if active {
+                focus_style()
+            } else {
+                Style::default().add_modifier(Modifier::BOLD)
+            },
         )),
         Rect::new(area.x, area.y, area.width, 1),
     );
@@ -200,19 +207,16 @@ fn render_timeline(frame: &mut Frame, app: &App, area: Rect, mode: LayoutMode) {
         return;
     }
     let constraints = session_constraints(area.width, mode != LayoutMode::Narrow);
-    let entries = app.timeline.iter().map(|entry| {
-        Row::new(session_cells(entry, area.width, mode != LayoutMode::Narrow))
-            .style(Style::default().fg(TEXT))
-    });
+    let entries = app
+        .timeline
+        .iter()
+        .map(|entry| Row::new(session_cells(entry, area.width, mode != LayoutMode::Narrow)));
     let header = Row::new(session_header(area.width, mode != LayoutMode::Narrow))
         .style(Style::default().fg(MUTED));
     let selection = if active {
-        Style::default()
-            .fg(TEXT)
-            .bg(SURFACE_ACTIVE)
-            .add_modifier(Modifier::BOLD)
+        focus_style()
     } else {
-        Style::default().fg(MUTED).bg(SURFACE)
+        inactive_selection_style()
     };
     let table = Table::new(entries, constraints)
         .header(header)
@@ -299,13 +303,7 @@ fn render_details(frame: &mut Frame, app: &App, area: Rect, mode: LayoutMode) {
     }
     let Some(entry) = app.selected_entry() else {
         frame.render_widget(
-            Paragraph::new(Span::styled(
-                " Details ",
-                Style::default()
-                    .fg(TEXT)
-                    .bg(SURFACE_ACTIVE)
-                    .add_modifier(Modifier::BOLD),
-            )),
+            Paragraph::new(Span::styled(" Details ", focus_style())),
             area,
         );
         return;
@@ -316,30 +314,18 @@ fn render_details(frame: &mut Frame, app: &App, area: Rect, mode: LayoutMode) {
     let compact = area.width >= 68;
     let header = if compact {
         Line::from(vec![
-            Span::styled(
-                " Details ",
-                Style::default()
-                    .fg(TEXT)
-                    .bg(SURFACE_ACTIVE)
-                    .add_modifier(Modifier::BOLD),
-            ),
+            Span::styled(" Details ", focus_style()),
             Span::raw("   "),
             Span::styled(identity.as_str(), Style::default().fg(MUTED)),
             Span::styled(
                 details.heading.as_str(),
-                Style::default().fg(TEXT).add_modifier(Modifier::BOLD),
+                Style::default().add_modifier(Modifier::BOLD),
             ),
             Span::styled(" · ", Style::default().fg(MUTED)),
             Span::styled(type_label, Style::default().fg(MUTED)),
         ])
     } else {
-        Line::from(Span::styled(
-            " Details ",
-            Style::default()
-                .fg(TEXT)
-                .bg(SURFACE_ACTIVE)
-                .add_modifier(Modifier::BOLD),
-        ))
+        Line::from(Span::styled(" Details ", focus_style()))
     };
     frame.render_widget(
         Paragraph::new(header),
@@ -352,7 +338,7 @@ fn render_details(frame: &mut Frame, app: &App, area: Rect, mode: LayoutMode) {
                 Span::styled(identity.as_str(), Style::default().fg(MUTED)),
                 Span::styled(
                     details.heading.as_str(),
-                    Style::default().fg(TEXT).add_modifier(Modifier::BOLD),
+                    Style::default().add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(" · ", Style::default().fg(MUTED)),
                 Span::styled(type_label, Style::default().fg(MUTED)),
@@ -414,40 +400,37 @@ fn render_details(frame: &mut Frame, app: &App, area: Rect, mode: LayoutMode) {
 
 fn detail_style(style: DetailStyle) -> Style {
     match style {
-        DetailStyle::Normal => Style::default().fg(TEXT),
+        DetailStyle::Normal => Style::default(),
         DetailStyle::Muted => Style::default().fg(MUTED),
-        DetailStyle::Success => Style::default().fg(Color::Rgb(119, 199, 160)),
-        DetailStyle::Warning => Style::default().fg(Color::Rgb(228, 184, 106)),
-        DetailStyle::Error => Style::default().fg(Color::Rgb(231, 130, 132)),
+        DetailStyle::Success => Style::default().fg(SUCCESS),
+        DetailStyle::Warning => Style::default().fg(WARNING),
+        DetailStyle::Error => Style::default().fg(ERROR),
         DetailStyle::Address => Style::default().fg(ACCENT),
     }
 }
 
 fn render_prompt(frame: &mut Frame, app: &App, area: Rect) {
-    let surface = Style::default().bg(if app.focus == Focus::Command {
-        SURFACE_ACTIVE
+    let focused = app.focus == Focus::Command;
+    let prompt_style = if focused {
+        focus_style()
     } else {
-        SURFACE
-    });
-    frame.render_widget(Paragraph::new(" ").style(surface), area);
+        Style::default()
+    };
+    frame.render_widget(Paragraph::new(" \n ").style(prompt_style), area);
     frame.render_widget(
-        Paragraph::new("▌\n▌").style(Style::default().fg(if app.focus == Focus::Command {
-            ACCENT
-        } else {
-            MUTED
-        })),
+        Paragraph::new("▌\n▌").style(prompt_style.fg(if focused { ACCENT } else { MUTED })),
         Rect::new(area.x, area.y, 1, area.height),
     );
     let input = trim_text(&app.prompt, area.width.saturating_sub(6) as usize);
     let line = if input.is_empty() {
         Line::from(vec![
-            Span::styled("› ", Style::default().fg(ACCENT)),
-            Span::styled("Type a command…", Style::default().fg(MUTED)),
+            Span::styled("› ", prompt_style.fg(ACCENT)),
+            Span::styled("Type a command…", prompt_style.fg(MUTED)),
         ])
     } else {
         Line::from(vec![
-            Span::styled("› ", Style::default().fg(ACCENT)),
-            Span::styled(input, Style::default().fg(TEXT)),
+            Span::styled("› ", prompt_style.fg(ACCENT)),
+            Span::styled(input, prompt_style),
         ])
     };
     frame.render_widget(
@@ -462,13 +445,8 @@ fn render_prompt(frame: &mut Frame, app: &App, area: Rect) {
         );
     } else if let Some(feedback) = app.feedback() {
         frame.render_widget(
-            Paragraph::new(trim_text(feedback, area.width.saturating_sub(4) as usize)).style(
-                Style::default().fg(if app.notice.is_some() {
-                    Color::Rgb(231, 130, 132)
-                } else {
-                    MUTED
-                }),
-            ),
+            Paragraph::new(trim_text(feedback, area.width.saturating_sub(4) as usize))
+                .style(prompt_style.fg(if app.notice.is_some() { ERROR } else { MUTED })),
             Rect::new(area.x + 2, area.y, area.width.saturating_sub(4), 1),
         );
     }
@@ -494,11 +472,11 @@ fn render_help(frame: &mut Frame, area: Rect) {
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(ACCENT))
-        .style(Style::default().bg(BASE).fg(TEXT));
+        .style(Style::default());
     let mut lines = vec![
         Line::from(Span::styled(
             "Supported commands",
-            Style::default().fg(TEXT).add_modifier(Modifier::BOLD),
+            Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
     ];

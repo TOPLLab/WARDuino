@@ -71,10 +71,6 @@ pub(super) fn decode_event(message_type: u8, payload: &[u8]) -> Result<DebugEven
         value if value == notification_type(NotificationType::NotificationSnapshot) => {
             Ok(DebugEvent::Snapshot(decode(value, payload)?))
         }
-        value if value == notification_type(NotificationType::NotificationChangeAffected) => {
-            require_empty(value, payload)?;
-            Ok(DebugEvent::ChangeAffected)
-        }
         value if value == notification_type(NotificationType::NotificationMalformed) => {
             require_empty(value, payload)?;
             Ok(DebugEvent::TargetMalformedCommand)
@@ -269,7 +265,6 @@ mod tests {
             NotificationType::NotificationHalted,
             NotificationType::NotificationPaused,
             NotificationType::NotificationStepped,
-            NotificationType::NotificationChangeAffected,
             NotificationType::NotificationMalformed,
             NotificationType::NotificationUnknownCommand,
         ] {
