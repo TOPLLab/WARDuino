@@ -7,15 +7,13 @@
 mod codec;
 mod error;
 mod framing;
+pub mod schema;
 mod session;
 mod transport;
 mod types;
-mod wire;
 
 pub use error::{DebugError, Result};
 pub use session::WarduinoSession;
 pub use types::{
-    CodeLocation, CommandKind, DebugCommand, DebugEvent, DebugSession, DisconnectReason,
-    ModuleIndex, OperationResult, ProgramCounter, ReceivedFrame, SentFrame, Snapshot, StopReason,
-    Stopped, VmState,
+    DebugCommand, DebugEvent, DebugSession, DisconnectReason, ReceivedFrame, SentFrame,
 };

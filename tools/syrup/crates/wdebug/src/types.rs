@@ -1,101 +1,61 @@
-use crate::Result;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct ModuleIndex(pub u32);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct ProgramCounter(pub u32);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct CodeLocation {
-    pub module: ModuleIndex,
-    pub program_counter: ProgramCounter,
-}
+use crate::{Result, schema};
 
 #[non_exhaustive]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DebugCommand {
-    Continue,
+    Run,
     Halt,
     Pause,
     Step,
     StepOver,
-    ContinueFor(u32),
-    AddBreakpoint(CodeLocation),
-    RemoveBreakpoint(CodeLocation),
-    RequestSnapshot,
-    Inspect(Vec<u8>),
+    AddBreakpoint(schema::CodeLocation),
+    RemoveBreakpoint(schema::CodeLocation),
+    ClearBreakpoints,
+    HeapUsage,
+    Snapshot(schema::Include),
+    UpdateFunction(schema::Function),
+    UpdateLocal(schema::ValueUpdate),
+    UpdateCallbacks(schema::CallbackMapping),
+    UpdateModule(schema::ModuleUpdate),
+    UpdateGlobal(schema::ValueUpdate),
+    UpdateStack(schema::ValueUpdate),
+    LoadSnapshot(schema::Snapshot),
+    Proxify,
+    AddProxy(schema::FunctionRef),
+    RemoveProxy(schema::FunctionRef),
+    ProxyCall(schema::RemoteFunctionCall),
+    PopEvent,
+    PushEvent(schema::Event),
+    ContinueFor(schema::ContinueFor),
     Reset,
-    UpdateModule(Vec<u8>),
+    Invoke(schema::RemoteFunctionCall),
+    SetSnapshotPolicy(schema::SnapshotPolicyConfig),
+    SetOverride(schema::Override),
+    RemoveOverride(schema::Override),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CommandKind {
-    Continue,
-    Halt,
-    Pause,
-    Step,
-    StepOver,
-    AddBreakpoint,
-    RemoveBreakpoint,
-    ContinueFor,
-    Snapshot,
-    Reset,
-    UpdateModule,
-    Other(i32),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StopReason {
-    Pause,
-    Step,
-    Breakpoint,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Stopped {
-    pub reason: StopReason,
-    pub location: Option<CodeLocation>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum VmState {
-    Running,
-    Paused,
-    Stepping,
-    ProxyRunning,
-    ProxyHalted,
-    Unknown(i32),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Snapshot {
-    pub program_counter: ProgramCounter,
-    pub state: VmState,
-    pub breakpoints: Vec<ProgramCounter>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct OperationResult {
-    pub command: CommandKind,
-    pub success: bool,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DisconnectReason {
     TransportClosed,
 }
 
 #[non_exhaustive]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DebugEvent {
-    Stopped(Stopped),
     Continued,
     Halted,
-    Snapshot(Snapshot),
-    OperationResult(OperationResult),
+    Paused,
+    Stepped,
+    HitBreakpoint(schema::CodeLocation),
+    NewEvent(schema::Event),
+    Snapshot(schema::Snapshot),
+    ChangeAffected,
     TargetMalformedCommand,
     TargetUnknownCommand,
+    OperationResult(schema::OperationResult),
+    RemoteFunctionResult(schema::RemoteFunctionResult),
+    Checkpoint(schema::Checkpoint),
+    HeapUsage(schema::HeapUsage),
     Disconnected(DisconnectReason),
 }
 
@@ -104,7 +64,7 @@ pub enum DebugEvent {
 /// The bytes include the command discriminator, canonical payload-length
 /// varint, and protobuf payload. This only confirms local transport
 /// acceptance; it does not confirm execution by the VM.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SentFrame(Vec<u8>);
 
 impl SentFrame {
@@ -120,7 +80,7 @@ impl SentFrame {
 }
 
 /// A decoded inbound VM event and the exact complete frame that carried it.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReceivedFrame {
     pub event: DebugEvent,
     bytes: Vec<u8>,
@@ -130,6 +90,7 @@ impl ReceivedFrame {
     pub fn from_complete_frame(event: DebugEvent, bytes: Vec<u8>) -> Self {
         Self { event, bytes }
     }
+
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }

@@ -180,7 +180,7 @@ mod tests {
             written: Vec::new(),
         };
         let mut session = Session::new(transport);
-        let receipt = session.send(DebugCommand::Continue).unwrap();
+        let receipt = session.send(DebugCommand::Run).unwrap();
         assert_eq!(session.transport.written, [0, 0]);
         assert_eq!(receipt.bytes(), session.transport.written);
     }
@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn returns_fragmented_events_without_waiting() {
         let transport = MemoryTransport {
-            input: VecDeque::from([Ok(vec![4, 4, 10]), Ok(vec![2, 16, 23])]),
+            input: VecDeque::from([Ok(vec![4, 2, 0x10]), Ok(vec![0x17])]),
             written: Vec::new(),
         };
         let mut session = Session::new(transport);
@@ -196,7 +196,7 @@ mod tests {
         assert!(matches!(
             session.try_recv().unwrap(),
             Some(ReceivedFrame {
-                event: DebugEvent::Stopped(_),
+                event: DebugEvent::HitBreakpoint(_),
                 ..
             })
         ));
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn does_not_return_a_receipt_when_writing_fails() {
         let mut session = Session::new(FailingTransport);
-        assert!(session.send(DebugCommand::Continue).is_err());
+        assert!(session.send(DebugCommand::Run).is_err());
     }
     #[test]
     fn rejects_module_updates_that_exceed_the_transport_limit() {
@@ -244,7 +244,9 @@ mod tests {
         };
         let mut session = Session::new(transport);
         let error = session
-            .send(DebugCommand::UpdateModule(vec![0; 65_533]))
+            .send(DebugCommand::UpdateModule(crate::schema::ModuleUpdate {
+                wasm: vec![0; 65_533],
+            }))
             .unwrap_err();
         assert!(matches!(error, DebugError::FrameTooLarge { .. }));
     }
