@@ -5,10 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use debug::{
-    CommandKind, DebugCommand, DebugEvent, DebugSession, OperationResult, ProgramCounter,
-    ReceivedFrame, Result, SentFrame, Snapshot, StopReason, Stopped, VmState,
-};
+use debug::{DebugCommand, DebugEvent, DebugSession, ReceivedFrame, Result, SentFrame, schema};
 use serde_json::{Value, json};
 use warduino_dap::{Adapter, AdapterOutput, read_message, source::ProgramImage, write_message};
 
@@ -115,15 +112,17 @@ fn acknowledged_adapter() -> (FakeAdapter, Rc<RefCell<FakeState>>, Vec<u32>) {
         .is_empty()
     );
     assert!(
-        matches!(state.borrow().commands.as_slice(), [DebugCommand::UpdateModule(bytes)] if !bytes.is_empty())
+        matches!(state.borrow().commands.as_slice(), [DebugCommand::UpdateModule(bytes)] if !bytes.wasm.is_empty())
     );
     state
         .borrow_mut()
         .events
-        .push_back(Ok(Some(DebugEvent::OperationResult(OperationResult {
-            command: CommandKind::UpdateModule,
-            success: true,
-        }))));
+        .push_back(Ok(Some(DebugEvent::OperationResult(
+            schema::OperationResult {
+                command: schema::Command::UpdateModule as i32,
+                success: true,
+            },
+        ))));
     let initialized = framed_values(adapter.pump_events());
     assert_eq!(initialized[0]["event"], "initialized");
     let configured = dispatch(&mut adapter, request(3, "configurationDone", json!({})));
@@ -142,27 +141,41 @@ fn acknowledged_adapter() -> (FakeAdapter, Rc<RefCell<FakeState>>, Vec<u32>) {
 }
 
 fn stop_at(adapter: &mut FakeAdapter, state: &Rc<RefCell<FakeState>>, pc: u32) -> Vec<Value> {
-    stop_at_reason(adapter, state, pc, StopReason::Step)
+    stop_at_event(adapter, state, pc, DebugEvent::Stepped)
 }
 
-fn stop_at_reason(
+fn stop_at_event(
     adapter: &mut FakeAdapter,
     state: &Rc<RefCell<FakeState>>,
     pc: u32,
-    reason: StopReason,
+    event: DebugEvent,
 ) -> Vec<Value> {
     state.borrow_mut().events.extend([
-        Ok(Some(DebugEvent::Stopped(Stopped {
-            reason,
-            location: None,
-        }))),
-        Ok(Some(DebugEvent::Snapshot(Snapshot {
-            program_counter: ProgramCounter(pc),
-            state: VmState::Paused,
-            breakpoints: Vec::new(),
+        Ok(Some(event)),
+        Ok(Some(DebugEvent::Snapshot(schema::Snapshot {
+            program_counter: pc,
+            state: schema::State::WarduinoPause as i32,
+            ..Default::default()
         }))),
     ]);
     framed_values(adapter.pump_events())
+}
+
+#[test]
+fn requests_a_pc_snapshot_after_every_stop_notification() {
+    for event in [
+        DebugEvent::Paused,
+        DebugEvent::Stepped,
+        DebugEvent::HitBreakpoint(schema::CodeLocation::default()),
+    ] {
+        let (mut adapter, state, pcs) = acknowledged_adapter();
+        let output = stop_at_event(&mut adapter, &state, pcs[0], event);
+        assert_eq!(output[0]["event"], "stopped");
+        assert!(matches!(
+            state.borrow().commands.last(),
+            Some(DebugCommand::Snapshot(include)) if include.fields == [schema::SnapshotSection::Pc as u8]
+        ));
+    }
 }
 
 #[test]
@@ -210,8 +223,21 @@ fn source_steps_hide_intermediate_vm_stops_and_instruction_steps_send_once() {
         request(4, "next", json!({"threadId": 1, "granularity": "line"})),
     );
     assert_eq!(next[0]["success"], true);
-    assert!(stop_at_reason(&mut adapter, &state, pcs[0], StopReason::Breakpoint).is_empty());
-    let final_stop = stop_at_reason(&mut adapter, &state, pcs[1], StopReason::Breakpoint);
+    assert!(
+        stop_at_event(
+            &mut adapter,
+            &state,
+            pcs[0],
+            DebugEvent::HitBreakpoint(schema::CodeLocation::default())
+        )
+        .is_empty()
+    );
+    let final_stop = stop_at_event(
+        &mut adapter,
+        &state,
+        pcs[1],
+        DebugEvent::HitBreakpoint(schema::CodeLocation::default()),
+    );
     assert_eq!(final_stop.len(), 1);
     assert_eq!(final_stop[0]["event"], "stopped");
     assert_eq!(final_stop[0]["body"]["reason"], "step");

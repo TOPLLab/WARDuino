@@ -6,10 +6,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, Clear, Paragraph, Row, Table, Wrap},
 };
 
-use crate::app::{
-    App, DetailStyle, EntryPayload, EntryType, Focus, SessionEntry,
-    details_for,
-};
+use crate::app::{App, DetailStyle, EntryPayload, EntryType, Focus, SessionEntry, details_for};
 use crate::messages::{COMMANDS, Direction};
 
 #[path = "completion.rs"]
