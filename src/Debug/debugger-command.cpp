@@ -32,7 +32,6 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
             pause_runtime(m);
             if (snapshotPolicy == SnapshotPolicy::checkpointing)
                 checkpoint(m, true);
-            send_notification(debug_NotificationType_NOTIFICATION_PAUSED);
             break;
         case debug_Command_COMMAND_STEP:
             if (!require_empty()) break;
