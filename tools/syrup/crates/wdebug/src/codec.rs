@@ -1,19 +1,9 @@
 use prost::Message;
 
 use crate::{
-    CodeLocation, CommandKind, DebugCommand, DebugError, DebugEvent, ModuleIndex, OperationResult,
-    ProgramCounter, Result, Snapshot, StopReason, Stopped, VmState, wire,
+    DebugCommand, DebugError, DebugEvent, Result,
+    schema::{Command, NotificationType},
 };
-
-const CONTINUED: u8 = 0;
-const HALTED: u8 = 1;
-const PAUSED: u8 = 2;
-const STEPPED: u8 = 3;
-const HIT_BREAKPOINT: u8 = 4;
-const SNAPSHOT: u8 = 8;
-const MALFORMED: u8 = 12;
-const UNKNOWN_COMMAND: u8 = 13;
-const OPERATION_RESULT: u8 = 14;
 
 pub(super) struct EncodedMessage {
     pub message_type: u8,
@@ -22,131 +12,116 @@ pub(super) struct EncodedMessage {
 
 pub(super) fn encode_command(command: DebugCommand) -> Result<EncodedMessage> {
     match command {
-        DebugCommand::Continue => empty(0),
-        DebugCommand::Halt => empty(1),
-        DebugCommand::Pause => empty(2),
-        DebugCommand::Step => empty(3),
-        DebugCommand::StepOver => empty(4),
-        DebugCommand::ContinueFor(count) => {
-            if count == 0 {
-                return Err(DebugError::InvalidPayload {
-                    message_type: 22,
-                    reason: "count must not be zero",
-                });
-            }
-            encode(22, wire::ContinueFor { count })
-        }
-        DebugCommand::AddBreakpoint(location) => encode_breakpoint(5, location),
-        DebugCommand::RemoveBreakpoint(location) => encode_breakpoint(6, location),
-        DebugCommand::RequestSnapshot => empty(9),
-        DebugCommand::Inspect(state) => encode(23, wire::Inspect { state }),
-        DebugCommand::Reset => empty(24),
-        DebugCommand::UpdateModule(wasm) => {
-            if wasm.is_empty() {
-                return Err(DebugError::InvalidPayload {
-                    message_type: 26,
-                    reason: "module update must not be empty",
-                });
-            }
-            encode(26, wire::ModuleUpdate { wasm })
-        }
+        DebugCommand::Run => empty(Command::Run),
+        DebugCommand::Halt => empty(Command::Halt),
+        DebugCommand::Pause => empty(Command::Pause),
+        DebugCommand::Step => empty(Command::Step),
+        DebugCommand::StepOver => empty(Command::StepOver),
+        DebugCommand::AddBreakpoint(message) => encode(Command::AddBreakpoint, message),
+        DebugCommand::RemoveBreakpoint(message) => encode(Command::RemoveBreakpoint, message),
+        DebugCommand::ClearBreakpoints => empty(Command::ClearBreakpoints),
+        DebugCommand::HeapUsage => empty(Command::HeapUsage),
+        DebugCommand::Snapshot(message) => encode(Command::Snapshot, message),
+        DebugCommand::UpdateFunction(message) => encode(Command::UpdateFunction, message),
+        DebugCommand::UpdateLocal(message) => encode(Command::UpdateLocal, message),
+        DebugCommand::UpdateCallbacks(message) => encode(Command::UpdateCallbacks, message),
+        DebugCommand::UpdateModule(message) => encode(Command::UpdateModule, message),
+        DebugCommand::UpdateGlobal(message) => encode(Command::UpdateGlobal, message),
+        DebugCommand::UpdateStack(message) => encode(Command::UpdateStack, message),
+        DebugCommand::LoadSnapshot(message) => encode(Command::LoadSnapshot, message),
+        DebugCommand::Proxify => empty(Command::Proxify),
+        DebugCommand::AddProxy(message) => encode(Command::AddProxy, message),
+        DebugCommand::RemoveProxy(message) => encode(Command::RemoveProxy, message),
+        DebugCommand::ProxyCall(message) => encode(Command::ProxyCall, message),
+        DebugCommand::PopEvent => empty(Command::PopEvent),
+        DebugCommand::PushEvent(message) => encode(Command::PushEvent, message),
+        DebugCommand::ContinueFor(message) => encode(Command::ContinueFor, message),
+        DebugCommand::Reset => empty(Command::Reset),
+        DebugCommand::Invoke(message) => encode(Command::Invoke, message),
+        DebugCommand::SetSnapshotPolicy(message) => encode(Command::SetSnapshotPolicy, message),
+        DebugCommand::SetOverride(message) => encode(Command::SetOverride, message),
+        DebugCommand::RemoveOverride(message) => encode(Command::RemoveOverride, message),
     }
 }
 
 pub(super) fn decode_event(message_type: u8, payload: &[u8]) -> Result<DebugEvent> {
     match message_type {
-        CONTINUED => {
-            require_empty(message_type, payload)?;
+        value if value == notification_type(NotificationType::NotificationContinued) => {
+            require_empty(value, payload)?;
             Ok(DebugEvent::Continued)
         }
-        HALTED => {
-            require_empty(message_type, payload)?;
+        value if value == notification_type(NotificationType::NotificationHalted) => {
+            require_empty(value, payload)?;
             Ok(DebugEvent::Halted)
         }
-        PAUSED => stopped(message_type, payload, StopReason::Pause, None),
-        STEPPED => stopped(message_type, payload, StopReason::Step, None),
-        HIT_BREAKPOINT => {
-            let hit = decode::<wire::HitBreakpoint>(message_type, payload)?;
-            let location = hit.location.ok_or(DebugError::InvalidPayload {
-                message_type,
-                reason: "breakpoint location is required",
-            })?;
-            stopped(
-                message_type,
-                payload,
-                StopReason::Breakpoint,
-                Some(location),
-            )
+        value if value == notification_type(NotificationType::NotificationPaused) => {
+            require_empty(value, payload)?;
+            Ok(DebugEvent::Paused)
         }
-        SNAPSHOT => {
-            let snapshot = decode::<wire::Snapshot>(message_type, payload)?;
-            Ok(DebugEvent::Snapshot(Snapshot {
-                program_counter: ProgramCounter(snapshot.program_counter),
-                state: vm_state(snapshot.state),
-                breakpoints: snapshot
-                    .breakpoints
-                    .into_iter()
-                    .map(ProgramCounter)
-                    .collect(),
-            }))
+        value if value == notification_type(NotificationType::NotificationStepped) => {
+            require_empty(value, payload)?;
+            Ok(DebugEvent::Stepped)
         }
-        MALFORMED => {
-            require_empty(message_type, payload)?;
+        value if value == notification_type(NotificationType::NotificationHitBreakpoint) => {
+            Ok(DebugEvent::HitBreakpoint(decode(value, payload)?))
+        }
+        value if value == notification_type(NotificationType::NotificationNewEvent) => {
+            Ok(DebugEvent::NewEvent(decode(value, payload)?))
+        }
+        value if value == notification_type(NotificationType::NotificationSnapshot) => {
+            Ok(DebugEvent::Snapshot(decode(value, payload)?))
+        }
+        value if value == notification_type(NotificationType::NotificationChangeAffected) => {
+            require_empty(value, payload)?;
+            Ok(DebugEvent::ChangeAffected)
+        }
+        value if value == notification_type(NotificationType::NotificationMalformed) => {
+            require_empty(value, payload)?;
             Ok(DebugEvent::TargetMalformedCommand)
         }
-        UNKNOWN_COMMAND => {
-            require_empty(message_type, payload)?;
+        value if value == notification_type(NotificationType::NotificationUnknownCommand) => {
+            require_empty(value, payload)?;
             Ok(DebugEvent::TargetUnknownCommand)
         }
-        OPERATION_RESULT => {
-            let result = decode::<wire::OperationResult>(message_type, payload)?;
-            Ok(DebugEvent::OperationResult(OperationResult {
-                command: command_kind(result.command),
-                success: result.success,
-            }))
+        value if value == notification_type(NotificationType::NotificationOperationResult) => {
+            Ok(DebugEvent::OperationResult(decode(value, payload)?))
         }
-        other => Err(DebugError::UnknownMessageType(other)),
+        value if value == notification_type(NotificationType::NotificationRemoteFunctionResult) => {
+            Ok(DebugEvent::RemoteFunctionResult(decode(value, payload)?))
+        }
+        value if value == notification_type(NotificationType::NotificationCheckpoint) => {
+            Ok(DebugEvent::Checkpoint(decode(value, payload)?))
+        }
+        value if value == notification_type(NotificationType::NotificationHeapUsage) => {
+            Ok(DebugEvent::HeapUsage(decode(value, payload)?))
+        }
+        value => Err(DebugError::UnknownMessageType(value)),
     }
 }
 
-fn empty(message_type: u8) -> Result<EncodedMessage> {
+fn command_type(command: Command) -> u8 {
+    u8::try_from(command as i32).expect("debug.proto command discriminators must fit in a byte")
+}
+
+fn notification_type(notification: NotificationType) -> u8 {
+    u8::try_from(notification as i32)
+        .expect("debug.proto notification discriminators must fit in a byte")
+}
+
+fn empty(command: Command) -> Result<EncodedMessage> {
     Ok(EncodedMessage {
-        message_type,
+        message_type: command_type(command),
         payload: Vec::new(),
     })
 }
 
-fn encode_breakpoint(message_type: u8, location: CodeLocation) -> Result<EncodedMessage> {
-    encode(
-        message_type,
-        wire::Breakpoint {
-            location: Some(to_wire_location(location)),
-        },
-    )
-}
-
-fn encode(message_type: u8, message: impl Message) -> Result<EncodedMessage> {
+fn encode(command: Command, message: impl Message) -> Result<EncodedMessage> {
     let mut payload = Vec::with_capacity(message.encoded_len());
     message.encode(&mut payload).map_err(DebugError::Encode)?;
     Ok(EncodedMessage {
-        message_type,
+        message_type: command_type(command),
         payload,
     })
-}
-
-fn stopped(
-    message_type: u8,
-    payload: &[u8],
-    reason: StopReason,
-    location: Option<wire::CodeLocation>,
-) -> Result<DebugEvent> {
-    if location.is_none() {
-        require_empty(message_type, payload)?;
-    }
-    Ok(DebugEvent::Stopped(Stopped {
-        reason,
-        location: location.map(from_wire_location),
-    }))
 }
 
 fn decode<T: Message + Default>(message_type: u8, payload: &[u8]) -> Result<T> {
@@ -167,114 +142,149 @@ fn require_empty(message_type: u8, payload: &[u8]) -> Result<()> {
     }
 }
 
-fn to_wire_location(location: CodeLocation) -> wire::CodeLocation {
-    wire::CodeLocation {
-        module_index: location.module.0,
-        program_counter: location.program_counter.0,
-    }
-}
-
-fn from_wire_location(location: wire::CodeLocation) -> CodeLocation {
-    CodeLocation {
-        module: ModuleIndex(location.module_index),
-        program_counter: ProgramCounter(location.program_counter),
-    }
-}
-
-fn vm_state(value: i32) -> VmState {
-    match value {
-        0 => VmState::Running,
-        1 => VmState::Paused,
-        2 => VmState::Stepping,
-        3 => VmState::ProxyRunning,
-        4 => VmState::ProxyHalted,
-        other => VmState::Unknown(other),
-    }
-}
-
-fn command_kind(value: i32) -> CommandKind {
-    match value {
-        0 => CommandKind::Continue,
-        1 => CommandKind::Halt,
-        2 => CommandKind::Pause,
-        3 => CommandKind::Step,
-        4 => CommandKind::StepOver,
-        5 => CommandKind::AddBreakpoint,
-        6 => CommandKind::RemoveBreakpoint,
-        9 => CommandKind::Snapshot,
-        22 => CommandKind::ContinueFor,
-        24 => CommandKind::Reset,
-        26 => CommandKind::UpdateModule,
-        other => CommandKind::Other(other),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schema;
 
     #[test]
-    fn encodes_breakpoint_command() {
-        let message = encode_command(DebugCommand::AddBreakpoint(CodeLocation {
-            module: ModuleIndex(0),
-            program_counter: ProgramCounter(23),
-        }))
-        .unwrap();
-        assert_eq!(message.message_type, 5);
-        assert_eq!(message.payload, [10, 2, 16, 23]);
+    fn encodes_every_declared_command() {
+        let cases = [
+            (DebugCommand::Run, Command::Run),
+            (DebugCommand::Halt, Command::Halt),
+            (DebugCommand::Pause, Command::Pause),
+            (DebugCommand::Step, Command::Step),
+            (DebugCommand::StepOver, Command::StepOver),
+            (
+                DebugCommand::AddBreakpoint(schema::CodeLocation::default()),
+                Command::AddBreakpoint,
+            ),
+            (
+                DebugCommand::RemoveBreakpoint(schema::CodeLocation::default()),
+                Command::RemoveBreakpoint,
+            ),
+            (DebugCommand::ClearBreakpoints, Command::ClearBreakpoints),
+            (DebugCommand::HeapUsage, Command::HeapUsage),
+            (
+                DebugCommand::Snapshot(schema::Include::default()),
+                Command::Snapshot,
+            ),
+            (
+                DebugCommand::UpdateFunction(schema::Function::default()),
+                Command::UpdateFunction,
+            ),
+            (
+                DebugCommand::UpdateLocal(schema::ValueUpdate::default()),
+                Command::UpdateLocal,
+            ),
+            (
+                DebugCommand::UpdateCallbacks(schema::CallbackMapping::default()),
+                Command::UpdateCallbacks,
+            ),
+            (
+                DebugCommand::UpdateModule(schema::ModuleUpdate::default()),
+                Command::UpdateModule,
+            ),
+            (
+                DebugCommand::UpdateGlobal(schema::ValueUpdate::default()),
+                Command::UpdateGlobal,
+            ),
+            (
+                DebugCommand::UpdateStack(schema::ValueUpdate::default()),
+                Command::UpdateStack,
+            ),
+            (
+                DebugCommand::LoadSnapshot(schema::Snapshot::default()),
+                Command::LoadSnapshot,
+            ),
+            (DebugCommand::Proxify, Command::Proxify),
+            (
+                DebugCommand::AddProxy(schema::FunctionRef::default()),
+                Command::AddProxy,
+            ),
+            (
+                DebugCommand::RemoveProxy(schema::FunctionRef::default()),
+                Command::RemoveProxy,
+            ),
+            (
+                DebugCommand::ProxyCall(schema::RemoteFunctionCall::default()),
+                Command::ProxyCall,
+            ),
+            (DebugCommand::PopEvent, Command::PopEvent),
+            (
+                DebugCommand::PushEvent(schema::Event::default()),
+                Command::PushEvent,
+            ),
+            (
+                DebugCommand::ContinueFor(schema::ContinueFor::default()),
+                Command::ContinueFor,
+            ),
+            (DebugCommand::Reset, Command::Reset),
+            (
+                DebugCommand::Invoke(schema::RemoteFunctionCall::default()),
+                Command::Invoke,
+            ),
+            (
+                DebugCommand::SetSnapshotPolicy(schema::SnapshotPolicyConfig::default()),
+                Command::SetSnapshotPolicy,
+            ),
+            (
+                DebugCommand::SetOverride(schema::Override::default()),
+                Command::SetOverride,
+            ),
+            (
+                DebugCommand::RemoveOverride(schema::Override::default()),
+                Command::RemoveOverride,
+            ),
+        ];
+
+        for (command, discriminator) in cases {
+            assert_eq!(
+                encode_command(command).unwrap().message_type,
+                command_type(discriminator)
+            );
+        }
     }
 
     #[test]
-    fn decodes_breakpoint_stop() {
-        let event = decode_event(HIT_BREAKPOINT, &[10, 2, 16, 23]).unwrap();
+    fn snapshot_include_preserves_empty_and_selected_forms() {
+        assert!(
+            encode_command(DebugCommand::Snapshot(schema::Include::default()))
+                .unwrap()
+                .payload
+                .is_empty()
+        );
         assert_eq!(
-            event,
-            DebugEvent::Stopped(Stopped {
-                reason: StopReason::Breakpoint,
-                location: Some(CodeLocation {
-                    module: ModuleIndex(0),
-                    program_counter: ProgramCounter(23)
-                }),
-            })
+            encode_command(DebugCommand::Snapshot(schema::Include { fields: vec![1] }))
+                .unwrap()
+                .payload,
+            [0x0a, 0x01, 0x01]
         );
     }
 
     #[test]
-    fn encodes_each_command_type() {
-        let location = CodeLocation {
-            module: ModuleIndex(1),
-            program_counter: ProgramCounter(2),
-        };
-        let cases = [
-            (DebugCommand::Continue, 0),
-            (DebugCommand::Halt, 1),
-            (DebugCommand::Pause, 2),
-            (DebugCommand::Step, 3),
-            (DebugCommand::StepOver, 4),
-            (DebugCommand::AddBreakpoint(location), 5),
-            (DebugCommand::RemoveBreakpoint(location), 6),
-            (DebugCommand::RequestSnapshot, 9),
-            (DebugCommand::Inspect(Vec::new()), 23),
-            (DebugCommand::Reset, 24),
-            (DebugCommand::UpdateModule(vec![0]), 26),
-            (DebugCommand::ContinueFor(1), 22),
-        ];
-        for (command, message_type) in cases {
-            assert_eq!(encode_command(command).unwrap().message_type, message_type);
+    fn decodes_every_declared_notification() {
+        for notification in [
+            NotificationType::NotificationContinued,
+            NotificationType::NotificationHalted,
+            NotificationType::NotificationPaused,
+            NotificationType::NotificationStepped,
+            NotificationType::NotificationChangeAffected,
+            NotificationType::NotificationMalformed,
+            NotificationType::NotificationUnknownCommand,
+        ] {
+            decode_event(notification_type(notification), &[]).unwrap();
         }
-    }
-    #[test]
-    fn encodes_module_update_and_rejects_empty_payload() {
-        let message =
-            encode_command(DebugCommand::UpdateModule(vec![0, 0x61, 0x73, 0x6d])).unwrap();
-        assert_eq!(message.message_type, 26);
-        assert_eq!(message.payload, [10, 4, 0, 0x61, 0x73, 0x6d]);
-        assert!(matches!(
-            encode_command(DebugCommand::UpdateModule(Vec::new())),
-            Err(DebugError::InvalidPayload {
-                message_type: 26,
-                ..
-            })
-        ));
+        for notification in [
+            NotificationType::NotificationHitBreakpoint,
+            NotificationType::NotificationNewEvent,
+            NotificationType::NotificationSnapshot,
+            NotificationType::NotificationOperationResult,
+            NotificationType::NotificationRemoteFunctionResult,
+            NotificationType::NotificationCheckpoint,
+            NotificationType::NotificationHeapUsage,
+        ] {
+            decode_event(notification_type(notification), &[]).unwrap();
+        }
     }
 }
