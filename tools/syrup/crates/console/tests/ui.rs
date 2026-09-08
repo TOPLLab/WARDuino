@@ -1,13 +1,16 @@
 #[path = "../src/app.rs"]
 mod app;
+#[path = "../src/messages.rs"]
+mod messages;
 #[path = "../src/ui.rs"]
 mod ui;
 
 use app::{
-    App, Direction, EntryPayload, EntryType, Focus, NamedValue, SessionEntry, StackFrame,
-    StopContext, details_for,
+    App, EntryPayload, EntryType, Focus, NamedValue, SessionEntry, StackFrame, StopContext,
+    details_for,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use messages::{CommandIntent, Direction};
 use ratatui::{Terminal, backend::TestBackend};
 use serde_json::json;
 
@@ -112,7 +115,7 @@ fn tab_accepts_the_selected_completion_before_enter_submits() {
     assert_eq!(app.cursor, 8);
     assert_eq!(
         app.handle_key(key(KeyCode::Enter), 4),
-        Some(app::CommandIntent::Next)
+        Some(CommandIntent::Next)
     );
     assert!(app.prompt.is_empty());
 }
@@ -144,6 +147,24 @@ fn completion_candidates_render_horizontally() {
 }
 #[test]
 fn details_are_owned_by_each_entry() {
+    let vm_frame = entry(
+        8,
+        "continue",
+        EntryPayload::VmFrame {
+            direction: Direction::Outgoing,
+            bytes: vec![0, 0],
+            fields: json!({}),
+        },
+    );
+    let details = details_for(&vm_frame);
+    let wire = details
+        .sections
+        .iter()
+        .find(|section| section.title == "Wire")
+        .unwrap();
+    assert_eq!(wire.rows[0].value, "→ outgoing");
+    assert_eq!(wire.rows[1].label, "size");
+    assert_eq!(wire.rows[1].value, "2 bytes");
     let request = entry(
         9,
         "pause",
@@ -192,4 +213,40 @@ fn details_render_responsively() {
         assert!(output.contains("stopped"));
     }
     assert!(render(&app, 49, 13).contains("Terminal too small"));
+}
+
+#[test]
+fn session_arrows_follow_message_direction() {
+    let mut app = App::live("localhost:8100".into());
+    let mut outgoing = entry(
+        1,
+        "continue",
+        EntryPayload::VmFrame {
+            direction: Direction::Outgoing,
+            bytes: vec![0, 0],
+            fields: json!({}),
+        },
+    );
+    outgoing.direction = Direction::Outgoing;
+    outgoing.entry_type = EntryType::VmCommand;
+    app.append(outgoing);
+    app.append(entry(
+        2,
+        "stopped",
+        EntryPayload::DapEvent {
+            body: json!({"reason": "pause"}),
+        },
+    ));
+
+    let output = render(&app, 72, 24);
+    assert!(
+        output
+            .lines()
+            .any(|line| line.contains("continue") && line.contains("→"))
+    );
+    assert!(
+        output
+            .lines()
+            .any(|line| line.contains("stopped") && line.contains("←"))
+    );
 }

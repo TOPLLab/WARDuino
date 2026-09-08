@@ -6,8 +6,8 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, Clear, Paragraph, Row, Table, Wrap},
 };
 
-use crate::app::{App, DetailStyle, EntryPayload, EntryType, Focus, SessionEntry, details_for};
-use crate::messages::{COMMANDS, Direction};
+use crate::app::{App, DetailStyle, EntryPayload, Focus, SessionEntry, details_for};
+use crate::messages::COMMANDS;
 
 #[path = "completion.rs"]
 mod completion;
@@ -265,15 +265,8 @@ fn session_cells(entry: &SessionEntry, width: u16, show_sequence: bool) -> Vec<C
         );
     }
     cells.push(
-        Cell::from(
-            Line::from(if entry.entry_type == EntryType::DBGCommand {
-                Direction::Incoming.symbol()
-            } else {
-                entry.direction.symbol()
-            })
-            .alignment(Alignment::Center),
-        )
-        .style(Style::default().fg(ACCENT)),
+        Cell::from(Line::from(entry.direction.symbol()).alignment(Alignment::Center))
+            .style(Style::default().fg(ACCENT)),
     );
     cells.push(Cell::from(trim_text(
         &entry.event,

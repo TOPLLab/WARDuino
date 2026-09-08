@@ -34,8 +34,8 @@ pub enum EntryType {
     DapRequest,
     DapResponse,
     DapEvent,
-    DBGCommand,
-    VmEvent,
+    VmCommand,
+    VmNotification,
 }
 
 impl EntryType {
@@ -44,8 +44,8 @@ impl EntryType {
             Self::DapRequest => "DAP request",
             Self::DapResponse => "DAP response",
             Self::DapEvent => "DAP event",
-            Self::DBGCommand => "WARDuino msg",
-            Self::VmEvent => "VM event",
+            Self::VmCommand => "VM command",
+            Self::VmNotification => "VM notification",
         }
     }
 }
@@ -216,7 +216,12 @@ pub fn details_for(entry: &SessionEntry) -> EntryDetails {
                 rows: vec![
                     DetailRow {
                         label: "direction".into(),
-                        value: direction.symbol().into(),
+                        value: direction.label().into(),
+                        style: DetailStyle::Muted,
+                    },
+                    DetailRow {
+                        label: "size".into(),
+                        value: format!("{} bytes", bytes.len()),
                         style: DetailStyle::Muted,
                     },
                     DetailRow {
@@ -390,7 +395,7 @@ impl App {
                 1042,
                 Direction::Outgoing,
                 "continue",
-                EntryType::DBGCommand,
+                EntryType::VmCommand,
                 EntryPayload::VmFrame {
                     direction: Direction::Outgoing,
                     bytes: vec![0, 0],
@@ -401,7 +406,7 @@ impl App {
                 1043,
                 Direction::Incoming,
                 "continued",
-                EntryType::VmEvent,
+                EntryType::VmNotification,
                 EntryPayload::DapEvent {
                     body: serde_json::json!({"state":"running"}),
                 },

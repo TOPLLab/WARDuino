@@ -14,8 +14,8 @@ impl Direction {
 
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Outgoing => "→ Outgoing",
-            Self::Incoming => "← Incoming",
+            Self::Outgoing => "→ outgoing",
+            Self::Incoming => "← incoming",
         }
     }
 }
