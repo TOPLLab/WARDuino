@@ -40,6 +40,7 @@ void Debugger::stop() {
 void Debugger::pause_runtime(const Module *m) {
     m->warduino->program_state = debug_State_STATE_WARDUINO_PAUSE;
     this->mark = nullptr;
+    this->send_notification(debug_NotificationType_NOTIFICATION_PAUSED);
 }
 
 void Debugger::notify_pushed_event() const {
@@ -231,7 +232,6 @@ bool Debugger::handle_continue_for(Module *m) {
         if (snapshotPolicy == SnapshotPolicy::checkpointing) {
             checkpoint(m);
         }
-        this->send_notification(debug_NotificationType_NOTIFICATION_PAUSED);
         pause_runtime(m);
         return true;
     }

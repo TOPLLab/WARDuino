@@ -53,12 +53,7 @@ typedef enum _debug_NotificationType {
     debug_NotificationType_NOTIFICATION_STEPPED = 3, /* no payload */
     debug_NotificationType_NOTIFICATION_HIT_BREAKPOINT = 4, /* CodeLocation */
     debug_NotificationType_NOTIFICATION_NEW_EVENT = 5, /* Event */
-    debug_NotificationType_NOTIFICATION_FUNCTION_DUMP = 6, /* Function */
-    debug_NotificationType_NOTIFICATION_LOCALS_DUMP = 7, /* Locals */
     debug_NotificationType_NOTIFICATION_SNAPSHOT = 8, /* Snapshot */
-    debug_NotificationType_NOTIFICATION_EVENTS_DUMP = 9, /* EventsQueue */
-    debug_NotificationType_NOTIFICATION_CALLBACKS_DUMP = 10, /* CallbackMapping */
-    debug_NotificationType_NOTIFICATION_CHANGE_AFFECTED = 11, /* no payload */
     debug_NotificationType_NOTIFICATION_MALFORMED = 12, /* no payload */
     debug_NotificationType_NOTIFICATION_UNKNOWN_COMMAND = 13, /* no payload */
     debug_NotificationType_NOTIFICATION_OPERATION_RESULT = 14, /* OperationResult */
@@ -276,7 +271,7 @@ typedef struct _debug_Snapshot {
 typedef struct _debug_Checkpoint {
     uint32_t instruction_count;
     bool has_primitive_call;
-    uint32_t primitive_function_index;
+    uint32_t primitive_function_index; /* previously: fidx_called */
     pb_callback_t arguments;
     pb_callback_t results;
     bool has_snapshot;

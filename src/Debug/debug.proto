@@ -68,12 +68,7 @@ enum NotificationType {
   NOTIFICATION_HIT_BREAKPOINT = 4;           // CodeLocation
   NOTIFICATION_NEW_EVENT = 5;                // Event
 
-  NOTIFICATION_FUNCTION_DUMP = 6;            // Function
-  NOTIFICATION_LOCALS_DUMP = 7;              // Locals
   NOTIFICATION_SNAPSHOT = 8;                 // Snapshot
-  NOTIFICATION_EVENTS_DUMP = 9;              // EventsQueue
-  NOTIFICATION_CALLBACKS_DUMP = 10;          // CallbackMapping
-  NOTIFICATION_CHANGE_AFFECTED = 11;         // no payload
 
   NOTIFICATION_MALFORMED = 12;               // no payload
   NOTIFICATION_UNKNOWN_COMMAND = 13;         // no payload
