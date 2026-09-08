@@ -209,9 +209,9 @@ impl Session {
                             direction,
                             message["body"]["command"].as_str().unwrap_or("unknown"),
                             if direction == Direction::Incoming {
-                                EntryType::VmEvent
+                                EntryType::VmNotification
                             } else {
-                                EntryType::DBGCommand
+                                EntryType::VmCommand
                             },
                             EntryPayload::VmFrame {
                                 direction,
