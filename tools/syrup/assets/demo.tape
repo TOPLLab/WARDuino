@@ -9,11 +9,11 @@ Set BorderRadius 20
 Set Framerate 60
 Set Theme "Catppuccin Mocha"
 
-Type@50ms  "syrup --device localhost:8192"
+Type@50ms  "syrup --device localhost:8192 --program assets/fac.wat"
 Sleep 50ms
 Enter
 
-Sleep 1s
+Sleep 1500ms
 
 Type@300ms "Ste"
 Tab@800ms 2

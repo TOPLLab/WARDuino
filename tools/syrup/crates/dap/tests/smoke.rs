@@ -179,6 +179,38 @@ fn requests_a_pc_snapshot_after_every_stop_notification() {
 }
 
 #[test]
+fn coalesces_paused_notification_emitted_by_its_snapshot_request() {
+    let (mut adapter, state, pcs) = acknowledged_adapter();
+    state.borrow_mut().events.extend([
+        Ok(Some(DebugEvent::Paused)),
+        Ok(Some(DebugEvent::Paused)),
+        Ok(Some(DebugEvent::Snapshot(schema::Snapshot {
+            program_counter: pcs[0],
+            state: schema::State::WarduinoPause as i32,
+            ..Default::default()
+        }))),
+    ]);
+
+    let output = framed_values(adapter.pump_events());
+    assert_eq!(
+        output
+            .iter()
+            .filter(|message| message["event"] == "stopped")
+            .count(),
+        1
+    );
+    assert_eq!(
+        state
+            .borrow()
+            .commands
+            .iter()
+            .filter(|command| matches!(command, DebugCommand::Snapshot(_)))
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn acknowledged_attach_exposes_one_mapped_frame_and_immutable_source() {
     let (mut adapter, state, pcs) = acknowledged_adapter();
     assert_eq!(stop_at(&mut adapter, &state, pcs[0])[0]["event"], "stopped");

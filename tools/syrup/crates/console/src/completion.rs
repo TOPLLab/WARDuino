@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::app::App;
 
-use super::{ACCENT, MUTED, TEXT};
+use super::{ACCENT, MUTED};
 
 const GAP: usize = 3;
 const ELLIPSIS: &str = "...";
@@ -42,13 +42,11 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
             }
             VisibleItem::Completion(index) | VisibleItem::TruncatedCompletion(index, _) => {
                 let active = index == app.completion_index;
-                let style = Style::default()
-                    .fg(if active { ACCENT } else { TEXT })
-                    .add_modifier(if active {
-                        Modifier::BOLD
-                    } else {
-                        Modifier::empty()
-                    });
+                let style = if active {
+                    Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default()
+                };
                 let label = match item {
                     VisibleItem::TruncatedCompletion(_, width) => {
                         labels[index].chars().take(width).collect::<String>()
