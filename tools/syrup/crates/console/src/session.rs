@@ -8,8 +8,7 @@ use serde_json::{Value, json};
 use dap::{AdapterOutput, Request, WarduinoAdapter, warduino_adapter};
 
 use crate::app::{
-    App, EntryPayload, EntryType, NamedValue, SessionEntry, StackFrame,
-    StopContext, VmState,
+    App, EntryPayload, EntryType, NamedValue, SessionEntry, StackFrame, StopContext, VmState,
 };
 use crate::messages::{CommandIntent, Direction};
 

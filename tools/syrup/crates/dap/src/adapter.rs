@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use debug::{DebugCommand, DebugEvent, DebugSession, ReceivedFrame, StopReason, Stopped};
+use debug::{DebugCommand, DebugEvent, DebugSession, ReceivedFrame, schema};
 use serde_json::{Value, json};
 
 use crate::{
@@ -15,8 +15,20 @@ use crate::{
 
 const THREAD_ID: i64 = 1;
 const SOURCE_REFERENCE: i64 = 1;
-const INSPECT_TIMEOUT: Duration = Duration::from_secs(1);
+const SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(1);
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(5);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StopReason {
+    Pause,
+    Step,
+    Breakpoint,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TargetStop {
+    reason: StopReason,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AdapterState {
@@ -31,7 +43,7 @@ enum AdapterState {
 #[derive(Clone, Debug)]
 struct Step {
     kind: StepKind,
-    location: SourceLocation,  // current location before step
+    location: SourceLocation, // current location before step
     deadline: Instant,
 }
 
@@ -93,10 +105,10 @@ pub struct Adapter<S, C> {
     paused: bool,
     next_seq: u64,
     pending_attach: Option<Request>,
-    snapshot: Option<debug::Snapshot>,
-    pending_stop: Option<Stopped>,
+    snapshot: Option<schema::Snapshot>,
+    pending_stop: Option<TargetStop>,
     generation: i64,
-    inspect_deadline: Option<Instant>,
+    snapshot_deadline: Option<Instant>,
     upload_deadline: Option<Instant>,
     source_step: Option<Step>,
     image: Option<ProgramImage>,
@@ -117,7 +129,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             snapshot: None,
             pending_stop: None,
             generation: 0,
-            inspect_deadline: None,
+            snapshot_deadline: None,
             upload_deadline: None,
             source_step: None,
             image: None,
@@ -137,7 +149,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             "source" => self.source(request),
             "scopes" => self.scopes(request),
             "variables" => self.variables(request),
-            "continue" => self.command(request, DebugCommand::Continue, true),
+            "continue" => self.command(request, DebugCommand::Run, true),
             "pause" => self.command(request, DebugCommand::Pause, false),
             "stepIn" => self.source_step(request, StepKind::Step),
             "next" => self.source_step(request, StepKind::StepOver),
@@ -156,13 +168,13 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             return output;
         }
         if self
-            .inspect_deadline
+            .snapshot_deadline
             .is_some_and(|deadline| now >= deadline)
         {
-            self.inspect_deadline = None;
+            self.snapshot_deadline = None;
             if let Some(stopped) = self.pending_stop.take() {
                 output.messages.push(
-                    self.output_event("WARDuino inspect timed out; paused state is unavailable"),
+                    self.output_event("WARDuino snapshot timed out; paused state is unavailable"),
                 );
                 self.finish_stop(&mut output, stopped);
             }
@@ -253,7 +265,9 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             Ok(session) => session,
             Err(error) => return AdapterOutput::one(self.failure(&request, &error)),
         };
-        let upload = DebugCommand::UpdateModule(image.wasm().to_vec());
+        let upload = DebugCommand::UpdateModule(schema::ModuleUpdate {
+            wasm: image.wasm().to_vec(),
+        });
         let receipt = match session.send(upload.clone()) {
             Ok(receipt) => receipt,
             Err(error) => return AdapterOutput::one(self.failure(&request, &error.to_string())),
@@ -268,7 +282,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         self.emit_vm_frame(
             &mut output,
             receipt,
-            &DebugCommand::UpdateModule(Vec::new()),
+            &DebugCommand::UpdateModule(schema::ModuleUpdate::default()),
         );
         output
     }
@@ -322,7 +336,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 self.failure(&request, "no uploaded program image is available"),
             );
         };
-        let Some(frame) = image.frame_at(snapshot.program_counter.0) else {
+        let Some(frame) = image.frame_at(snapshot.program_counter) else {
             return AdapterOutput::one(self.failure(
                 &request,
                 "current program counter is not mapped to the uploaded WAT",
@@ -336,7 +350,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 "source": {"name": image.source_name(), "path": path, "sourceReference": SOURCE_REFERENCE},
                 "line": frame.location.line,
                 "column": frame.location.column,
-                "instructionPointerReference": format!("0x{:08x}", snapshot.program_counter.0)
+                "instructionPointerReference": format!("0x{:08x}", snapshot.program_counter)
             }],
             "totalFrames": 1
         })))
@@ -391,7 +405,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             );
         }
         AdapterOutput::one(self.success(&request, json!({"variables": [
-            {"name": "pc", "value": format!("0x{:08x}", snapshot.program_counter.0), "type": "u32", "variablesReference": 0},
+            {"name": "pc", "value": format!("0x{:08x}", snapshot.program_counter), "type": "u32", "variablesReference": 0},
             {"name": "state", "value": format!("{:?}", snapshot.state), "type": "WARDuino state", "variablesReference": 0}
         ]})))
     }
@@ -415,7 +429,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         let Some(location) = self
             .image
             .as_ref()
-            .and_then(|image| image.frame_at(snapshot.program_counter.0))
+            .and_then(|image| image.frame_at(snapshot.program_counter))
             .map(|frame| frame.location)
         else {
             return AdapterOutput::one(self.failure(
@@ -451,7 +465,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
     }
 
     /// Returns the snapshot when the adapter is paused and attached.
-    fn paused_snapshot(&self) -> Option<&debug::Snapshot> {
+    fn paused_snapshot(&self) -> Option<&schema::Snapshot> {
         (self.state == AdapterState::Attached && self.paused).then_some(())?;
         self.snapshot.as_ref()
     }
@@ -535,9 +549,9 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             && let Some(Ok(receipt)) = self
                 .session
                 .as_mut()
-                .map(|session| session.send(DebugCommand::Continue))
+                .map(|session| session.send(DebugCommand::Run))
         {
-            self.emit_vm_frame(&mut output, receipt, &DebugCommand::Continue);
+            self.emit_vm_frame(&mut output, receipt, &DebugCommand::Run);
         }
         self.session.take();
         self.state = AdapterState::Disconnected;
@@ -566,38 +580,24 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 self.paused = false;
                 self.snapshot = None;
                 self.pending_stop = None;
-                self.inspect_deadline = None;
+                self.snapshot_deadline = None;
                 output.messages.push(self.event(
                     "continued",
                     json!({"threadId": THREAD_ID, "allThreadsContinued": true}),
                 ));
             }
-            DebugEvent::Stopped(stopped) => {
-                self.paused = true;
-                self.snapshot = None;
-                self.pending_stop = Some(stopped);
-                self.inspect_deadline = Some(Instant::now() + INSPECT_TIMEOUT);
-                match self
-                    .session
-                    .as_mut()
-                    .map(|session| session.send(DebugCommand::Inspect(Vec::new())))
-                {
-                    Some(Ok(receipt)) => {
-                        self.emit_vm_frame(output, receipt, &DebugCommand::Inspect(Vec::new()))
-                    }
-                    Some(Err(error)) => self.disconnect_after_error(output, error.to_string()),
-                    None => {}
-                }
-            }
+            DebugEvent::Paused => self.begin_stop(output, StopReason::Pause),
+            DebugEvent::Stepped => self.begin_stop(output, StopReason::Step),
+            DebugEvent::HitBreakpoint(_) => self.begin_stop(output, StopReason::Breakpoint),
             DebugEvent::Snapshot(snapshot) if self.pending_stop.is_some() => {
-                self.inspect_deadline = None;
+                self.snapshot_deadline = None;
                 self.snapshot = Some(snapshot);
                 if let Some(stopped) = self.pending_stop.take() {
                     self.finish_stop(output, stopped);
                 }
             }
             DebugEvent::OperationResult(result)
-                if result.command == debug::CommandKind::UpdateModule
+                if result.command == schema::Command::UpdateModule as i32
                     && self.state == AdapterState::AwaitingModuleUpdate =>
             {
                 self.upload_deadline = None;
@@ -628,8 +628,25 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
     }
 
+    fn begin_stop(&mut self, output: &mut AdapterOutput, reason: StopReason) {
+        self.paused = true;
+        self.snapshot = None;
+        self.pending_stop = Some(TargetStop { reason });
+        self.snapshot_deadline = Some(Instant::now() + SNAPSHOT_TIMEOUT);
+        let snapshot = DebugCommand::Snapshot(dap_snapshot_include());
+        match self
+            .session
+            .as_mut()
+            .map(|session| session.send(snapshot.clone()))
+        {
+            Some(Ok(receipt)) => self.emit_vm_frame(output, receipt, &snapshot),
+            Some(Err(error)) => self.disconnect_after_error(output, error.to_string()),
+            None => {}
+        }
+    }
+
     /// Determines whether a source step should continue.
-    fn should_continue(&mut self, step: &Step, stopped: Stopped) -> bool {
+    fn should_continue(&mut self, step: &Step, stopped: TargetStop) -> bool {
         step.kind.accepts_stop(stopped.reason)
             && self
                 .mapped()
@@ -643,12 +660,12 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         self.snapshot.as_ref().and_then(|snapshot| {
             self.image
                 .as_ref()
-                .and_then(|image| image.frame_at(snapshot.program_counter.0))
+                .and_then(|image| image.frame_at(snapshot.program_counter))
         })
     }
 
     /// Completes processing of a stopped target.
-    fn finish_stop(&mut self, output: &mut AdapterOutput, mut stopped: Stopped) {
+    fn finish_stop(&mut self, output: &mut AdapterOutput, mut stopped: TargetStop) {
         let Some(step) = self.source_step.clone() else {
             self.emit_stopped(output, stopped);
             return;
@@ -696,7 +713,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
     }
 
     /// Emits a DAP stopped event.
-    fn emit_stopped(&mut self, output: &mut AdapterOutput, stopped: Stopped) {
+    fn emit_stopped(&mut self, output: &mut AdapterOutput, stopped: TargetStop) {
         self.generation += 1;
         let reason = match stopped.reason {
             StopReason::Pause => "pause",
@@ -803,43 +820,67 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
 
 fn debug_command_name(command: &DebugCommand) -> &'static str {
     match command {
-        DebugCommand::Continue => "continue",
+        DebugCommand::Run => "run",
         DebugCommand::Halt => "halt",
         DebugCommand::Pause => "pause",
         DebugCommand::Step => "step",
-        DebugCommand::StepOver => "next",
-        DebugCommand::ContinueFor(_) => "continue",
-        DebugCommand::AddBreakpoint(_) => "setBreakpoint",
+        DebugCommand::StepOver => "stepOver",
+        DebugCommand::AddBreakpoint(_) => "addBreakpoint",
         DebugCommand::RemoveBreakpoint(_) => "removeBreakpoint",
-        DebugCommand::RequestSnapshot => "snapshot",
-        DebugCommand::Inspect(_) => "inspect",
-        DebugCommand::Reset => "reset",
+        DebugCommand::ClearBreakpoints => "clearBreakpoints",
+        DebugCommand::HeapUsage => "heapUsage",
+        DebugCommand::Snapshot(_) => "snapshot",
+        DebugCommand::UpdateFunction(_) => "updateFunction",
+        DebugCommand::UpdateLocal(_) => "updateLocal",
+        DebugCommand::UpdateCallbacks(_) => "updateCallbacks",
         DebugCommand::UpdateModule(_) => "updateModule",
+        DebugCommand::UpdateGlobal(_) => "updateGlobal",
+        DebugCommand::UpdateStack(_) => "updateStack",
+        DebugCommand::LoadSnapshot(_) => "loadSnapshot",
+        DebugCommand::Proxify => "proxify",
+        DebugCommand::AddProxy(_) => "addProxy",
+        DebugCommand::RemoveProxy(_) => "removeProxy",
+        DebugCommand::ProxyCall(_) => "proxyCall",
+        DebugCommand::PopEvent => "popEvent",
+        DebugCommand::PushEvent(_) => "pushEvent",
+        DebugCommand::ContinueFor(_) => "continueFor",
+        DebugCommand::Reset => "reset",
+        DebugCommand::Invoke(_) => "invoke",
+        DebugCommand::SetSnapshotPolicy(_) => "setSnapshotPolicy",
+        DebugCommand::SetOverride(_) => "setOverride",
+        DebugCommand::RemoveOverride(_) => "removeOverride",
         _ => "unknown",
     }
 }
 
 fn debug_command_fields(command: &DebugCommand) -> Value {
     match command {
-        DebugCommand::ContinueFor(count) => json!({"count": count}),
+        DebugCommand::ContinueFor(request) => json!({"count": request.count}),
         DebugCommand::AddBreakpoint(location) | DebugCommand::RemoveBreakpoint(location) => {
-            json!({"module": location.module.0, "pc": location.program_counter.0})
+            json!({"module": location.module_index, "pc": location.program_counter})
         }
-        DebugCommand::Inspect(state) => json!({"state": state}),
-        DebugCommand::UpdateModule(wasm) => json!({"bytes": wasm.len()}),
+        DebugCommand::Snapshot(include) => json!({"fields": include.fields}),
+        DebugCommand::UpdateModule(module) => json!({"bytes": module.wasm.len()}),
         _ => json!({}),
     }
 }
 
 fn debug_event_name(event: &DebugEvent) -> &'static str {
     match event {
-        DebugEvent::Stopped(_) => "stopped",
         DebugEvent::Continued => "continued",
         DebugEvent::Halted => "halted",
+        DebugEvent::Paused => "paused",
+        DebugEvent::Stepped => "stepped",
+        DebugEvent::HitBreakpoint(_) => "hitBreakpoint",
+        DebugEvent::NewEvent(_) => "newEvent",
         DebugEvent::Snapshot(_) => "snapshot",
-        DebugEvent::OperationResult(_) => "operationResult",
+        DebugEvent::ChangeAffected => "changeAffected",
         DebugEvent::TargetMalformedCommand => "targetMalformedCommand",
         DebugEvent::TargetUnknownCommand => "targetUnknownCommand",
+        DebugEvent::OperationResult(_) => "operationResult",
+        DebugEvent::RemoteFunctionResult(_) => "remoteFunctionResult",
+        DebugEvent::Checkpoint(_) => "checkpoint",
+        DebugEvent::HeapUsage(_) => "heapUsage",
         DebugEvent::Disconnected(_) => "disconnected",
         _ => "unknown",
     }
@@ -847,16 +888,28 @@ fn debug_event_name(event: &DebugEvent) -> &'static str {
 
 fn debug_event_fields(event: &DebugEvent) -> Value {
     match event {
-        DebugEvent::Stopped(stopped) => {
-            json!({"reason": format!("{:?}", stopped.reason), "pc": stopped.location.map(|location| location.program_counter.0)})
+        DebugEvent::HitBreakpoint(location) => {
+            json!({"module": location.module_index, "pc": location.program_counter})
         }
         DebugEvent::Snapshot(snapshot) => {
-            json!({"pc": snapshot.program_counter.0, "state": format!("{:?}", snapshot.state)})
+            json!({"pc": snapshot.program_counter, "state": snapshot.state})
         }
         DebugEvent::OperationResult(result) => {
-            json!({"success": result.success, "command": format!("{:?}", result.command)})
+            json!({"success": result.success, "command": result.command})
         }
+        DebugEvent::HeapUsage(usage) => json!({"heapUsed": usage.heap_used}),
         _ => json!({}),
+    }
+}
+
+/// The DAP adapter needs only PC and state to map a stop to source. A full
+/// snapshot can exceed the 64 KiB framed transport limit for a one-page memory.
+fn dap_snapshot_include() -> schema::Include {
+    schema::Include {
+        fields: vec![
+            u8::try_from(schema::SnapshotSection::Pc as i32)
+                .expect("SnapshotSection::Pc must fit in the protocol bit vector"),
+        ],
     }
 }
 
