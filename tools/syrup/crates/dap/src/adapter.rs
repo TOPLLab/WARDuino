@@ -1,6 +1,7 @@
 //! DAP adapter translating debugger requests into WARDuino VM commands.
 
 use std::{
+    collections::VecDeque,
     path::Path,
     time::{Duration, Instant},
 };
@@ -51,6 +52,31 @@ struct Step {
 enum StepKind {
     Step,
     StepOver,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InspectionKind {
+    StackTrace,
+    Locals,
+}
+
+#[derive(Debug)]
+struct PendingInspection {
+    kind: InspectionKind,
+    requests: Vec<Request>,
+    deadline: Instant,
+}
+
+#[derive(Debug)]
+struct QueuedInspection {
+    request: Request,
+    kind: InspectionKind,
+}
+
+impl PendingInspection {
+    fn deadline(&self) -> Instant {
+        self.deadline
+    }
 }
 
 impl StepKind {
@@ -107,6 +133,8 @@ pub struct Adapter<S, C> {
     pending_attach: Option<Request>,
     snapshot: Option<schema::Snapshot>,
     pending_stop: Option<TargetStop>,
+    pending_inspection: Option<PendingInspection>,
+    queued_inspections: VecDeque<QueuedInspection>,
     generation: i64,
     snapshot_deadline: Option<Instant>,
     upload_deadline: Option<Instant>,
@@ -128,6 +156,8 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             pending_attach: None,
             snapshot: None,
             pending_stop: None,
+            pending_inspection: None,
+            queued_inspections: VecDeque::new(),
             generation: 0,
             snapshot_deadline: None,
             upload_deadline: None,
@@ -150,6 +180,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             "scopes" => self.scopes(request),
             "variables" => self.variables(request),
             "continue" => self.command(request, DebugCommand::Run, true),
+            "restart" => self.restart(request),
             "pause" => self.command(request, DebugCommand::Pause, false),
             "stepIn" => self.source_step(request, StepKind::Step),
             "next" => self.source_step(request, StepKind::StepOver),
@@ -178,6 +209,14 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 );
                 self.finish_stop(&mut output, stopped);
             }
+            return output;
+        }
+        if self
+            .pending_inspection
+            .as_ref()
+            .is_some_and(|inspection| now >= inspection.deadline())
+        {
+            self.cancel_pending_inspection(&mut output, "WARDuino inspection snapshot timed out");
             return output;
         }
         if self
@@ -227,7 +266,8 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             &request,
             json!({
                 "supportsConfigurationDoneRequest": true,
-                "supportsTerminateRequest": true
+                "supportsTerminateRequest": true,
+                "supportsRestartRequest": true
             }),
         ))
     }
@@ -321,39 +361,22 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         ))
     }
 
-    /// Returns the current mapped stack frame.
+    /// Requests the VM call stack for the current paused stop.
     fn stack_trace(&mut self, request: Request) -> AdapterOutput {
         if !has_synthetic_thread(&request.arguments) {
             return AdapterOutput::one(self.failure(&request, "unknown threadId"));
         }
-        let Some(snapshot) = self.paused_snapshot() else {
+        if self.paused_snapshot().is_none() {
             return AdapterOutput::one(
                 self.failure(&request, "stackTrace requires a ready paused session"),
             );
-        };
-        let Some(image) = self.image.as_ref() else {
+        }
+        if self.image.is_none() {
             return AdapterOutput::one(
                 self.failure(&request, "no uploaded program image is available"),
             );
-        };
-        let Some(frame) = image.frame_at(snapshot.program_counter) else {
-            return AdapterOutput::one(self.failure(
-                &request,
-                "current program counter is not mapped to the uploaded WAT",
-            ));
-        };
-        let path = self.source_path.as_deref().unwrap_or(image.source_name());
-        AdapterOutput::one(self.success(&request, json!({
-            "stackFrames": [{
-                "id": self.generation,
-                "name": frame.function,
-                "source": {"name": image.source_name(), "path": path, "sourceReference": SOURCE_REFERENCE},
-                "line": frame.location.line,
-                "column": frame.location.column,
-                "instructionPointerReference": format!("0x{:08x}", snapshot.program_counter)
-            }],
-            "totalFrames": 1
-        })))
+        }
+        self.begin_inspection(request, InspectionKind::StackTrace)
     }
 
     /// Returns the uploaded source text.
@@ -380,34 +403,189 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
     /// Returns scopes for the current frame.
     fn scopes(&mut self, request: Request) -> AdapterOutput {
         if self.paused_snapshot().is_none()
-            || request.arguments.get("frameId").and_then(Value::as_i64) != Some(self.generation)
+            || request.arguments.get("frameId").and_then(Value::as_i64)
+                != Some(self.current_frame_id())
         {
             return AdapterOutput::one(self.failure(&request, "unknown or stale frameId"));
         }
-        AdapterOutput::one(self.success(&request, json!({"scopes": [{"name": "VM", "variablesReference": self.generation, "expensive": false}]})))
+        AdapterOutput::one(self.success(&request, json!({"scopes": [{"name": "VM", "variablesReference": self.current_frame_id(), "expensive": false}]})))
     }
 
-    /// Returns variables for the current frame.
+    /// Requests the firmware locals for the current frame.
     fn variables(&mut self, request: Request) -> AdapterOutput {
-        let Some(snapshot) = self.paused_snapshot() else {
+        if self.paused_snapshot().is_none() {
             return AdapterOutput::one(
                 self.failure(&request, "variables requires a ready paused session"),
             );
-        };
+        }
         if request
             .arguments
             .get("variablesReference")
             .and_then(Value::as_i64)
-            != Some(self.generation)
+            != Some(self.current_frame_id())
         {
             return AdapterOutput::one(
                 self.failure(&request, "unknown or stale variablesReference"),
             );
         }
-        AdapterOutput::one(self.success(&request, json!({"variables": [
-            {"name": "pc", "value": format!("0x{:08x}", snapshot.program_counter), "type": "u32", "variablesReference": 0},
-            {"name": "state", "value": format!("{:?}", snapshot.state), "type": "WARDuino state", "variablesReference": 0}
-        ]})))
+        self.begin_inspection(request, InspectionKind::Locals)
+    }
+
+    /// Starts or queues a deferred VM inspection. Identical reads share a snapshot.
+    fn begin_inspection(&mut self, request: Request, kind: InspectionKind) -> AdapterOutput {
+        if let Some(pending) = self.pending_inspection.as_mut() {
+            if pending.kind == kind {
+                pending.requests.push(request);
+            } else {
+                self.queued_inspections
+                    .push_back(QueuedInspection { request, kind });
+            }
+            return AdapterOutput::default();
+        }
+        self.start_inspection(request, kind)
+    }
+
+    fn start_inspection(&mut self, request: Request, kind: InspectionKind) -> AdapterOutput {
+        let command = DebugCommand::Snapshot(snapshot_include(match kind {
+            InspectionKind::StackTrace => schema::SnapshotSection::Callstack,
+            InspectionKind::Locals => schema::SnapshotSection::Locals,
+        }));
+        let send = self
+            .session
+            .as_mut()
+            .map(|session| session.send(command.clone()));
+        match send {
+            Some(Ok(receipt)) => {
+                self.pending_inspection = Some(PendingInspection {
+                    kind,
+                    requests: vec![request],
+                    deadline: Instant::now() + SNAPSHOT_TIMEOUT,
+                });
+                let mut output = AdapterOutput::default();
+                self.emit_vm_frame(&mut output, receipt, &command);
+                output
+            }
+            Some(Err(error)) => {
+                let mut output = AdapterOutput::one(self.failure(&request, &error.to_string()));
+                self.disconnect_after_error(&mut output, error.to_string());
+                output
+            }
+            None => AdapterOutput::one(self.failure(&request, "debug session is disconnected")),
+        }
+    }
+
+    /// Completes the active inspection and starts the next queued request.
+    fn complete_inspection(&mut self, output: &mut AdapterOutput, snapshot: schema::Snapshot) {
+        let Some(inspection) = self.pending_inspection.take() else {
+            return;
+        };
+        let body = match inspection.kind {
+            InspectionKind::StackTrace => self.stack_trace_body(&snapshot),
+            InspectionKind::Locals => self.locals_body(&snapshot),
+        };
+        for request in inspection.requests {
+            match &body {
+                Ok(body) => output.messages.push(self.success(&request, body.clone())),
+                Err(error) => output.messages.push(self.failure(&request, error)),
+            }
+        }
+        self.start_next_inspection(output);
+    }
+
+    fn start_next_inspection(&mut self, output: &mut AdapterOutput) {
+        let Some(QueuedInspection { request, kind }) = self.queued_inspections.pop_front() else {
+            return;
+        };
+        let next = self.start_inspection(request, kind);
+        output.messages.extend(next.messages);
+        output.terminate |= next.terminate;
+    }
+
+    fn stack_trace_body(&self, callstack: &schema::Snapshot) -> Result<Value, String> {
+        let stop = self
+            .paused_snapshot()
+            .ok_or_else(|| "stackTrace requires a ready paused session".to_owned())?;
+        let image = self
+            .image
+            .as_ref()
+            .ok_or_else(|| "no uploaded program image is available".to_owned())?;
+        let path = self.source_path.as_deref().unwrap_or(image.source_name());
+        // Firmware snapshots contain every active WASM control block and are
+        // ordered from the oldest frame at index 0 to the current frame. DAP
+        // needs functions only, current first.
+        let function_frames: Vec<_> = callstack
+            .callstack
+            .iter()
+            .filter(|entry| entry.r#type == 0)
+            .rev()
+            .collect();
+        let mut frames = Vec::with_capacity(function_frames.len());
+        for (position, entry) in function_frames.iter().enumerate() {
+            // A function frame stores the continuation in its caller. Thus,
+            // once reversed, the preceding (callee) entry maps the caller.
+            let pc = if position == 0 {
+                stop.program_counter
+            } else {
+                function_frames[position - 1].return_address
+            };
+            let mapped = image.frame_at(pc);
+            let name = mapped
+                .as_ref()
+                .map(|frame| frame.function.clone())
+                .or_else(|| image.function_name(entry.function_index).map(str::to_owned))
+                .unwrap_or_else(|| format!("func[{}]", entry.function_index));
+            let mut frame = json!({
+                "id": self.frame_id(position),
+                "name": name,
+                "instructionPointerReference": format!("0x{:08x}", pc)
+            });
+            if let Some(mapped) = mapped {
+                frame["source"] = json!({
+                    "name": image.source_name(),
+                    "path": path,
+                    "sourceReference": SOURCE_REFERENCE
+                });
+                frame["line"] = json!(mapped.location.line);
+                frame["column"] = json!(mapped.location.column);
+            }
+            frames.push(frame);
+        }
+        Ok(json!({"stackFrames": frames, "totalFrames": frames.len()}))
+    }
+
+    fn locals_body(&self, locals: &schema::Snapshot) -> Result<Value, String> {
+        let stop = self
+            .paused_snapshot()
+            .ok_or_else(|| "variables requires a ready paused session".to_owned())?;
+        let mut variables = vec![
+            json!({
+                "name": "pc",
+                "value": format!("0x{:08x}", stop.program_counter),
+                "type": "u32",
+                "variablesReference": 0
+            }),
+            json!({
+                "name": "state",
+                "value": debug::state_label(stop.state),
+                "type": "WARDuino state",
+                "variablesReference": 0
+            }),
+        ];
+        if let Some(locals) = locals.locals.as_ref() {
+            variables.extend(locals.values.iter().map(local_variable));
+        }
+        Ok(json!({"variables": variables}))
+    }
+
+    fn cancel_pending_inspection(&mut self, output: &mut AdapterOutput, message: &str) {
+        if let Some(inspection) = self.pending_inspection.take() {
+            for request in inspection.requests {
+                output.messages.push(self.failure(&request, message));
+            }
+        }
+        while let Some(QueuedInspection { request, .. }) = self.queued_inspections.pop_front() {
+            output.messages.push(self.failure(&request, message));
+        }
     }
 
     /// Starts a source-level stepping operation.
@@ -444,6 +622,8 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             .map(|session| session.send(command.clone()));
         match send {
             Some(Ok(receipt)) => {
+                let mut output = AdapterOutput::default();
+                self.cancel_pending_inspection(&mut output, "inspection cancelled by source step");
                 self.paused = false;
                 self.snapshot = None;
                 self.source_step = Some(Step {
@@ -451,7 +631,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                     location,
                     deadline: Instant::now() + OPERATION_TIMEOUT,
                 });
-                let mut output = AdapterOutput::one(self.success(&request, json!({})));
+                output.messages.push(self.success(&request, json!({})));
                 self.emit_vm_frame(&mut output, receipt, &command);
                 output
             }
@@ -462,6 +642,15 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             }
             None => AdapterOutput::one(self.failure(&request, "debug session is disconnected")),
         }
+    }
+
+    /// Returns the unique current-frame ID for this suspended generation.
+    fn current_frame_id(&self) -> i64 {
+        self.generation << 32
+    }
+
+    fn frame_id(&self, index: usize) -> i64 {
+        self.current_frame_id() | index as i64
     }
 
     /// Returns the snapshot when the adapter is paused and attached.
@@ -489,6 +678,18 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         let send = self.session.as_mut().map(|session| session.send(command));
         match send {
             Some(Ok(receipt)) => {
+                let mut output = AdapterOutput::default();
+                if continued
+                    || matches!(
+                        trace_command,
+                        DebugCommand::Halt | DebugCommand::Step | DebugCommand::StepOver
+                    )
+                {
+                    self.cancel_pending_inspection(
+                        &mut output,
+                        "inspection cancelled by run control",
+                    );
+                }
                 if continued {
                     self.paused = false;
                     self.snapshot = None;
@@ -498,8 +699,43 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 } else {
                     json!({})
                 };
-                let mut output = AdapterOutput::one(self.success(&request, body));
+                output.messages.push(self.success(&request, body));
                 self.emit_vm_frame(&mut output, receipt, &trace_command);
+                output
+            }
+            Some(Err(error)) => {
+                let mut output = AdapterOutput::one(self.failure(&request, &error.to_string()));
+                self.disconnect_after_error(&mut output, error.to_string());
+                output
+            }
+            None => AdapterOutput::one(self.failure(&request, "debug session is disconnected")),
+        }
+    }
+
+    /// Restarts the attached VM using its empty COMMAND_RESET ABI command.
+    fn restart(&mut self, request: Request) -> AdapterOutput {
+        if self.state != AdapterState::Attached {
+            return AdapterOutput::one(
+                self.failure(&request, "restart requires an attached session"),
+            );
+        }
+        let command = DebugCommand::Reset;
+        let send = self
+            .session
+            .as_mut()
+            .map(|session| session.send(command.clone()));
+        match send {
+            Some(Ok(receipt)) => {
+                let mut output = AdapterOutput::default();
+                self.cancel_pending_inspection(&mut output, "inspection cancelled by restart");
+                self.paused = false;
+                self.snapshot = None;
+                self.pending_stop = None;
+                self.snapshot_deadline = None;
+                self.source_step = None;
+                self.generation += 1;
+                output.messages.push(self.success(&request, json!({})));
+                self.emit_vm_frame(&mut output, receipt, &command);
                 output
             }
             Some(Err(error)) => {
@@ -524,7 +760,9 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
             .map(|session| session.send(DebugCommand::Halt));
         match send {
             Some(Ok(receipt)) => {
-                let mut output = AdapterOutput::one(self.success(&request, json!({})));
+                let mut output = AdapterOutput::default();
+                self.cancel_pending_inspection(&mut output, "inspection cancelled by halt");
+                output.messages.push(self.success(&request, json!({})));
                 self.emit_vm_frame(&mut output, receipt, &DebugCommand::Halt);
                 output
             }
@@ -544,6 +782,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         }
         let pending_attach = self.pending_attach.take();
         let mut output = AdapterOutput::default();
+        self.cancel_pending_inspection(&mut output, "inspection cancelled by disconnect");
         if self.state == AdapterState::Attached
             && self.paused
             && let Some(Ok(receipt)) = self
@@ -577,6 +816,10 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
     fn translate_event(&mut self, event: DebugEvent, output: &mut AdapterOutput) {
         match event {
             DebugEvent::Continued => {
+                self.cancel_pending_inspection(
+                    output,
+                    "inspection cancelled because execution continued",
+                );
                 self.paused = false;
                 self.snapshot = None;
                 self.pending_stop = None;
@@ -586,6 +829,7 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                     json!({"threadId": THREAD_ID, "allThreadsContinued": true}),
                 ));
             }
+            DebugEvent::Paused if self.paused && self.pending_inspection.is_some() => {}
             DebugEvent::Paused => self.begin_stop(output, StopReason::Pause),
             DebugEvent::Stepped => self.begin_stop(output, StopReason::Step),
             DebugEvent::HitBreakpoint(_) => self.begin_stop(output, StopReason::Breakpoint),
@@ -595,6 +839,9 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
                 if let Some(stopped) = self.pending_stop.take() {
                     self.finish_stop(output, stopped);
                 }
+            }
+            DebugEvent::Snapshot(snapshot) if self.pending_inspection.is_some() => {
+                self.complete_inspection(output, snapshot);
             }
             DebugEvent::OperationResult(result)
                 if result.command == schema::Command::UpdateModule as i32
@@ -756,6 +1003,10 @@ impl<S: DebugSession, C: SessionConnector<S>> Adapter<S, C> {
         if self.state == AdapterState::Disconnected {
             return;
         }
+        self.cancel_pending_inspection(
+            output,
+            "inspection cancelled because the debug session ended",
+        );
         output.messages.push(self.event("terminated", json!({})));
         self.session.take();
         self.state = AdapterState::Disconnected;
@@ -902,7 +1153,7 @@ fn debug_event_fields(event: &DebugEvent) -> Value {
             json!({"module": location.module_index, "pc": location.program_counter})
         }
         DebugEvent::Snapshot(snapshot) => {
-            json!({"pc": snapshot.program_counter, "state": snapshot.state})
+            json!({"pc": snapshot.program_counter, "state": debug::state_label(snapshot.state)})
         }
         DebugEvent::OperationResult(result) => {
             json!({"success": result.success, "command": result.command})
@@ -912,15 +1163,51 @@ fn debug_event_fields(event: &DebugEvent) -> Value {
     }
 }
 
+/// Encodes a selected snapshot mask as its trimmed little-endian byte vector.
+fn snapshot_include(section: schema::SnapshotSection) -> schema::Include {
+    let mask = section as i32 as u32;
+    let bytes = mask.to_le_bytes();
+    let length = bytes
+        .iter()
+        .rposition(|byte| *byte != 0)
+        .map_or(0, |position| position + 1);
+    schema::Include {
+        fields: bytes[..length].to_vec(),
+    }
+}
+
 /// The DAP adapter needs only PC and state to map a stop to source. A full
 /// snapshot can exceed the 64 KiB framed transport limit for a one-page memory.
 fn dap_snapshot_include() -> schema::Include {
-    schema::Include {
-        fields: vec![
-            u8::try_from(schema::SnapshotSection::Pc as i32)
-                .expect("SnapshotSection::Pc must fit in the protocol bit vector"),
-        ],
-    }
+    snapshot_include(schema::SnapshotSection::Pc)
+}
+
+fn local_variable(local: &schema::Value) -> Value {
+    use schema::value::Data;
+
+    let (value, kind) = match local.data.as_ref() {
+        Some(Data::I32Bits(bits)) => ((*(bits) as i32).to_string(), "i32"),
+        Some(Data::I64Bits(bits)) => ((*(bits) as i64).to_string(), "i64"),
+        Some(Data::F32Bits(bits)) => (f32::from_bits(*bits).to_string(), "f32"),
+        Some(Data::F64Bits(bits)) => (f64::from_bits(*bits).to_string(), "f64"),
+        Some(Data::Raw(bytes)) => (
+            format!(
+                "0x{}",
+                bytes
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>()
+            ),
+            "bytes",
+        ),
+        None => ("<unset>".into(), "unknown"),
+    };
+    json!({
+        "name": format!("local[{}]", local.index),
+        "value": value,
+        "type": kind,
+        "variablesReference": 0
+    })
 }
 
 fn has_synthetic_thread(arguments: &Value) -> bool {

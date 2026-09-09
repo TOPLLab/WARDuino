@@ -140,18 +140,28 @@ impl Session {
             command: command.into(),
             arguments,
         });
-        let response = output
-            .messages
-            .iter()
-            .find(|message| message["type"] == "response" && message["request_seq"] == seq)
-            .ok_or_else(|| format!("{command}: no response"))?;
-        if response["success"] != true {
-            return Err(format!(
-                "{command}: {}",
-                response["message"].as_str().unwrap_or("request failed")
-            ));
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let mut output = output;
+        loop {
+            if let Some(response) = output
+                .messages
+                .iter()
+                .find(|message| message["type"] == "response" && message["request_seq"] == seq)
+            {
+                if response["success"] != true {
+                    return Err(format!(
+                        "{command}: {}",
+                        response["message"].as_str().unwrap_or("request failed")
+                    ));
+                }
+                return Ok(response["body"].clone());
+            }
+            if Instant::now() >= deadline {
+                return Err(format!("{command}: no response"));
+            }
+            thread::sleep(Duration::from_millis(10));
+            output = self.adapter.pump_events();
         }
-        Ok(response["body"].clone())
     }
 
     fn send(&mut self, command: &str, arguments: Value, app: &mut App) -> (u64, AdapterOutput) {

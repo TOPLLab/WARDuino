@@ -304,15 +304,43 @@ fn focus_and_inactive_selection_use_modifiers_without_backgrounds() {
     let command = render_buffer(&App::sample(), 72, 24);
     let placeholder = command.cell((4, 22)).unwrap();
     assert_eq!(placeholder.fg, Color::DarkGray);
-    assert!(
-        placeholder
-            .modifier
-            .contains(Modifier::REVERSED | Modifier::BOLD)
-    );
+    assert_eq!(placeholder.bg, Color::Reset);
+    assert!(!placeholder.modifier.contains(Modifier::REVERSED));
+    assert!(placeholder.modifier.contains(Modifier::BOLD));
 
     let inactive = render_buffer(&App::sample(), 72, 24);
     assert!(cells(&inactive).any(|cell| {
         cell.symbol() == "s" && cell.fg == Color::Reset && cell.modifier.contains(Modifier::DIM)
     }));
     assert!(cells(&inactive).all(|cell| cell.bg == Color::Reset));
+}
+
+#[test]
+fn focused_typed_command_uses_terminal_background_without_reverse_video() {
+    let mut app = App::sample();
+    app.insert('x');
+    assert!(app.completions.is_empty());
+
+    let command = render_buffer(&app, 72, 24);
+    let prompt = command.cell((2, 22)).unwrap();
+    let typed = command.cell((4, 22)).unwrap();
+
+    assert_eq!(prompt.symbol(), "›");
+    assert_eq!(prompt.fg, Color::Cyan);
+    assert_eq!(prompt.bg, Color::Reset);
+    assert!(!prompt.modifier.contains(Modifier::REVERSED));
+    assert!(prompt.modifier.contains(Modifier::BOLD));
+
+    assert_eq!(typed.symbol(), "x");
+    assert_eq!(typed.fg, Color::Reset);
+    assert_eq!(typed.bg, Color::Reset);
+    assert!(!typed.modifier.contains(Modifier::REVERSED));
+    assert!(typed.modifier.contains(Modifier::BOLD));
+
+    assert!((21..23).all(|y| {
+        (0..72).all(|x| {
+            let cell = command.cell((x, y)).unwrap();
+            cell.bg == Color::Reset && !cell.modifier.contains(Modifier::REVERSED)
+        })
+    }));
 }

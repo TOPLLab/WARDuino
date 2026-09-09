@@ -2,7 +2,7 @@
 
 use std::{fs, path::Path};
 
-use wasmparser::{Parser, Payload};
+use wasmparser::{Parser, Payload, TypeRef};
 use wast::{
     Wat,
     core::{FuncKind, ModuleField},
@@ -30,6 +30,7 @@ struct PcLocation {
 
 #[derive(Clone, Debug)]
 struct FunctionRange {
+    index: u32,
     name: String,
     start: u32,
     end: u32,
@@ -70,9 +71,29 @@ impl ProgramImage {
             return Err("WAT components are not supported by WARDuino".into());
         };
 
+        let mut imported_function_count = 0_u32;
+        for payload in Parser::new(0).parse_all(&wasm) {
+            let payload =
+                payload.map_err(|error| format!("cannot parse generated WASM: {error}"))?;
+            let Payload::ImportSection(imports) = payload else {
+                continue;
+            };
+            for import in imports {
+                let import = import
+                    .map_err(|error| format!("cannot read generated WASM import: {error}"))?;
+                for import in import {
+                    let (_offset, import) = import
+                        .map_err(|error| format!("cannot read generated WASM import: {error}"))?;
+                    if matches!(import.ty, TypeRef::Func(_) | TypeRef::FuncExact(_)) {
+                        imported_function_count += 1;
+                    }
+                }
+            }
+        }
+
         let mut source_functions = Vec::new();
         if let wast::core::ModuleKind::Text(fields) = &module.kind {
-            let mut index = 0_u32;
+            let mut index = imported_function_count;
             for field in fields {
                 let ModuleField::Func(function) = field else {
                     continue;
@@ -123,6 +144,7 @@ impl ProgramImage {
                 .unwrap_or(body.range().start as u32);
             let end = body.range().end as u32;
             functions.push(FunctionRange {
+                index: *_index,
                 name: name.clone(),
                 start,
                 end,
@@ -194,11 +216,45 @@ impl ProgramImage {
             location,
         })
     }
+
+    /// Looks up the WAT name for a VM function index when a return address has
+    /// no source location to map.
+    pub fn function_name(&self, index: u32) -> Option<&str> {
+        self.functions
+            .iter()
+            .find(|function| function.index == index)
+            .map(|function| function.name.as_str())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn function_name_fallback_uses_wat_function_indexes() {
+        let image = ProgramImage::from_wat(
+            "callstack.wat",
+            include_str!("../tests/fixtures/callstack.wat").into(),
+        )
+        .unwrap();
+        assert_eq!(image.function_name(0), Some("callee"));
+        assert_eq!(image.function_name(1), Some("caller"));
+        assert_eq!(image.function_name(2), None);
+    }
+
+    #[test]
+    fn function_name_fallback_accounts_for_imported_functions() {
+        let image = ProgramImage::from_wat(
+            "imports.wat",
+            "(module\n  (import \"env\" \"one\" (func))\n  (import \"env\" \"two\" (func))\n  (func $fac)\n  (func $main))\n".into(),
+        )
+        .unwrap();
+        assert_eq!(image.function_name(0), None);
+        assert_eq!(image.function_name(1), None);
+        assert_eq!(image.function_name(2), Some("fac"));
+        assert_eq!(image.function_name(3), Some("main"));
+    }
 
     #[test]
     fn maps_operator_offsets_to_named_wat_source_lines() {
