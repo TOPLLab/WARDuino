@@ -1,4 +1,4 @@
-#Debugger code structure
+# Debugger code structure
 
 The debugger implementation is split by responsibility:
 
@@ -13,7 +13,7 @@ The debugger implementation is split by responsibility:
 - `debugger-private.h`: shared private includes and implementation dependencies.
 - `nanopb_encoder.*`: reusable nanopb callback implementations.
 
-protobuf code:
+protobuf code (generated with nanopb-0.4.9.1):
 
 - `debug.proto`: protobuf schema for debugger commands, notifications, and state.
 - `nanopb/`: [vendored] generated protobuf bindings and the nanopb runtime.

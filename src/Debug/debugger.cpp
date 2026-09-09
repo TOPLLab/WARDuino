@@ -43,8 +43,20 @@ void Debugger::pause_runtime(const Module *m) {
     this->send_notification(debug_NotificationType_NOTIFICATION_PAUSED);
 }
 
-void Debugger::notify_pushed_event() const {
-    this->send_notification(debug_NotificationType_NOTIFICATION_NEW_EVENT);
+void Debugger::notify_pushed_event(const Event &event) const {
+    debug_Event notification = debug_Event_init_zero;
+    nanopb_encoder::ByteView topic{
+        reinterpret_cast<const uint8_t *>(event.topic.data()),
+        event.topic.size()};
+    nanopb_encoder::ByteView payload{
+        reinterpret_cast<const uint8_t *>(event.payload.data()),
+        event.payload.size()};
+    notification.topic.funcs.encode = nanopb_encoder::encode_bytes;
+    notification.topic.arg = &topic;
+    notification.payload.funcs.encode = nanopb_encoder::encode_bytes;
+    notification.payload.arg = &payload;
+    this->send_notification(debug_NotificationType_NOTIFICATION_NEW_EVENT,
+                            debug_Event_fields, &notification);
 }
 
 void Debugger::set_channel(Channel *duplex) {

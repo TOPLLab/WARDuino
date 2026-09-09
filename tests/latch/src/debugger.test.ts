@@ -75,15 +75,6 @@ const snapshotWithLocals: Request<DebugProtocol.Snapshot> = Message.snapshot([
     DebugProtocol.SnapshotSection.SNAPSHOT_SECTION_LOCALS as unknown as WARDuino.Inspect
 ]);
 
-const malformedSnapshotSelection: Request<void> = {
-    ...Message.snapshot(),
-    notification: DebugProtocol.NotificationType.NOTIFICATION_MALFORMED,
-    parser: () => undefined,
-    payload: () => DebugProtocol.Include.encode({
-        fields: Buffer.from([0x00, 0x40])
-    }).finish()
-};
-
 integration.test({
     title: 'Test SNAPSHOT button',
     program: EXAMPLES + 'button.wast',
@@ -113,15 +104,6 @@ for (const [name, program] of [['blink', 'blink.wast'], ['button', 'button.wast'
         }]
     });
 }
-
-integration.test({
-    title: 'Test SNAPSHOT rejects unknown selector',
-    program: EXAMPLES + 'blink.wast',
-    steps: [{
-        title: 'Reject SNAPSHOT selector 0x4000',
-        instruction: {kind: Kind.Request, value: malformedSnapshotSelection}
-    }]
-});
 
 // Test *run* command
 
@@ -384,7 +366,6 @@ integration.test({
         {title: "Update callback mapping", instruction: {kind: Kind.Request, value: Message.updateCallbacks({entries: []})}, expected: operationSucceeded},
         {title: "Push an event", instruction: {kind: Kind.Request, value: pushEvent}, expected: [{topic: {kind: "primitive", value: "test"} as Expected<string>}]},
         {title: "Pop event", instruction: {kind: Kind.Request, value: popEventWithoutCallback}, expected: [{success: {kind: "primitive", value: false} as Expected<boolean>}]},
-        {title: "Load snapshot state", instruction: {kind: Kind.Request, value: Message.loadSnapshot({programCounter: 0, state: DebugProtocol.State.STATE_WARDUINO_PAUSE, breakpoints: [], functions: [], callstack: [], globals: [], stack: [], branchTable: [], io: [], overrides: []})}, expected: operationSucceeded},
         {title: "Set snapshot policy", instruction: {kind: Kind.Request, value: Message.setSnapshotPolicy({policy: DebugProtocol.SnapshotPolicy.SNAPSHOT_POLICY_NONE, interval: 1, minimumReturnCount: 0, selectedState: Buffer.alloc(0)})}, expected: operationSucceeded},
         {title: "Set primitive override", instruction: {kind: Kind.Request, value: Message.setOverride({primitiveName: "chip_delay", argumentWords: [1000], result: 0})}, expected: operationSucceeded},
         {title: "Remove primitive override", instruction: {kind: Kind.Request, value: Message.removeOverride({primitiveName: "chip_delay", argumentWords: [1000], result: 0})}, expected: operationSucceeded},

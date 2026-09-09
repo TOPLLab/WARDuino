@@ -41,7 +41,7 @@ enum Command {
   COMMAND_UPDATE_GLOBAL = 27;       // ValueUpdate
   COMMAND_UPDATE_STACK = 28;        // ValueUpdate
 
-  COMMAND_LOAD_SNAPSHOT = 15;       // Snapshot
+  COMMAND_LOAD_SNAPSHOT = 15;       // Snapshot (complete snapshot only)
   COMMAND_PROXIFY = 16;             // no payload
   COMMAND_ADD_PROXY = 17;           // FunctionRef
   COMMAND_REMOVE_PROXY = 18;        // FunctionRef

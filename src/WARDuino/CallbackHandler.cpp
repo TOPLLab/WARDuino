@@ -95,7 +95,7 @@ bool CallbackHandler::resolve_event(bool force) {
 
     if (should_push_event()) {
         Event e = CallbackHandler::events->at(CallbackHandler::pushed_cursor++);
-        WARDuino::instance()->debugger->notify_pushed_event();
+        WARDuino::instance()->debugger->notify_pushed_event(e);
 
         CallbackHandler::events->pop_front();
         CallbackHandler::pushed_cursor--;
@@ -154,6 +154,12 @@ const Event *CallbackHandler::event_at(const size_t index) {
 }
 
 void CallbackHandler::clear_callbacks() { CallbackHandler::callbacks->clear(); }
+
+void CallbackHandler::clear_events() {
+    CallbackHandler::events->clear();
+    CallbackHandler::pushed_cursor = 0;
+    CallbackHandler::resolving_event = false;
+}
 
 std::string CallbackHandler::dump_callbacks() {
     std::string repr = R"({"callbacks": [)";

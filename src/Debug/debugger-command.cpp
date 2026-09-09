@@ -105,12 +105,13 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
         case debug_Command_COMMAND_UPDATE_LOCAL: {
             const auto update = update_value(message->payload);
             ExecutionContext *context = m->warduino->execution_context;
-            if (!update ||
-                context->fp + static_cast<int>(update->index) > context->sp) {
+            const ValueView locals = current_locals(context);
+            if (!update || update->index >= locals.size) {
                 malformed();
                 break;
             }
-            StackValue *value = &context->stack[context->fp + update->index];
+            StackValue *value =
+                &context->stack[context->fp + static_cast<int>(update->index)];
             if (!assign_value(update->value, value)) {
                 malformed();
                 break;
@@ -135,7 +136,8 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
         case debug_Command_COMMAND_UPDATE_STACK: {
             const auto update = update_value(message->payload);
             ExecutionContext *context = m->warduino->execution_context;
-            if (!update || update->index > static_cast<uint32_t>(context->sp)) {
+            if (!update || context->sp < 0 || update->index >= STACK_SIZE ||
+                update->index > static_cast<uint32_t>(context->sp)) {
                 malformed();
                 break;
             }
@@ -271,16 +273,11 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
             break;
         }
         case debug_Command_COMMAND_LOAD_SNAPSHOT: {
-            debug_Snapshot state = debug_Snapshot_init_zero;
-            if (!decode_payload(message->payload, debug_Snapshot_fields,
-                                &state) ||
-                !isToPhysicalAddrPossible(state.program_counter, m)) {
+            if (!load_snapshot(m, message->payload)) {
                 malformed();
                 break;
             }
             pause_runtime(m);
-            m->warduino->execution_context->pc_ptr =
-                toPhysicalAddress(state.program_counter, m);
             send_operation_result(message->type, true);
             break;
         }
@@ -384,10 +381,10 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
                 malformed();
                 break;
             }
-            CallbackHandler::push_event(
-                std::string(topic.begin(), topic.end()),
-                reinterpret_cast<const char *>(payload.data()), payload.size());
-            notify_pushed_event();
+            Event pushed_event{std::string(topic.begin(), topic.end()),
+                               std::string(payload.begin(), payload.end())};
+            CallbackHandler::push_event(&pushed_event);
+            notify_pushed_event(pushed_event);
             break;
         }
         case debug_Command_COMMAND_RESET:
