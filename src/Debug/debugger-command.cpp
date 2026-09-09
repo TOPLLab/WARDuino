@@ -25,7 +25,7 @@ bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
         case debug_Command_COMMAND_HALT:
             if (!require_empty()) break;
             send_notification(debug_NotificationType_NOTIFICATION_HALTED);
-            if (channel != nullptr) channel->close();
+            stop();
             break;
         case debug_Command_COMMAND_PAUSE:
             if (!require_empty()) break;
