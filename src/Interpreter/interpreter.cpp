@@ -235,6 +235,10 @@ bool Interpreter::interpret(Module *m, bool waiting) {
                m->warduino->debugger->check_debug_messages(
                    m, &m->warduino->program_state)) {
         }
+        if (m->warduino->debugger->channel == nullptr &&
+            m->warduino->program_state == debug_State_STATE_WARDUINO_PAUSE) {
+            return success;
+        }
         fflush(stdout);
         //        esp_task_wdt_reset();
 

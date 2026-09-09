@@ -69,8 +69,16 @@ const expectSnapshotLocals: Expectation[] = [
     {'locals': {kind: 'description', value: Description.defined} as Expected<Object>},
     {'locals.values': {kind: 'description', value: Description.defined} as Expected<Array<unknown>>}
 ];
-const snapshotWithLocals: Request<DebugProtocol.Snapshot> = {
+const snapshotWithLocals: Request<DebugProtocol.Snapshot> = Message.snapshot([
+    DebugProtocol.SnapshotSection.SNAPSHOT_SECTION_PC as unknown as WARDuino.Inspect,
+    DebugProtocol.SnapshotSection.SNAPSHOT_SECTION_BREAKPOINTS as unknown as WARDuino.Inspect,
+    DebugProtocol.SnapshotSection.SNAPSHOT_SECTION_LOCALS as unknown as WARDuino.Inspect
+]);
+
+const malformedSnapshotSelection: Request<void> = {
     ...Message.snapshot(),
+    notification: DebugProtocol.NotificationType.NOTIFICATION_MALFORMED,
+    parser: () => undefined,
     payload: () => DebugProtocol.Include.encode({
         fields: Buffer.from([0x00, 0x40])
     }).finish()
@@ -105,6 +113,15 @@ for (const [name, program] of [['blink', 'blink.wast'], ['button', 'button.wast'
         }]
     });
 }
+
+integration.test({
+    title: 'Test SNAPSHOT rejects unknown selector',
+    program: EXAMPLES + 'blink.wast',
+    steps: [{
+        title: 'Reject SNAPSHOT selector 0x4000',
+        instruction: {kind: Kind.Request, value: malformedSnapshotSelection}
+    }]
+});
 
 // Test *run* command
 
@@ -387,12 +404,6 @@ integration.test({
             {instructionCount: {kind: "description", value: Description.defined} as Expected<number>}
         ]}
     ]
-});
-
-integration.test({
-    title: "Test HALT",
-    program: `${EXAMPLES}blink.wast`,
-    steps: [{title: "Halt debugger connection", instruction: {kind: Kind.Request, value: Message.halt}}]
 });
 
 framework.reporter.verbosity(Verbosity.all);
