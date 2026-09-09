@@ -33,7 +33,40 @@ bool decode_frame_length(const std::vector<uint8_t> &bytes, size_t *headerSize,
 }
 
 bool is_known_command(const uint8_t type) {
-    return type <= static_cast<uint8_t>(debug_Command_COMMAND_REMOVE_OVERRIDE);
+    switch (static_cast<debug_Command>(type)) {
+        case debug_Command_COMMAND_RUN:
+        case debug_Command_COMMAND_HALT:
+        case debug_Command_COMMAND_PAUSE:
+        case debug_Command_COMMAND_STEP:
+        case debug_Command_COMMAND_STEP_OVER:
+        case debug_Command_COMMAND_ADD_BREAKPOINT:
+        case debug_Command_COMMAND_REMOVE_BREAKPOINT:
+        case debug_Command_COMMAND_CLEAR_BREAKPOINTS:
+        case debug_Command_COMMAND_HEAP_USAGE:
+        case debug_Command_COMMAND_SNAPSHOT:
+        case debug_Command_COMMAND_UPDATE_FUNCTION:
+        case debug_Command_COMMAND_UPDATE_LOCAL:
+        case debug_Command_COMMAND_UPDATE_CALLBACKS:
+        case debug_Command_COMMAND_LOAD_SNAPSHOT:
+        case debug_Command_COMMAND_PROXIFY:
+        case debug_Command_COMMAND_ADD_PROXY:
+        case debug_Command_COMMAND_REMOVE_PROXY:
+        case debug_Command_COMMAND_PROXY_CALL:
+        case debug_Command_COMMAND_POP_EVENT:
+        case debug_Command_COMMAND_PUSH_EVENT:
+        case debug_Command_COMMAND_CONTINUE_FOR:
+        case debug_Command_COMMAND_RESET:
+        case debug_Command_COMMAND_INVOKE:
+        case debug_Command_COMMAND_UPDATE_MODULE:
+        case debug_Command_COMMAND_UPDATE_GLOBAL:
+        case debug_Command_COMMAND_UPDATE_STACK:
+        case debug_Command_COMMAND_SET_SNAPSHOT_POLICY:
+        case debug_Command_COMMAND_SET_OVERRIDE:
+        case debug_Command_COMMAND_REMOVE_OVERRIDE:
+            return true;
+        default:
+            return false;
+    }
 }
 
 template <typename T>

@@ -307,6 +307,9 @@ bool encode_callstack(pb_ostream_t *stream, const pb_field_t *field,
         debug_CallstackEntry entry = debug_CallstackEntry_init_zero;
         entry.type = type;
         entry.function_index = block != nullptr && type == 0 ? block->fidx : 0;
+        entry.start = block == nullptr || block->start_ptr == nullptr
+                          ? 0
+                          : toVirtualAddress(block->start_ptr, view->module);
         entry.stack_pointer = static_cast<uint32_t>(frame.sp);
         entry.frame_pointer = static_cast<uint32_t>(frame.fp);
         entry.return_address =

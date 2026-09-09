@@ -18,6 +18,7 @@
 
 struct Module;
 struct StackValue;
+class Event;
 
 struct DebugMessage {
     debug_Command type;
@@ -119,6 +120,8 @@ class Debugger {
     bool send_snapshot(Module *m, SnapshotSelection selection,
                        debug_NotificationType notification) const;
 
+    bool load_snapshot(Module *m, const std::vector<uint8_t> &payload);
+
     static constexpr SnapshotSelection full_snapshot_selection() {
         return debug_SnapshotSection_SNAPSHOT_SECTION_PC |
                debug_SnapshotSection_SNAPSHOT_SECTION_BREAKPOINTS |
@@ -131,7 +134,9 @@ class Debugger {
                debug_SnapshotSection_SNAPSHOT_SECTION_CALLBACKS |
                debug_SnapshotSection_SNAPSHOT_SECTION_EVENTS |
                debug_SnapshotSection_SNAPSHOT_SECTION_IO |
-               debug_SnapshotSection_SNAPSHOT_SECTION_OVERRIDES;
+               debug_SnapshotSection_SNAPSHOT_SECTION_OVERRIDES |
+               debug_SnapshotSection_SNAPSHOT_SECTION_FUNCTIONS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_LOCALS;
     }
 
     static bool parse_selection(const uint8_t *fields, size_t size,
@@ -235,7 +240,7 @@ class Debugger {
 
     // Push-based
 
-    void notify_pushed_event() const;
+    void notify_pushed_event(const Event &event) const;
 
     bool handle_pushed_event(char *bytes) const;
 };

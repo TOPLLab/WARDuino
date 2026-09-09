@@ -36,6 +36,8 @@ bool Debugger::parse_selection(const uint8_t *fields, const size_t size,
     return true;
 }
 
+// Nanopb callback fields only store pointers to their source data. Keep the
+// views used by a snapshot alive together until the synchronous encode ends.
 class SnapshotEncodingContext {
    public:
     SnapshotEncodingContext(
@@ -61,11 +63,17 @@ class SnapshotEncodingContext {
                                         : static_cast<size_t>(BR_TABLE_SIZE)},
           events{0, CallbackHandler::event_count()} {}
 
+    SnapshotEncodingContext(const SnapshotEncodingContext &) = delete;
+    SnapshotEncodingContext &operator=(const SnapshotEncodingContext &) =
+        delete;
+
     ~SnapshotEncodingContext() {
         for (IOStateElement *entry : ioState) delete entry;
     }
 
     void populate(debug_Snapshot *state, const SnapshotSelection selection) {
+        // Register callbacks only for requested sections. The callbacks stream
+        // directly from the VM instead of building a second snapshot image.
         constexpr SnapshotSelection sections[] = {
             debug_SnapshotSection_SNAPSHOT_SECTION_PC,
             debug_SnapshotSection_SNAPSHOT_SECTION_BREAKPOINTS,
@@ -142,6 +150,8 @@ class SnapshotEncodingContext {
                 case debug_SnapshotSection_SNAPSHOT_SECTION_CALLBACKS:
                     state->has_callbacks = true;
                     state->callbacks.entries.funcs.encode = encode_callbacks;
+                    // Encoding is read-only, but nanopb exposes callback
+                    // arguments as void* rather than const void*.
                     state->callbacks.entries.arg =
                         const_cast<CallbackHandler::CallbackMap *>(
                             &CallbackHandler::callback_map());
@@ -192,6 +202,15 @@ bool Debugger::send_snapshot(Module *m, const SnapshotSelection selection,
     debug_Snapshot state = debug_Snapshot_init_zero;
     context.populate(&state, selection);
     return send_notification(notification, debug_Snapshot_fields, &state);
+}
+
+bool Debugger::load_snapshot(Module *m, const std::vector<uint8_t> &payload) {
+    // Snapshot restoration has not been implemented yet. Keep the command
+    // explicitly rejected until it can validate and atomically restore every
+    // runtime section, rather than leaving its declared handler undefined.
+    (void)m;
+    (void)payload;
+    return false;
 }
 
 std::optional<uint32_t> get_primitive_being_called(Module *m, uint8_t *pc_ptr) {
