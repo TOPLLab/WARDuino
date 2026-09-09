@@ -15,5 +15,5 @@ mod types;
 pub use error::{DebugError, Result};
 pub use session::WarduinoSession;
 pub use types::{
-    DebugCommand, DebugEvent, DebugSession, DisconnectReason, ReceivedFrame, SentFrame,
+    DebugCommand, DebugEvent, DebugSession, DisconnectReason, ReceivedFrame, SentFrame, state_label,
 };

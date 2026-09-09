@@ -7,7 +7,7 @@ Set Height 900
 Set Margin 0
 Set BorderRadius 20
 Set Framerate 60
-Set Theme "Catppuccin Mocha"
+Set Theme "Catppuccin Frappe"
 
 Type@50ms  "syrup --device localhost:8192 --program assets/fac.wat"
 Sleep 50ms
@@ -46,7 +46,7 @@ Up@3s 3
 
 Sleep 2s
 
-Up@200ms 17
+Up@80ms 30
 
 Sleep 2s
 

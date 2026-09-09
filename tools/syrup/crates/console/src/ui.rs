@@ -22,6 +22,10 @@ fn focus_style() -> Style {
     Style::default().add_modifier(Modifier::REVERSED | Modifier::BOLD)
 }
 
+fn command_focus_style() -> Style {
+    Style::default().add_modifier(Modifier::BOLD)
+}
+
 fn inactive_selection_style() -> Style {
     Style::default().add_modifier(Modifier::DIM)
 }
@@ -412,7 +416,7 @@ fn detail_style(style: DetailStyle) -> Style {
 fn render_prompt(frame: &mut Frame, app: &App, area: Rect) {
     let focused = app.focus == Focus::Command;
     let prompt_style = if focused {
-        focus_style()
+        command_focus_style()
     } else {
         Style::default()
     };

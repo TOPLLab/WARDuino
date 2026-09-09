@@ -45,7 +45,7 @@ impl EntryType {
             Self::DapResponse => "DAP response",
             Self::DapEvent => "DAP event",
             Self::VmCommand => "VM command",
-            Self::VmNotification => "VM notification",
+            Self::VmNotification => "VM response",
         }
     }
 }

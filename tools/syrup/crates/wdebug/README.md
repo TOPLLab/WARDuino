@@ -6,6 +6,11 @@ The firmware does not provide request IDs, so `send` only confirms local frame a
 
 The public `schema` module contains every generated protobuf message, enum, and oneof from `src/Debug/debug.proto`. For example, program uploads use `DebugCommand::UpdateModule(schema::ModuleUpdate { wasm })`, and callers should wait for an `OperationResult` whose generated `command` field is `schema::Command::UpdateModule as i32` before treating the upload as accepted by the VM.
 
+Use `state_label(snapshot.state)` when presenting a VM state. It yields stable
+labels such as `running`, `paused`, and `initializing`, while unknown wire
+values remain explicitly distinguishable. `DebugCommand::Reset` is the empty
+`COMMAND_RESET` restart ABI command.
+
 ```rust
 use wdebug::{DebugCommand, DebugSession};
 

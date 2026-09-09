@@ -259,6 +259,35 @@ mod tests {
     }
 
     #[test]
+    fn reset_is_the_empty_reset_command() {
+        let encoded = encode_command(DebugCommand::Reset).unwrap();
+        assert_eq!(encoded.message_type, command_type(Command::Reset));
+        assert!(encoded.payload.is_empty());
+    }
+
+    #[test]
+    fn snapshot_include_encodes_trimmed_little_endian_selectors() {
+        for (fields, expected) in [
+            (
+                vec![schema::SnapshotSection::Pc as u8],
+                vec![0x0a, 0x01, 0x01],
+            ),
+            (
+                vec![schema::SnapshotSection::Callstack as u8],
+                vec![0x0a, 0x01, 0x04],
+            ),
+            (vec![0x00, 0x20], vec![0x0a, 0x02, 0x00, 0x20]),
+        ] {
+            assert_eq!(
+                encode_command(DebugCommand::Snapshot(schema::Include { fields }))
+                    .unwrap()
+                    .payload,
+                expected,
+            );
+        }
+    }
+
+    #[test]
     fn decodes_every_declared_notification() {
         for notification in [
             NotificationType::NotificationContinued,
