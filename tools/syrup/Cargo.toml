@@ -1,0 +1,52 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/wdebug",
+    "crates/dap",
+    "crates/console",
+]
+default-members = [
+    "crates/dap",
+]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+# WARDuino protobuf ABI
+prost = "0.14.4"
+prost-build = "0.14.4"
+
+# DAP wire format
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Source-aware DAP image construction.
+wast = "258"
+wasmparser = "0.258"
+
+# Console
+ratatui = {
+    version = "0.30.2",
+    default-features = false,
+    features = ["crossterm"],
+}
+crossterm = {
+    version = "0.29.0",
+    default-features = false,
+    features = [
+        "events",
+        "bracketed-paste",
+        "windows",
+    ],
+}
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+incremental = false
