@@ -33,7 +33,7 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
         // execute primitives directly
         ((Primitive)m->functions[rfc->fidx].func_ptr)(m);
         // send result directly
-        m->warduino->program_state = PROXYhalt;
+        m->warduino->program_state = debug_State_STATE_PROXY_HALT;
         m->warduino->debugger->send_proxy_call_result(m);
         return;
     }
@@ -43,7 +43,7 @@ void Proxy::pushRFC(Module *m, RFC *rfc) {
     // push proxy guard block to stack
     this->pushProxyGuard(m);
 
-    m->warduino->program_state = PROXYrun;
+    m->warduino->program_state = debug_State_STATE_PROXY_RUN;
 }
 
 RFC *Proxy::topRFC() { return this->calls->top(); }

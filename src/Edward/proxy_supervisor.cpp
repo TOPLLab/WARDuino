@@ -106,9 +106,9 @@ void ProxySupervisor::listenToSocket() {
                 debug("parseJSON: %s\n", parsed.dump().c_str());
 
                 if (isEvent(parsed)) {
-                    CallbackHandler::push_event(new Event(
-                        *parsed.find("topic"), *parsed.find("payload")));
-                    WARDuino::instance()->debugger->notify_pushed_event();
+                    Event event{*parsed.find("topic"), *parsed.find("payload")};
+                    CallbackHandler::push_event(&event);
+                    WARDuino::instance()->debugger->notify_pushed_event(event);
                 }
 
                 if (isReply(parsed)) {

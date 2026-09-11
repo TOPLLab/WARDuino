@@ -18,59 +18,14 @@
 
 struct Module;
 struct StackValue;
+class Event;
 
 struct DebugMessage {
     debug_Command type;
     std::vector<uint8_t> payload;
 };
 
-enum RunningState {
-    WARDUINOinit,
-    WARDUINOrun,
-    WARDUINOpause,
-    WARDUINOstep,
-    PROXYrun,  // Running state used when executing a proxy call. During
-               // this state the call is set up and executed by the main
-               // loop. After execution, the state is restored to
-               // PROXYhalt
-    PROXYhalt  // Do not run the program (program runs on computer, which
-               // sends messages for primitives, do forward interrupts)
-};
-
-enum ExecutionState {
-    pcState = 0x01,
-    breakpointsState = 0x02,
-    callstackState = 0x03,
-    globalsState = 0x04,
-    tableState = 0x05,
-    memoryState = 0x06,
-    branchingTableState = 0x07,
-    stackState = 0x08,
-    callbacksState = 0x09,
-    eventsState = 0x0A,
-    ioState = 0x0B,
-    overridesState = 0x0C,
-    heapState = 0x0D,
-};
-
 using SnapshotSelection = uint16_t;
-enum SnapshotSection : SnapshotSelection {
-    snapshotPc = 1u << 0,
-    snapshotBreakpoints = 1u << 1,
-    snapshotCallstack = 1u << 2,
-    snapshotGlobals = 1u << 3,
-    snapshotTable = 1u << 4,
-    snapshotMemory = 1u << 5,
-    snapshotBranchTable = 1u << 6,
-    snapshotStack = 1u << 7,
-    snapshotCallbacks = 1u << 8,
-    snapshotEvents = 1u << 9,
-    snapshotIO = 1u << 10,
-    snapshotOverrides = 1u << 11,
-    snapshotHeap = 1u << 12,
-    snapshotFunctions = 1u << 13,
-    snapshotLocals = 1u << 14
-};
 
 enum ProxyInterruptTypes {
     interruptProxyCall = 0x64,
@@ -126,13 +81,14 @@ class Debugger {
 
     // Checkpointing
     SnapshotPolicy snapshotPolicy;
-    uint32_t checkpointInterval;          // #instructions between checkpoints
-    uint32_t instructions_executed;       // #instructions since last checkpoint
+    uint32_t checkpointInterval;     // #instructions between checkpoints
+    uint32_t instructions_executed;  // #instructions since last checkpoint
+    uint32_t instructions_since_full_snapshot;
     std::optional<uint32_t> fidx_called;  // The primitive that was executed
     uint32_t prim_args[8];                // The arguments of the executed prim
     uint32_t min_return_values;
-    uint32_t checkpoint_state_size;
-    uint8_t *checkpoint_state;
+    SnapshotSelection checkpointSelection;
+    bool hasCheckpointSelection;
 
     // Continue for
     int32_t remaining_instructions;
@@ -151,41 +107,47 @@ class Debugger {
 
     //// Handle Interrupt Types
 
-    void handle_interrupt_run(const Module *m, RunningState *program_state);
+    void handle_interrupt_run(const Module *m, debug_State *program_state);
 
-    void handle_step(const Module *m, RunningState *program_state);
+    void handle_step(const Module *m, debug_State *program_state);
 
-    void handle_step_over(const Module *m, RunningState *program_state);
+    void handle_step_over(const Module *m, debug_State *program_state);
 
     //// Information dumps
 
-    void dump(Module *m, bool full = false) const;
-
-    void dump_stack(const Module *m) const;
-
-    void dump_locals(const Module *m) const;
-
-    void dump_breakpoints(Module *m) const;
-
-    void dump_functions(Module *m) const;
-
-    void dump_callstack(Module *m) const;
-
-    void dump_events(long start, long size) const;
-
-    void dump_callback_mapping() const;
-
     void dump_heap_info(Module *m) const;
 
-    void inspect(Module *m, uint16_t sizeStateArray,
-                 const uint8_t *state) const;
-    bool encode_snapshot(Module *m, SnapshotSelection selection,
-                         debug_NotificationType notification) const;
-    static bool parse_selection(const uint8_t *state, size_t size,
+    bool send_snapshot(Module *m, SnapshotSelection selection,
+                       debug_NotificationType notification) const;
+
+    bool load_snapshot(Module *m, const std::vector<uint8_t> &payload);
+
+    static constexpr SnapshotSelection full_snapshot_selection() {
+        return debug_SnapshotSection_SNAPSHOT_SECTION_PC |
+               debug_SnapshotSection_SNAPSHOT_SECTION_BREAKPOINTS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_CALLSTACK |
+               debug_SnapshotSection_SNAPSHOT_SECTION_GLOBALS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_TABLE |
+               debug_SnapshotSection_SNAPSHOT_SECTION_MEMORY |
+               debug_SnapshotSection_SNAPSHOT_SECTION_BRANCH_TABLE |
+               debug_SnapshotSection_SNAPSHOT_SECTION_STACK |
+               debug_SnapshotSection_SNAPSHOT_SECTION_CALLBACKS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_EVENTS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_IO |
+               debug_SnapshotSection_SNAPSHOT_SECTION_OVERRIDES |
+               debug_SnapshotSection_SNAPSHOT_SECTION_FUNCTIONS |
+               debug_SnapshotSection_SNAPSHOT_SECTION_LOCALS;
+    }
+
+    static bool parse_selection(const uint8_t *fields, size_t size,
                                 SnapshotSelection *selection);
+
+    //// Util functions
 
     std::optional<debug_ValueUpdate> update_value(
         const std::vector<uint8_t> &payload) const;
+
+    //// reset
 
     bool reset(Module *m);
 
@@ -225,7 +187,7 @@ class Debugger {
 
     std::optional<DebugMessage> get_debug_message();
 
-    bool check_debug_messages(Module *m, RunningState *program_state);
+    bool check_debug_messages(Module *m, debug_State *program_state);
 
     // Breakpoints
 
@@ -237,17 +199,25 @@ class Debugger {
 
     void notify_breakpoint(Module *m, uint8_t *pc_ptr);
 
-    // Out-of-place debugging: EDWARD
-
-    void snapshot(Module *m) const;
+    // Multiverse debugging: MIO
 
     void handle_snapshot_policy(Module *m);
 
+    inline SnapshotPolicy get_snapshot_policy() { return snapshotPolicy; }
+
     bool handle_continue_for(Module *m);
+
+    // Concolic Multiverse Debugging
+
+    bool get_mock_for_args(Module *m, uint32_t fidx, uint32_t &result);
+
+    void checkpoint(Module *m, bool force = false, bool full = false);
+
+    // Out-of-place debugging: EDWARD
 
     void proxify();
 
-    void handle_proxy_call(Module *m, RunningState *program_state,
+    void handle_proxy_call(Module *m, debug_State *program_state,
                            uint8_t *interruptData) const;
 
     RFC *top_proxy_call() const;
@@ -270,14 +240,7 @@ class Debugger {
 
     // Push-based
 
-    void notify_pushed_event() const;
+    void notify_pushed_event(const Event &event) const;
 
     bool handle_pushed_event(char *bytes) const;
-
-    // Concolic Multiverse Debugging
-    bool get_mock_for_args(Module *m, uint32_t fidx, uint32_t &result);
-
-    // Checkpointing
-    void checkpoint(Module *m, bool force = false);
-    inline SnapshotPolicy get_snapshot_policy() { return snapshotPolicy; }
 };
