@@ -19,7 +19,6 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/kernel.h>
-#include <zephyr/random/random.h>
 #include <zephyr/sys/util_macro.h>
 
 #if IS_ENABLED(CONFIG_WIFI)
@@ -32,6 +31,7 @@
 #include <cstdio>
 #include <cstring>
 #include <optional>
+#include <random>
 
 #include "../Memory/mem.h"
 #include "../Utils/macros.h"
@@ -176,8 +176,18 @@ def_prim(noTone, NoneToNoneU32) {
 
 #endif
 
+// Ideally, we would use rand and srand here but since ESP-IDF and Zephyr both
+// define a function called "random" it causes a linker error.
+static std::minstd_rand rng;
+
 def_prim(random_int, NoneToOneU32) {
-    pushInt32(sys_rand32_get());
+    pushInt32(rng());
+    return true;
+}
+
+def_prim(random_set_seed, oneToNoneI32) {
+    rng.seed(arg0.uint32);
+    pop_args(1);
     return true;
 }
 
@@ -654,6 +664,7 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(chip_digital_read);
     install_primitive(millis);
     install_primitive(random_int);
+    install_primitive(random_set_seed);
     install_primitive(print_string);
     install_primitive(print_int);
     install_primitive(abort);
