@@ -653,6 +653,90 @@ def_prim(socket_close, oneToOneI32) {
 
 #endif
 
+#if IS_ENABLED(CONFIG_BT)
+#include "Networking/bluetooth.h"
+
+def_prim(ble_enable, twoToOneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t len = arg0.uint32;
+    std::string name = parse_utf8_string(m->memory.bytes, len, addr);
+    pop_args(2);
+    pushInt32(ble::enable(name.c_str()));
+    return true;
+}
+
+def_prim(ble_service_create, twoToOneU32) {
+    uint32_t addr = arg1.uint32;
+    uint32_t len = arg0.uint32;
+    pop_args(2);
+    if (len != 16) {
+        printf("ble_service_create: UUID must be 16 bytes\n");
+        pushInt32(-1);
+        return true;
+    }
+    pushInt32(ble::service_create(&m->memory.bytes[addr]));
+    return true;
+}
+
+def_prim(ble_characteristic_create, fiveToOneU32) {
+    uint32_t service_index = arg4.uint32;
+    uint32_t addr = arg3.uint32;
+    uint32_t len = arg2.uint32;
+    uint32_t properties = arg1.uint32;
+    uint32_t permissions = arg0.uint32;
+    pop_args(5);
+    if (len != 16) {
+        printf("ble_characteristic_create: UUID must be 16 bytes\n");
+        pushInt32(-1);
+        return true;
+    }
+    pushInt32(ble::characteristic_create(service_index, &m->memory.bytes[addr],
+                                         properties, permissions));
+    return true;
+}
+
+def_prim(ble_characteristic_write, threeToOneU32) {
+    uint32_t index = arg2.uint32;
+    uint32_t addr = arg1.uint32;
+    uint32_t len = arg0.uint32;
+    pop_args(3);
+    pushInt32(ble::characteristic_write(index, &m->memory.bytes[addr], len));
+    return true;
+}
+
+def_prim(ble_characteristic_read, threeToOneU32) {
+    uint32_t index = arg2.uint32;
+    uint32_t addr = arg1.uint32;
+    uint32_t len = arg0.uint32;
+    pop_args(3);
+    pushInt32(ble::characteristic_read(index, &m->memory.bytes[addr], len));
+    return true;
+}
+
+def_prim(ble_characteristic_available, oneToOneU32) {
+    uint32_t index = arg0.uint32;
+    pop_args(1);
+    pushInt32(ble::characteristic_available(index));
+    return true;
+}
+
+def_prim(ble_advertise_start, NoneToOneU32) {
+    pushInt32(ble::advertise_start());
+    return true;
+}
+
+def_prim(ble_advertise_stop, NoneToOneU32) {
+    pushInt32(ble::advertise_stop());
+    return true;
+}
+
+def_prim(ble_connected, NoneToOneU32) {
+    pushUInt32(ble::connected());
+    return true;
+}
+
+#endif
+
 //------------------------------------------------------
 // Installing all the primitives
 //------------------------------------------------------
@@ -709,6 +793,18 @@ void install_primitives(Interpreter *interpreter) {
     install_primitive(socket_send);
     install_primitive(socket_receive);
     install_primitive(socket_close);
+#endif
+
+#if IS_ENABLED(CONFIG_BT)
+    install_primitive(ble_enable);
+    install_primitive(ble_service_create);
+    install_primitive(ble_characteristic_create);
+    install_primitive(ble_characteristic_write);
+    install_primitive(ble_characteristic_read);
+    install_primitive(ble_characteristic_available);
+    install_primitive(ble_advertise_start);
+    install_primitive(ble_advertise_stop);
+    install_primitive(ble_connected);
 #endif
 }
 

@@ -37,4 +37,15 @@ config NET_MAX_CONTEXTS
 
 endif # WARDUINO_NETWORKING
 
+config WARDUINO_BLE
+	bool "Enable WARDuino Bluetooth LE primitives"
+	default y
+	select BT
+	select BT_PERIPHERAL
+	select BT_GATT_DYNAMIC_DB
+	select BT_DEVICE_NAME_DYNAMIC
+	help
+	  Enables primitives for defining a custom BLE GATT peripheral
+	  (services and characteristics) from WASM code.
+
 endmenu
