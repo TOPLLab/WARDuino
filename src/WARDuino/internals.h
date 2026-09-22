@@ -123,6 +123,11 @@ typedef struct Global {
     StackValue *value;    // current value
 } Global;
 
+typedef struct DataSegment {
+    uint32_t offset = 0;  // offset in Module::bytes
+    uint32_t size = 0;    // payload size in bytes
+} DataSegment;
+
 typedef struct Options {
     // when true: host memory addresses will be outside allocated memory area
     // so do not do bounds checking
@@ -173,6 +178,11 @@ typedef struct Module {
     Memory memory;
     uint32_t global_count = 0;   // number of globals
     Global **globals = nullptr;  // globals
+
+    uint32_t data_segment_count = 0;
+    uint32_t data_section_offset = 0;  // first byte after Data seg_count LEB
+    std::vector<DataSegment>
+        passive_data_segments;  // indexed by data segment index
 
     char *exception = nullptr;  // exception is set when the program fails
 } Module;
