@@ -193,7 +193,8 @@ inline Type fiveToOneU32 = {
     .params = param_I32_arr_len5,
     .result_count = 1,
     .results = param_I32_arr_len1,
-    .mask = 0x81011111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32; 1=I32*/
+    .mask =
+        0x81011111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
 
 inline Type tenToOneU32 = {

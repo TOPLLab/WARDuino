@@ -16,7 +16,8 @@ namespace ble {
 
 constexpr int MAX_SERVICES = 4;
 constexpr int MAX_CHARACTERISTICS_PER_SERVICE = 6;
-constexpr int MAX_CHARACTERISTICS = MAX_SERVICES * MAX_CHARACTERISTICS_PER_SERVICE;
+constexpr int MAX_CHARACTERISTICS =
+    MAX_SERVICES * MAX_CHARACTERISTICS_PER_SERVICE;
 constexpr int MAX_VALUE_LEN = 64;
 // primary service decl + (characteristic decl + value + ccc) per characteristic
 constexpr int MAX_ATTRS_PER_SERVICE = 1 + MAX_CHARACTERISTICS_PER_SERVICE * 3;
@@ -44,7 +45,8 @@ inline int service_count = 0;
 inline Characteristic characteristics[MAX_CHARACTERISTICS];
 inline int characteristic_count = 0;
 
-inline const bt_uuid_16 uuid_gatt_primary = BT_UUID_INIT_16(BT_UUID_GATT_PRIMARY_VAL);
+inline const bt_uuid_16 uuid_gatt_primary =
+    BT_UUID_INIT_16(BT_UUID_GATT_PRIMARY_VAL);
 inline const bt_uuid_16 uuid_gatt_chrc = BT_UUID_INIT_16(BT_UUID_GATT_CHRC_VAL);
 inline const bt_uuid_16 uuid_gatt_ccc = BT_UUID_INIT_16(BT_UUID_GATT_CCC_VAL);
 
@@ -98,7 +100,8 @@ inline int characteristic_create(int service_index, const uint8_t uuid[16],
     }
     Service *svc = &services[service_index];
     bool needs_ccc = properties & (BT_GATT_CHRC_NOTIFY | BT_GATT_CHRC_INDICATE);
-    size_t needed = (svc->service.attr_count == 0 ? 1 : 0) + 2 + (needs_ccc ? 1 : 0);
+    size_t needed =
+        (svc->service.attr_count == 0 ? 1 : 0) + 2 + (needs_ccc ? 1 : 0);
     if (svc->registered || characteristic_count >= MAX_CHARACTERISTICS ||
         svc->service.attr_count + needed > MAX_ATTRS_PER_SERVICE) {
         return -1;
@@ -106,8 +109,12 @@ inline int characteristic_create(int service_index, const uint8_t uuid[16],
 
     Characteristic *chr = &characteristics[characteristic_count];
     bytes_to_uuid(uuid, &chr->uuid);
-    chr->decl = {.uuid = &chr->uuid.uuid, .value_handle = 0U, .properties = properties};
-    chr->ccc = {.cfg = {}, .cfg_changed = nullptr, .cfg_write = nullptr, .cfg_match = nullptr};
+    chr->decl = {
+        .uuid = &chr->uuid.uuid, .value_handle = 0U, .properties = properties};
+    chr->ccc = {.cfg = {},
+                .cfg_changed = nullptr,
+                .cfg_write = nullptr,
+                .cfg_match = nullptr};
     chr->value_len = 0;
     chr->dirty = false;
 
@@ -210,7 +217,9 @@ inline void connected_cb(bt_conn *conn, uint8_t err) {
     }
 }
 
-inline void disconnected_cb(bt_conn *conn, uint8_t reason) { connection_count--; }
+inline void disconnected_cb(bt_conn *conn, uint8_t reason) {
+    connection_count--;
+}
 
 BT_CONN_CB_DEFINE(callbacks) = {
     .connected = connected_cb,
@@ -228,8 +237,8 @@ inline int advertise_start() {
     ad[ad_count++] = BT_DATA(BT_DATA_FLAGS, &flags, sizeof(flags));
 
     const char *name = bt_get_name();
-    ad[ad_count++] =
-        BT_DATA(BT_DATA_NAME_COMPLETE, name, static_cast<uint8_t>(strlen(name)));
+    ad[ad_count++] = BT_DATA(BT_DATA_NAME_COMPLETE, name,
+                             static_cast<uint8_t>(strlen(name)));
 
     for (int i = 0; i < service_count; i++) {
         Service *svc = &services[i];
@@ -249,4 +258,4 @@ inline int advertise_start() {
 
 inline int advertise_stop() { return bt_le_adv_stop(); }
 
-}
+}  // namespace ble
