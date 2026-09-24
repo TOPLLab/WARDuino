@@ -1,0 +1,55 @@
+{
+  "name": "vscode-warduino-dap",
+  "displayName": "WARDuino DAP Development",
+  "description": "Development-only VS Code client for the WARDuino DAP server.",
+  "version": "0.0.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Debuggers"
+  ],
+  "contributes": {
+    "debuggers": [
+      {
+        "type": "warduino",
+        "label": "WARDuino",
+        "configurationAttributes": {
+          "attach": {
+            "properties": {
+              "device": {
+                "type": "string",
+                "description": "WARDuino VM debug socket address.",
+                "default": "127.0.0.1:8192"
+              },
+              "program": {
+                "type": "string",
+                "description": "Path to the WAT program uploaded and mapped for this debug session."
+              },
+              "debugServer": {
+                "type": "number",
+                "description": "WARDuino DAP server port (served at 127.0.0.1).",
+                "default": 4711
+              }
+            },
+            "required": [
+              "device",
+              "program"
+            ]
+          }
+        },
+        "initialConfigurations": [
+          {
+            "name": "Attach to WARDuino",
+            "type": "warduino",
+            "request": "attach",
+            "debugServer": 4711,
+            "device": "127.0.0.1:8192",
+            "program": "${workspaceFolder}/main.wat"
+          }
+        ]
+      }
+    ]
+  }
+}
