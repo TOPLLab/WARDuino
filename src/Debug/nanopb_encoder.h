@@ -2,8 +2,6 @@
 
 #include "nanopb/pb_encode.h"
 
-// Small, non-owning helpers for nanopb callback fields.  The pointed-to data
-// must remain stable for nanopb's sizing and output passes.
 namespace nanopb_encoder {
 
 struct ByteView {

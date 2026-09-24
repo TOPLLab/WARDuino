@@ -236,6 +236,33 @@ void sendAlarm() {
 
 void WebSocket::close() {
     sendAlarm();  // stop possible blocking accept call
-    shutdown(this->fileDescriptor, SHUT_RDWR);  // shutdown connection
+
+    // Invalidate first so repeated shutdown paths, including debugger teardown,
+    // cannot operate on a descriptor that has already been closed.
+    const int acceptedSocket = this->socket;
+    const int listeningSocket = this->fileDescriptor;
+    this->socket = -1;
+    this->fileDescriptor = -1;
+
+    if (acceptedSocket >= 0) {
+        if (shutdown(acceptedSocket, SHUT_RDWR) < 0 && errno != EBADF &&
+            errno != ENOTCONN) {
+            perror("Failed to shutdown debugger client socket");
+        }
+        if (::close(acceptedSocket) < 0 && errno != EBADF) {
+            perror("Failed to close debugger client socket");
+        }
+    }
+
+    // ClientSocket uses one descriptor for both fields; only close it once.
+    if (listeningSocket >= 0 && listeningSocket != acceptedSocket) {
+        if (shutdown(listeningSocket, SHUT_RDWR) < 0 && errno != EBADF &&
+            errno != ENOTCONN) {
+            perror("Failed to shutdown debugger listener");
+        }
+        if (::close(listeningSocket) < 0 && errno != EBADF) {
+            perror("Failed to close debugger listener");
+        }
+    }
 }
 #endif

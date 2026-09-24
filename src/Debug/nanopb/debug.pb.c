@@ -9,19 +9,16 @@
 PB_BIND(debug_CodeLocation, debug_CodeLocation, AUTO)
 
 
-PB_BIND(debug_Breakpoint, debug_Breakpoint, AUTO)
-
-
-PB_BIND(debug_HitBreakpoint, debug_HitBreakpoint, AUTO)
-
-
 PB_BIND(debug_NewEvent, debug_NewEvent, AUTO)
+
+
+PB_BIND(debug_HeapUsage, debug_HeapUsage, AUTO)
 
 
 PB_BIND(debug_ContinueFor, debug_ContinueFor, AUTO)
 
 
-PB_BIND(debug_Inspect, debug_Inspect, AUTO)
+PB_BIND(debug_Include, debug_Include, AUTO)
 
 
 PB_BIND(debug_FunctionRef, debug_FunctionRef, AUTO)
@@ -91,6 +88,8 @@ PB_BIND(debug_MemoryState, debug_MemoryState, AUTO)
 
 
 PB_BIND(debug_IOState, debug_IOState, AUTO)
+
+
 
 
 
