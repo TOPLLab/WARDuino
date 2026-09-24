@@ -29,17 +29,28 @@ if (BUILD_ESP)
     include($ENV{IDF_PATH}/tools/cmake/project.cmake "${PROJECT_BINARY_DIR}/../include")
 endif (BUILD_ESP)
 
-project(WARDuino VERSION 0.8.1)
+project(WARDuino VERSION 0.8.99)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 set(WARDUINO_VERSION_STRING "${PROJECT_VERSION}")
 configure_file(src/config.h.in include/warduino/config.h)
 
+# Use the checked-in nanopb runtime and schema output on every platform.
+add_library(proto STATIC
+    src/Debug/nanopb/debug.pb.c
+    src/Debug/nanopb/pb_common.c
+    src/Debug/nanopb/pb_decode.c
+    src/Debug/nanopb/pb_encode.c
+)
+target_include_directories(proto PUBLIC
+    ${PROJECT_SOURCE_DIR}/src/Debug
+    ${PROJECT_SOURCE_DIR}/src/Debug/nanopb
+)
+
 # Build the emulator version of WARDuino
 if (BUILD_EMULATOR)
     set(EXTERNAL_LIB_HEADERS lib/json/single_include)
-
     find_package(Threads REQUIRED)
 
     set(SOURCE_FILES
@@ -54,6 +65,7 @@ if (BUILD_EMULATOR)
             src/Utils/macros.cpp
             src/Utils/sockets.cpp
             src/Debug/debugger.cpp
+            src/Debug/nanopb_encoder.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
             src/Edward/RFC.cpp
@@ -71,7 +83,7 @@ if (BUILD_EMULATOR)
 
     # WARDuino CLI
     add_executable(wdcli platforms/CLI-Emulator/main.cpp ${SOURCE_FILES})
-    target_link_libraries(wdcli PRIVATE Threads::Threads)
+    target_link_libraries(wdcli PRIVATE Threads::Threads proto)
     target_include_directories(wdcli PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
 endif (BUILD_EMULATOR)
 
@@ -95,6 +107,7 @@ if (BUILD_UNITTEST)
             src/Utils/macros.cpp
             src/Utils/sockets.cpp
             src/Debug/debugger.cpp
+            src/Debug/nanopb_encoder.cpp
             src/Edward/proxy.cpp
             src/Edward/proxy_supervisor.cpp
             src/Edward/RFC.cpp
@@ -122,7 +135,7 @@ if (BUILD_UNITTEST)
         get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
         message(DEBUG "Add executable for " ${TEST_FILE})
         add_executable(${TEST_NAME} ${TEST_FILE} ${SOURCE_FILES} ${SHARED_SRC})
-        target_link_libraries(${TEST_NAME} PRIVATE doctest::doctest)
+        target_link_libraries(${TEST_NAME} PRIVATE doctest::doctest proto)
         target_include_directories(${TEST_NAME} PRIVATE ${EXTERNAL_LIB_HEADERS} "${PROJECT_BINARY_DIR}/include")
         add_test(${TEST_NAME} ${TEST_NAME})
     endforeach ()

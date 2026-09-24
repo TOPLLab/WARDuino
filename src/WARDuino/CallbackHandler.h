@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 #include <queue>
 #include <string>
 #include <unordered_map>
@@ -33,6 +34,10 @@ class CallbackHandler {
     static size_t event_count();
     static std::deque<Event>::const_iterator event_begin();
     static std::deque<Event>::const_iterator event_end();
+    using CallbackMap =
+        std::unordered_map<std::string, std::vector<Callback> *>;
+    static const CallbackMap &callback_map();
+    static const Event *event_at(size_t index);
 
     static bool resolving_event;
 

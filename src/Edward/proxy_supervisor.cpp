@@ -46,7 +46,7 @@ void runSupervisor(ProxySupervisor *supervisor) {
 }
 
 Event *parseJSON(char *buff) {
-    // TODO duplicate code in Debugger::handlePushedEvent
+    // TODO duplicate code in Debugger::handle_pushed_event
     nlohmann::basic_json<> parsed = nlohmann::json::parse(buff);
     printf("parseJSON: %s\n", parsed.dump().c_str());
     std::string payload = *parsed.find("payload");
@@ -108,7 +108,7 @@ void ProxySupervisor::listenToSocket() {
                 if (isEvent(parsed)) {
                     CallbackHandler::push_event(new Event(
                         *parsed.find("topic"), *parsed.find("payload")));
-                    WARDuino::instance()->debugger->notifyPushedEvent();
+                    WARDuino::instance()->debugger->notify_pushed_event();
                 }
 
                 if (isReply(parsed)) {
@@ -135,7 +135,7 @@ bool ProxySupervisor::send(
 
 nlohmann::basic_json<> ProxySupervisor::readReply() {
     while (!this->hasReplied);
-    WARDuino::instance()->debugger->channel->write("read reply: succeeded\n");
+    dbg_info("read reply: succeeded\n");
     this->hasReplied = false;
     return this->proxyResult;
 }
@@ -291,6 +291,6 @@ void ProxySupervisor::unregisterProxiedCall(uint32_t fidx) {
 
 void ProxySupervisor::unregisterAllProxiedCalls() { this->proxied->clear(); }
 
-bool ProxySupervisor::isProxied(uint32_t fidx) {
+bool ProxySupervisor::is_proxied(uint32_t fidx) {
     return this->proxied->count(fidx) > 0;
 }

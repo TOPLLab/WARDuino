@@ -1,4 +1,4 @@
-import {EmulatorSpecification, Framework, invoke, returns, Step, StyleType, TestScenario, WASM} from 'latch';
+import {EmulatorSpecification, Framework, Verbosity, invoke, returns, Step, TestScenario, WASM} from 'latch';
 import {readdirSync} from 'fs';
 import {basename} from 'path';
 import {find, parseArguments, parseAsserts, parseResult} from "./util/spec.util";
@@ -46,7 +46,7 @@ if (TESTFILE.length > 0) {
 // run tests
 
 const framework = Framework.getImplementation();
-framework.reporter.style(StyleType.github);
+framework.reporter.verbosity(Verbosity.more);
 
 const spec = framework.suite('Specification test suite for WebAssembly');
 spec.testee('emulator [:8500]', new EmulatorSpecification(8500));
