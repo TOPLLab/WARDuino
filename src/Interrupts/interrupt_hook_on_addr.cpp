@@ -120,8 +120,8 @@ void Interrupt_HookOnAddr_send_subscription(const Channel &output,
 }
 
 /*
- * Around result: sent by the client side while the VM is paused on an around hook.
- * It replaces the hooked instruction (or function) with the given result.
+ * Around result: sent by the client side while the VM is paused on an around
+ * hook. It replaces the hooked instruction (or function) with the given result.
  */
 
 void Interrupt_HookAroundResult_handle_request(const Channel &channel,
