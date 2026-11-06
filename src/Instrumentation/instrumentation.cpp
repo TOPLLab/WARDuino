@@ -44,17 +44,20 @@ bool InstrumentationManager::has_HooksOnAroundFunction(uint32_t funID) {
     return this->hooks_around_prim_funcs.count(funID) > 0;
 }
 
-bool InstrumentationManager::has_HookOnWasmAddr(uint32_t addr,
-                                                HookMoment moment) {
+std::unordered_map<uint32_t, HooksWasmAddr *>
+    *InstrumentationManager::wasmAddrHooksMap(HookMoment moment) {
     switch (moment) {
         case HookBefore:
-            return this->instr_wasm_addr_before.count(addr) > 0;
+            return &this->instr_wasm_addr_before;
         case HookAfter:
-            return this->instr_wasm_addr_after.count(addr) > 0;
+            return &this->instr_wasm_addr_after;
+        case HookAround:
+            return &this->instr_wasm_addr_around;
         default:
-            FATAL("Around monitor not supported");
+            FATAL("Unsupported hook moment %d", moment);
     }
-    return false;
+    return nullptr;
+}
 }
 
 bool InstrumentationManager::isAddHookOnEventAllowed(Hook &hook) {
