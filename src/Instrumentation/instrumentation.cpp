@@ -58,6 +58,10 @@ std::unordered_map<uint32_t, HooksWasmAddr *>
     }
     return nullptr;
 }
+
+bool InstrumentationManager::has_HookOnWasmAddr(uint32_t addr,
+                                                HookMoment moment) {
+    return this->wasmAddrHooksMap(moment)->count(addr) > 0;
 }
 
 bool InstrumentationManager::isAddHookOnEventAllowed(Hook &hook) {
