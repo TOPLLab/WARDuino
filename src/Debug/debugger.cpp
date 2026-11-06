@@ -271,6 +271,9 @@ bool Debugger::checkDebugMessages(Module *m, RunningState *program_state) {
         case interruptHookOnError:
             this->handleHookOnError(msg);
             break;
+        case interruptHookAroundResult:
+            this->handleHookAroundResult(m, msg);
+            break;
         case interruptMonitorProxies:
             this->handleMonitorProxies(m, msg);
             break;
@@ -1287,6 +1290,11 @@ void Debugger::handleFuncCall(Module *m, DebugMessage *msg) {
 void Debugger::handleHookOnAddress(Module *m, DebugMessage *msg) {
     Interrupt_HookOnAddr_handle_request(*this->channel, *m, this->instrument,
                                         msg);
+}
+
+void Debugger::handleHookAroundResult(Module *m, DebugMessage *msg) {
+    Interrupt_HookAroundResult_handle_request(*this->channel, *m,
+                                              this->instrument, msg);
 }
 
 void Debugger::handleHookOnEvent(DebugMessage *msg) {

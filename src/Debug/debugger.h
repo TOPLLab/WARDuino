@@ -210,6 +210,8 @@ class Debugger {
 
     void handleHookOnAddress(Module *m, DebugMessage *msg);
 
+    void handleHookAroundResult(Module *m, DebugMessage *msg);
+
     void handleHookOnEvent(DebugMessage *msg);
 
     void handleHookOnError(DebugMessage *msg);

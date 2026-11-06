@@ -118,3 +118,60 @@ void Interrupt_HookOnAddr_send_subscription(const Channel &output,
     output.write("}");  // close sub object
     Interrupt_send_JSON_end_message(output);
 }
+
+/*
+ * Around result: sent by the client side while the VM is paused on an around hook.
+ * It replaces the hooked instruction (or function) with the given result.
+ */
+
+void Interrupt_HookAroundResult_handle_request(const Channel &channel,
+                                               Module &module,
+                                               InstrumentationManager &manager,
+                                               DebugMessage *msg) {
+    HookAroundResultRequest request;
+    uint8_t error{};
+    if (Interrupt_HookAroundResult_deserialize_request(request, msg, error) &&
+        manager.completeHookAround(module, request, error)) {
+        Interrupt_send_JSON_success_message(channel, interruptHookAroundResult,
+                                            msg->id);
+    } else {
+        Interrupt_send_JSON_failure_message(channel, interruptHookAroundResult,
+                                            msg->id, error);
+    }
+}
+
+bool Interrupt_HookAroundResult_deserialize_request(
+    HookAroundResultRequest &dest, DebugMessage *msg, uint8_t &error_code) {
+    // format: addr (LEB32) | kind (1 byte) | nr args (LEB32)
+    // | has result (1 byte) | [value type (1 byte) | value]
+    if (msg->interrupt != interruptHookAroundResult) {
+        error_code =
+            HOOK_AROUND_RESULT_ERROR_CODE_REQUEST_HAS_WRONG_INTERRUPT_NR;
+        return false;
+    }
+
+    uint8_t *data = msg->data;
+    dest.id = msg->id;
+    dest.addr = read_LEB_32(&data);
+    uint8_t kind = *data++;
+    switch (kind) {
+        case AroundInstruction:
+        case AroundFunctionBody:
+            dest.kind = (HookAroundKind)kind;
+            break;
+        default:
+            error_code = HOOK_AROUND_RESULT_ERROR_CODE_INVALID_KIND;
+            return false;
+    }
+    dest.nr_args = read_LEB_32(&data);
+    dest.has_result = *data++ != 0;
+    if (!dest.has_result) return true;
+
+    dest.result.value_type = *data++;
+    bool decodeType = false;  // type is given as a raw wasm valtype
+    if (!deserialiseStackValue(data, decodeType, &dest.result)) {
+        error_code = HOOK_AROUND_RESULT_ERROR_CODE_INVALID_VALUE;
+        return false;
+    }
+    return true;
+}
