@@ -91,6 +91,9 @@ class InstrumentationManager {
                                Hook *hook);
 
 
+    std::unordered_map<uint32_t, HooksWasmAddr *> *wasmAddrHooksMap(
+        HookMoment moment);
+
     void monitorAfterHooks(Module &module, uint32_t addr);
 
     /*
