@@ -579,11 +579,7 @@ bool InstrumentationManager::runHooksOnWasmAddr(const Channel &output,
 
         if (this->has_HookOnWasmAddr(addr, HookAfter)) {
             // save frame and addr for after addr hooks
-            MonitoredFrame frame{};
-            frame.addr = addr;
-            frame.frame_idx = module->csp;
-            this->frames_to_monitor.push(frame);
-            this->awakeOnNextInstruction = true;
+            this->monitorAfterHooks(*module, addr);
             if (!upcodeRestored) {
                 // When there is no before the opcode needs to be set
                 auto instr = this->instr_wasm_addr_after[addr];
@@ -613,6 +609,14 @@ void InstrumentationManager::run_hooks(const Channel &output, Module &module,
     if (result.success) {
         result.hooks_left = Hooks_remove_completed_hook(hooks);
     }
+}
+
+void InstrumentationManager::monitorAfterHooks(Module &module, uint32_t addr) {
+    MonitoredFrame frame{};
+    frame.addr = addr;
+    frame.frame_idx = module.csp;
+    this->frames_to_monitor.push(frame);
+    this->awakeOnNextInstruction = true;
 }
 
 bool InstrumentationManager::do_wasm_addr_hooks(const Channel &output,
