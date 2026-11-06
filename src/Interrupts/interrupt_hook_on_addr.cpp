@@ -54,6 +54,7 @@ bool Interrupt_HookOnAddr_deserialize_request(HookOnAddrRequest &dest,
     switch (dest.moment) {
         case HookBefore:
         case HookAfter:
+        case HookAround:
             break;
         default:
             error_code = HOOK_ON_ADDR_ERROR_CODE_REQUEST_HAS_UN_EXISTING_MOMENT;
