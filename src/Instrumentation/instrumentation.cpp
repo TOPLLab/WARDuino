@@ -137,17 +137,14 @@ bool InstrumentationManager::removeHooksOnWasmAddress(Module &module,
         return false;
     }
 
-    HooksWasmAddr *instr;
-    std::unordered_map<uint32_t, HooksWasmAddr *> *mapForErase;
-    bool restoreOpcode;
-    if (moment == HookBefore) {
-        instr = instr_wasm_addr_before[addr];
-        mapForErase = &this->instr_wasm_addr_before;
-        restoreOpcode = !this->has_HookOnWasmAddr(addr, HookAfter);
-    } else {
-        instr = instr_wasm_addr_after[addr];
-        mapForErase = &this->instr_wasm_addr_after;
-        restoreOpcode = !this->has_HookOnWasmAddr(addr, HookBefore);
+    std::unordered_map<uint32_t, HooksWasmAddr *> *mapForErase =
+        this->wasmAddrHooksMap(moment);
+    HooksWasmAddr *instr = (*mapForErase)[addr];
+    bool restoreOpcode = true;
+    for (HookMoment other : {HookBefore, HookAfter, HookAround}) {
+        if (other != moment && this->has_HookOnWasmAddr(addr, other)) {
+            restoreOpcode = false;
+        }
     }
 
     while (instr->hook != nullptr) {
