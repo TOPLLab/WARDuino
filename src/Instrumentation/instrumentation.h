@@ -63,6 +63,8 @@ class InstrumentationManager {
 
     std::unordered_map<uint32_t, HooksWasmAddr *> instr_wasm_addr_after{};
 
+    std::unordered_map<uint32_t, HooksWasmAddr *> instr_wasm_addr_around{};
+
     Hook *hooksForOnNewEvent{};
 
     bool hooksForOnEventHandlingPaused = false;
