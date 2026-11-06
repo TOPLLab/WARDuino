@@ -615,6 +615,12 @@ void InstrumentationManager::run_hooks(const Channel &output, Module &module,
     }
 }
 
+bool InstrumentationManager::do_wasm_addr_hooks(const Channel &output,
+                                                Module &module,
+                                                LogicalClock &currentTime,
+                                                uint32_t addr, uint8_t &opcode,
+                                                RunningState &runningState,
+                                                HookMoment moment) {
     if (!has_HookOnWasmAddr(addr, moment)) {
         VM_Exception_write(
             "No hook registered on instrumented addr %" PRIu32 "", addr);
