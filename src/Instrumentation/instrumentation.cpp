@@ -681,10 +681,10 @@ bool InstrumentationManager::stop_primitive_call_interception(
 
 uint8_t InstrumentationManager::getOriginalOpcode(Module &module,
                                                   uint32_t addr) {
-    if (this->has_HookOnWasmAddr(addr, HookBefore)) {
-        return this->instr_wasm_addr_before[addr]->original_opcode;
-    } else if (this->has_HookOnWasmAddr(addr, HookAfter)) {
-        return this->instr_wasm_addr_after[addr]->original_opcode;
+    for (HookMoment moment : {HookBefore, HookAfter, HookAround}) {
+        if (this->has_HookOnWasmAddr(addr, moment)) {
+            return (*this->wasmAddrHooksMap(moment))[addr]->original_opcode;
+        }
     }
     return module.bytes[addr];
 }
