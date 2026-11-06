@@ -558,18 +558,30 @@ bool InstrumentationManager::runHooksOnWasmAddr(const Channel &output,
     if (this->clockStarted &&
         LogicalClock_is_t1_equal_t2(this->lastObservedTime, *currentTime)) {
         // Reentering an addr for which the hooks were just run
-        // do not run the hooks but advance computation
-        auto instr = this->has_HookOnWasmAddr(addr, HookBefore)
-                         ? this->instr_wasm_addr_before[addr]
-                         : this->instr_wasm_addr_after[addr];
-        opcode = instr->original_opcode;
+        // do not run the hooks but advance computation.
+        // Note: an around hook whose result got provided (see
+        // completeHookAround) moved the pc away and advanced the clock, so
+        // reentering here means the original instruction should execute.
+        opcode = this->getOriginalOpcode(*module, addr);
         module->pc_ptr += 1;
     } else {
         this->lastObservedTime = *currentTime;
         this->clockStarted = true;
         if (this->has_HookOnWasmAddr(addr, HookBefore)) {
-            success = this->do_before_wasm_addr_hooks(
-                output, *module, *currentTime, addr, opcode, runningState);
+            success =
+                this->do_wasm_addr_hooks(output, *module, *currentTime, addr,
+                                         opcode, runningState, HookBefore);
+            upcodeRestored = true;
+        }
+
+        if (success && this->has_HookOnWasmAddr(addr, HookAround)) {
+            // Around hooks typically pause the VM so that the tool can
+            // provide the result that replaces the instruction (see
+            // completeHookAround). If the VM is resumed without such result
+            // the original instruction simply executes.
+            success =
+                this->do_wasm_addr_hooks(output, *module, *currentTime, addr,
+                                         opcode, runningState, HookAround);
             upcodeRestored = true;
         }
 

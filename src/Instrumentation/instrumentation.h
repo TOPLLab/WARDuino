@@ -90,6 +90,10 @@ class InstrumentationManager {
     bool do_value_substitution(Module *module, uint32_t func_called,
                                Hook *hook);
 
+    bool do_wasm_addr_hooks(const Channel &hookOutput, Module &module,
+                            LogicalClock &currentTime, uint32_t addr,
+                            uint8_t &opcode, RunningState &runningState,
+                            HookMoment moment);
 
     std::unordered_map<uint32_t, HooksWasmAddr *> *wasmAddrHooksMap(
         HookMoment moment);
