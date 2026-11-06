@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 
+#include "../Interpreter/instructions.h"
 #include "../Interrupts/interrupt_hook_on_addr.h"
 #include "../Interrupts/interrupt_hook_on_error.h"
 #include "../Interrupts/interrupt_hook_on_event.h"
@@ -15,6 +16,9 @@
 #include "instrumentation_structs.h"
 #include "logical_clock.h"
 #include "schedule.h"
+
+// defined in WARDuino.cpp
+void skip_immediates(uint8_t **pos);
 
 InstrumentationManager::InstrumentationManager() {}
 
@@ -159,6 +163,131 @@ bool InstrumentationManager::removeHooksOnWasmAddress(Module &module,
 
     mapForErase->erase(addr);
     delete instr;
+    return true;
+}
+
+static bool aroundResultMatchesType(const HookAroundResultRequest &request,
+                                    const Type *t) {
+    if (t->result_count == 0) return !request.has_result;
+    return request.has_result && t->results[0] == request.result.value_type;
+}
+
+static bool popAroundArgs(Module &module, uint32_t nr_args,
+                          uint8_t &error_code) {
+    if (module.sp + 1 < (int)nr_args) {
+        error_code = HOOK_AROUND_RESULT_ERROR_CODE_STACK_UNDERFLOW;
+        return false;
+    }
+    module.sp -= (int)nr_args;
+    return true;
+}
+
+static bool pushAroundResult(Module &module,
+                             const HookAroundResultRequest &request,
+                             uint8_t &error_code) {
+    if (!request.has_result) return true;
+    if (module.sp + 1 >= STACK_SIZE) {
+        error_code = HOOK_AROUND_RESULT_ERROR_CODE_STACK_OVERFLOW;
+        return false;
+    }
+    module.sp += 1;
+    module.stack[module.sp] = request.result;
+    return true;
+}
+
+bool InstrumentationManager::completeHookAround(
+    Module &module, const HookAroundResultRequest &request,
+    uint8_t &error_code) {
+    if (module.warduino->program_state != WARDUINOpause) {
+        error_code = HOOK_AROUND_RESULT_ERROR_CODE_VM_NOT_PAUSED;
+        return false;
+    }
+
+    const uint32_t addr = request.addr;
+    if (!this->has_HookOnWasmAddr(addr, HookAround)) {
+        error_code = HOOK_AROUND_RESULT_ERROR_CODE_NO_AROUND_HOOK;
+        return false;
+    }
+
+    // The around hook paused the VM with the pc on the hooked instruction
+    uint8_t *pc = module.pc_ptr;
+    if (pc == nullptr || !isToPhysicalAddrPossible(addr, &module) ||
+        toVirtualAddress(pc, &module) != addr) {
+        error_code = HOOK_AROUND_RESULT_ERROR_CODE_PC_NOT_AT_ADDR;
+        return false;
+    }
+
+    if (request.kind == AroundFunctionBody) {
+        // Behave as if the function immediately returned `result`: push it
+        // and jump to the function's final `end`, which pops the frame.
+        Block *func =
+            module.csp >= 0 ? module.callstack[module.csp].block : nullptr;
+        if (func == nullptr || func->block_type != 0x00 ||
+            func->start_ptr != pc) {
+            error_code = HOOK_AROUND_RESULT_ERROR_CODE_NOT_AT_FUNCTION_START;
+            return false;
+        }
+        if (!aroundResultMatchesType(request, func->type)) {
+            error_code = HOOK_AROUND_RESULT_ERROR_CODE_RESULT_MISMATCH;
+            return false;
+        }
+        if (!pushAroundResult(module, request, error_code)) return false;
+        module.pc_ptr = func->end_ptr;
+    } else {
+        uint8_t opcode = this->getOriginalOpcode(module, addr);
+        switch (opcode) {
+            case 0x05:  // else
+            case 0x0b:  // end
+                error_code =
+                    HOOK_AROUND_RESULT_ERROR_CODE_UNSUPPORTED_INSTRUCTION;
+                return false;
+            case 0x02:    // block
+            case 0x03:    // loop
+            case 0x04: {  // if
+                // Replace the whole structure i.e., jump to the matching `end`
+                auto it = module.block_lookup.find(pc);
+                if (it == module.block_lookup.end()) {
+                    error_code =
+                        HOOK_AROUND_RESULT_ERROR_CODE_UNSUPPORTED_INSTRUCTION;
+                    return false;
+                }
+                Block *block = it->second;
+                if (!aroundResultMatchesType(request, block->type)) {
+                    error_code = HOOK_AROUND_RESULT_ERROR_CODE_RESULT_MISMATCH;
+                    return false;
+                }
+                if (module.csp + 1 >= CALLSTACK_SIZE) {
+                    error_code = HOOK_AROUND_RESULT_ERROR_CODE_STACK_OVERFLOW;
+                    return false;
+                }
+                if (!popAroundArgs(module, request.nr_args, error_code))
+                    return false;
+                push_block(&module, block, module.sp);
+                if (!pushAroundResult(module, request, error_code))
+                    return false;
+                module.pc_ptr = block->end_ptr;
+                break;
+            }
+            default: {
+                if (!popAroundArgs(module, request.nr_args, error_code))
+                    return false;
+                if (!pushAroundResult(module, request, error_code))
+                    return false;
+                // decode the immediates of the original instruction to find
+                // the next instruction
+                uint8_t *next = pc;
+                uint8_t intercept = *pc;
+                *pc = opcode;
+                skip_immediates(&next);
+                *pc = intercept;
+                module.pc_ptr = next;
+                break;
+            }
+        }
+    }
+
+    // The replaced code counts as executed. This also ensures that hooks
+    module.warduino->logicalClock.nr_of_instructions += 1;
     return true;
 }
 

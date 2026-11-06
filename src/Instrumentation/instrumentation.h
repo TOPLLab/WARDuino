@@ -149,6 +149,13 @@ class InstrumentationManager {
     bool removeHooksOnWasmAddress(Module &module, uint32_t addr,
                                   const HookMoment moment);
 
+    /*
+     * Called to resume the computation on a around hook
+     */
+    bool completeHookAround(Module &module,
+                            const HookAroundResultRequest &request,
+                            uint8_t &error_code);
+
     bool addHookOnNewEvent(Hook &hook);
 
     bool addHookOnEventHandling(Hook &hook);
