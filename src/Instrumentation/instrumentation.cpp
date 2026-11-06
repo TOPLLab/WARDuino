@@ -618,16 +618,13 @@ void InstrumentationManager::run_hooks(const Channel &output, Module &module,
     }
 }
 
-bool InstrumentationManager::do_before_wasm_addr_hooks(
-    const Channel &output, Module &module, LogicalClock &currentTime,
-    uint32_t addr, uint8_t &opcode, RunningState &runningState) {
-    if (!has_HookOnWasmAddr(addr, HookBefore)) {
+    if (!has_HookOnWasmAddr(addr, moment)) {
         VM_Exception_write(
             "No hook registered on instrumented addr %" PRIu32 "", addr);
         return false;
     }
 
-    HooksWasmAddr *instr = this->instr_wasm_addr_before[addr];
+    HooksWasmAddr *instr = (*this->wasmAddrHooksMap(moment))[addr];
     HookEventMoment unusedMoment = HookOnNewEvent;
     HookArgs args = {
         .currentTime = currentTime,
@@ -637,7 +634,7 @@ bool InstrumentationManager::do_before_wasm_addr_hooks(
         .hookOnAddressSubContent = &Interrupt_HookOnAddr_send_subscription,
         .hookOnErrorSubContent = nullptr,
         .hookOnEventSubContent = nullptr,
-        .moment = HookBefore,
+        .moment = moment,
         .eventMoment = unusedMoment,
         .ev = nullptr};
     HooksResult result{};
@@ -691,12 +688,10 @@ uint8_t InstrumentationManager::getOriginalOpcode(Module &module,
 
 HooksWasmAddr *InstrumentationManager::start_wasm_addr_intercept(
     Module &module, const uint32_t addr, HookMoment moment) {
+    std::unordered_map<uint32_t, HooksWasmAddr *> *hooksMap =
+        this->wasmAddrHooksMap(moment);
     if (this->has_HookOnWasmAddr(addr, moment)) {
-        if (moment == HookBefore) {
-            return this->instr_wasm_addr_before[addr];
-        } else {
-            return this->instr_wasm_addr_after[addr];
-        }
+        return (*hooksMap)[addr];
     }
 
     // The first time for which an instrumentation occurs for the wasm
@@ -708,11 +703,7 @@ HooksWasmAddr *InstrumentationManager::start_wasm_addr_intercept(
         instr->original_opcode = original;
         module.bytes[addr] = INSTRUMENTATION_INTERCEPT_OPCODE;
         instr->hook = nullptr;
-        if (moment == HookBefore) {
-            this->instr_wasm_addr_before[addr] = instr;
-        } else {
-            this->instr_wasm_addr_after[addr] = instr;
-        }
+        (*hooksMap)[addr] = instr;
     }
     return instr;
 }
