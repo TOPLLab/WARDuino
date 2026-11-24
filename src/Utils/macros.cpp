@@ -201,10 +201,15 @@ const char *debug_opcodes[] = {"0x00 unreachable",
                                "0xbc i32.reinterpret/f32",
                                "0xbd i64.reinterpret/f64",
                                "0xbe f32.reinterpret/i32",
-                               "0xbf f64.reinterpret/i64"};
+                               "0xbf f64.reinterpret/i64",
+                               "0xc0 i32.extend8_s",
+                               "0xc1 i32.extend16_s",
+                               "0xc2 i64.extend8_s",
+                               "0xc3 i64.extend16_s",
+                               "0xc4 i64.extend32_s"};
 
 const char *opcode_repr(uint8_t opcode) {
-    if (opcode < 192) {
+    if (opcode < sizeof(debug_opcodes) / sizeof(debug_opcodes[0])) {
         return debug_opcodes[opcode];
     } else {
         return "OPCODE out of bounds";
