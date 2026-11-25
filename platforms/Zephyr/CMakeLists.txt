@@ -27,6 +27,11 @@ target_sources(app PRIVATE
     ../../src/Utils/macros.cpp
     ../../src/Utils/sockets.cpp
     ../../src/Debug/debugger.cpp
+    ../../src/Debug/nanopb_encoder.cpp
+    ../../src/Debug/nanopb/debug.pb.c
+    ../../src/Debug/nanopb/pb_common.c
+    ../../src/Debug/nanopb/pb_decode.c
+    ../../src/Debug/nanopb/pb_encode.c
     ../../src/Edward/proxy.cpp
     ../../src/Edward/proxy_supervisor.cpp
     ../../src/Edward/RFC.cpp
@@ -38,4 +43,4 @@ add_definitions(-DDEBUG=0)
 add_definitions(-DTRACE=0)
 add_definitions(-DWARN=0)
 
-include_directories(../../lib/json/single_include/)
+include_directories(../../lib/json/single_include/ ../../src/Debug/nanopb)

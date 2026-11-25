@@ -1,6 +1,9 @@
 .idea/
+.air/
 .vscode/
 .ccls
+
+.cache
 
 *.bin
 *.ipch
@@ -10,6 +13,10 @@
 build/
 cmake-build-*
 build*
+
+# local actions
+!/.github/actions/build-wdcli/
+!/.github/actions/build-wdcli/action.yml
 
 # CMake
 CMakeLists.txt.user
@@ -35,3 +42,4 @@ core
 venv
 
 *.wasm
+

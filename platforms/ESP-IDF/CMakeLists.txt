@@ -1,5 +1,10 @@
 set(SOURCE_FILES
         ../../src/Debug/debugger.cpp
+        ../../src/Debug/nanopb_encoder.cpp
+        ../../src/Debug/nanopb/debug.pb.c
+        ../../src/Debug/nanopb/pb_common.c
+        ../../src/Debug/nanopb/pb_decode.c
+        ../../src/Debug/nanopb/pb_encode.c
         ../../src/Interpreter/instructions.cpp
         ../../src/Interpreter/interpreter.cpp
         ../../src/Memory/mem.cpp
@@ -15,7 +20,7 @@ set(SOURCE_FILES
         ../../src/WARDuino/WARDuino.cpp
 )
 
-idf_component_register(SRCS "main.cpp" ${SOURCE_FILES} INCLUDE_DIRS ../../lib/json/single_include/ REQUIRES driver)
+idf_component_register(SRCS "main.cpp" ${SOURCE_FILES} INCLUDE_DIRS ../../lib/json/single_include/ ../../src/Debug/nanopb REQUIRES driver)
 
 add_definitions(-DINFO=0)
 add_definitions(-DDEBUG=0)

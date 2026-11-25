@@ -88,8 +88,6 @@ bool CallbackHandler::resolve_event(bool force) {
         CallbackHandler::events->empty()) {
         if (force) {
             printf("No events to be processed!\n");
-            WARDuino::instance()->debugger->channel->write(
-                "no events to be processed");
         }
         return false;
     }
@@ -97,9 +95,7 @@ bool CallbackHandler::resolve_event(bool force) {
 
     if (should_push_event()) {
         Event e = CallbackHandler::events->at(CallbackHandler::pushed_cursor++);
-        WARDuino::instance()->debugger->channel->write(
-            R"({"topic":"%s","payload":"%s"})", e.topic.c_str(),
-            e.payload.c_str());
+        WARDuino::instance()->debugger->notify_pushed_event();
 
         CallbackHandler::events->pop_front();
         CallbackHandler::pushed_cursor--;
@@ -146,6 +142,14 @@ std::deque<Event>::const_iterator CallbackHandler::event_begin() {
 
 std::deque<Event>::const_iterator CallbackHandler::event_end() {
     return CallbackHandler::events->cend();
+}
+
+const CallbackHandler::CallbackMap &CallbackHandler::callback_map() {
+    return *callbacks;
+}
+
+const Event *CallbackHandler::event_at(const size_t index) {
+    return index < events->size() ? &(*events)[index] : nullptr;
 }
 
 void CallbackHandler::clear_callbacks() { CallbackHandler::callbacks->clear(); }

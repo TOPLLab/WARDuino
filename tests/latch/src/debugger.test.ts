@@ -3,17 +3,19 @@
 import {
     ArduinoSpecification,
     Behaviour,
+    DebugProtocol,
     Description,
     EmulatorSpecification,
     Expectation,
     Expected,
     Framework,
-    getValue, HybridScheduler,
+    HybridScheduler,
     Kind,
-    Message, StyleType,
-    Step, Suite,
+    Message,
+    Request, Step, Suite,
     TestScenario,
-    Breakpoint
+    Breakpoint,
+    Verbosity
 } from 'latch';
 
 export const EMULATOR: string = process.env.EMULATOR ?? `${require('os').homedir()}/Arduino/libraries/WARDuino/build-emu/wdcli`;
@@ -26,7 +28,6 @@ const EXAMPLES: string = `${__dirname}/../static/examples/`;
  */
 
 const framework = Framework.getImplementation();
-framework.reporter.style(StyleType.github);
 
 const integration: Suite = framework.suite('Integration tests: Debugger'); // must be called first
 
@@ -34,7 +35,7 @@ integration.testee('emulator [:8500]', new EmulatorSpecification(8500));
 //integration.testee('esp wrover', new ArduinoSpecification('/dev/ttyUSB0', 'esp32:esp32:esp32wrover'), new HybridScheduler(), {timeout: 0});
 
 const expectDUMP: Expectation[] = [
-    {'pc': {kind: 'description', value: Description.defined} as Expected<string>},
+    {'programCounter': {kind: 'description', value: Description.defined} as Expected<number>},
     {
         'breakpoints': {
             kind: 'comparison', value: (state: Object, value: Array<any>) => {
@@ -42,22 +43,14 @@ const expectDUMP: Expectation[] = [
             }, message: 'list of breakpoints should be empty'
         } as Expected<Array<any>>
     },
-    {'callstack[0].sp': {kind: 'primitive', value: -1} as Expected<number>},
-    {'callstack[0].fp': {kind: 'primitive', value: -1} as Expected<number>}];
+    ];
 
 const expectDUMPLocals: Expectation[] = [
-    {'locals': {kind: 'description', value: Description.defined} as Expected<string>},
-    {
-        'count': {
-            kind: 'comparison', value: (state: Object, value: number) => {
-                return value === getValue(state, 'locals').length;
-            }, message: 'count should equal length of locals array'
-        } as Expected<number>
-    }];
+    {'values': {kind: 'description', value: Description.defined} as Expected<Array<unknown>>}];
 
 const DUMP: Step = {
     title: 'Send DUMP command',
-    instruction: {kind: Kind.Request, value: Message.dump},
+    instruction: {kind: Kind.Request, value: Message.snapshot},
     expected: expectDUMP
 };
 
@@ -161,23 +154,17 @@ integration.test({
 
 // Test *dump full* command
 
-const dumpFullTest: TestScenario = {
-    title: 'Test DUMPFull',
+const snapshotTest: TestScenario = {
+    title: 'Test snapshot',
     program: `${EXAMPLES}blink.wast`,
     steps: [{
-        title: 'Send DUMPFull command',
-        instruction: {kind: Kind.Request, value: Message.dumpAll},
-        expected: expectDUMP.concat([{
-            'locals.count': {
-                kind: 'comparison', value: (state: Object, value: number) => {
-                    return value === getValue(state, 'locals.locals').length;
-                }, message: 'locals.count should equal length of locals array'
-            } as Expected<number>
-        }])
+        title: 'Send snapshot command',
+        instruction: {kind: Kind.Request, value: Message.snapshot},
+        expected: expectDUMP
     }]
 };
 
-integration.test(dumpFullTest);
+integration.test(snapshotTest);
 
 // Test *run* command
 
@@ -186,11 +173,11 @@ const running: Step[] = [DUMP, {
     instruction: {kind: Kind.Request, value: Message.run},
 }, {
     title: 'CHECK: execution continues',
-    instruction: {kind: Kind.Request, value: Message.dump},
+    instruction: {kind: Kind.Request, value: Message.snapshot},
     expected: [{
-        'pc': {kind: 'description', value: Description.defined} as Expected<string>
+        'programCounter': {kind: 'description', value: Description.defined} as Expected<number>
     }, {
-        'pc': {kind: 'behaviour', value: Behaviour.changed} as Expected<string>
+        'programCounter': {kind: 'behaviour', value: Behaviour.changed} as Expected<number>
     }]
 }];
 
@@ -219,17 +206,17 @@ const pauseTest: TestScenario = {
         instruction: {kind: Kind.Request, value: Message.pause},
     }, {
         title: 'Send DUMP command',
-        instruction: {kind: Kind.Request, value: Message.dump},
+        instruction: {kind: Kind.Request, value: Message.snapshot},
         expected: [{
-            'pc': {kind: 'description', value: Description.defined} as Expected<string>
+            'programCounter': {kind: 'description', value: Description.defined} as Expected<number>
         }]
     }, {
         title: 'CHECK: execution is stopped',
-        instruction: {kind: Kind.Request, value: Message.dump},
+        instruction: {kind: Kind.Request, value: Message.snapshot},
         expected: [{
-            'pc': {kind: 'description', value: Description.defined} as Expected<string>
+            'programCounter': {kind: 'description', value: Description.defined} as Expected<number>
         }, {
-            'pc': {kind: 'behaviour', value: Behaviour.unchanged} as Expected<string>
+            'programCounter': {kind: 'behaviour', value: Behaviour.unchanged} as Expected<number>
         }]
     }]
 };
@@ -241,15 +228,15 @@ integration.test(pauseTest);
 function stepping(start: number, end: number): Step[] {
     return  [{
         title: 'Send DUMP command',
-        instruction: {kind: Kind.Request, value: Message.dump},
-        expected: [{'pc': {kind: 'primitive', value: start} as Expected<number>}]
+        instruction: {kind: Kind.Request, value: Message.snapshot},
+        expected: [{'programCounter': {kind: 'primitive', value: start} as Expected<number>}]
     }, {
         title: 'Send STEP command',
         instruction: {kind: Kind.Request, value: Message.step},
     }, {
         title: 'CHECK: execution took one step',
-        instruction: {kind: Kind.Request, value: Message.dump},
-        expected: [{'pc': {kind: 'primitive', value: end} as Expected<number>}]
+        instruction: {kind: Kind.Request, value: Message.snapshot},
+        expected: [{'programCounter': {kind: 'primitive', value: end} as Expected<number>}]
     }];
 }
 
@@ -279,34 +266,40 @@ integration.test({
 
 // Test *step over* command
 
+const stepOverCall: Request<DebugProtocol.HitBreakpoint> = {
+    type: DebugProtocol.Command.COMMAND_STEP_OVER,
+    notification: DebugProtocol.NotificationType.NOTIFICATION_HIT_BREAKPOINT,
+    parser: DebugProtocol.HitBreakpoint.decode
+};
+
 const stepOverTest: TestScenario = {
     title: 'Test STEP OVER',
     program: `${EXAMPLES}call.wast`,
     steps: [{
         title: 'Send DUMP command',
-        instruction: {kind: Kind.Request, value: Message.dump},
-        expected: [{'pc': {kind: 'primitive', value: 167} as Expected<number>}]
+        instruction: {kind: Kind.Request, value: Message.snapshot},
+        expected: [{'programCounter': {kind: 'primitive', value: 167} as Expected<number>}]
     }, {
         title: 'Send STEP OVER command',
-        instruction: {kind: Kind.Request, value: Message.stepOver},
+        instruction: {kind: Kind.Request, value: stepOverCall},
     }, {
         title: 'CHECK: execution stepped over direct call',
-        instruction: {kind: Kind.Request, value: Message.dump},
-        expected: [{'pc': {kind: 'primitive', value: 169} as Expected<number>}]
+        instruction: {kind: Kind.Request, value: Message.snapshot},
+        expected: [{'programCounter': {kind: 'primitive', value: 169} as Expected<number>}]
     }, {
         title: 'Send STEP OVER command',
         instruction: {kind: Kind.Request, value: Message.stepOver}
     }, {
         title: 'CHECK: execution took one step',
-        instruction: {kind: Kind.Request, value: Message.dump},
-        expected: [{'pc': {kind: 'primitive', value: 171} as Expected<number>}]
+        instruction: {kind: Kind.Request, value: Message.snapshot},
+        expected: [{'programCounter': {kind: 'primitive', value: 171} as Expected<number>}]
     }, {
         title: 'Send STEP OVER command',
-        instruction: {kind: Kind.Request, value: Message.stepOver}
+        instruction: {kind: Kind.Request, value: stepOverCall}
     }, {
         title: 'CHECK: execution stepped over indirect call',
-        instruction: {kind: Kind.Request, value: Message.dump},
-        expected: [{'pc': {kind: 'primitive', value: 174} as Expected<number>}]
+        instruction: {kind: Kind.Request, value: Message.snapshot},
+        expected: [{'programCounter': {kind: 'primitive', value: 174} as Expected<number>}]
     }]
 }
 
@@ -319,7 +312,7 @@ const dumpEventsTest: TestScenario = {
     program: `${EXAMPLES}button.wast`,
     steps: [{
         title: 'CHECK: event queue',
-        instruction: {kind: Kind.Request, value: Message.dumpEvents},
+        instruction: {kind: Kind.Request, value: Message.dumpAllEvents},
         expected: [{
             'events': {
                 kind: 'comparison',
@@ -332,4 +325,5 @@ const dumpEventsTest: TestScenario = {
 
 integration.test(dumpEventsTest);
 
+framework.reporter.verbosity(Verbosity.more);
 framework.run([integration]);

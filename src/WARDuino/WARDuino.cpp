@@ -1127,7 +1127,7 @@ int WARDuino::run_module(Module *m) {
     fflush(stdout);
 
     // wait
-    m->warduino->debugger->pauseRuntime(m);
+    m->warduino->debugger->pause_runtime(m);
     return interpreter->interpret(m, true);
 }
 
@@ -1136,7 +1136,7 @@ int WARDuino::run_module(Module *m) {
 // parse numer per 2 chars (HEX) (stop if non-hex)
 // Don't use print in interrupt handlers
 void WARDuino::handleInterrupt(size_t len, uint8_t *buff) const {
-    this->debugger->addDebugMessage(len, buff);
+    this->debugger->add_debug_message(len, buff);
 }
 
 WARDuino *WARDuino::singleton = nullptr;
@@ -1242,7 +1242,7 @@ void WARDuino::reset_module(Module *m) {
     }
 
     // wait
-    debugger->pauseRuntime(m);
+    debugger->pause_runtime(m);
 }
 
 void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
@@ -1266,7 +1266,7 @@ void WARDuino::update_module(Module *m, uint8_t *wasm, uint32_t wasm_len) {
     }
 
     // wait
-    m->warduino->debugger->pauseRuntime(m);
+    m->warduino->debugger->pause_runtime(m);
 }
 
 uint32_t WARDuino::get_main_fidx(Module *m) {

@@ -43,5 +43,5 @@ class ProxySupervisor {
     void registerProxiedCall(uint32_t fidx);
     void unregisterProxiedCall(uint32_t fidx);
     void unregisterAllProxiedCalls();
-    bool isProxied(uint32_t fidx);
+    bool is_proxied(uint32_t fidx);
 };

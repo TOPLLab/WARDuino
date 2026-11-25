@@ -37,7 +37,7 @@ Block *Interpreter::pop_block(Module *m) {
 
     if (frame->block->block_type == 0xfe) {
         m->warduino->program_state = PROXYhalt;
-        m->warduino->debugger->sendProxyCallResult(m);
+        m->warduino->debugger->send_proxy_call_result(m);
         // free if proxy guard
         free(frame->block);
         frame->block = nullptr;
@@ -135,7 +135,7 @@ uint32_t STORE_SIZE[] = {4, 8, 4, 8, 1, 2, 1, 2, 4};
 
 bool Interpreter::store(Module *m, uint8_t type, uint32_t addr,
                         StackValue &sval) {
-    if (m->warduino->debugger->isProxy()) {
+    if (m->warduino->debugger->is_proxy()) {
         return m->warduino->debugger;
     }
 
@@ -227,12 +227,12 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         m = ectx->current_module;
 
         if (m->warduino->program_state == WARDUINOstep) {
-            m->warduino->debugger->notifyCompleteStep(m);
-            m->warduino->debugger->pauseRuntime(m);
+            m->warduino->debugger->notify_complete_step(m);
+            m->warduino->debugger->pause_runtime(m);
         }
 
         while (m->warduino->program_state != WARDUINOinit &&
-               m->warduino->debugger->checkDebugMessages(
+               m->warduino->debugger->check_debug_messages(
                    m, &m->warduino->program_state)) {
         }
         fflush(stdout);
@@ -258,22 +258,22 @@ bool Interpreter::interpret(Module *m, bool waiting) {
         // Program state is not paused
 
         // If BP and not the one we just unpaused
-        if (m->warduino->debugger->isBreakpoint(ectx->pc_ptr) &&
+        if (m->warduino->debugger->is_breakpoint(ectx->pc_ptr) &&
             m->warduino->debugger->skipBreakpoint != ectx->pc_ptr &&
             m->warduino->program_state != PROXYrun) {
-            m->warduino->debugger->pauseRuntime(m);
-            m->warduino->debugger->notifyBreakpoint(m, ectx->pc_ptr);
+            m->warduino->debugger->pause_runtime(m);
+            m->warduino->debugger->notify_breakpoint(m, ectx->pc_ptr);
             continue;
         }
         m->warduino->debugger->skipBreakpoint = nullptr;
 
-        if (m->warduino->debugger->handleContinueFor(m)) {
+        if (m->warduino->debugger->handle_continue_for(m)) {
             continue;
         }
 
         // Take snapshot before executing an instruction
         if (m->warduino->program_state != WARDUINOinit) {
-            m->warduino->debugger->handleSnapshotPolicy(m);
+            m->warduino->debugger->handle_snapshot_policy(m);
         }
 
         opcode = *ectx->pc_ptr;
@@ -477,11 +477,11 @@ bool Interpreter::interpret(Module *m, bool waiting) {
 
     if (m->warduino->program_state == PROXYrun) {
         dbg_info("Trap was thrown during proxy call.\n");
-        RFC *rfc = m->warduino->debugger->topProxyCall();
+        RFC *rfc = m->warduino->debugger->top_proxy_call();
         rfc->success = false;
         rfc->exception = strdup(exception);
         rfc->exception_size = strlen(exception);
-        m->warduino->debugger->sendProxyCallResult(m);
+        m->warduino->debugger->send_proxy_call_result(m);
     }
 
     // Resolve all unhandled callback events
