@@ -2,9 +2,11 @@
 #define UTIL_H
 
 #include <climits>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #include "../WARDuino.h"
 
@@ -44,6 +46,10 @@ uint64_t read_LEB(uint8_t **pos, uint32_t maxbits);
  * @param maxbits  The maximal numer of bits to read
  */
 uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits);
+
+/** Decode count-first unsigned-LEB128 RLE to exactly expectedSize bytes. */
+bool decode_rle_exact(const uint8_t *encoded, size_t encodedSize,
+                      size_t expectedSize, std::vector<uint8_t> *decoded);
 
 uint32_t read_uint32(uint8_t **pos);
 

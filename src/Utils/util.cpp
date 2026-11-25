@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <cstring>
+#include <limits>
+#include <utility>
 
 #include "macros.h"
 
@@ -78,6 +80,47 @@ uint64_t read_LEB(uint8_t **pos, uint32_t maxbits) {
 
 uint64_t read_LEB_signed(uint8_t **pos, uint32_t maxbits) {
     return read_LEB_(pos, maxbits, true);
+}
+
+bool decode_rle_exact(const uint8_t *encoded, const size_t encodedSize,
+                      const size_t expectedSize,
+                      std::vector<uint8_t> *decoded) {
+    if (decoded == nullptr || (encoded == nullptr && encodedSize != 0))
+        return false;
+    if (encodedSize == 0) {
+        if (expectedSize != 0) return false;
+        decoded->clear();
+        return true;
+    }
+
+    std::vector<uint8_t> result(expectedSize);
+    const uint8_t *position = encoded;
+    const uint8_t *const end = encoded + encodedSize;
+    size_t offset = 0;
+
+    while (position < end) {
+        size_t count = 0;
+        unsigned int shift = 0;
+        uint8_t byte;
+        do {
+            if (position == end || shift >= std::numeric_limits<size_t>::digits)
+                return false;
+            byte = *position++;
+            const size_t payload = byte & 0x7fU;
+            if (payload > (SIZE_MAX >> shift)) return false;
+            count |= payload << shift;
+            shift += 7;
+        } while ((byte & 0x80U) != 0);
+
+        if (count == 0 || position == end || count > expectedSize - offset)
+            return false;
+        memset(result.data() + offset, *position++, count);
+        offset += count;
+    }
+
+    if (offset != expectedSize) return false;
+    *decoded = std::move(result);
+    return true;
 }
 
 uint32_t read_uint32(uint8_t **pos) {

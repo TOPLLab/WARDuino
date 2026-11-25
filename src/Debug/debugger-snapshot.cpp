@@ -1,3 +1,5 @@
+#include <limits>
+
 #include "debugger-decode.h"
 #include "debugger-encode.h"
 
@@ -139,7 +141,7 @@ class SnapshotEncodingContext {
                     state->memory.maximum = module->memory.maximum;
                     state->memory.pages = module->memory.pages;
                     state->memory.bytes.funcs.encode =
-                        nanopb_encoder::encode_bytes;
+                        nanopb_encoder::encode_rle_bytes;
                     state->memory.bytes.arg = &memory;
                     break;
                 case debug_SnapshotSection_SNAPSHOT_SECTION_BRANCH_TABLE:
@@ -323,7 +325,9 @@ bool collect_snapshot_override(pb_istream_t *stream, const pb_field_iter_t *,
 
 bool decode_snapshot(const std::vector<uint8_t> &payload,
                      DecodedSnapshot *out) {
+    // decode full snapshot
     debug_Snapshot snapshot = debug_Snapshot_init_zero;
+    std::vector<uint8_t> compressedMemoryBytes;
     snapshot.breakpoints.funcs.decode = collect_varints;
     snapshot.breakpoints.arg = &out->breakpoints;
     snapshot.functions.funcs.decode = collect_snapshot_function;
@@ -338,7 +342,7 @@ bool decode_snapshot(const std::vector<uint8_t> &payload,
     snapshot.locals.values.arg = &out->locals;
     snapshot.table.entries.funcs.decode = collect_varints;
     snapshot.table.entries.arg = &out->tableEntries;
-    set_decode_callback(&snapshot.memory.bytes, &out->memoryBytes);
+    set_decode_callback(&snapshot.memory.bytes, &compressedMemoryBytes);
     snapshot.branch_table.funcs.decode = collect_varints;
     snapshot.branch_table.arg = &out->branchTable;
     snapshot.callbacks.entries.funcs.decode = collect_callback_entries;
@@ -353,14 +357,22 @@ bool decode_snapshot(const std::vector<uint8_t> &payload,
     if (!decode_payload(payload, debug_Snapshot_fields, &snapshot))
         return false;
 
-    // Nested messages have presence bits. Together with the exact-size checks
-    // below, these reject selected/partial snapshots.
+    // check for missing fields
     if (!snapshot.has_locals || !snapshot.has_queue ||
         !snapshot.has_callbacks || !snapshot.has_table ||
         !snapshot.has_memory || !snapshot.queue.has_range ||
         snapshot.queue.range.start != 0 ||
         snapshot.queue.range.end != snapshot.queue.total_count ||
         snapshot.queue.total_count != out->events.size())
+        return false;
+
+    // check for possible memory out-of-bounds
+    if (snapshot.memory.pages > std::numeric_limits<size_t>::max() / PAGE_SIZE)
+        return false;
+    if (!decode_rle_exact(
+            compressedMemoryBytes.data(), compressedMemoryBytes.size(),
+            static_cast<size_t>(snapshot.memory.pages) * PAGE_SIZE,
+            &out->memoryBytes))
         return false;
 
     out->programCounter = snapshot.program_counter;

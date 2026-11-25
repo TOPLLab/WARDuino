@@ -16,6 +16,8 @@ struct Uint32View {
 
 bool encode_bytes(pb_ostream_t *stream, const pb_field_t *field,
                   void *const *arg);
+bool encode_rle_bytes(pb_ostream_t *stream, const pb_field_t *field,
+                      void *const *arg);
 bool encode_varints(pb_ostream_t *stream, const pb_field_t *field,
                     void *const *arg);
 bool encode_fixed32s(pb_ostream_t *stream, const pb_field_t *field,

@@ -264,6 +264,13 @@ message Checkpoint {
 
 message TableState { uint32 initial = 1; uint32 maximum = 2; repeated uint32 entries = 3; }
 
-message MemoryState { uint32 initial = 1; uint32 maximum = 2; uint32 pages = 3; bytes bytes = 4; }
+message MemoryState {
+  uint32 initial = 1;
+  uint32 maximum = 2;
+  uint32 pages = 3;
+  // RLE records: [unsigned LEB128 run length][repeated byte value]. Zero-page
+  // memory is represented by an empty byte string.
+  bytes bytes = 4;
+}
 
 message IOState { string key = 1; bool output = 2; sint32 value = 3; }
