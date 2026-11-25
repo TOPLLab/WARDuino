@@ -1,0 +1,1 @@
+../../../tutorials/wat/main/fac.wat
