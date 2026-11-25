@@ -1,5 +1,15 @@
+#include "debugger-decode.h"
 #include "debugger-private.h"
-#include "debugger-protocol.h"
+
+std::optional<debug_ValueUpdate> Debugger::update_value(
+    const std::vector<uint8_t> &payload) const {
+    debug_ValueUpdate update = debug_ValueUpdate_init_zero;
+    if (!decode_payload(payload, debug_ValueUpdate_fields, &update) ||
+        !update.has_value) {
+        return std::nullopt;
+    }
+    return update;
+}
 
 // Debugger
 
@@ -10,10 +20,11 @@ Debugger::Debugger(Channel *duplex) {
     this->snapshotPolicy = SnapshotPolicy::none;
     this->checkpointInterval = 10;
     this->instructions_executed = 0;
+    this->instructions_since_full_snapshot = 0;
     this->fidx_called = {};
     this->min_return_values = 0;
-    this->checkpoint_state = nullptr;
-    this->checkpoint_state_size = 0;
+    this->checkpointSelection = 0;
+    this->hasCheckpointSelection = false;
     this->remaining_instructions = -1;
 }
 
@@ -27,12 +38,25 @@ void Debugger::stop() {
 }
 
 void Debugger::pause_runtime(const Module *m) {
-    m->warduino->program_state = WARDUINOpause;
+    m->warduino->program_state = debug_State_STATE_WARDUINO_PAUSE;
     this->mark = nullptr;
+    this->send_notification(debug_NotificationType_NOTIFICATION_PAUSED);
 }
 
-void Debugger::notify_pushed_event() const {
-    this->send_notification(debug_NotificationType_NOTIFICATION_NEW_EVENT);
+void Debugger::notify_pushed_event(const Event &event) const {
+    debug_Event notification = debug_Event_init_zero;
+    nanopb_encoder::ByteView topic{
+        reinterpret_cast<const uint8_t *>(event.topic.data()),
+        event.topic.size()};
+    nanopb_encoder::ByteView payload{
+        reinterpret_cast<const uint8_t *>(event.payload.data()),
+        event.payload.size()};
+    notification.topic.funcs.encode = nanopb_encoder::encode_bytes;
+    notification.topic.arg = &topic;
+    notification.payload.funcs.encode = nanopb_encoder::encode_bytes;
+    notification.payload.arg = &payload;
+    this->send_notification(debug_NotificationType_NOTIFICATION_NEW_EVENT,
+                            debug_Event_fields, &notification);
 }
 
 void Debugger::set_channel(Channel *duplex) {
@@ -159,30 +183,30 @@ bool Debugger::is_breakpoint(uint8_t *loc) {
 void Debugger::notify_breakpoint(Module *m, uint8_t *pc_ptr) {
     if (snapshotPolicy == SnapshotPolicy::checkpointing) checkpoint(m);
     mark = nullptr;
-    debug_HitBreakpoint hit = debug_HitBreakpoint_init_zero;
-    hit.has_location = true;
-    hit.location.module_index = 0;
-    hit.location.program_counter = toVirtualAddress(pc_ptr, m);
+    debug_CodeLocation location = debug_CodeLocation_init_zero;
+    location.module_index = 0;
+    location.program_counter = toVirtualAddress(pc_ptr, m);
     send_notification(debug_NotificationType_NOTIFICATION_HIT_BREAKPOINT,
-                      debug_HitBreakpoint_fields, &hit);
+                      debug_CodeLocation_fields, &location);
 }
 
 void Debugger::handle_interrupt_run(const Module *m,
-                                    RunningState *program_state) {
+                                    debug_State *program_state) {
     ExecutionContext *ectx = m->warduino->execution_context;
-    if (*program_state == WARDUINOpause && this->is_breakpoint(ectx->pc_ptr)) {
+    if (*program_state == debug_State_STATE_WARDUINO_PAUSE &&
+        this->is_breakpoint(ectx->pc_ptr)) {
         this->skipBreakpoint = ectx->pc_ptr;
     }
-    *program_state = WARDUINOrun;
+    *program_state = debug_State_STATE_WARDUINO_RUN;
 }
 
-void Debugger::handle_step(const Module *m, RunningState *program_state) {
+void Debugger::handle_step(const Module *m, debug_State *program_state) {
     ExecutionContext *ectx = m->warduino->execution_context;
-    *program_state = WARDUINOstep;
+    *program_state = debug_State_STATE_WARDUINO_STEP;
     this->skipBreakpoint = ectx->pc_ptr;
 }
 
-void Debugger::handle_step_over(const Module *m, RunningState *program_state) {
+void Debugger::handle_step_over(const Module *m, debug_State *program_state) {
     ExecutionContext *ectx = m->warduino->execution_context;
     this->skipBreakpoint = ectx->pc_ptr;
     uint8_t const opcode = *ectx->pc_ptr;
@@ -190,14 +214,14 @@ void Debugger::handle_step_over(const Module *m, RunningState *program_state) {
         uint8_t *ptr_cpy = ectx->pc_ptr + 1;
         read_LEB_32(&ptr_cpy);
         this->mark = ectx->pc_ptr + (ptr_cpy - ectx->pc_ptr);
-        *program_state = WARDUINOrun;
+        *program_state = debug_State_STATE_WARDUINO_RUN;
         // warning: ack will be BP hit
     } else if (opcode == 0x11) {  // step over indirect call
         uint8_t *ptr_cpy = ectx->pc_ptr + 1;
         read_LEB_32(&ptr_cpy);
         read_LEB_32(&ptr_cpy);
         this->mark = ectx->pc_ptr + (ptr_cpy - ectx->pc_ptr);
-        *program_state = WARDUINOrun;
+        *program_state = debug_State_STATE_WARDUINO_RUN;
     } else {
         // normal step
         this->handle_step(m, program_state);
@@ -207,6 +231,7 @@ void Debugger::handle_step_over(const Module *m, RunningState *program_state) {
 bool Debugger::reset(Module *m) {
     m->warduino->reset_module(m);
     instructions_executed = 0;
+    instructions_since_full_snapshot = 0;
     debug("Reset WARDuino.\n");
     return true;
 }
@@ -219,7 +244,6 @@ bool Debugger::handle_continue_for(Module *m) {
         if (snapshotPolicy == SnapshotPolicy::checkpointing) {
             checkpoint(m);
         }
-        this->send_notification(debug_NotificationType_NOTIFICATION_PAUSED);
         pause_runtime(m);
         return true;
     }

@@ -44,6 +44,7 @@ class CallbackHandler {
     static void add_callback(const Callback &c);
     static void remove_callback(const Callback &c);
     static void clear_callbacks();
+    static void clear_events();
     static std::string dump_callbacks();
     static std::string dump_callbacksV2(bool includeOuterCurlyBraces = true);
     static size_t callback_count(const std::string &topic);

@@ -1,7 +1,7 @@
-#include "debugger-detail.h"
-#include "debugger-protocol.h"
+#include "debugger-decode.h"
+#include "debugger-encode.h"
 
-bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
+bool Debugger::check_debug_messages(Module *m, debug_State *program_state) {
     std::optional<DebugMessage> message = get_debug_message();
     if (!message) return false;
 
@@ -25,14 +25,13 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
         case debug_Command_COMMAND_HALT:
             if (!require_empty()) break;
             send_notification(debug_NotificationType_NOTIFICATION_HALTED);
-            if (channel != nullptr) channel->close();
+            stop();
             break;
         case debug_Command_COMMAND_PAUSE:
             if (!require_empty()) break;
             pause_runtime(m);
             if (snapshotPolicy == SnapshotPolicy::checkpointing)
                 checkpoint(m, true);
-            send_notification(debug_NotificationType_NOTIFICATION_PAUSED);
             break;
         case debug_Command_COMMAND_STEP:
             if (!require_empty()) break;
@@ -44,22 +43,25 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             break;
         case debug_Command_COMMAND_ADD_BREAKPOINT:
         case debug_Command_COMMAND_REMOVE_BREAKPOINT: {
-            debug_Breakpoint breakpoint = debug_Breakpoint_init_zero;
-            if (!decode_payload(message->payload, debug_Breakpoint_fields,
-                                &breakpoint) ||
-                !breakpoint.has_location ||
-                breakpoint.location.module_index != 0 ||
-                !isToPhysicalAddrPossible(breakpoint.location.program_counter,
-                                          m)) {
+            debug_CodeLocation location = debug_CodeLocation_init_zero;
+            if (!decode_payload(message->payload, debug_CodeLocation_fields,
+                                &location) ||
+                location.module_index != 0 ||
+                !isToPhysicalAddrPossible(location.program_counter, m)) {
                 malformed();
                 break;
             }
-            uint8_t *address =
-                toPhysicalAddress(breakpoint.location.program_counter, m);
+            uint8_t *address = toPhysicalAddress(location.program_counter, m);
             if (message->type == debug_Command_COMMAND_ADD_BREAKPOINT)
                 add_breakpoint(address);
             else
                 delete_breakpoint(address);
+            send_operation_result(message->type, true);
+            break;
+        }
+        case debug_Command_COMMAND_CLEAR_BREAKPOINTS: {
+            if (!require_empty()) break;
+            breakpoints.clear();
             send_operation_result(message->type, true);
             break;
         }
@@ -72,55 +74,44 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
                 break;
             }
             remaining_instructions = static_cast<int32_t>(request.count);
-            *program_state = WARDUINOrun;
+            *program_state = debug_State_STATE_WARDUINO_RUN;
             send_notification(debug_NotificationType_NOTIFICATION_CONTINUED);
             break;
         }
-        case debug_Command_COMMAND_DUMP:
+        case debug_Command_COMMAND_HEAP_USAGE:
             if (!require_empty()) break;
-            pause_runtime(m);
-            encode_snapshot(
-                m,
-                snapshotPc | snapshotBreakpoints | snapshotCallstack |
-                    snapshotGlobals | snapshotTable | snapshotBranchTable |
-                    snapshotStack | snapshotCallbacks | snapshotEvents |
-                    snapshotIO | snapshotOverrides | snapshotHeap |
-                    snapshotLocals,
-                debug_NotificationType_NOTIFICATION_SNAPSHOT);
+            dump_heap_info(m);
             break;
-        case debug_Command_COMMAND_DUMP_LOCALS:
-            if (!require_empty()) break;
-            pause_runtime(m);
-            dump_locals(m);
-            break;
-        case debug_Command_COMMAND_SNAPSHOT:
-            if (!require_empty()) break;
-            pause_runtime(m);
-            snapshot(m);
-            break;
-        case debug_Command_COMMAND_DUMP_EVENTS: {
-            debug_Range range = debug_Range_init_zero;
-            if (!decode_payload(message->payload, debug_Range_fields, &range) ||
-                range.end < range.start) {
+        case debug_Command_COMMAND_SNAPSHOT: {
+            debug_Include request = debug_Include_init_zero;
+            std::vector<uint8_t> fields;
+            set_decode_callback(&request.fields, &fields);
+            if (!decode_payload(message->payload, debug_Include_fields,
+                                &request)) {
                 malformed();
                 break;
             }
-            dump_events(range.start, range.end - range.start);
+            SnapshotSelection selection = 0;
+            if (!parse_selection(fields.data(), fields.size(), &selection)) {
+                malformed();
+                break;
+            }
+            if (selection == 0) selection = full_snapshot_selection();
+            pause_runtime(m);
+            send_snapshot(m, selection,
+                          debug_NotificationType_NOTIFICATION_SNAPSHOT);
             break;
         }
-        case debug_Command_COMMAND_DUMP_CALLBACKS:
-            if (!require_empty()) break;
-            dump_callback_mapping();
-            break;
         case debug_Command_COMMAND_UPDATE_LOCAL: {
             const auto update = update_value(message->payload);
             ExecutionContext *context = m->warduino->execution_context;
-            if (!update ||
-                context->fp + static_cast<int>(update->index) > context->sp) {
+            const ValueView locals = current_locals(context);
+            if (!update || update->index >= locals.size) {
                 malformed();
                 break;
             }
-            StackValue *value = &context->stack[context->fp + update->index];
+            StackValue *value =
+                &context->stack[context->fp + static_cast<int>(update->index)];
             if (!assign_value(update->value, value)) {
                 malformed();
                 break;
@@ -145,7 +136,8 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
         case debug_Command_COMMAND_UPDATE_STACK: {
             const auto update = update_value(message->payload);
             ExecutionContext *context = m->warduino->execution_context;
-            if (!update || update->index > static_cast<uint32_t>(context->sp)) {
+            if (!update || context->sp < 0 || update->index >= STACK_SIZE ||
+                update->index > static_cast<uint32_t>(context->sp)) {
                 malformed();
                 break;
             }
@@ -232,23 +224,21 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
                 break;
             }
             snapshotPolicy = static_cast<SnapshotPolicy>(config.policy);
-            checkpointInterval = config.interval == 0 ? 1 : config.interval;
-            min_return_values = config.minimum_return_count;
-            free(checkpoint_state);
-            checkpoint_state = nullptr;
-            checkpoint_state_size = static_cast<uint32_t>(selectedState.size());
-            if (!selectedState.empty()) {
-                checkpoint_state =
-                    static_cast<uint8_t *>(malloc(selectedState.size()));
-                if (checkpoint_state == nullptr) {
-                    send_operation_result(message->type, false);
-                    break;
-                }
-                memcpy(checkpoint_state, selectedState.data(),
-                       selectedState.size());
-            }
-            if (snapshotPolicy == SnapshotPolicy::checkpointing)
+            if (snapshotPolicy == SnapshotPolicy::checkpointing) {
+                checkpointInterval = config.interval;
+                min_return_values = config.minimum_return_count;
+                checkpointSelection = selectedMask;
+                // main allocated checkpoint_state even for an empty selection.
+                hasCheckpointSelection = true;
+                instructions_executed = 0;
+                instructions_since_full_snapshot = 0;
+                // make first initial checkpoint
                 checkpoint(m, true);
+            } else {
+                min_return_values = 0;
+                checkpointSelection = 0;
+                hasCheckpointSelection = false;
+            }
             send_operation_result(message->type, true);
             break;
         }
@@ -282,37 +272,12 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
             send_operation_result(message->type, true);
             break;
         }
-        case debug_Command_COMMAND_INSPECT: {
-            debug_Inspect request = debug_Inspect_init_zero;
-            std::vector<uint8_t> selected;
-            set_decode_callback(&request.state, &selected);
-            if (!decode_payload(message->payload, debug_Inspect_fields,
-                                &request)) {
-                malformed();
-                break;
-            }
-            SnapshotSelection selection = 0;
-            if (!parse_selection(selected.data(), selected.size(),
-                                 &selection)) {
-                malformed();
-                break;
-            }
-            pause_runtime(m);
-            encode_snapshot(m, selection,
-                            debug_NotificationType_NOTIFICATION_SNAPSHOT);
-            break;
-        }
         case debug_Command_COMMAND_LOAD_SNAPSHOT: {
-            debug_Snapshot state = debug_Snapshot_init_zero;
-            if (!decode_payload(message->payload, debug_Snapshot_fields,
-                                &state) ||
-                !isToPhysicalAddrPossible(state.program_counter, m)) {
+            if (!load_snapshot(m, message->payload)) {
                 malformed();
                 break;
             }
             pause_runtime(m);
-            m->warduino->execution_context->pc_ptr =
-                toPhysicalAddress(state.program_counter, m);
             send_operation_result(message->type, true);
             break;
         }
@@ -368,8 +333,8 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
                             m->functions[call.function_index].type, arguments));
                 break;
             }
-            const RunningState current = m->warduino->program_state;
-            m->warduino->program_state = WARDUINOrun;
+            const debug_State current = m->warduino->program_state;
+            m->warduino->program_state = debug_State_STATE_WARDUINO_RUN;
             exception[0] = "\0"[0];
             const auto results = m->warduino->invoke(
                 m, call.function_index, static_cast<uint32_t>(values.size()),
@@ -416,10 +381,10 @@ bool Debugger::check_debug_messages(Module *m, RunningState *program_state) {
                 malformed();
                 break;
             }
-            CallbackHandler::push_event(
-                std::string(topic.begin(), topic.end()),
-                reinterpret_cast<const char *>(payload.data()), payload.size());
-            notify_pushed_event();
+            Event pushed_event{std::string(topic.begin(), topic.end()),
+                               std::string(payload.begin(), payload.end())};
+            CallbackHandler::push_event(&pushed_event);
+            notify_pushed_event(pushed_event);
             break;
         }
         case debug_Command_COMMAND_RESET:

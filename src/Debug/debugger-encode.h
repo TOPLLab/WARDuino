@@ -1,125 +1,13 @@
+/**
+ * This file contains the protobuf callbacks used for encoding debugger data.
+ */
 #pragma once
 
 #include "debugger-private.h"
 
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-/**
- * Validate if there are interrupts and execute them
- *
- * The various kinds of interrupts are preceded by an identifier:
- *
- * - `0x01` : Continue running
- * - `0x02` : Halt the execution
- * - `0x03` : Pause execution
- * - `0x04` : Execute one operation and then pause
- * - `0x06` : Add a breakpoint, the address is specified as a pointer.
- *            The pointer should be specified as: 06[length][pointer]
- *            eg: 060655a5994fa3d6 (note the lack of spaces between the
- *            arguments, the 'length' is halve the size of the address string)
- * - `0x07` : Remove the breakpoint at the address specified as a pointer if it
- *            exists (see `0x06`)
- * - `0x10` : Dump information about the program
- * - `0x11` :                  show locals
- * - `0x12` : Dump full information
- * - `0x20` : Replace the content body of a function by a new function given
- *            as payload (immediately following `0x10`), see #readChange
- */
 namespace {
-
-bool collect_bytes(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
-    auto *out = static_cast<std::vector<uint8_t> *>(*arg);
-    out->resize(stream->bytes_left);
-    return out->empty() || pb_read(stream, out->data(), out->size());
-}
-
-[[maybe_unused]] bool collect_words(pb_istream_t *stream,
-                                    const pb_field_iter_t *, void **arg) {
-    auto *out = static_cast<std::vector<uint32_t> *>(*arg);
-    while (stream->bytes_left != 0) {
-        uint32_t value = 0;
-        if (!pb_decode_fixed32(stream, &value)) return false;
-        out->push_back(value);
-    }
-    return true;
-}
-
-void set_decode_callback(pb_callback_t *callback, std::vector<uint8_t> *out) {
-    callback->funcs.decode = collect_bytes;
-    callback->arg = out;
-}
-
-bool collect_varints(pb_istream_t *stream, const pb_field_iter_t *,
-                     void **arg) {
-    auto *out = static_cast<std::vector<uint32_t> *>(*arg);
-    while (stream->bytes_left != 0) {
-        uint64_t value = 0;
-        if (!pb_decode_varint(stream, &value) || value > UINT32_MAX)
-            return false;
-        out->push_back(static_cast<uint32_t>(value));
-    }
-    return true;
-}
-
-struct DecodedCallbackEntry {
-    std::string topic;
-    std::vector<uint32_t> indexes;
-};
-bool collect_callback_entries(pb_istream_t *stream, const pb_field_iter_t *,
-                              void **arg) {
-    auto *entries = static_cast<std::vector<DecodedCallbackEntry> *>(*arg);
-    debug_CallbackEntry entry = debug_CallbackEntry_init_zero;
-    std::vector<uint8_t> topic;
-    std::vector<uint32_t> indexes;
-    set_decode_callback(&entry.topic, &topic);
-    entry.table_indexes.funcs.decode = collect_varints;
-    entry.table_indexes.arg = &indexes;
-    if (!pb_decode(stream, debug_CallbackEntry_fields, &entry)) return false;
-    entries->push_back(
-        {std::string(topic.begin(), topic.end()), std::move(indexes)});
-    return true;
-}
-
-std::optional<uint32_t> find_imported_function(Module *m,
-                                               const std::string &name) {
-    for (uint32_t index = 0; index < m->import_count; ++index) {
-        if (m->functions[index].import_field != nullptr &&
-            name == m->functions[index].import_field)
-            return index;
-    }
-    return std::nullopt;
-}
-
-bool collect_values(pb_istream_t *stream, const pb_field_iter_t *, void **arg) {
-    auto *out = static_cast<std::vector<debug_Value> *>(*arg);
-    debug_Value value = debug_Value_init_zero;
-    if (!pb_decode(stream, debug_Value_fields, &value)) return false;
-    out->push_back(value);
-    return true;
-}
-
-bool assign_value(const debug_Value &from, StackValue *to) {
-    switch (from.which_data) {
-        case debug_Value_i32_bits_tag:
-            to->value_type = I32;
-            to->value.uint32 = from.data.i32_bits;
-            return true;
-        case debug_Value_i64_bits_tag:
-            to->value_type = I64;
-            to->value.uint64 = from.data.i64_bits;
-            return true;
-        case debug_Value_f32_bits_tag:
-            to->value_type = F32;
-            to->value.uint32 = from.data.f32_bits;
-            return true;
-        case debug_Value_f64_bits_tag:
-            to->value_type = F64;
-            to->value.uint64 = from.data.f64_bits;
-            return true;
-        default:
-            return false;
-    }
-}
 
 [[maybe_unused]] void value_to_proto(const StackValue &from,
                                      const uint32_t index, debug_Value *to) {
@@ -154,6 +42,16 @@ struct ValueView {
     const StackValue *values;
     size_t size;
     Global *const *globals;
+};
+
+struct Uint32ValueView {
+    const uint32_t *values;
+    size_t size;
+};
+
+struct ReverseUint32ValueView {
+    const StackValue *top;
+    size_t size;
 };
 
 struct EventRangeView {
@@ -206,6 +104,39 @@ bool encode_value_range(pb_ostream_t *stream, const pb_field_t *field,
                                       ? &view->values[index]
                                       : view->globals[index]->value;
         if (!encode_value(stream, field, *value, index)) return false;
+    }
+    return true;
+}
+
+bool encode_uint32_value(pb_ostream_t *stream, const pb_field_t *field,
+                         const uint32_t source, const size_t index) {
+    debug_Value value = debug_Value_init_zero;
+    value.index = static_cast<uint32_t>(index);
+    value.which_data = debug_Value_i32_bits_tag;
+    value.data.i32_bits = source;
+    return pb_encode_tag_for_field(stream, field) &&
+           pb_encode_submessage(stream, debug_Value_fields, &value);
+}
+
+bool encode_uint32_range(pb_ostream_t *stream, const pb_field_t *field,
+                         void *const *arg) {
+    const auto *view = static_cast<const Uint32ValueView *>(*arg);
+    for (size_t index = 0; index < view->size; ++index) {
+        if (!encode_uint32_value(stream, field, view->values[index], index))
+            return false;
+    }
+    return true;
+}
+
+bool encode_reverse_uint32_stack_range(pb_ostream_t *stream,
+                                       const pb_field_t *field,
+                                       void *const *arg) {
+    const auto *view = static_cast<const ReverseUint32ValueView *>(*arg);
+    for (size_t index = 0; index < view->size; ++index) {
+        if (!encode_uint32_value(
+                stream, field,
+                view->top[-static_cast<ptrdiff_t>(index)].value.uint32, index))
+            return false;
     }
     return true;
 }
@@ -282,6 +213,9 @@ bool encode_callstack(pb_ostream_t *stream, const pb_field_t *field,
         debug_CallstackEntry entry = debug_CallstackEntry_init_zero;
         entry.type = type;
         entry.function_index = block != nullptr && type == 0 ? block->fidx : 0;
+        entry.start = block == nullptr || block->start_ptr == nullptr
+                          ? 0
+                          : toVirtualAddress(block->start_ptr, view->module);
         entry.stack_pointer = static_cast<uint32_t>(frame.sp);
         entry.frame_pointer = static_cast<uint32_t>(frame.fp);
         entry.return_address =

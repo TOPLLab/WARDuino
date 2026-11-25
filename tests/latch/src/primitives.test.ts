@@ -8,7 +8,8 @@ import {
     Message,
     TestScenario,
     WASM,
-    awaitBreakpoint, PureAction, Suite, Assertable, assertable
+    awaitBreakpoint, PureAction, Suite, Assertable, assertable,
+    WARDuino
 } from 'latch';
 import * as mqtt from 'mqtt';
 import Type = WASM.Type;
@@ -81,7 +82,7 @@ const interrupts: TestScenario = {
         }]
     }, {
         title: 'CHECK: callback function registered for pin 36',
-        instruction: {kind: Kind.Request, value: Message.dumpCallbackmapping},
+        instruction: {kind: Kind.Request, value: Message.snapshot([WARDuino.Inspect.callbacks])},
         expected: [{
             'callbacks': {
                 kind: 'comparison',
@@ -118,7 +119,7 @@ const scenario: TestScenario = { // MQTT test scenario
         instruction: {kind: Kind.Request, value: Message.run},
     }, {
         title: 'CHECK: callback function registered',
-        instruction: {kind: Kind.Request, value: Message.dumpCallbackmapping},
+        instruction: {kind: Kind.Request, value: Message.snapshot([WARDuino.Inspect.callbacks])},
         expected: [{
             'callbacks': {
                 kind: 'comparison',
@@ -138,7 +139,7 @@ const scenario: TestScenario = { // MQTT test scenario
         instruction: {kind: Kind.Action, value: awaitBreakpoint()}
     }, {
         title: 'CHECK: entered callback function',
-        instruction: {kind: Kind.Request, value: Message.dump},
+        instruction: {kind: Kind.Request, value: Message.snapshot([])},
         expected: [{
             'state': {kind: 'primitive', value: 'paused'},
             'line': {kind: 'primitive', value: 11},
