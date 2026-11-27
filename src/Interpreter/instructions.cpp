@@ -570,6 +570,138 @@ bool i_instr_grow_memory(Module *m) {
 }
 
 /**
+ * 0xfc XXX bulk memory
+ */
+bool i_instr_bulk_memory(Module *m) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+    uint8_t opcode = read_LEB_32(&ectx->pc_ptr);
+
+    switch (opcode) {
+        case 0x08:  // memory.init
+            return i_instr_memory_init(m);
+        case 0x09:  // data.drop
+            // this instruction is intended to be used as an optimization hint
+            return i_instr_data_drop(m);
+        case 0x0a:
+            return i_instr_memory_copy(m);
+        case 0x0b:
+            return i_instr_memory_fill(m);
+        default:
+            sprintf(exception, "unrecognized opcode 0xfc 0x%x", opcode);
+            if (m->options.return_exception) {
+                m->exception = strdup(exception);
+            }
+            return false;
+    }
+}
+
+/**
+ * 0xfc 0x08 memory.init
+ */
+bool i_instr_memory_init(Module *m) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+
+    // immediates
+    const uint32_t memidx = read_LEB_32(&ectx->pc_ptr);
+    const uint32_t segidx = read_LEB_32(&ectx->pc_ptr);  // source segment
+    ASSERT(memidx == 0, "memory.init memidx must be 0 in MVP");
+    ASSERT(segidx < m->data_segment_count,
+           "memory.init data segment index out of bounds: %" PRIu32, segidx);
+
+    const DataSegment &source = m->passive_data_segments[segidx];
+
+    // stack args: [..., dst, offset, n]
+    const uint32_t n = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t offset = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t dst = ectx->stack[ectx->sp--].value.uint32;
+
+    // check for overflows in source
+    if ((offset > source.size || n > source.size - offset) &&
+        !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->bytes + source.offset + offset);
+        return false;
+    }
+    // check for overflows in destination
+    if ((m->memory.bytes + dst + n >
+         m->memory.bytes + m->memory.pages * PAGE_SIZE) &&
+        !m->options.disable_memory_bounds) {
+        Interpreter::report_overflow(m, m->memory.bytes + dst + n);
+        return false;
+    }
+
+    memcpy(m->memory.bytes + dst, m->bytes + source.offset + offset, n);
+    return true;
+}
+
+/**
+ * 0xfc 0x09 data.drop
+ */
+bool i_instr_data_drop(Module *m) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+    const uint32_t idx = read_LEB_32(&ectx->pc_ptr);
+    m->passive_data_segments[idx].size = 0;
+    return true;
+}
+
+/**
+ * 0xfc 0x0a memory.copy
+ */
+bool i_instr_memory_copy(Module *m) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+
+    // immediates
+    const uint32_t dstmem = read_LEB_32(&ectx->pc_ptr);
+    const uint32_t srcmem = read_LEB_32(&ectx->pc_ptr);
+    ASSERT(dstmem == 0, "memory.copy destination memory index must be 0");
+    ASSERT(srcmem == 0, "memory.copy source memory index must be 0");
+
+    // stack args: [..., dst, src, n]
+    const uint32_t n = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t src = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t dst = ectx->stack[ectx->sp--].value.uint32;
+
+    if (!m->options.disable_memory_bounds) {
+        // check for overflows in source and destination
+        if (const uint32_t mem_size = m->memory.pages * PAGE_SIZE;
+            src + n > mem_size || dst + n > mem_size) {
+            Interpreter::report_overflow(m, m->memory.bytes + dst);
+            return false;
+        }
+    }
+
+    memmove(m->memory.bytes + dst, m->memory.bytes + src, n);
+    return true;
+}
+
+/**
+ * 0xfc 0x0b memory.fill
+ */
+bool i_instr_memory_fill(Module *m) {
+    ExecutionContext *ectx = m->warduino->execution_context;
+
+    // immediates
+    const uint32_t dstmem = read_LEB_32(&ectx->pc_ptr);
+    ASSERT(dstmem == 0, "memory.fill destination memory index must be 0");
+
+    // stack args: [..., dst, byte, n]
+    const uint32_t n = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t byte = ectx->stack[ectx->sp--].value.uint32;
+    const uint32_t dst = ectx->stack[ectx->sp--].value.uint32;
+
+    if (!m->options.disable_memory_bounds) {
+        // check for overflows in source and destination
+        if (const uint32_t mem_size = m->memory.pages * PAGE_SIZE;
+            dst > mem_size || dst + n > mem_size) {
+            Interpreter::report_overflow(m, m->memory.bytes + dst);
+            return false;
+        }
+    }
+
+    memset(m->memory.bytes + dst, static_cast<uint8_t>(byte), n);
+    return true;
+}
+
+/**
  * 0x0d XXX
  */
 bool i_instr_mem_load(Module *m, uint8_t opcode) {
