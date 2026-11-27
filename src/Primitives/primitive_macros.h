@@ -187,6 +187,16 @@ inline Type fourToOneU32 = {
     .mask = 0x8101111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32*/
 };
 
+inline Type fiveToOneU32 = {
+    .form = FUNC,
+    .param_count = 5,
+    .params = param_I32_arr_len5,
+    .result_count = 1,
+    .results = param_I32_arr_len1,
+    .mask =
+        0x81011111 /* 0x8 1=I32 0=endRet ; 1=I32; 1=I32; 1=I32; 1=I32; 1=I32*/
+};
+
 inline Type tenToOneU32 = {
     .form = FUNC,
     .param_count = 10,
